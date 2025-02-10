@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "CDL2v1": {
+      "commandName": "Project",
+      "commandLineArgs": "Test.cdl2",
+      "workingDirectory": "C:\\CDL2"
+    }
+  }
+}
