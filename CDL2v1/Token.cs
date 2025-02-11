@@ -18,6 +18,8 @@ namespace CDL2v1 {
    internal class Token {
       public enum TokenType { ERROR, RESWORD, INT, FLOAT, STRING, ID, PLUS, MINUS, STAR, ABORT, LABEL, ARGDIR, COLON, INLINECODEBODY, EQUALS, INLINEMACROBODY, END, SEP, ALTSEP, GRPOPEN, GRPCLOSE, COMMENT }
       public enum ReservedWord { PROGRAM, ENDPROG, PART, MODULE, ENDMOD, LAYER, ENDLAY, SECTION, ENDSEC, ABSTR, EXT, INV, EXPORT, IMPORT, ROOT, PRELUDE, POSTLUDE, CONST, VAR, LIST, ACTION, FUNCTION, TEST, PREDICATE }
+      public static readonly ReservedWord[] UnitStarters = { ReservedWord.MODULE,ReservedWord.LAYER,ReservedWord.SECTION,ReservedWord.PROGRAM };
+      public static readonly ReservedWord[] UnitEnders = { ReservedWord.ENDMOD,ReservedWord.ENDLAY,ReservedWord.ENDSEC,ReservedWord.ENDPROG };
 
       private static readonly Dictionary<string,TokenType> Glyph2TokenType;
       private static readonly Dictionary<TokenType,string> TokenType2Glyph;

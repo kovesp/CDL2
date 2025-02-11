@@ -14,47 +14,57 @@ namespace CDL2v1 {
          name = new ID(id);
       }
    }
+   // Marker interfaces to allow lists to be composed of permissable elements.
+   public interface MacroElement { }
+   public interface ConstElement { }
+   public interface InterfaceElement { }
+   public interface ProvidedElement : InterfaceElement { }
+   public interface RequiredElement : InterfaceElement { }
+
    internal class Module : NamedElement {
-      public readonly List<Layer> layers = new();
+      public readonly List<Layer> layers = [];
+      public readonly HashSet<ID> import = [];        // Imports are specified in sections, but are propagated up the module level.
       public Module(Token id) : base(id) { }
       public override string ToString() => $"MODULE {name.name}";
    }
    internal class Layer : NamedElement {
       public readonly Module module;
-      public readonly List<Section> sections = new();
+      public readonly HashSet<Section> sections = [];
       public Layer(Token id,Module module) : base(id) {
          this.module = module;
+         module.layers.Add(this);
       }
       public override string ToString() => $"LAYER {name.name}";
    }
    internal class Section : NamedElement {
       public readonly Layer layer;
-      public readonly List<ID> ext = new();
-      public readonly List<ID> abstr = new();
-      public readonly List<ID> inv = new();
-      public readonly List<ID> export = new();
-      public readonly List<ID> import = new();
+      public readonly HashSet<ID> ext = [];
+      public readonly HashSet<ID> abstr = [];
+      public readonly HashSet<ID> inv = [];
+      public readonly HashSet<ID> export = [];
+      public readonly HashSet<ID> import = [];
 
-      public readonly List<Proc> routines = new();  // Both code and macros
-      public readonly List<LIST> lists = new();
-      public readonly List<Var> vars = new();
-      public readonly List<Const> consts = new();
+      public readonly List<Proc> routines = [];  // Both code and macros
+      public readonly List<LIST> lists = [];
+      public readonly List<Var> vars = [];
+      public readonly List<Const> consts = [];
 
-      public readonly List<ID> prelude = new();
-      public readonly List<ID> root = new();
-      public readonly List<ID> postlude = new();
+      public readonly List<ID> prelude = [];
+      public readonly List<ID> root = [];
+      public readonly List<ID> postlude = [];
 
       public Section(Token id,Layer layer) : base(id) {
          this.layer = layer;
+         layer.sections.Add(this);
       }
       public override string ToString() => $"SECTION {name.name}";
    }
-   internal class Proc : NamedElement {
+   internal class Proc : NamedElement, ProvidedElement {
       public readonly Section section;
       public enum ProcType { TEST, PREDICATE, FUNCTION, ACTION }
       public readonly ProcType type;
       public readonly List<Arg> args = new();
-      public readonly List<ID> locals = new();
+      public readonly List<Proc> locals = new();
       public Proc(Token id,ProcType type,Section section) : base(id) {
          this.type = type;
          this.section = section;
@@ -96,10 +106,6 @@ namespace CDL2v1 {
       }
    }
 
-   // Marker interfaces to allow lists to be composed of permissable elements.
-   public interface MacroElement { }
-   public interface ConstElement { }
-
    internal class INT : ConstElement {
       public readonly long value;
       public INT(long value) => this.value = value;
@@ -115,7 +121,7 @@ namespace CDL2v1 {
          value = str.sval;
       }
    }
-   internal class LIST : NamedElement, MacroElement, ConstElement {
+   internal class LIST : NamedElement, MacroElement, ConstElement, ProvidedElement {
       public readonly int lwb;
       public readonly int upb;
       public LIST(Token id,int lwb,int upb) : base(id) {
@@ -123,12 +129,29 @@ namespace CDL2v1 {
          this.upb = upb;
       }
    }
-   internal class Var : NamedElement, MacroElement {
+   internal class Var : NamedElement, MacroElement, ProvidedElement {
       public Var(Token id) : base(id) { }
    }
-   internal class Const : NamedElement, MacroElement, ConstElement {
+   internal class Const : NamedElement, MacroElement, ConstElement, ProvidedElement {
       public readonly List<ConstElement> elements = new();  // Will contain consts, strings, ints, floats, vars, lists, locals and args
       public Const(Token id) : base(id) { }
+   }
+
+   internal class Arg : NamedElement, MacroElement {
+      public enum ArgDir { input, output, transput }
+      public enum ArgType { std, str }
+
+      public readonly ArgDir argDir;
+      public readonly ArgType argType;
+
+      public Arg(Token id,ArgDir dir,ArgType type) : base(id) {
+         argDir = dir;
+         argType = type;
+      }
+   }
+
+   internal class Local : NamedElement, MacroElement {
+      public Local(Token id) : base(id) { }
    }
 
    internal class ID {
@@ -142,26 +165,12 @@ namespace CDL2v1 {
       public override int GetHashCode() => HashCode.Combine(name);
       public override string ToString() => name;
    }
-   internal class Arg : NamedElement, MacroElement {
-      public enum ArgDir { input, output, transput }
-      public enum ArgType { std, str }
 
-      public readonly ArgDir argDir;
-      public readonly ArgType argType;
-
-      public Arg(Token id,ArgDir dir,ArgType type) : base(id) {
-         argDir = dir;
-         argType = type;
-      }
-   }
-   internal class Local : NamedElement, MacroElement {
-      public Local(Token id) : base(id) { }
-   }
    internal class Program : NamedElement {
       public List<Module> parts = new();
-      public List<ID> prelude = new();
-      public List<ID> root = new();
-      public List<ID> postlude = new();
+      public List<Proc> prelude = new();
+      public List<Proc> root = new();
+      public List<Proc> postlude = new();
 
       public Program(Token id) : base(id) { }
    }
