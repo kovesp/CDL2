@@ -17,10 +17,12 @@ namespace CDL2v1 {
    internal class Module : NamedElement {
       public readonly List<Layer> layers = [];
       public Module(Token id) : base(id) { }
+      public override string ToString() => $"MODULE {name.name}";
    }
    internal class Layer : NamedElement {
       public readonly List<Section> sections = [];
       public Layer(Token id) : base(id) { }
+      public override string ToString() => $"LAYER {name.name}";
    }
    internal class Section : NamedElement {
       public readonly List<ID> ext = [];
@@ -34,11 +36,12 @@ namespace CDL2v1 {
       public readonly List<Var> vars = [];
       public readonly List<Const> consts = [];
 
-      public readonly List<Proc> prelude = [];
-      public readonly List<Proc> root = [];
-      public readonly List<Proc> postlude = [];
+      public readonly List<ID> prelude = [];
+      public readonly List<ID> root = [];
+      public readonly List<ID> postlude = [];
 
       public Section(Token id) : base(id) { }
+      public override string ToString() => $"SECTION {name.name}";
    }
    internal class Proc : NamedElement {
       public enum ProcType { TEST, PREDICATE, FUNCTION, ACTION }
@@ -127,6 +130,9 @@ namespace CDL2v1 {
          name = id.sval;
       }
 
+      public override bool Equals(object? obj) => obj is ID iD && name == iD.name;
+      public override int GetHashCode() => HashCode.Combine(name);
+      public override string ToString() => name;
    }
    internal class Arg : NamedElement, MacroElement {
       public enum ArgDir { input, output, transput }
@@ -145,9 +151,9 @@ namespace CDL2v1 {
    }
    internal class Program : NamedElement {
       public List<Module> parts = [];
-      public List<Module> prelude = [];
-      public List<Module> root = [];
-      public List<Module> postlude = [];
+      public List<ID> prelude = [];
+      public List<ID> root = [];
+      public List<ID> postlude = [];
 
       public Program(Token id) : base(id) { }
    }

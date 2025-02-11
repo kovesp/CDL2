@@ -17,7 +17,7 @@ namespace CDL2v1 {
    /// </summary>
    internal class Token {
       public enum TokenType { ERROR, RESWORD, INT, FLOAT, STRING, ID, PLUS, MINUS, STAR, ABORT, LABEL, ARGDIR, COLON, INLINECODEBODY, EQUALS, INLINEMACROBODY, END, SEP, ALTSEP, GRPOPEN, GRPCLOSE, COMMENT }
-      public enum ResWord { PROGRAM, ENDPROG, PART, MODULE, ENDMOD, LAYER, ENDLAY, SECTION, ENDSEC, ABSTR, EXT, INV, EXPORT, IMPORT, ROOT, PRELUDE, POSTLUDE, CONST, VAR, LIST, ACTION, FUNCTION, TEST, PREDICATE }
+      public enum ReservedWord { PROGRAM, ENDPROG, PART, MODULE, ENDMOD, LAYER, ENDLAY, SECTION, ENDSEC, ABSTR, EXT, INV, EXPORT, IMPORT, ROOT, PRELUDE, POSTLUDE, CONST, VAR, LIST, ACTION, FUNCTION, TEST, PREDICATE }
 
       private static readonly Dictionary<string,TokenType> Glyph2TokenType;
       private static readonly Dictionary<TokenType,string> TokenType2Glyph;
@@ -66,7 +66,7 @@ namespace CDL2v1 {
          };
          // Must match at the begining of the input
          GlyphRE = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})");
-         ReswordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ResWord)))})");
+         ReswordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})");
          IdRE = new Regex(@"^[a-z][a-z0-9 ]*");
          StringRE = new Regex(@"^"".*?(?:$"".*?)*""");
          CommentRE = new Regex(@"^(?m:#(.*)?(?:#|$))");
@@ -89,7 +89,7 @@ namespace CDL2v1 {
       //    COMMENT: sval is the comment
 
       readonly public string tokenString = "";
-      readonly public ResWord? rval;
+      readonly public ReservedWord? rval;
       readonly public string? sval;
       readonly public long? ival;
       readonly public double? fval;
@@ -115,7 +115,7 @@ namespace CDL2v1 {
                break;
             case TokenClass.ResWord:
                type = TokenType.RESWORD;
-               rval = Enum.Parse<ResWord>(text);
+               rval = Enum.Parse<ReservedWord>(text);
                break;
             case TokenClass.Glyph:
                type = Glyph2TokenType[text];
