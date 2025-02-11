@@ -60,9 +60,9 @@ namespace CDL2v1 {
 
       private void ParseLayer(ref TokenList tokens) {
          // The next token should be an ID
-         tokens.CanConsume(Token.TokenType.ID,out Token id);
-         currentLayer = new Layer(id);
          Debug.Assert(currentModule != null);
+         tokens.CanConsume(Token.TokenType.ID,out Token id);
+         currentLayer = new Layer(id,currentModule);
          currentModule.layers.Add(currentLayer);
          Symbols[currentLayer.name] = currentLayer;
 
@@ -76,10 +76,11 @@ namespace CDL2v1 {
       }
 
       private void ParseSection(ref TokenList tokens) {
+         Debug.Assert(currentLayer != null);
          // The next token should be an ID
          tokens.CanConsume(Token.TokenType.ID,out Token id);
-         currentSection = new Section(id);
-         Debug.Assert(currentLayer != null);
+         currentSection = new Section(id,currentLayer);
+
          currentLayer.sections.Add(currentSection);
          Symbols[currentSection.name] = currentSection;
 
@@ -104,13 +105,17 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.IsNext(ludeType)) {
             tokens.Next();
-            while (tokens.IsNext(Token.TokenType.ID)) {
-               Token id = tokens.Next();
-               if (Symbols.ContainsKey(id) && Symbols[id].GetType() == itemType) {
-                  idlist.Add(new ID(id));
-               } else {
-                  throw new Exception($"The name {id} referenced in the {ludeType} of {currentSection} but found {id}");
-               }
+            ParseIDList(tokens,ludeType.ToString(),itemType,idlist);
+         }
+      }
+
+      private void ParseIDList(TokenList tokens,string listName,Type itemType,List<ID> idlist) {
+         while (tokens.IsNext(Token.TokenType.ID)) {
+            Token id = tokens.Next();
+            if (Symbols.ContainsKey(id) && Symbols[id].GetType() == itemType) {
+               idlist.Add(new ID(id));
+            } else {
+               throw new Exception($"The name {id} referenced in the {listName} of {currentSection} but found {id}");
             }
          }
       }
@@ -123,7 +128,6 @@ namespace CDL2v1 {
 
          // Now should see parts
          while (tokens.CanConsume(Token.ReservedWord.PART)) {
-            ParseModule(ref tokens);
          }
 
          // Consume the ENDPROG token

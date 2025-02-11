@@ -15,50 +15,58 @@ namespace CDL2v1 {
       }
    }
    internal class Module : NamedElement {
-      public readonly List<Layer> layers = [];
+      public readonly List<Layer> layers = new();
       public Module(Token id) : base(id) { }
       public override string ToString() => $"MODULE {name.name}";
    }
    internal class Layer : NamedElement {
-      public readonly List<Section> sections = [];
-      public Layer(Token id) : base(id) { }
+      public readonly Module module;
+      public readonly List<Section> sections = new();
+      public Layer(Token id,Module module) : base(id) {
+         this.module = module;
+      }
       public override string ToString() => $"LAYER {name.name}";
    }
    internal class Section : NamedElement {
-      public readonly List<ID> ext = [];
-      public readonly List<ID> abstr = [];
-      public readonly List<ID> inv = [];
-      public readonly List<ID> export = [];
-      public readonly List<ID> import = [];
+      public readonly Layer layer;
+      public readonly List<ID> ext = new();
+      public readonly List<ID> abstr = new();
+      public readonly List<ID> inv = new();
+      public readonly List<ID> export = new();
+      public readonly List<ID> import = new();
 
-      public readonly List<Proc> routines = [];  // Both code and macros
-      public readonly List<LIST> lists = [];
-      public readonly List<Var> vars = [];
-      public readonly List<Const> consts = [];
+      public readonly List<Proc> routines = new();  // Both code and macros
+      public readonly List<LIST> lists = new();
+      public readonly List<Var> vars = new();
+      public readonly List<Const> consts = new();
 
-      public readonly List<ID> prelude = [];
-      public readonly List<ID> root = [];
-      public readonly List<ID> postlude = [];
+      public readonly List<ID> prelude = new();
+      public readonly List<ID> root = new();
+      public readonly List<ID> postlude = new();
 
-      public Section(Token id) : base(id) { }
+      public Section(Token id,Layer layer) : base(id) {
+         this.layer = layer;
+      }
       public override string ToString() => $"SECTION {name.name}";
    }
    internal class Proc : NamedElement {
+      public readonly Section section;
       public enum ProcType { TEST, PREDICATE, FUNCTION, ACTION }
       public readonly ProcType type;
-      public readonly List<Arg> args = [];
-      public readonly List<ID> locals = [];
-      public Proc(Token id, ProcType type) : base(id) {
+      public readonly List<Arg> args = new();
+      public readonly List<ID> locals = new();
+      public Proc(Token id,ProcType type,Section section) : base(id) {
          this.type = type;
+         this.section = section;
       }
    }
    internal class Macro : Proc {
-      public readonly List<MacroElement> elements = [];
-      public Macro(Token id,ProcType type) : base(id,type) { }
+      public readonly List<MacroElement> elements = new();
+      public Macro(Token id,ProcType type,Section section) : base(id,type,section) { }
    }
    internal class Code : Proc {
-      public readonly List<Alternative> alternatives = [];
-      public Code(Token id,ProcType type) : base(id,type) { }
+      public readonly List<Alternative> alternatives = new();
+      public Code(Token id,ProcType type,Section section) : base(id,type,section) { }
    }
    // The last element (in an alternative) can be:
    //    Standard - a normal procedure call which is the last item in the alternatives' procs list.
@@ -66,30 +74,30 @@ namespace CDL2v1 {
    //    Repeat - * with a reference to the group that is repeated possibly using the label
    //    Group - a nested group.
    internal class LastCall {
-      public enum CallType {  Standard, Success, Fail, Abort, Repeat, Group }
+      public enum CallType { Standard, Success, Fail, Abort, Repeat, Group }
       public readonly CallType type;
       public readonly Group? group;
-      public LastCall(CallType type, Group? group) {
+      public LastCall(CallType type,Group? group) {
          this.type = type;
          this.group = group;
       }
       public LastCall(CallType type) : this(type,null) { }
    }
    internal class Alternative {
-      public readonly List<Proc> procs = [];
+      public readonly List<Proc> procs = new();
       public readonly LastCall lastCall;
 
       public Alternative(LastCall lastCall) => this.lastCall = lastCall;
    }
    // Note that the name in this case is the label.
    internal class Group : NamedElement {
-      public readonly List<Alternative> alternatives = [];
+      public readonly List<Alternative> alternatives = new();
       public Group(Token id) : base(id) {
       }
    }
 
    // Marker interfaces to allow lists to be composed of permissable elements.
-   public interface MacroElement  { }
+   public interface MacroElement { }
    public interface ConstElement { }
 
    internal class INT : ConstElement {
@@ -119,7 +127,7 @@ namespace CDL2v1 {
       public Var(Token id) : base(id) { }
    }
    internal class Const : NamedElement, MacroElement, ConstElement {
-      public readonly List<ConstElement> elements = [];  // Will contain consts, strings, ints, floats, vars, lists, locals and args
+      public readonly List<ConstElement> elements = new();  // Will contain consts, strings, ints, floats, vars, lists, locals and args
       public Const(Token id) : base(id) { }
    }
 
@@ -150,10 +158,10 @@ namespace CDL2v1 {
       public Local(Token id) : base(id) { }
    }
    internal class Program : NamedElement {
-      public List<Module> parts = [];
-      public List<ID> prelude = [];
-      public List<ID> root = [];
-      public List<ID> postlude = [];
+      public List<Module> parts = new();
+      public List<ID> prelude = new();
+      public List<ID> root = new();
+      public List<ID> postlude = new();
 
       public Program(Token id) : base(id) { }
    }
