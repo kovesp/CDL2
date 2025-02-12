@@ -105,18 +105,46 @@ namespace CDL2v1 {
          ParseLudes(ref tokens,typeof(Proc));
       }
 
+      private void ParseList(ref TokenList tokens) => throw new NotImplementedException();
+      /// <summary>
+      /// Parse vaaraible declarations.
+      /// </summary>
+      /// <param name="tokens"></param>
+      private void ParseVar(ref TokenList tokens) {
+         if (tokens.CanConsume(Token.ReservedWord.VAR)) {
+            Debug.Assert(currentSection != null);
+            ParseIDList(tokens,currentSection.vars,null,id => Symbols[id] = new Var(id.token));
+         }
+      }
+      private void ParseConst(ref TokenList tokens) {
+         if (tokens.CanConsume(Token.ReservedWord.CONST)) {
+            Debug.Assert(currentSection != null);
+            ParseIDList(tokens,currentSection.vars,null,id => ParseConstBody(tokens,id));
+         }
+      }
+
+      /// <summary>
+      /// Parse the body of a constant declaration. Upon entry the id has been consumed.
+      /// We should see an '=' followed by a list of constan elements followed by a comma or period.
+      /// </summary>
+      /// <param name="namedElement"></param>
+      private void ParseConstBody(TokenList tokens,ID id) {
+         Symbols[id] = new Const(id.token);
+         if ()
+      }
+
       private void ParseInterfaces(ref TokenList tokens) {
          Debug.Assert(currentSection != null && currentModule != null);
          // Provided interfaces
-         ParceInterface(ref tokens,Token.ReservedWord.ABSTR,currentSection.abstr);
-         ParceInterface(ref tokens,Token.ReservedWord.EXT,currentSection.ext);
-         ParceInterface(ref tokens,Token.ReservedWord.EXPORT,currentSection.export);
+         ParseSimpleList(ref tokens,Token.ReservedWord.ABSTR,currentSection.abstr);
+         ParseSimpleList(ref tokens,Token.ReservedWord.EXT,currentSection.ext);
+         ParseSimpleList(ref tokens,Token.ReservedWord.EXPORT,currentSection.export);
          // Required interfaces
-         ParceInterface(ref tokens,Token.ReservedWord.INV,currentSection.inv);
-         ParceInterface(ref tokens,Token.ReservedWord.IMPORT,currentSection.import,currentModule.import);
+         ParseSimpleList(ref tokens,Token.ReservedWord.INV,currentSection.inv);
+         ParseSimpleList(ref tokens,Token.ReservedWord.IMPORT,currentSection.import,currentModule.import);
       }
 
-      private bool ParceInterface(ref TokenList tokens,Token.ReservedWord interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2=null) {
+      private bool ParseSimpleList(ref TokenList tokens,Token.ReservedWord interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2=null) {
          Debug.Assert(currentSection != null);
          if (tokens.Consume(interfaceType)) {
             ParseIDList(tokens,idList1,idList2);
@@ -143,11 +171,19 @@ namespace CDL2v1 {
          }
       }
 
-      private void ParseIDList(TokenList tokens,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
+      /// <summary>
+      /// Parse a list of identifiers.
+      /// </summary>
+      /// <param name="tokens">The token stream.</param>
+      /// <param name="idList1">A list to which the id must be added.</param>
+      /// <param name="idList2">An optional second list to which it must be added.</param>
+      /// <param name="processID">Extra processing to be performed on the id.</param>
+      private void ParseIDList(TokenList tokens,ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID=null) {
          while (tokens.IsNext(Token.TokenType.ID)) {
             ID id = new(tokens.Next());
             if (!idList1.Contains(id)) idList1.Add(id);
             if (idList2 != null && !idList2.Contains(id)) idList2.Add(id);
+            processID?.Invoke(id);
             if (!tokens.CanConsumeSep()) break;
          }
          tokens.CanConsumeEnd();

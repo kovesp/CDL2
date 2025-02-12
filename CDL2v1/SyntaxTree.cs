@@ -21,10 +21,10 @@ namespace CDL2v1 {
    public interface ProvidedElement : InterfaceElement { }
    public interface RequiredElement : InterfaceElement { }
 
-   internal class Module : NamedElement {
+   internal class Module(Token id) : NamedElement(id) {
       public readonly List<Layer> layers = [];
       public readonly HashSet<ID> import = [];        // Imports are specified in sections, but are propagated up the module level.
-      public Module(Token id) : base(id) { }
+
       public override string ToString() => $"MODULE {name.name}";
    }
    internal class Layer : NamedElement {
@@ -44,10 +44,11 @@ namespace CDL2v1 {
       public readonly HashSet<ID> export = [];
       public readonly HashSet<ID> import = [];
 
-      public readonly List<Proc> routines = [];  // Both code and macros
-      public readonly List<LIST> lists = [];
-      public readonly List<Var> vars = [];
-      public readonly List<Const> consts = [];
+      // These sets contain the names of the elements in the section. The actual elements are in the symbol table.
+      public readonly HashSet<ID> routines = [];  // Both code and macros
+      public readonly HashSet<ID> lists = [];
+      public readonly HashSet<ID> vars = [];
+      public readonly HashSet<ID> consts = [];
 
       public readonly List<ID> prelude = [];
       public readonly List<ID> root = [];
@@ -63,19 +64,19 @@ namespace CDL2v1 {
       public readonly Section section;
       public enum ProcType { TEST, PREDICATE, FUNCTION, ACTION }
       public readonly ProcType type;
-      public readonly List<Arg> args = new();
-      public readonly List<Proc> locals = new();
+      public readonly List<Arg> args = [];
+      public readonly List<ID> locals = [];
       public Proc(Token id,ProcType type,Section section) : base(id) {
          this.type = type;
          this.section = section;
       }
    }
    internal class Macro : Proc {
-      public readonly List<MacroElement> elements = new();
+      public readonly List<MacroElement> elements = [];
       public Macro(Token id,ProcType type,Section section) : base(id,type,section) { }
    }
    internal class Code : Proc {
-      public readonly List<Alternative> alternatives = new();
+      public readonly List<Alternative> alternatives = [];
       public Code(Token id,ProcType type,Section section) : base(id,type,section) { }
    }
    // The last element (in an alternative) can be:
@@ -108,46 +109,40 @@ namespace CDL2v1 {
 
    internal class INT : ConstElement {
       public readonly long value;
-      public INT(long value) => this.value = value;
+      public INT(Token intToken) {
+         Debug.Assert(intToken.type == Token.TokenType.INT && intToken.ival != null);
+         value = (long)intToken.ival;
+      }
    }
    internal class FLOAT : ConstElement {
       public readonly double value;
-      public FLOAT(double value) => this.value = value;
+      public FLOAT(Token floatToken) {
+         Debug.Assert(floatToken.type == Token.TokenType.FLOAT && floatToken.fval != null);
+         value = (double)floatToken.fval;
+      }
    }
    internal class STRING : MacroElement, ConstElement {
       public readonly string value;
       public STRING(Token str) {
-         Debug.Assert(str.type == Token.TokenType.STRING && str.sval != null,"STRING constructor: str not TokenType.STRING or sval is null");
+         Debug.Assert(str.type == Token.TokenType.STRING && str.sval != null);
          value = str.sval;
       }
    }
-   internal class LIST : NamedElement, MacroElement, ConstElement, ProvidedElement {
-      public readonly int lwb;
-      public readonly int upb;
-      public LIST(Token id,int lwb,int upb) : base(id) {
-         this.lwb = lwb;
-         this.upb = upb;
-      }
+   internal class LIST(Token id,int lwb,int upb) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
+      public readonly int lwb = lwb;
+      public readonly int upb = upb;
    }
-   internal class Var : NamedElement, MacroElement, ProvidedElement {
-      public Var(Token id) : base(id) { }
-   }
-   internal class Const : NamedElement, MacroElement, ConstElement, ProvidedElement {
-      public readonly List<ConstElement> elements = new();  // Will contain consts, strings, ints, floats, vars, lists, locals and args
-      public Const(Token id) : base(id) { }
+   internal class Var(Token id) : NamedElement(id), MacroElement, ProvidedElement { }
+   internal class Const(Token id) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
+      public readonly List<ConstElement> elements = [];  // Will contain ids (const, var, list) and strings, ints, floats
    }
 
-   internal class Arg : NamedElement, MacroElement {
+   internal class Arg(Token id,Arg.ArgDir dir,Arg.ArgType type) : NamedElement(id), MacroElement {
       public enum ArgDir { input, output, transput }
       public enum ArgType { std, str }
 
-      public readonly ArgDir argDir;
-      public readonly ArgType argType;
-
-      public Arg(Token id,ArgDir dir,ArgType type) : base(id) {
-         argDir = dir;
-         argType = type;
-      }
+      public readonly ArgDir argDir = dir;
+      public readonly ArgType argType = type;
    }
 
    internal class Local : NamedElement, MacroElement {
@@ -156,8 +151,10 @@ namespace CDL2v1 {
 
    internal class ID {
       public readonly string name;
+      public readonly Token token;
       public ID(Token id) {
          Debug.Assert(id.type == Token.TokenType.ID && id.sval != null,"Program constructor: id not TokenType.ID or sval is null");
+         token = id;
          name = id.sval;
       }
 
