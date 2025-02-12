@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Security;
 using System.Text;
 using System.Threading.Tasks;
@@ -60,25 +61,20 @@ namespace CDL2v1 {
       }
       public override string ToString() => $"SECTION {name.name}";
    }
-   internal class Proc : NamedElement, ProvidedElement {
-      public readonly Section section;
-      public enum ProcType { TEST, PREDICATE, FUNCTION, ACTION }
-      public readonly ProcType type;
-      public readonly List<Arg> args = [];
-      public readonly List<ID> locals = [];
-      public Proc(Token id,ProcType type,Section section) : base(id) {
-         this.type = type;
-         this.section = section;
-      }
+   internal class Proc(Token id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : NamedElement(id), ProvidedElement {
+      public readonly Section section = section;
+      public readonly Token.ReservedWord procType = procType.rval??Token.ReservedWord.FUNCTION;   // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
+      public readonly Token.TokenType bodyType = bodyType;      // one of : or := (for CODE only) and = or =: (for MACRO only)
+      public readonly List<Arg> args = args;
+      public readonly List<ID> locals = locals;
    }
-   internal class Macro : Proc {
-      public readonly List<MacroElement> elements = [];
-      public Macro(Token id,ProcType type,Section section) : base(id,type,section) { }
+   internal class Macro(Token id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
+      List<MacroElement> elements = [];
    }
-   internal class Code : Proc {
-      public readonly List<Alternative> alternatives = [];
-      public Code(Token id,ProcType type,Section section) : base(id,type,section) { }
+   internal class Code(Token id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
+      List<Alternative> alternatives = [];
    }
+
    // The last element (in an alternative) can be:
    //    Standard - a normal procedure call which is the last item in the alternatives' procs list.
    //    Success, Fail, Abort - i.e., +, -, or ?.
@@ -101,10 +97,8 @@ namespace CDL2v1 {
       public Alternative(LastCall lastCall) => this.lastCall = lastCall;
    }
    // Note that the name in this case is the label.
-   internal class Group : NamedElement {
+   internal class Group(Token id) : NamedElement(id) {
       public readonly List<Alternative> alternatives = new();
-      public Group(Token id) : base(id) {
-      }
    }
 
    internal class INT : ConstElement {
@@ -128,9 +122,10 @@ namespace CDL2v1 {
          value = str.sval;
       }
    }
-   internal class LIST(Token id,int lwb,int upb) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
-      public readonly int lwb = lwb;
-      public readonly int upb = upb;
+   internal class LIST(Token id,Token lwb,Token upb) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
+      // Stored as tokens to allow for the possibility of a const reference or an intgeger. If a const reference, the reference will be resolved during the semantic analysis.
+      public readonly Token lwb = lwb;
+      public readonly Token upb = upb;
    }
    internal class Var(Token id) : NamedElement(id), MacroElement, ProvidedElement { }
    internal class Const(Token id) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
@@ -149,7 +144,7 @@ namespace CDL2v1 {
       public Local(Token id) : base(id) { }
    }
 
-   internal class ID {
+   internal class ID : ConstElement {
       public readonly string name;
       public readonly Token token;
       public ID(Token id) {
@@ -162,6 +157,8 @@ namespace CDL2v1 {
       public override int GetHashCode() => HashCode.Combine(name);
       public override string ToString() => name;
    }
+
+   internal class Undeclared(Token id) : NamedElement(id) {}
 
    internal class Program : NamedElement {
       public List<Module> parts = new();

@@ -14,52 +14,83 @@ namespace CDL2v1 {
       public class SymbolTable : Dictionary<ID,NamedElement> {
          public bool ContainsKey(Token token) => ContainsKey(new ID(token));
          // Indexer to access elements using ID
-         public NamedElement this[Token id] {
-            get => base[new ID(id)];
-            set => base[new ID(id)] = value;
+         public NamedElement this[Token token] {
+            get => base[new ID(token)];
+            // This is used to add elements when being declared. So if it already exists, then
+            // - if the current value is an Undeclared, then replace it with the new value.
+            // - if the current value is not an Undeclared, then throw an exception.
+            set {
+               ID id = new(token);
+               if (TryGetValue(id,out NamedElement? currentValue)) {
+                  if (currentValue is Undeclared) {
+                     base[id] = value;
+                     return;
+                  }
+                  throw new Exception($"ID {id} already declared as {currentValue}");
+               }
+            }
          }
+         /// <summary>
+         /// Check if the symbol table contains the given ID. If not, add an Undeclared to the symbol table.
+         /// Used when a reference to an ID is encountered before the ID is declared.
+         /// </summary>
+         /// <param name="token">An ID token.</param>
+         /// <returns>The ID that was constructed from the token.</returns>
+         public ID Reference(Token token) {
+            ID id = new(token);
+            if (TryGetValue(id,out NamedElement? currentValue)) { // If the ID is already in the symbol table
+               if (currentValue is Undeclared) return id; // If the ID is already an Undeclared, then do nothing               
+            } else { // If the ID is not in the symbol table
+               base[id] = new Undeclared(token); // Add an Undeclared to the symbol table
+            }
+            return id;
+         }
+         public ID Reference(ID id) => Reference(id.token); 
       }
 
-         public readonly SymbolTable Symbols = [];
-
+      public readonly SymbolTable Symbols = [];
+      public required TokenList tokens;
       public Program? program;
+      public HashSet<Module> modules = [];
 
       private Module? currentModule;
       private Layer? currentLayer;
       private Section? currentSection;
 
-      public Parser() { }
-
       internal void Parse(TokenList tokens) {
+         this.tokens = tokens;
          // The list of tokens should contain a set of modules and possibly a program
          tokens.SetOptions(TokenList.Options.SkipComments | TokenList.Options.ThrowOnUnexpectedToken); // Remove comments from the token list and throw on unexpected tokens
                                                                                                        // The first token should be a module or program
          while (tokens.IsNonEmpty()) {
             Token unitId = Token.ErrorToken;
             if (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.MODULE,ref unitId)) {
-               ParseModule(ref tokens,unitId);
-            } else if (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.PROGRAM, ref unitId)) {
-               ParseProgram(ref tokens);
+               ParseModule(unitId);
+            } else if (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.PROGRAM,ref unitId)) {
+               ParseProgram();
             } else {
                throw new Exception("Expected MODULE or PROGRAM");
             }
          }
+         //TODO: Must verify that no undeclareds ramain when parsing is complete.
+         //TODO: Must verify that All ids referenced in CONST elements refer to a declared const, var, or list.
       }
 
-      private void ParseModule(ref TokenList tokens,Token moduleId) {
+      private void ParseModule(Token moduleId) {
          currentModule = new Module(moduleId);
+         modules.Add(currentModule);
          Symbols[currentModule.name] = currentModule;
 
          // Now should see layers
          Token layerId = Token.ErrorToken;
          while (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.LAYER,ref layerId)) {
-            ParseLayer(ref tokens,layerId);
+            ParseLayer(layerId);
          }
          // Consume the ENDMOD
          tokens.CanConsumeUnitDelimiter(Token.ReservedWord.ENDMOD,ref moduleId);
       }
 
-      private void ParseLayer(ref TokenList tokens,Token layerId) {
+      private void ParseLayer(Token layerId) {
          Debug.Assert(currentModule != null);
          currentLayer = new Layer(layerId,currentModule);
          Symbols[currentLayer.name] = currentLayer;
@@ -67,13 +98,14 @@ namespace CDL2v1 {
          // Now should see sections
          Token sectionId = Token.ErrorToken;
          while (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.SECTION,ref sectionId)) {
-            ParseSection(ref tokens,sectionId);
+            ParseSection(sectionId);
          }
          // Consume the ENDLAY
          tokens.CanConsumeUnitDelimiter(Token.ReservedWord.ENDLAY,ref layerId);
       }
 
-      private void ParseSection(ref TokenList tokens,Token sectionId) {
+      private static readonly List<Token.ReservedWord> procTypes = [Token.ReservedWord.FUNCTION,Token.ReservedWord.ACTION,Token.ReservedWord.TEST,Token.ReservedWord.PREDICATE];
+      private void ParseSection(Token sectionId) {
          Debug.Assert(currentLayer != null);
          // The next token should be an ID
          currentSection = new Section(sectionId,currentLayer);
@@ -81,104 +113,166 @@ namespace CDL2v1 {
 
          // Now should see section parts
          // Interfaces first
-         ParseInterfaces(ref tokens);
+         ParseInterfaces();
 
          // Now could see routines, lists, vars, consts in any order
          while (!tokens.IsNext(Token.ReservedWord.ENDSEC)) {
-            if (tokens.IsNext(Token.ReservedWord.ROUTINE)) {
-               ParseRoutine(ref tokens);
+            if (tokens.IsNext(procTypes)) {
+               ParseProc();
             } else if (tokens.IsNext(Token.ReservedWord.LIST)) {
-               ParseList(ref tokens);
+               ParseList();
             } else if (tokens.IsNext(Token.ReservedWord.VAR)) {
-               ParseVar(ref tokens);
+               ParseVar();
             } else if (tokens.IsNext(Token.ReservedWord.CONST)) {
-               ParseConst(ref tokens);
+               ParseConst();
             } else {
                throw new Exception("Expected ROUTINE, LIST, VAR, or CONST");
             }
          }
 
-
          // Consume the ENDSEC
          tokens.CanConsumeUnitDelimiter(Token.ReservedWord.ENDSEC,ref sectionId);
          // Now could see prelude, root, postlude in that order
-         ParseLudes(ref tokens,typeof(Proc));
+         ParseLudes(typeof(Proc));
       }
 
-      private void ParseList(ref TokenList tokens) => throw new NotImplementedException();
-      /// <summary>
-      /// Parse vaaraible declarations.
-      /// </summary>
-      /// <param name="tokens"></param>
-      private void ParseVar(ref TokenList tokens) {
+      private static readonly List<Token.TokenType> bodyTypes = [Token.TokenType.COLON,Token.TokenType.INLINECODEBODY,Token.TokenType.INLINEMACROBODY];
+      private void ParseProc() {
+         Debug.Assert(currentSection != null);
+         Token id = tokens.Next();
+         if (tokens.CanConsume(procTypes,out Token procType)) {
+            // Now should see args
+            List<Arg> args = ParseArgs();
+            // Now could see locals
+            List<ID> locals = ParseLocals();
+            Proc proc;
+            if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
+               if (bodyType.type == Token.TokenType.COLON || bodyType.type == Token.TokenType.INLINECODEBODY) {
+                  // Parse the code body
+                  proc = new Code(id,args,locals,procType,bodyType.type,currentSection);
+                  ParseCodeBody(proc);
+               } else {
+                  // Parse the macro body
+                  proc = new Macro(id,args,locals,procType,bodyType.type,currentSection);
+                  ParseMacroBody(proc);
+               }
+               Symbols[proc.name] = proc;
+            }
+
+
+         } else {
+            throw new Exception("Expected FUNCTION, ACTION, TEST, or PREDICATE");
+         }
+      }
+
+      private void ParseMacroBody(Proc proc) => throw new NotImplementedException();
+      private void ParseCodeBody(Proc proc) => throw new NotImplementedException();
+      private List<ID> ParseLocals() => throw new NotImplementedException();
+      private List<Arg> ParseArgs() => throw new NotImplementedException();
+
+      private void ParseList() {
+         if (tokens.CanConsume(Token.ReservedWord.LIST)) {
+            Debug.Assert(currentSection != null);
+            ParseIDList(currentSection.lists,null,id => ParseListBody(id));
+         }
+      }
+
+      private static readonly List<Token.TokenType> boundTypes = [Token.TokenType.ID,Token.TokenType.INT];
+      private void ParseListBody(ID id) {
+         if (  tokens.CanConsume(Token.TokenType.GRPOPEN) &&
+               tokens.CanConsume(boundTypes,out Token lwb) &&
+               tokens.CanConsume(Token.TokenType.COLON) &&
+               (tokens.CanConsume(Token.TokenType.ID,out Token upb) || tokens.CanConsume(Token.TokenType.INT,out upb)) &&
+               tokens.CanConsume(Token.TokenType.GRPCLOSE)) {
+            Symbols[id] = new LIST(id.token,lwb,upb);
+         } else {
+            throw new Exception("Expected list bounds");
+         }
+      }
+      private void ParseVar() {
          if (tokens.CanConsume(Token.ReservedWord.VAR)) {
             Debug.Assert(currentSection != null);
-            ParseIDList(tokens,currentSection.vars,null,id => Symbols[id] = new Var(id.token));
+            ParseIDList(currentSection.vars,null,id => Symbols[id] = new Var(id.token));
          }
       }
-      private void ParseConst(ref TokenList tokens) {
+
+      private void ParseConst() {
          if (tokens.CanConsume(Token.ReservedWord.CONST)) {
             Debug.Assert(currentSection != null);
-            ParseIDList(tokens,currentSection.vars,null,id => ParseConstBody(tokens,id));
+            ParseIDList(currentSection.vars,null,id => ParseConstBody(id));
          }
       }
 
       /// <summary>
-      /// Parse the body of a constant declaration. Upon entry the id has been consumed.
-      /// We should see an '=' followed by a list of constan elements followed by a comma or period.
+      /// Parse the body of a constant declaration. At this point the ID has been consumed.
+      /// We should see an '=' followed by a sequence of constant elements (e.g., numbers, strings, etc.) terminated by a period or a comma.
+      /// The terminator will be consumed by <see cref="ParseIDList(ICollection{ID}, ICollection{ID}?, Action{ID}?)
       /// </summary>
-      /// <param name="namedElement"></param>
-      private void ParseConstBody(TokenList tokens,ID id) {
-         Symbols[id] = new Const(id.token);
-         if ()
+      /// <param name="id">The id of the constant.</param>
+      private void ParseConstBody(ID id) {
+         Const c = new(id.token);
+         Symbols[id] = c;
+         if (tokens.CanConsume(Token.TokenType.EQUALS)) {
+            ParseConstElements(c);
+         }
       }
 
-      private void ParseInterfaces(ref TokenList tokens) {
+      private void ParseConstElements(Const c) {
+         while (!tokens.IsNext(Token.TokenType.END) && !tokens.IsNext(Token.TokenType.SEP)) {
+            if (tokens.CanConsume(Token.TokenType.ID,out Token elemId)) {
+               c.elements.Add(Symbols.Reference(new ID(elemId)));
+            } else if (tokens.CanConsume(Token.TokenType.STRING,out Token str)) {
+               c.elements.Add(new STRING(str));
+            } else if (tokens.CanConsume(Token.TokenType.INT,out Token i)) {
+               c.elements.Add(new INT(i));
+            } else if (tokens.CanConsume(Token.TokenType.FLOAT,out Token f)) {
+               c.elements.Add(new FLOAT(f));
+            } else {
+               throw new Exception("Expected ID, STRING, INT, or FLOAT");
+            }
+         }
+      }
+
+      private void ParseInterfaces() {
          Debug.Assert(currentSection != null && currentModule != null);
          // Provided interfaces
-         ParseSimpleList(ref tokens,Token.ReservedWord.ABSTR,currentSection.abstr);
-         ParseSimpleList(ref tokens,Token.ReservedWord.EXT,currentSection.ext);
-         ParseSimpleList(ref tokens,Token.ReservedWord.EXPORT,currentSection.export);
+         ParseSimpleList(Token.ReservedWord.ABSTR,currentSection.abstr);
+         ParseSimpleList(Token.ReservedWord.EXT,currentSection.ext);
+         ParseSimpleList(Token.ReservedWord.EXPORT,currentSection.export);
          // Required interfaces
-         ParseSimpleList(ref tokens,Token.ReservedWord.INV,currentSection.inv);
-         ParseSimpleList(ref tokens,Token.ReservedWord.IMPORT,currentSection.import,currentModule.import);
+         ParseSimpleList(Token.ReservedWord.INV,currentSection.inv);
+         ParseSimpleList(Token.ReservedWord.IMPORT,currentSection.import,currentModule.import);
       }
 
-      private bool ParseSimpleList(ref TokenList tokens,Token.ReservedWord interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2=null) {
+      private bool ParseSimpleList(Token.ReservedWord interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
          Debug.Assert(currentSection != null);
          if (tokens.Consume(interfaceType)) {
-            ParseIDList(tokens,idList1,idList2);
+            ParseIDList(idList1,idList2);
             return true;
          } else {
             return false;
          }
       }
 
-      private void ParseLudes(ref TokenList tokens,Type type) {
+      private void ParseLudes(Type type) {
          Debug.Assert(currentSection != null);
-         ParseLude(ref tokens,Token.ReservedWord.PRELUDE,typeof(ProvidedElement),currentSection.prelude);
-         ParseLude(ref tokens,Token.ReservedWord.ROOT,typeof(ProvidedElement),currentSection.root);
-         ParseLude(ref tokens,Token.ReservedWord.POSTLUDE,typeof(ProvidedElement),currentSection.postlude);
+         ParseLude(Token.ReservedWord.PRELUDE,typeof(ProvidedElement),currentSection.prelude);
+         ParseLude(Token.ReservedWord.ROOT,typeof(ProvidedElement),currentSection.root);
+         ParseLude(Token.ReservedWord.POSTLUDE,typeof(ProvidedElement),currentSection.postlude);
       }
-      private void ParseLude(ref TokenList tokens,Token.ReservedWord ludeType,Type itemType,List<ID> idlist) {
+
+      private void ParseLude(Token.ReservedWord ludeType,Type itemType,List<ID> idlist) {
          // Implementation for parsing lude sections (prelude, root, postlude)
          // Use the 'lude' parameter to determine which section to parse
          // Use the 'type' parameter to handle the specific type (e.g., Proc)
          Debug.Assert(currentSection != null);
          if (tokens.IsNext(ludeType)) {
             tokens.Next();
-            ParseIDList(tokens,idlist);
+            ParseIDList(idlist);
          }
       }
 
-      /// <summary>
-      /// Parse a list of identifiers.
-      /// </summary>
-      /// <param name="tokens">The token stream.</param>
-      /// <param name="idList1">A list to which the id must be added.</param>
-      /// <param name="idList2">An optional second list to which it must be added.</param>
-      /// <param name="processID">Extra processing to be performed on the id.</param>
-      private void ParseIDList(TokenList tokens,ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID=null) {
+      private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID = null) {
          while (tokens.IsNext(Token.TokenType.ID)) {
             ID id = new(tokens.Next());
             if (!idList1.Contains(id)) idList1.Add(id);
@@ -189,7 +283,7 @@ namespace CDL2v1 {
          tokens.CanConsumeEnd();
       }
 
-      private void ParseProgram(ref TokenList tokens) {
+      private void ParseProgram() {
          // The next token should be an ID
          tokens.CanConsume(Token.TokenType.ID,out Token id);
          program = new Program(id);
