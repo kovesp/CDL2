@@ -16,6 +16,8 @@ namespace CDL2v1 {
       }
       
       public readonly List<Token> tokens = new List<Token>();
+      public readonly static ID ErrorID = new ID();
+      public readonly static ID AnonID = new ID("Anon");
       public Options options;
 
       public TokenList(Options options = Options.None) {
@@ -79,6 +81,17 @@ namespace CDL2v1 {
          token = Token.ErrorToken;
          return false;
       }
+      public bool CanConsume(out ID id) {
+         if (CanConsume(Token.TokenType.ID,out Token token)) {
+            id = new ID(token);
+            return true;
+         }
+         if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
+            throw new Exception($"Expected ID, but found {Peek().type}");
+         }
+         id = ErrorID;
+         return false;
+      }
       public bool CanConsume(List<Token.TokenType> types,out Token token) {
          if (IsNext(types)) {
             token = Next();
@@ -100,6 +113,15 @@ namespace CDL2v1 {
          }
          return false;
       }
+      public bool Optional(out ID id) {
+         id = ErrorID;
+         return IsNext(Token.TokenType.ID) ? CanConsume(out id) : false;
+      }
+      public bool Optional(Token.TokenType type) => IsNext(type) ? Consume(type) : false;
+      public bool Optional(Token.ReservedWord type) => IsNext(type) ? Consume(type) : false;
+      public bool Optional(List<Token.TokenType> types,out Token token) { token = Token.ErrorToken; return IsNext(types) ? CanConsume(types,out token) : false; }
+      public bool Optional(Token.TokenType type,out Token token) { token = Token.ErrorToken; return IsNext(type) ? CanConsume(type,out token) : false; }
+
       public bool CanConsume(List<Token.TokenType> types) {
          if (IsNext(types)) {
             Next();
@@ -139,9 +161,9 @@ namespace CDL2v1 {
       /// <param name="unit">The unit type rewerved word.</param>
       /// <param name="id">If stating a unit, the id is set, If ending a unit, it is verified that the id matches the one given in the unit close.</param>
       /// <returns></returns>
-      public bool CanConsumeUnitDelimiter(Token.ReservedWord unit,ref Token id) {
+      public bool CanConsumeUnitDelimiter(Token.ReservedWord unit,ref ID id) {
          Debug.Assert(Token.UnitStarters.Contains(unit) || Token.UnitEnders.Contains(unit));
-         if (CanConsume(unit) && CanConsume(Token.TokenType.ID,out Token thisid) && CanConsumeEnd()) {
+         if (Optional(unit) && CanConsume(out ID thisid) && CanConsumeEnd()) {
             if (Token.UnitStarters.Contains(unit)) {
                id = thisid;
                return true;
@@ -150,7 +172,7 @@ namespace CDL2v1 {
                return true;
             }
          }
-         id = Token.ErrorToken;
+         id = TokenList.ErrorID;
          return false;
       }
 

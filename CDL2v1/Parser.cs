@@ -36,20 +36,18 @@ namespace CDL2v1 {
          /// </summary>
          /// <param name="token">An ID token.</param>
          /// <returns>The ID that was constructed from the token.</returns>
-         public ID Reference(Token token) {
-            ID id = new(token);
+         public ID Reference(ID id) {
             if (TryGetValue(id,out NamedElement? currentValue)) { // If the ID is already in the symbol table
                if (currentValue is Undeclared) return id; // If the ID is already an Undeclared, then do nothing               
             } else { // If the ID is not in the symbol table
-               base[id] = new Undeclared(token); // Add an Undeclared to the symbol table
+               base[id] = new Undeclared(id); // Add an Undeclared to the symbol table
             }
             return id;
          }
-         public ID Reference(ID id) => Reference(id.token); 
       }
 
       public readonly SymbolTable Symbols = [];
-      public required TokenList tokens;
+      public TokenList tokens = new();
       public Program? program;
       public HashSet<Module> modules = [];
 
@@ -63,7 +61,7 @@ namespace CDL2v1 {
          tokens.SetOptions(TokenList.Options.SkipComments | TokenList.Options.ThrowOnUnexpectedToken); // Remove comments from the token list and throw on unexpected tokens
                                                                                                        // The first token should be a module or program
          while (tokens.IsNonEmpty()) {
-            Token unitId = Token.ErrorToken;
+            ID unitId = TokenList.ErrorID;
             if (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.MODULE,ref unitId)) {
                ParseModule(unitId);
             } else if (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.PROGRAM,ref unitId)) {
@@ -76,13 +74,13 @@ namespace CDL2v1 {
          //TODO: Must verify that All ids referenced in CONST elements refer to a declared const, var, or list.
       }
 
-      private void ParseModule(Token moduleId) {
+      private void ParseModule(ID moduleId) {
          currentModule = new Module(moduleId);
          modules.Add(currentModule);
          Symbols[currentModule.name] = currentModule;
 
          // Now should see layers
-         Token layerId = Token.ErrorToken;
+         ID layerId = TokenList.ErrorID;
          while (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.LAYER,ref layerId)) {
             ParseLayer(layerId);
          }
@@ -90,13 +88,13 @@ namespace CDL2v1 {
          tokens.CanConsumeUnitDelimiter(Token.ReservedWord.ENDMOD,ref moduleId);
       }
 
-      private void ParseLayer(Token layerId) {
+      private void ParseLayer(ID layerId) {
          Debug.Assert(currentModule != null);
          currentLayer = new Layer(layerId,currentModule);
          Symbols[currentLayer.name] = currentLayer;
 
          // Now should see sections
-         Token sectionId = Token.ErrorToken;
+         ID sectionId = TokenList.ErrorID;
          while (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.SECTION,ref sectionId)) {
             ParseSection(sectionId);
          }
@@ -105,7 +103,7 @@ namespace CDL2v1 {
       }
 
       private static readonly List<Token.ReservedWord> procTypes = [Token.ReservedWord.FUNCTION,Token.ReservedWord.ACTION,Token.ReservedWord.TEST,Token.ReservedWord.PREDICATE];
-      private void ParseSection(Token sectionId) {
+      private void ParseSection(ID sectionId) {
          Debug.Assert(currentLayer != null);
          // The next token should be an ID
          currentSection = new Section(sectionId,currentLayer);
@@ -136,11 +134,10 @@ namespace CDL2v1 {
          ParseLudes(typeof(Proc));
       }
 
-      private static readonly List<Token.TokenType> bodyTypes = [Token.TokenType.COLON,Token.TokenType.INLINECODEBODY,Token.TokenType.INLINEMACROBODY];
+      private static readonly List<Token.TokenType> bodyTypes = [Token.TokenType.INLINECODEBODY,Token.TokenType.INLINEMACROBODY,Token.TokenType.EQUALS,Token.TokenType.COLON];
       private void ParseProc() {
          Debug.Assert(currentSection != null);
-         Token id = tokens.Next();
-         if (tokens.CanConsume(procTypes,out Token procType)) {
+         if (tokens.CanConsume(procTypes,out Token procType) && tokens.CanConsume(out ID id)) {
             // Now should see args
             List<Arg> args = ParseArgs();
             // Now could see locals
@@ -150,25 +147,124 @@ namespace CDL2v1 {
                if (bodyType.type == Token.TokenType.COLON || bodyType.type == Token.TokenType.INLINECODEBODY) {
                   // Parse the code body
                   proc = new Code(id,args,locals,procType,bodyType.type,currentSection);
-                  ParseCodeBody(proc);
+                  ParseCodeBody((Code)proc);
                } else {
                   // Parse the macro body
                   proc = new Macro(id,args,locals,procType,bodyType.type,currentSection);
-                  ParseMacroBody(proc);
+                  ParseMacroBody((Macro)proc);
                }
                Symbols[proc.name] = proc;
             }
-
-
          } else {
             throw new Exception("Expected FUNCTION, ACTION, TEST, or PREDICATE");
          }
       }
 
-      private void ParseMacroBody(Proc proc) => throw new NotImplementedException();
-      private void ParseCodeBody(Proc proc) => throw new NotImplementedException();
-      private List<ID> ParseLocals() => throw new NotImplementedException();
-      private List<Arg> ParseArgs() => throw new NotImplementedException();
+      private void ParseMacroBody(Macro macro) {
+         while (!tokens.Optional(Token.TokenType.END)) {
+            if (tokens.Optional(Token.TokenType.ID,out Token id)) {
+               macro.elements.Add(Symbols.Reference(new ID(id)));
+            } else if (tokens.Optional(Token.TokenType.STRING,out Token str)) {
+               macro.elements.Add(new STRING(str));
+            } else if (tokens.Optional(Token.TokenType.INT,out Token i)) {
+               macro.elements.Add(new INT(i));
+            } else if (tokens.Optional(Token.TokenType.FLOAT,out Token f)) {
+               macro.elements.Add(new FLOAT(f));
+            } else {
+               ReportError("Expected ID, STRING, INT, or FLOAT");
+            }
+         }
+      }
+      private void ParseCodeBody(Code proc) {
+         proc.alternatives = parseAlternatives();
+         if (!tokens.CanConsume(Token.TokenType.END)) ReportError("Expected .");
+      }
+      private List<Alternative> parseAlternatives() {
+         List<Alternative> alternatives = [];
+         do {
+            alternatives.Add(parseAlternative());
+         } while (tokens.Optional(Token.TokenType.ALTSEP)) ;
+         return alternatives;
+      }
+
+      private Alternative parseAlternative() {
+         List<Call> calls = [];
+         LastCall? lastCall =null;
+         do {
+            if (lastCall != null) {
+               // If we have a last call, then we should not have sees a separator
+               ReportError("Unexpected ,");
+            } else if (tokens.Optional(out ID id)) {
+               Call call = new(Symbols.Reference(id));
+               calls.Add(call);
+               parseActualArgs(call);
+            } else if (tokens.Optional(Token.TokenType.PLUS)) {
+               lastCall = new LastCall(LastCall.CallType.Success);
+            } else if (tokens.Optional(Token.TokenType.MINUS)) {
+               lastCall = new LastCall(LastCall.CallType.Fail);
+            } else if (tokens.Optional(Token.TokenType.ABORT)) {
+               lastCall = new LastCall(LastCall.CallType.Abort);
+            } else if (tokens.Optional(Token.TokenType.STAR)) {
+               lastCall = tokens.CanConsume(out id) ? new LastCall(id) : new LastCall(LastCall.CallType.Repeat);
+            } else if (tokens.Optional(Token.TokenType.GRPOPEN)) {
+               ID label = TokenList.ErrorID;
+               if (tokens.Peek().type == Token.TokenType.ID && tokens.Peek(1).type == Token.TokenType.COLON) {
+                  // Consume the label and the colon
+                  label = new(tokens.Next());
+                  tokens.Next();
+               }
+               Group group = new(label,parseAlternatives());
+               if (!tokens.CanConsume(Token.TokenType.GRPCLOSE)) ReportError("Expected )");
+               lastCall = new LastCall(group);
+            } else {
+               ReportError("Expected ID, +, -, ?, or *");
+            }
+         } while (tokens.Optional(Token.TokenType.SEP));
+         if (lastCall == null) {
+            // The last all postion contained an actual call so convert it to a last call
+            lastCall = new LastCall(calls.Last());
+            calls.RemoveAt(calls.Count - 1);
+         }
+         return new Alternative(calls,lastCall);
+      }
+      /// <summary>
+      /// Parse the actual arguments of a call.
+      /// Actual arguments are a sequence of IDs or strings separated by '+'.
+      /// </summary>
+      /// <param name="call"></param>
+      private void parseActualArgs(Call call) {
+         while (tokens.Optional(Token.TokenType.PLUS)) {
+            if (tokens.Optional(out ID id)) {
+               call.args.Add(Symbols.Reference(id));
+            } else if (tokens.CanConsume(Token.TokenType.STRING,out Token str)) {
+               call.args.Add(new STRING(str));
+            } else {
+               ReportError("Expected ID or STRING");
+            }
+         }
+      }
+
+      private List<ID> ParseLocals() {
+         List<ID> locals = [];
+         while (tokens.Optional(Token.TokenType.MINUS) && tokens.CanConsume(Token.TokenType.ID,out Token id)) locals.Add(new ID(id));
+         return locals;
+      }
+      private static List<Token.TokenType> argTypes = [Token.TokenType.PLUS,Token.TokenType.STAR];
+      private List<Arg> ParseArgs() {
+         List<Arg> args = [];
+         while (tokens.Optional(argTypes,out Token argTypeInd)) {
+            bool isIn = tokens.Optional(Token.TokenType.ARGDIR);
+            if (tokens.CanConsume(out ID id)) {
+               bool isOut = tokens.Optional(Token.TokenType.ARGDIR);
+               Arg.ArgDir argDir = isIn ? (isOut ? Arg.ArgDir.transput : Arg.ArgDir.input) : (isOut ? Arg.ArgDir.output : Arg.ArgDir.NONE);
+               Arg.ArgType argType = argTypeInd.type == Token.TokenType.PLUS ? Arg.ArgType.std : Arg.ArgType.str;
+               if (argType == Arg.ArgType.str && argDir != Arg.ArgDir.NONE) ReportError("String arguments cannot have a direction");
+               if (argType == Arg.ArgType.std && argDir == Arg.ArgDir.NONE) ReportError("Standard arguments must be input, output, or transput");
+               args.Add(new Arg(id,argDir,argType));
+            }
+         }
+         return args;
+      }
 
       private void ParseList() {
          if (tokens.CanConsume(Token.ReservedWord.LIST)) {
@@ -184,7 +280,7 @@ namespace CDL2v1 {
                tokens.CanConsume(Token.TokenType.COLON) &&
                (tokens.CanConsume(Token.TokenType.ID,out Token upb) || tokens.CanConsume(Token.TokenType.INT,out upb)) &&
                tokens.CanConsume(Token.TokenType.GRPCLOSE)) {
-            Symbols[id] = new LIST(id.token,lwb,upb);
+            Symbols[id] = new LIST(id,lwb,upb);
          } else {
             throw new Exception("Expected list bounds");
          }
@@ -192,14 +288,14 @@ namespace CDL2v1 {
       private void ParseVar() {
          if (tokens.CanConsume(Token.ReservedWord.VAR)) {
             Debug.Assert(currentSection != null);
-            ParseIDList(currentSection.vars,null,id => Symbols[id] = new Var(id.token));
+            ParseIDList(currentSection.vars,null,id => Symbols[id] = new Var(id));
          }
       }
 
       private void ParseConst() {
          if (tokens.CanConsume(Token.ReservedWord.CONST)) {
             Debug.Assert(currentSection != null);
-            ParseIDList(currentSection.vars,null,id => ParseConstBody(id));
+            ParseIDList(currentSection.consts,null,id => ParseConstBody(id));
          }
       }
 
@@ -210,7 +306,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="id">The id of the constant.</param>
       private void ParseConstBody(ID id) {
-         Const c = new(id.token);
+         Const c = new(id);
          Symbols[id] = c;
          if (tokens.CanConsume(Token.TokenType.EQUALS)) {
             ParseConstElements(c);
@@ -219,13 +315,13 @@ namespace CDL2v1 {
 
       private void ParseConstElements(Const c) {
          while (!tokens.IsNext(Token.TokenType.END) && !tokens.IsNext(Token.TokenType.SEP)) {
-            if (tokens.CanConsume(Token.TokenType.ID,out Token elemId)) {
+            if (tokens.Optional(Token.TokenType.ID,out Token elemId)) {
                c.elements.Add(Symbols.Reference(new ID(elemId)));
-            } else if (tokens.CanConsume(Token.TokenType.STRING,out Token str)) {
+            } else if (tokens.Optional(Token.TokenType.STRING,out Token str)) {
                c.elements.Add(new STRING(str));
-            } else if (tokens.CanConsume(Token.TokenType.INT,out Token i)) {
+            } else if (tokens.Optional(Token.TokenType.INT,out Token i)) {
                c.elements.Add(new INT(i));
-            } else if (tokens.CanConsume(Token.TokenType.FLOAT,out Token f)) {
+            } else if (tokens.Optional(Token.TokenType.FLOAT,out Token f)) {
                c.elements.Add(new FLOAT(f));
             } else {
                throw new Exception("Expected ID, STRING, INT, or FLOAT");
@@ -285,7 +381,7 @@ namespace CDL2v1 {
 
       private void ParseProgram() {
          // The next token should be an ID
-         tokens.CanConsume(Token.TokenType.ID,out Token id);
+         tokens.CanConsume(out ID id);
          program = new Program(id);
          Symbols[program.name] = program;
 
@@ -296,5 +392,7 @@ namespace CDL2v1 {
          // Consume the ENDPROG token
          tokens.CanConsume(Token.ReservedWord.ENDPROG);
       }
+
+      private void ReportError(string v) => throw new NotImplementedException();
    }
 }

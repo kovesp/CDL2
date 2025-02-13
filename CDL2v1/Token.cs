@@ -22,7 +22,7 @@ namespace CDL2v1 {
       public static readonly ReservedWord[] UnitEnders = { ReservedWord.ENDMOD,ReservedWord.ENDLAY,ReservedWord.ENDSEC,ReservedWord.ENDPROG };
 
       private static readonly Dictionary<string,TokenType> Glyph2TokenType;
-      private static readonly Dictionary<TokenType,string> TokenType2Glyph;
+      public static readonly Dictionary<TokenType,string> TokenType2Glyph;
       private static readonly Dictionary<string,string> Escape2Char;
 
       private static readonly Regex GlyphRE;
@@ -35,7 +35,8 @@ namespace CDL2v1 {
       private static readonly Regex FloatRE;
 
       public static readonly Token ErrorToken;
-      public static readonly Token AnonIdTken;
+      public static readonly ID AnonID;
+      public static readonly Token AnonIDToken;
 
 
       static Token() {
@@ -78,7 +79,8 @@ namespace CDL2v1 {
          StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys/*.Select(Regex.Escape)*/)}])");
 
          ErrorToken = new Token();
-         AnonIdTken = new Token(TokenClass.ID,"Anon");
+         AnonIDToken = new Token(TokenClass.ID,"Anon");
+         AnonID = new ID(AnonIDToken);
       }
 
       readonly public TokenType type;
