@@ -12,6 +12,8 @@ using System.Threading.Tasks.Dataflow;
 namespace CDL2v1 {
    internal class NamedElement(ID id) {
       public readonly ID name = id;
+
+      override public string ToString() => $"{GetType().Name.ToUpper()} {name.token.tokenString}";
    }
 
    // Marker interfaces to allow lists to be composed of permissable elements.
@@ -25,8 +27,6 @@ namespace CDL2v1 {
    internal class Module(ID id) : NamedElement(id) {
       public readonly List<Layer> layers = [];
       public readonly HashSet<ID> import = [];        // Imports are specified in sections, but are propagated up the module level.
-
-      public override string ToString() => $"MODULE {name.name}";
    }
    internal class Layer : NamedElement {
       public readonly Module module;
@@ -35,7 +35,6 @@ namespace CDL2v1 {
          this.module = module;
          module.layers.Add(this);
       }
-      public override string ToString() => $"LAYER {name.name}";
    }
 
    internal class Section : NamedElement {
@@ -60,7 +59,6 @@ namespace CDL2v1 {
          this.layer = layer;
          layer.sections.Add(this);
       }
-      public override string ToString() => $"SECTION {name.name}";
    }
 
    internal class Proc(ID id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : NamedElement(id), ProvidedElement {
@@ -70,7 +68,7 @@ namespace CDL2v1 {
       public readonly List<Arg> args = args;
       public readonly List<ID> locals = locals;
 
-      override public string ToString() => $"{procType} {name.name}{string.Join("",args)} {Token.TokenType2Glyph[bodyType]} ...";
+      // override public string ToString() => $"{procType} {name.name}{string.Join("",args)} {Token.TokenType2Glyph[bodyType]} ...";
    }
    internal class Macro(ID id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
       public List<MacroElement> elements = [];
@@ -148,14 +146,14 @@ namespace CDL2v1 {
       // Stored as tokens to allow for the possibility of a const reference or an intgeger. If a const reference, the reference will be resolved during the semantic analysis.
       public readonly Token lwb = lwb;
       public readonly Token upb = upb;
-      override public string ToString() => $"LIST {name.name}({lwb.sval}:{upb.sval})";
+      // override public string ToString() => $"LIST {name.name}({lwb.sval}:{upb.sval})";
    }
    internal class Var(ID id) : NamedElement(id), MacroElement, ProvidedElement {
       override public string ToString() => $"VAR {name.name}";
    }
    internal class Const(ID id) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
       public readonly List<ConstElement> elements = [];  // Will contain ids (const, var, list) and strings, ints, floats
-      override public string ToString() => $"CONST {name.name}={string.Join("",elements)}";
+      // override public string ToString() => $"CONST {name.name}={string.Join("",elements)}";
    }
 
    internal class Arg(ID id,Arg.ArgDir dir,Arg.ArgType type) : NamedElement(id), MacroElement {

@@ -46,6 +46,28 @@ namespace CDL2v1 {
          }
       }
 
+      public class CompilationObject(Parser parser) {
+         readonly Parser parser = parser;
+
+         public string Program => parser?.program?.ToString() ?? "";
+         public string Module => parser?.currentModule?.ToString() ?? "";
+         public string Layer => parser?.currentLayer?.ToString() ?? "";
+         public string Section => parser?.currentSection?.ToString() ?? "";
+         public enum ObjType { ABSTR, EXT, INV, IMPORT, EXPORT, VAR, CONSTANT, LIST, FUNCTION, ACTION, TEST, PREDICATE, PRELUDE, ROOT, POSTLUDE };
+         private static ObjType[] procs = [ObjType.FUNCTION, ObjType.ACTION, ObjType.TEST, ObjType.PREDICATE];
+         private ObjType type;
+         private ID name = TokenList.ErrorID;
+         public string obj => $"{type}{(procs.Contains(type) ? $" {name}" : "")}";
+         public (Token.ReservedWord,ID) Object {
+            set {
+               type = (ObjType)Enum.Parse(typeof(ObjType),value.Item1.ToString());
+               name = value.Item2;
+            }
+         }
+
+         override public string ToString() => $"{Program} {Module} {Layer} {Section} {obj}";
+      }
+
       public readonly SymbolTable Symbols = [];
       public TokenList tokens = new();
       public Program? program;
@@ -54,6 +76,10 @@ namespace CDL2v1 {
       private Module? currentModule;
       private Layer? currentLayer;
       private Section? currentSection;
+      public CompilationObject currentObject;
+
+      public Parser() => currentObject = new CompilationObject(this);
+
 
       internal void Parse(TokenList tokens) {
          this.tokens = tokens;
@@ -75,6 +101,7 @@ namespace CDL2v1 {
       }
 
       private void ParseModule(ID moduleId) {
+         currentObject.Object = (Token.ReservedWord.MODULE, moduleId);
          currentModule = new Module(moduleId);
          modules.Add(currentModule);
          Symbols[currentModule.name] = currentModule;
@@ -90,6 +117,7 @@ namespace CDL2v1 {
 
       private void ParseLayer(ID layerId) {
          Debug.Assert(currentModule != null);
+         currentObject.Object = (Token.ReservedWord.MODULE, layerId);
          currentLayer = new Layer(layerId,currentModule);
          Symbols[currentLayer.name] = currentLayer;
 
@@ -105,6 +133,7 @@ namespace CDL2v1 {
       private static readonly List<Token.ReservedWord> procTypes = [Token.ReservedWord.FUNCTION,Token.ReservedWord.ACTION,Token.ReservedWord.TEST,Token.ReservedWord.PREDICATE];
       private void ParseSection(ID sectionId) {
          Debug.Assert(currentLayer != null);
+         currentObject.Object = (Token.ReservedWord.SECTION, sectionId);
          // The next token should be an ID
          currentSection = new Section(sectionId,currentLayer);
          Symbols[currentSection.name] = currentSection;
@@ -138,6 +167,7 @@ namespace CDL2v1 {
       private void ParseProc() {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(procTypes,out Token procType) && tokens.CanConsume(out ID id)) {
+            currentObject.Object = (procType.rval ?? Token.ReservedWord.FUNCTION, id);
             // Now should see args
             List<Arg> args = ParseArgs();
             // Now could see locals
@@ -393,6 +423,10 @@ namespace CDL2v1 {
          tokens.CanConsume(Token.ReservedWord.ENDPROG);
       }
 
-      private void ReportError(string v) => throw new NotImplementedException();
+      private void ReportError(string v) => Logger.ReportError($"MOD {currentModule} LAY {currentLayer} SEC {currentSection}: {v}");
+      internal void SkipToNextEnd() {
+         while (!tokens.IsNext(Token.TokenType.END)) tokens.Skip();
+         tokens.Skip(); // The end itself
+      }
    }
 }
