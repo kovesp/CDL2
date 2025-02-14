@@ -32,7 +32,7 @@ internal class CDL2 {
                 description: "Set the verbosity level (0-3)"),
             new Option<bool>(
                 "--lineNumbers",
-                getDefaultValue: () => true,
+                getDefaultValue: () => false,
                 description: "Add line numbers to the token stream"),
             new Option<string>(
                 ["-t","--target"],
@@ -43,10 +43,18 @@ internal class CDL2 {
       rootCommand.Description = "CDL2 Compiler";
 
       // Set the handler for the root command
-      rootCommand.SetHandler((string[] sources) => Compiler.CompileSources(sources),new Option<string[]>("--sources"));
-      rootCommand.SetHandler((int verbosity) => Compiler.VerbosityLevel = verbosity,new Option<int>(["-v","--verbose"]));
-      rootCommand.SetHandler((bool lineNumbers) => Compiler.LineNumbers = lineNumbers,new Option<bool>("--lineNumbers"));
-      rootCommand.SetHandler((string target) => Compiler.Target = target,new Option<string>(["-t","--target"]));
+      rootCommand.SetHandler((string[] sources,int verbosity,bool lineNumbers,string target) =>
+      {
+         Compiler.VerbosityLevel = verbosity;
+         Compiler.LineNumbers = lineNumbers;
+         Compiler.Target = target;
+         Compiler.CompileSources(sources);
+      },
+      rootCommand.Options[0] as Option<string[]>,
+      rootCommand.Options[1] as Option<int>,
+      rootCommand.Options[2] as Option<bool>,
+      rootCommand.Options[3] as Option<string>);
+
 
       // Invoke the command handler
       rootCommand.Invoke(args);

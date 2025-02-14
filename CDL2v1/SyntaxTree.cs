@@ -13,7 +13,8 @@ namespace CDL2v1 {
    internal class NamedElement(ID id) {
       public readonly ID name = id;
 
-      override public string ToString() => $"{GetType().Name.ToUpper()} {name.token.tokenString}";
+      override public string ToString() => $"{ItemTypeShortName} {name.token.tokenString}";
+      protected virtual string ItemTypeShortName => GetType().Name.ToUpper().Substring(0,3);
    }
 
    // Marker interfaces to allow lists to be composed of permissable elements.
@@ -70,7 +71,7 @@ namespace CDL2v1 {
       public readonly List<Arg> args = args;
       public readonly List<ID> locals = locals;
 
-      // override public string ToString() => $"{procType} {name.name}{string.Join("",args)} {Token.TokenType2Glyph[bodyType]} ...";
+      override protected string ItemTypeShortName => $"{procType}";
    }
    internal class Macro(ID id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
       public List<MacroElement> elements = [];
@@ -180,10 +181,10 @@ namespace CDL2v1 {
    internal class ID : ConstElement, MacroElement, ActualArg {
       public readonly string name = "ERROR";
       public readonly Token token = Token.ErrorToken;
-      public ID(Token id) {
-         Debug.Assert(id.type == Token.TokenType.ID && id.sval != null,"Program constructor: id not TokenType.ID or sval is null");
-         token = id;
-         name = id.sval;
+      public ID(Token token) {
+         Debug.Assert(token.type == Token.TokenType.ID && token.sval != null,"Program constructor: id not TokenType.ID or sval is null");
+         this.token = token;
+         name = token.tokenString;
       }
       public ID() { }
       public ID(string name) => this.name = name;
@@ -202,5 +203,6 @@ namespace CDL2v1 {
       public List<Proc> prelude = new();
       public List<Proc> root = new();
       public List<Proc> postlude = new();
+      override protected string ItemTypeShortName => "PROG";
    }
 }

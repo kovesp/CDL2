@@ -14,11 +14,12 @@ namespace CDL2v1 {
       public class CompilationObject(Parser parser) {
          readonly Parser parser = parser;
 
-         public string Program => parser?.program?.ToString() ?? "";
-         public string Module => parser?.currentModule?.ToString() ?? "";
-         public string Layer => parser?.currentLayer?.ToString() ?? "";
-         public string Section => parser?.currentSection?.ToString() ?? "";
-         public enum ObjType { ABSTR, EXT, INV, IMPORT, EXPORT, VAR, CONSTANT, LIST, FUNCTION, ACTION, TEST, PREDICATE, PRELUDE, ROOT, POSTLUDE };
+         public string Program => (parser?.program?.ToString()+" ") ?? "";
+         public string Module  => (parser?.currentModule?.ToString() + " ") ?? "";
+         public string Layer   => (parser?.currentLayer?.ToString() + " ") ?? "";
+         public string Section => (parser?.currentSection?.ToString() + " ") ?? "";
+
+         public enum ObjType { ABSTR, EXT, INV, IMPORT, EXPORT, VAR, CONSTANT, LIST, FUNCTION, ACTION, TEST, PREDICATE, PRELUDE, ROOT, POSTLUDE, MODULE, LAYER, SECTION, PROGRAM };
          private static ObjType[] procs = [ObjType.FUNCTION, ObjType.ACTION, ObjType.TEST, ObjType.PREDICATE];
          private ObjType type;
          private ID name = TokenList.ErrorID;
@@ -30,7 +31,7 @@ namespace CDL2v1 {
             }
          }
 
-         override public string ToString() => $"{Program} {Module} {Layer} {Section} {obj}";
+         override public string ToString() => $"{Program}{Module}{Layer}{Section}{obj}";
       }
 
       public readonly SymbolTable Symbols = [];
