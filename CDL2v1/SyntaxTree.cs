@@ -83,7 +83,7 @@ namespace CDL2v1 {
    internal class Call(ID id) {
       public readonly ID id = id;
       public readonly List<ActualArg> args = [];
-      override public string ToString() => $"{id.name}+({string.Join("+",args)})";
+      override public string ToString() => $"{id.name}+{string.Join("+",args)}";
    }
    // The last element (in an alternative) can be:
    //    Standard - a normal procedure call which is the last item in the alternatives' procs list.

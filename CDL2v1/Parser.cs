@@ -188,7 +188,7 @@ namespace CDL2v1 {
          LastCall? lastCall =null;
          do {
             if (lastCall != null) {
-               // If we have a last call, then we should not have sees a separator
+               // If we have a last call, then we should NOT have see a separator
                ReportError("Unexpected ,");
             } else if (tokens.Optional(out ID id)) {
                Call call = new(Symbols.Reference(id));
@@ -201,17 +201,9 @@ namespace CDL2v1 {
             } else if (tokens.Optional(Token.TokenType.ABORT)) {
                lastCall = new LastCall(LastCall.CallType.Abort);
             } else if (tokens.Optional(Token.TokenType.STAR)) {
-               lastCall = tokens.CanConsume(out id) ? new LastCall(id) : new LastCall(LastCall.CallType.Repeat);
+               lastCall = tokens.Optional(out id) ? new LastCall(id) : new LastCall(LastCall.CallType.Repeat);
             } else if (tokens.Optional(Token.TokenType.GRPOPEN)) {
-               ID label = TokenList.ErrorID;
-               if (tokens.Peek().type == Token.TokenType.ID && tokens.Peek(1).type == Token.TokenType.COLON) {
-                  // Consume the label and the colon
-                  label = new(tokens.Next());
-                  tokens.Next();
-               }
-               Group group = new(label,parseAlternatives());
-               if (!tokens.CanConsume(Token.TokenType.GRPCLOSE)) ReportError("Expected )");
-               lastCall = new LastCall(group);
+               lastCall = parseGroup();
             } else {
                ReportError("Expected ID, +, -, ?, or *");
             }
@@ -223,6 +215,27 @@ namespace CDL2v1 {
          }
          return new Alternative(calls,lastCall);
       }
+
+      private LastCall parseGroup() {
+         LastCall? lastCall;
+         ID label = parseOptionalLabel();
+         Group group = new(label,parseAlternatives());
+         if (!tokens.CanConsume(Token.TokenType.GRPCLOSE)) ReportError("Expected )");
+         lastCall = new LastCall(group);
+         return lastCall;
+      }
+
+      private ID parseOptionalLabel() {
+         if (tokens.Peek().type == Token.TokenType.ID && tokens.Peek(1).type == Token.TokenType.COLON) {
+            // Consume the label and the colon
+            ID label = new(tokens.Next());
+            tokens.Next();
+            return label;
+         } else {
+            return TokenList.AnonID;
+         }
+      }
+
       /// <summary>
       /// Parse the actual arguments of a call.
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
