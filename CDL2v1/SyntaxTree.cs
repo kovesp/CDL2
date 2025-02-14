@@ -45,6 +45,8 @@ namespace CDL2v1 {
       public readonly HashSet<ID> export = [];
       public readonly HashSet<ID> import = [];
 
+      public SymbolTable symbolTable = [];      // TODO: The symbol table for the section. Placeholder fro now
+
       // These sets contain the names of the elements in the section. The actual elements are in the symbol table.
       public readonly HashSet<ID> routines = [];  // Both code and macros
       public readonly HashSet<ID> lists = [];

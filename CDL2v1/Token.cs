@@ -79,7 +79,7 @@ namespace CDL2v1 {
          StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys/*.Select(Regex.Escape)*/)}])");
 
          ErrorToken = new Token();
-         AnonIDToken = new Token(TokenClass.ID,"Anon");
+         AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
          AnonID = new ID(AnonIDToken);
       }
 
@@ -93,16 +93,25 @@ namespace CDL2v1 {
       //    COMMENT: sval is the comment
 
       readonly public string tokenString = "";
+      readonly public int lineNumber = 0;
+      readonly public int columnNumber = 0;
+      readonly public string fileName = "";
+
       readonly public ReservedWord? rval;
       readonly public string? sval;
       readonly public long? ival;
       readonly public double? fval;
+      private TokenClass tokenClass;
+      //private string value;
 
       private enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float };
+
       private Token() => type = TokenType.ERROR;
       
-      private Token(TokenClass cls,string text) {
+      private Token(TokenClass cls,string text,string fileName,int lineNumber) {
          tokenString = text;
+         this.fileName = fileName;
+         this.lineNumber = lineNumber;
          switch (cls) {
             case TokenClass.Comment:
                type = TokenType.COMMENT;
@@ -148,11 +157,12 @@ namespace CDL2v1 {
       /// <param name="input">The input string. If a token is found the characters consumed are removed.</param>
       /// <param name="token">The token that was found. If none, it will be ErrorToken.</param>
       /// <returns>True if a token was found.</returns>
-      private static bool HandleMatch(Regex regex,TokenClass tokenClass,ref string input,out Token token) {
+      /// <param name="fileName"></param><param name="lineNumber"></param>
+      private static bool HandleMatch(Regex regex,TokenClass tokenClass,ref string input,out Token token,string fileName,int lineNumber) {
          Match match = regex.Match(input);
          if (match.Success) {
             input = input[match.Length..].TrimStart();
-            token = new Token(tokenClass,match.Value);
+            token = new Token(tokenClass,match.Value,fileName,lineNumber);
             return true;
          } else {
             token = ErrorToken;
@@ -168,21 +178,28 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="input">The input string. Consumed characters are removed.</param>
       /// <param name="token">The token that was found.</param>
+      /// <param name="fileName">The name of the file being tokenized.</param>
+      /// <param name="lineNumber">The line number of the token.</param>
       /// <returns>true if the staring started with a valid token.</returns>
-      public static bool TryCreateToken(ref string input,out Token token) {
+      public static bool TryCreateToken(ref string input,out Token token,string fileName,ref int lineNumber) {
          input = input.TrimStart();
          token = ErrorToken;
 
          if (string.IsNullOrEmpty(input)) return false;
-         if (HandleMatch(CommentRE,TokenClass.Comment,ref input,out token)) return true;
-         if (HandleMatch(StringRE,TokenClass.String,ref input,out token)) return true;
-         if (HandleMatch(ReswordRE,TokenClass.ResWord,ref input,out token)) return true;
-         if (HandleMatch(IdRE,TokenClass.ID,ref input,out token)) return true;
-         if (HandleMatch(IntRE,TokenClass.Int,ref input,out token)) return true;
-         if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token)) return true;
-         if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token)) return true; // Must be place after Int & Float as they may start with + or -
+         if (HandleMatch(CommentRE,TokenClass.Comment,ref input,out token,fileName,lineNumber)) return true;
+         if (HandleMatch(StringRE,TokenClass.String,ref input,out token,fileName,lineNumber)) return true;
+         if (HandleMatch(ReswordRE,TokenClass.ResWord,ref input,out token,fileName,lineNumber)) return true;
+         if (HandleMatch(IdRE,TokenClass.ID,ref input,out token,fileName,lineNumber)) return true;
+         if (HandleMatch(IntRE,TokenClass.Int,ref input,out token,fileName,lineNumber)) return true;
+         if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token,fileName,lineNumber)) return true;
+         if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token,fileName,lineNumber)) return true; // Must be place after Int & Float as they may start with + or -
 
          return false;
+      }
+      // TODO: Remove this when linenumber passed in TryCreateToken
+      public static bool TryCreateToken(ref string input,out Token token) {
+         int lineNumber = 0;
+         return TryCreateToken(ref input,out token,"",ref lineNumber);
       }
 
       public override string ToString() {

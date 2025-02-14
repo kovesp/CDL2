@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace CDL2v1 {
    internal class LexicalAnalyzer {
       public static TokenList Tokenize(string filePath) {
-         TokenList tokens = new TokenList();
+         TokenList tokens = new();
 
          string input = File.ReadAllText(filePath);
 

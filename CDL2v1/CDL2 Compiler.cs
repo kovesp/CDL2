@@ -11,6 +11,8 @@ internal class CDL2 {
    public static CDL2 Compiler;
 
    public int VerbosityLevel { get; set; }
+   public bool LineNumbers { get; set; }
+   public string Target { get; set; } = "";
 
    static CDL2() {
       Compiler = new CDL2();
@@ -25,16 +27,26 @@ internal class CDL2 {
                 "--sources",
                 description: "The source files to compile"),
             new Option<int>(
-                new string[] { "-v", "--verbose" },
+                ["-v", "--verbose"],
                 getDefaultValue: () => 0,
-                description: "Set the verbosity level (0-3)")
+                description: "Set the verbosity level (0-3)"),
+            new Option<bool>(
+                "--lineNumbers",
+                getDefaultValue: () => true,
+                description: "Add line numbers to the token stream"),
+            new Option<string>(
+                ["-t","--target"],
+                getDefaultValue: () => "PowerShell",
+                description: "Generate code for the specified target language. Default is PowerShell.")
       };
 
       rootCommand.Description = "CDL2 Compiler";
 
-
       // Set the handler for the root command
       rootCommand.SetHandler((string[] sources) => Compiler.CompileSources(sources),new Option<string[]>("--sources"));
+      rootCommand.SetHandler((int verbosity) => Compiler.VerbosityLevel = verbosity,new Option<int>(["-v","--verbose"]));
+      rootCommand.SetHandler((bool lineNumbers) => Compiler.LineNumbers = lineNumbers,new Option<bool>("--lineNumbers"));
+      rootCommand.SetHandler((string target) => Compiler.Target = target,new Option<string>(["-t","--target"]));
 
       // Invoke the command handler
       rootCommand.Invoke(args);
@@ -43,6 +55,7 @@ internal class CDL2 {
    public Parser? Parser;
    public SemanticAnalyzer? semanticAnalyzer;
    public CodeGenerator? codeGenerator;
+
    public void CompileSources(string[] args) {
       Parser = new Parser();
       foreach (var arg in args) {
@@ -59,17 +72,30 @@ internal class CDL2 {
       // Perform semantic checks
       semanticAnalyzer = new SemanticAnalyzer();
       if (Parser.program != null) {
+         // TODO: If errors are found, null out the program object.
          semanticAnalyzer.Analyze(Parser.program);
       }
 
-      // Later choose from options which code generator to use, for now there is only one
-      codeGenerator = new CodeGeneratorPowerShell();
-
-      if (Parser.program != null) {
+      ICodeGenerator? cg = CreateCodeGenerator(Target);
+      if (Parser.program != null && cg != null) {
+         codeGenerator = new CodeGenerator(cg);
          codeGenerator.GenerateCode(Parser.program);
       } else {
          Console.WriteLine("No program found in the source files");
       }
+   }
+
+   private ICodeGenerator? CreateCodeGenerator(string target) {
+      try {
+         string className = $"CDL2v1.CodeGenerator{target}";
+         Type? type = Type.GetType(className);
+         if (type != null && typeof(ICodeGenerator).IsAssignableFrom(type)) {
+            return Activator.CreateInstance(type) as ICodeGenerator;
+         }
+      } catch (Exception ex) {
+         Console.WriteLine($"Error creating code generator for target {target}: {ex.Message}");
+      }
+      return null;
    }
 
    /// <summary>
