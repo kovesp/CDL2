@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -54,9 +55,9 @@ namespace CDL2v1 {
                                                                                                        // The first token should be a module or program
          while (tokens.IsNonEmpty()) {
             ID unitId = TokenList.ErrorID;
-            if (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.MODULE,ref unitId)) {
+            if (tokens.CanConsumeContainerDelimiter(Token.ReservedWord.MODULE,ref unitId)) {
                ParseModule(unitId);
-            } else if (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.PROGRAM,ref unitId)) {
+            } else if (tokens.CanConsumeContainerDelimiter(Token.ReservedWord.PROGRAM,ref unitId)) {
                ParseProgram();
             } else {
                throw new Exception("Expected MODULE or PROGRAM");
@@ -66,6 +67,21 @@ namespace CDL2v1 {
          //TODO: Must verify that All ids referenced in CONST elements refer to a declared const, var, or list.
       }
 
+      /// <summary>
+      /// Parse a module.
+      /// This implementation uses the implementation favoured by the CDL2 lab, i.e., that a PROGRAM is required to specify the participating modules.
+      /// The PROGRAM ludes specify modules, such modules must have corresponding ludes which specify sections, and the sections have ludes specifying the routines to call.
+      /// 
+      /// The CDL2 compiler required that only a single module have ludes.
+      /// 
+      /// This implementation therefore will:
+      /// * If there is a PROGRAM, follow the CDL2 lab convention.
+      /// * Otherwise it will follow the CD2 compiler convention.
+      /// 
+      /// THis is irrlevant for parsing, it will be handled in the semantic analysis.
+      /// TODO: Semantic analysis to enforce CDL2 lab or compiler convention.
+      /// </summary>
+      /// <param name="moduleId">The ID (name) of the module.</param>
       private void ParseModule(ID moduleId) {
          currentObject.Object = (Token.ReservedWord.MODULE, moduleId);
          currentModule = new Module(moduleId);
@@ -74,11 +90,12 @@ namespace CDL2v1 {
 
          // Now should see layers
          ID layerId = TokenList.ErrorID;
-         while (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.LAYER,ref layerId)) {
+         while (tokens.CanConsumeContainerDelimiter(Token.ReservedWord.LAYER,ref layerId)) {
             ParseLayer(layerId);
          }
          // Consume the ENDMOD
-         tokens.CanConsumeUnitDelimiter(Token.ReservedWord.ENDMOD,ref moduleId);
+         tokens.CanConsumeContainerDelimiter(Token.ReservedWord.ENDMOD,ref moduleId);
+         ParseLudes(currentModule);
       }
 
       private void ParseLayer(ID layerId) {
@@ -89,11 +106,11 @@ namespace CDL2v1 {
 
          // Now should see sections
          ID sectionId = TokenList.ErrorID;
-         while (tokens.CanConsumeUnitDelimiter(Token.ReservedWord.SECTION,ref sectionId)) {
+         while (tokens.CanConsumeContainerDelimiter(Token.ReservedWord.SECTION,ref sectionId)) {
             ParseSection(sectionId);
          }
          // Consume the ENDLAY
-         tokens.CanConsumeUnitDelimiter(Token.ReservedWord.ENDLAY,ref layerId);
+         tokens.CanConsumeContainerDelimiter(Token.ReservedWord.ENDLAY,ref layerId);
       }
 
       private static readonly List<Token.ReservedWord> procTypes = [Token.ReservedWord.FUNCTION,Token.ReservedWord.ACTION,Token.ReservedWord.TEST,Token.ReservedWord.PREDICATE];
@@ -124,9 +141,9 @@ namespace CDL2v1 {
          }
 
          // Consume the ENDSEC
-         tokens.CanConsumeUnitDelimiter(Token.ReservedWord.ENDSEC,ref sectionId);
-         // Now could see prelude, root, postlude in that order
-         ParseLudes(typeof(Proc));
+         tokens.CanConsumeContainerDelimiter(Token.ReservedWord.ENDSEC,ref sectionId);
+         // Now could see prelude, root, postlude in that order. This implementation implies that only parameterless procs can be called.
+         ParseLudes(currentSection);
       }
 
       private static readonly List<Token.TokenType> bodyTypes = [Token.TokenType.INLINECODEBODY,Token.TokenType.INLINEMACROBODY,Token.TokenType.EQUALS,Token.TokenType.COLON];
@@ -359,11 +376,11 @@ namespace CDL2v1 {
          }
       }
 
-      private void ParseLudes(Type type) {
+      private void ParseLudes(Container container) {
          Debug.Assert(currentSection != null);
-         ParseLude(Token.ReservedWord.PRELUDE,typeof(ProvidedElement),currentSection.prelude);
-         ParseLude(Token.ReservedWord.ROOT,typeof(ProvidedElement),currentSection.root);
-         ParseLude(Token.ReservedWord.POSTLUDE,typeof(ProvidedElement),currentSection.postlude);
+         ParseLude(Token.ReservedWord.PRELUDE,typeof(ProvidedElement),container.prelude);
+         ParseLude(Token.ReservedWord.ROOT,typeof(ProvidedElement),container.root);
+         ParseLude(Token.ReservedWord.POSTLUDE,typeof(ProvidedElement),container.postlude);
       }
 
       private void ParseLude(Token.ReservedWord ludeType,Type itemType,List<ID> idlist) {
@@ -398,6 +415,7 @@ namespace CDL2v1 {
          while (tokens.CanConsume(Token.ReservedWord.PART)) {
          }
 
+         // Now should see ludes.
          // Consume the ENDPROG token
          tokens.CanConsume(Token.ReservedWord.ENDPROG);
       }

@@ -161,7 +161,7 @@ namespace CDL2v1 {
       /// <param name="unit">The unit type rewerved word.</param>
       /// <param name="id">If stating a unit, the id is set, If ending a unit, it is verified that the id matches the one given in the unit close.</param>
       /// <returns></returns>
-      public bool CanConsumeUnitDelimiter(Token.ReservedWord unit,ref ID id) {
+      public bool CanConsumeContainerDelimiter(Token.ReservedWord unit,ref ID id) {
          Debug.Assert(Token.UnitStarters.Contains(unit) || Token.UnitEnders.Contains(unit));
          if (Optional(unit) && CanConsume(out ID thisid) && CanConsumeEnd()) {
             if (Token.UnitStarters.Contains(unit)) {

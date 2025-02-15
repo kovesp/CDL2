@@ -25,43 +25,37 @@ namespace CDL2v1 {
    public interface RequiredElement : InterfaceElement { }
    public interface ActualArg { }
 
-   internal class Module(ID id) : NamedElement(id) {
-      public readonly List<Layer> layers = [];
-      public readonly HashSet<ID> import = [];        // Imports are specified in sections, but are propagated up the module level.
-   }
-   internal class Layer : NamedElement {
-      public readonly Module module;
-      public readonly HashSet<Section> sections = [];
-      public Layer(ID id,Module module) : base(id) {
-         this.module = module;
-         module.layers.Add(this);
-      }
+   internal abstract class Container(ID id) : NamedElement(id) {
+      public Container(ID id,Container? parent) : this(id) => (this.parent = parent)?.children.Add(this); 
+
+      public readonly Container? parent;
+      public List<Container> children = [];
+
+      public SymbolTable symbolTable = [];      // TODO: The symbol table for the container. Placeholder for now.
+
+      public readonly List<ID> prelude = [];
+      public readonly List<ID> root = [];
+      public readonly List<ID> postlude = [];     
    }
 
-   internal class Section : NamedElement {
-      public readonly Layer layer;
+   internal class Module(ID id) : Container(id) {
+      public readonly HashSet<ID> import = [];        // Imports are specified in sections, but are propagated up the module level.
+   }
+
+   internal class Layer(ID id,Module module) : Container(id,module) {  }
+
+   internal class Section(ID id,Layer layer) : Container(id,layer) {
       public readonly HashSet<ID> ext = [];
       public readonly HashSet<ID> abstr = [];
       public readonly HashSet<ID> inv = [];
       public readonly HashSet<ID> export = [];
-      public readonly HashSet<ID> import = [];
-
-      public SymbolTable symbolTable = [];      // TODO: The symbol table for the section. Placeholder fro now
+      public readonly HashSet<ID> import = [];      
 
       // These sets contain the names of the elements in the section. The actual elements are in the symbol table.
       public readonly HashSet<ID> routines = [];  // Both code and macros
       public readonly HashSet<ID> lists = [];
       public readonly HashSet<ID> vars = [];
       public readonly HashSet<ID> consts = [];
-
-      public readonly List<ID> prelude = [];
-      public readonly List<ID> root = [];
-      public readonly List<ID> postlude = [];
-
-      public Section(ID id,Layer layer) : base(id) {
-         this.layer = layer;
-         layer.sections.Add(this);
-      }
    }
 
    internal class Proc(ID id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : NamedElement(id), ProvidedElement {
