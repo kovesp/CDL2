@@ -2,7 +2,7 @@
   "profiles": {
     "CDL2v1": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Test.cdl2 --verbose 3",
+      "commandLineArgs": "--sources Test.cdl2 --verbose 0 --debuglog 3",
       "workingDirectory": "C:\\CDL2"
     }
   }

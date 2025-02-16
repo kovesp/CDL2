@@ -13,6 +13,7 @@ internal class CDL2 {
    public int VerbosityLevel { get; set; }
    public bool LineNumbers { get; set; }
    public string Target { get; set; } = "";
+   public int DebugVerbosityLevel { get; internal set; }
 
    static CDL2() {
       Compiler = new CDL2();
@@ -28,8 +29,12 @@ internal class CDL2 {
                 description: "The source files to compile"),
             new Option<int>(
                 ["-v", "--verbose"],
-                getDefaultValue: () => 0,
+                getDefaultValue: () => -1,   // Means off
                 description: "Set the verbosity level (0-3)"),
+            new Option<int>(
+                ["-d", "--debuglog"],
+                getDefaultValue: () => -1,   // Means off
+                description: "Set the debug verbosity level (0-3)"),
             new Option<bool>(
                 "--lineNumbers",
                 getDefaultValue: () => false,
@@ -43,17 +48,19 @@ internal class CDL2 {
       rootCommand.Description = "CDL2 Compiler";
 
       // Set the handler for the root command
-      rootCommand.SetHandler((string[] sources,int verbosity,bool lineNumbers,string target) =>
+      rootCommand.SetHandler((string[] sources,int verbosity,int debugVerbosity,bool lineNumbers,string target) =>
       {
          Compiler.VerbosityLevel = verbosity;
+         Compiler.DebugVerbosityLevel = debugVerbosity;
          Compiler.LineNumbers = lineNumbers;
          Compiler.Target = target;
          Compiler.CompileSources(sources);
       },
       rootCommand.Options[0] as Option<string[]>,
       rootCommand.Options[1] as Option<int>,
-      rootCommand.Options[2] as Option<bool>,
-      rootCommand.Options[3] as Option<string>);
+      rootCommand.Options[2] as Option<int>,
+      rootCommand.Options[3] as Option<bool>,
+      rootCommand.Options[4] as Option<string>);
 
 
       // Invoke the command handler
@@ -65,35 +72,39 @@ internal class CDL2 {
    public CodeGenerator? codeGenerator;
 
    public void CompileSources(string[] args) {
-      Parser = new Parser();
-      foreach (var arg in args) {
-         string source = Path.GetFullPath(arg);
-         if (File.Exists(source)) {
-            Console.WriteLine($"   Compiling {source} ... Lexical analysis");
-            TokenList sourceTokens = LexicalAnalyzer.Tokenize(source);
-
-            // Add the tokens comprising the file to the syntax tree
-            Parser.Parse(sourceTokens);
+      if (args.Length > 0) {
+         Parser = new Parser();
+         foreach (var arg in args) {
+            string source = Path.GetFullPath(arg);
+            if (File.Exists(source)) {
+               Logger.Log(0,$"Compiling {source}");
+               TokenList sourceTokens = LexicalAnalyzer.Tokenize(source);
+               // Add the tokens comprising the file to the syntax tree
+               Parser.Parse(sourceTokens);
+            }
          }
-      }
 
-      // Perform semantic checks
-      semanticAnalyzer = new SemanticAnalyzer();
-      if (Parser.program != null) {
-         // TODO: If errors are found, null out the program object.
-         semanticAnalyzer.Analyze(Parser.program);
-      }
+         // Perform semantic checks
+         semanticAnalyzer = new SemanticAnalyzer();
+         if (Parser.program != null) {
+            // TODO: If errors are found, null out the program object.
+            semanticAnalyzer.Analyze(Parser.program);
+         }
 
-      ICodeGenerator? cg = CreateCodeGenerator(Target);
-      if (Parser.program != null && cg != null) {
-         codeGenerator = new CodeGenerator(cg);
-         codeGenerator.GenerateCode(Parser.program);
-      } else {
-         Console.WriteLine("No program found in the source files");
+         ICodeGenerator? cg = CreateCodeGenerator(Target);
+         ICodeEmiter emitter = new DebugCodeEmitter();
+         if (Parser.program != null && cg != null) {
+            string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
+            Logger.Log(0,$"Generating code for {Target} into {emitter.Target}");
+            codeGenerator = new CodeGenerator(cg);
+            codeGenerator.GenerateCode(Parser.program,emitter);
+         } else {
+            Console.WriteLine("No program found in the source files");
+         }
       }
    }
 
-   private ICodeGenerator? CreateCodeGenerator(string target) {
+   private static ICodeGenerator? CreateCodeGenerator(string target) {
       try {
          string className = $"CDL2v1.CodeGenerator{target}";
          Type? type = Type.GetType(className);

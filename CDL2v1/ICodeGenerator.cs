@@ -6,21 +6,21 @@
 /// They will be called by the generic code generator to generate specific elements for the target language.
 /// </summary>
 internal interface ICodeGenerator {
-   void GenerateStart(Program program);
-   void GenerateEnd(Program program);
+   public void GenerateStart(Program program,ICodeEmiter emiter);
+   public void GenerateEnd(Program program);
 
-   void GenerateStart(Module module);
-   void GenerateEnd(Module module);
-   void GenerateStart(Layer layer);
-   void GenerateEnd(Layer layer);
-   void GenerateStart(Section section);
-   void GenerateEnd(Section section);
+   public void GenerateStart(Module module);
+   public void GenerateEnd(Module module);
+   public void GenerateStart(Layer layer);
+   public void GenerateEnd(Layer layer);
+   public void GenerateStart(Section section);
+   public void GenerateEnd(Section section);
 
-   void GenerateCodeExport(ID id);
-   void GenerateCodeImport(ID id);
+   public void GenerateCodeExport(ID id);
+   public void GenerateCodeImport(ID id);
 
-   void GenerateStart(Macro macro);
-   void GenerateEnd(Macro macro);
+   public void GenerateStart(Macro macro);
+   public void GenerateEnd(Macro macro);
 
    /// <summary>
    /// The body of a CDL2 rule should look somethong like this:
@@ -58,21 +58,26 @@ internal interface ICodeGenerator {
    /// }
    /// </summary>
    /// <param name="macro"></param>
-   void GenerateStart(Code code);
-   void GenerateEnd(Code code);
+   public void GenerateStart(Code code);
+   public void GenerateEnd(Code code);
 
-   void GenerateStart(Alternative alternative);
-   void GenerateEnd(Alternative alternative);
-   void GenerateStart(Group group);
-   void GenerateEnd(Group group);
+   public void GenerateStart(Alternative alternative);
+   public void GenerateEnd(Alternative alternative);
+   public void GenerateStart(Group group);
+   public void GenerateEnd(Group group);
 
-   void GenerateStart(Call call);
-   void GenerateEnd(Call call);
+   public void GenerateStart(Call call);
+   public void GenerateEnd(Call call);
 
-   void GenerateCode(ActualArg arg);
-   void GenerateCode(Arg arg);
+   public void GenerateCode(ActualArg arg);
+   public void GenerateCode(Arg arg);
 
-   void GenerateCode(Const c);
-   void GenerateCode(Var v);
-   void GenerateCode(LIST l);
+   public void GenerateCode(Const c);
+   public void GenerateCode(Var v);
+   public void GenerateCode(LIST l);
+
+   void GenerateLudeStart(Token.ReservedWord ludeType,Container section);
+   void GenerateLudeEend(Token.ReservedWord ludeType,Container section);
+
+   public string FileExtension { get; }
 }

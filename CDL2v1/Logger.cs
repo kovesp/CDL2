@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -7,7 +8,10 @@ using System.Threading.Tasks;
 namespace CDL2v1 {
    internal class Logger {
       public static void Log(int level,string message) {
-         if (level >= CDL2.Compiler.VerbosityLevel) Console.WriteLine(message);
+         string prefix = "CDL2: "+ new string(' ',3 * level);
+         message = prefix+message.Replace("\n","\n" + prefix);
+         if (level <= CDL2.Compiler.VerbosityLevel) Console.WriteLine(message);
+         if (level <= CDL2.Compiler.DebugVerbosityLevel) Debug.WriteLine(message);
       }
 
       public static void Log(string message) => Log(0,message);

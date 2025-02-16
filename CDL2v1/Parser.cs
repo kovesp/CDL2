@@ -1,17 +1,22 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.CommandLine.Parsing;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   internal partial class Parser {
-
+   internal class Parser {
+      /// <summary>
+      /// The object being compiled. Used mainly for error reporting.
+      /// </summary>
+      /// <param name="parser"></param>
       public class CompilationObject(Parser parser) {
          readonly Parser parser = parser;
 
@@ -24,7 +29,7 @@ namespace CDL2v1 {
          private static ObjType[] procs = [ObjType.FUNCTION, ObjType.ACTION, ObjType.TEST, ObjType.PREDICATE];
          private ObjType type;
          private ID name = TokenList.ErrorID;
-         public string obj => $"{type}{(procs.Contains(type) ? $" {name}" : "")}";
+         public string obj => $"{(procs.Contains(type) ? $"{type} {name}" : "")}";
          public (Token.ReservedWord,ID) Object {
             set {
                type = (ObjType)Enum.Parse(typeof(ObjType),value.Item1.ToString());
@@ -32,11 +37,12 @@ namespace CDL2v1 {
             }
          }
 
-         override public string ToString() => $"{Program}{Module}{Layer}{Section}{obj}";
+         override public string ToString() => $"{Program}{Module}{Layer}{Section}{obj}".TrimStart();
       }
 
       public readonly SymbolTable Symbols = [];
       public TokenList tokens = new();
+
       public Program? program;
       public HashSet<Module> modules = [];
 
@@ -46,7 +52,6 @@ namespace CDL2v1 {
       public CompilationObject currentObject;
 
       public Parser() => currentObject = new CompilationObject(this);
-
 
       internal void Parse(TokenList tokens) {
          this.tokens = tokens;
@@ -58,7 +63,11 @@ namespace CDL2v1 {
             if (tokens.CanConsumeContainerDelimiter(Token.ReservedWord.MODULE,ref unitId)) {
                ParseModule(unitId);
             } else if (tokens.CanConsumeContainerDelimiter(Token.ReservedWord.PROGRAM,ref unitId)) {
-               ParseProgram();
+               if (program != null) {
+                  throw new Exception("Only one PROGRAM is allowed");
+               } else {
+                  ParseProgram(unitId);
+               }
             } else {
                throw new Exception("Expected MODULE or PROGRAM");
             }
@@ -66,6 +75,35 @@ namespace CDL2v1 {
          //TODO: Must verify that no undeclareds ramain when parsing is complete.
          //TODO: Must verify that All ids referenced in CONST elements refer to a declared const, var, or list.
       }
+
+      private void ParseProgram(ID programId) {
+         // The next token should be an ID
+         currentObject.Object = (Token.ReservedWord.PROGRAM, programId);
+         program = new Program(programId);
+         Symbols[program.name] = program;
+         Logger.Log(1,$"Parsing {program}");
+
+         // Now should see parts
+         List<ID> parts = [];
+
+         if (tokens.CanConsume(Token.ReservedWord.PART)) {
+            ParseIDList(parts,null,null);
+            foreach (ID part in parts) {
+               if (Symbols.TryGetValue(part,out NamedElement? element)) {
+                  if (element is Module module) {
+                     program.children.Add(module);
+                  } else {
+                     throw new Exception($"Expected MODULE, for the name {part} but found {element}");
+                  }
+               }
+            }
+         }
+
+         ParseLudes(program);
+         // Consume the ENDPROG token
+         tokens.CanConsumeContainerDelimiter(Token.ReservedWord.ENDPROG,ref programId); 
+      }
+
 
       /// <summary>
       /// Parse a module.
@@ -85,8 +123,8 @@ namespace CDL2v1 {
       private void ParseModule(ID moduleId) {
          currentObject.Object = (Token.ReservedWord.MODULE, moduleId);
          currentModule = new Module(moduleId);
-         modules.Add(currentModule);
          Symbols[currentModule.name] = currentModule;
+         Logger.Log(1,$"Parsing {currentObject}");
 
          // Now should see layers
          ID layerId = TokenList.ErrorID;
@@ -103,6 +141,7 @@ namespace CDL2v1 {
          currentObject.Object = (Token.ReservedWord.MODULE, layerId);
          currentLayer = new Layer(layerId,currentModule);
          Symbols[currentLayer.name] = currentLayer;
+         Logger.Log(1,$"Parsing {currentObject}");
 
          // Now should see sections
          ID sectionId = TokenList.ErrorID;
@@ -111,6 +150,7 @@ namespace CDL2v1 {
          }
          // Consume the ENDLAY
          tokens.CanConsumeContainerDelimiter(Token.ReservedWord.ENDLAY,ref layerId);
+         // Layers don't have ludes.
       }
 
       private static readonly List<Token.ReservedWord> procTypes = [Token.ReservedWord.FUNCTION,Token.ReservedWord.ACTION,Token.ReservedWord.TEST,Token.ReservedWord.PREDICATE];
@@ -120,6 +160,7 @@ namespace CDL2v1 {
          // The next token should be an ID
          currentSection = new Section(sectionId,currentLayer);
          Symbols[currentSection.name] = currentSection;
+         Logger.Log(1,$"Parsing {currentObject}");
 
          // Now should see section parts
          // Interfaces first
@@ -154,7 +195,7 @@ namespace CDL2v1 {
             // Now should see args
             List<Arg> args = ParseArgs();
             // Now could see locals
-            List<ID> locals = ParseLocals();
+            Set<ID> locals = ParseLocals();
             Proc proc;
             if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
                if (bodyType.type == Token.TokenType.COLON || bodyType.type == Token.TokenType.INLINECODEBODY) {
@@ -189,18 +230,18 @@ namespace CDL2v1 {
          }
       }
       private void ParseCodeBody(Code proc) {
-         proc.alternatives = parseAlternatives();
+         proc.alternatives = ParseAlternatives();
          if (!tokens.CanConsume(Token.TokenType.END)) ReportError("Expected .");
       }
-      private List<Alternative> parseAlternatives() {
+      private List<Alternative> ParseAlternatives() {
          List<Alternative> alternatives = [];
          do {
-            alternatives.Add(parseAlternative());
+            alternatives.Add(ParseAlternative());
          } while (tokens.Optional(Token.TokenType.ALTSEP)) ;
          return alternatives;
       }
 
-      private Alternative parseAlternative() {
+      private Alternative ParseAlternative() {
          List<Call> calls = [];
          LastCall? lastCall =null;
          do {
@@ -208,9 +249,7 @@ namespace CDL2v1 {
                // If we have a last call, then we should NOT have see a separator
                ReportError("Unexpected ,");
             } else if (tokens.Optional(out ID id)) {
-               Call call = new(Symbols.Reference(id));
-               calls.Add(call);
-               parseActualArgs(call);
+               calls.Add(ParseCall(id));
             } else if (tokens.Optional(Token.TokenType.PLUS)) {
                lastCall = new LastCall(LastCall.CallType.Success);
             } else if (tokens.Optional(Token.TokenType.MINUS)) {
@@ -220,7 +259,7 @@ namespace CDL2v1 {
             } else if (tokens.Optional(Token.TokenType.STAR)) {
                lastCall = tokens.Optional(out id) ? new LastCall(id) : new LastCall(LastCall.CallType.Repeat);
             } else if (tokens.Optional(Token.TokenType.GRPOPEN)) {
-               lastCall = parseGroup();
+               lastCall = ParseGroup();
             } else {
                ReportError("Expected ID, +, -, ?, or *");
             }
@@ -233,16 +272,22 @@ namespace CDL2v1 {
          return new Alternative(calls,lastCall);
       }
 
-      private LastCall parseGroup() {
+      private Call ParseCall(ID id) {
+         Call call = new(Symbols.Reference(id));
+         ParseActualArgs(call);
+         return call;
+      }
+
+      private LastCall ParseGroup() {
          LastCall? lastCall;
-         ID label = parseOptionalLabel();
-         Group group = new(label,parseAlternatives());
+         ID label = ParseOptionalLabel();
+         Group group = new(label,ParseAlternatives());
          if (!tokens.CanConsume(Token.TokenType.GRPCLOSE)) ReportError("Expected )");
          lastCall = new LastCall(group);
          return lastCall;
       }
 
-      private ID parseOptionalLabel() {
+      private ID ParseOptionalLabel() {
          if (tokens.Peek().type == Token.TokenType.ID && tokens.Peek(1).type == Token.TokenType.COLON) {
             // Consume the label and the colon
             ID label = new(tokens.Next());
@@ -258,7 +303,7 @@ namespace CDL2v1 {
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
       /// <param name="call"></param>
-      private void parseActualArgs(Call call) {
+      private void ParseActualArgs(Call call) {
          while (tokens.Optional(Token.TokenType.PLUS)) {
             if (tokens.Optional(out ID id)) {
                call.args.Add(Symbols.Reference(id));
@@ -270,8 +315,8 @@ namespace CDL2v1 {
          }
       }
 
-      private List<ID> ParseLocals() {
-         List<ID> locals = [];
+      private Set<ID> ParseLocals() {
+         Set<ID> locals = [];
          while (tokens.Optional(Token.TokenType.MINUS) && tokens.CanConsume(Token.TokenType.ID,out Token id)) locals.Add(new ID(id));
          return locals;
       }
@@ -376,24 +421,32 @@ namespace CDL2v1 {
          }
       }
 
-      private void ParseLudes(Container container) {
-         Debug.Assert(currentSection != null);
-         ParseLude(Token.ReservedWord.PRELUDE,typeof(ProvidedElement),container.prelude);
-         ParseLude(Token.ReservedWord.ROOT,typeof(ProvidedElement),container.root);
-         ParseLude(Token.ReservedWord.POSTLUDE,typeof(ProvidedElement),container.postlude);
+      private void ParseLudes(Container container) {;
+         container.ParseLude(this,Token.ReservedWord.PRELUDE,container);
+         container.ParseLude(this,Token.ReservedWord.ROOT,container);
+         container.ParseLude(this,Token.ReservedWord.POSTLUDE,container);
       }
 
-      private void ParseLude(Token.ReservedWord ludeType,Type itemType,List<ID> idlist) {
-         // Implementation for parsing lude sections (prelude, root, postlude)
-         // Use the 'lude' parameter to determine which section to parse
-         // Use the 'type' parameter to handle the specific type (e.g., Proc)
-         Debug.Assert(currentSection != null);
-         if (tokens.IsNext(ludeType)) {
-            tokens.Next();
-            ParseIDList(idlist);
+      internal static void ParseLudeOfIDs(Parser parser,Token.ReservedWord type,Container container) {
+         if (parser.tokens.Optional(type)) {
+            while (parser.tokens.Optional(Token.TokenType.ID,out Token  id)) {
+               container.ludes[type].Add(new ID(id));
+               if (!parser.tokens.CanConsumeSep()) break;
+            }
+            parser.tokens.CanConsumeEnd();
          }
       }
-
+ 
+      internal static void ParseLudeOfCalls(Parser parser,Token.ReservedWord type,Container container) {
+         if (parser.tokens.Optional(type)) {
+            while (parser.tokens.Optional(Token.TokenType.ID,out Token id)) {
+               container.ludes[type].Add((parser.ParseCall(new ID(id))));
+               if (!parser.tokens.CanConsumeSep()) break;
+            }
+            parser.tokens.CanConsumeEnd();
+         }
+      }
+   
       private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID = null) {
          while (tokens.IsNext(Token.TokenType.ID)) {
             ID id = new(tokens.Next());
@@ -403,21 +456,6 @@ namespace CDL2v1 {
             if (!tokens.CanConsumeSep()) break;
          }
          tokens.CanConsumeEnd();
-      }
-
-      private void ParseProgram() {
-         // The next token should be an ID
-         tokens.CanConsume(out ID id);
-         program = new Program(id);
-         Symbols[program.name] = program;
-
-         // Now should see parts
-         while (tokens.CanConsume(Token.ReservedWord.PART)) {
-         }
-
-         // Now should see ludes.
-         // Consume the ENDPROG token
-         tokens.CanConsume(Token.ReservedWord.ENDPROG);
       }
 
       private void ReportError(string v) => Logger.ReportError($"MOD {currentModule} LAY {currentLayer} SEC {currentSection}: {v}");

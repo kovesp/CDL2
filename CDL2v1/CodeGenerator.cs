@@ -12,18 +12,32 @@ namespace CDL2v1 {
    /// <param name="cg"></param>
    internal class CodeGenerator(ICodeGenerator cg) {
       ICodeGenerator cg = cg;
+      ICodeEmiter emitter = new SinkCodeEmitter();
 
-      public void GenerateCode(Program program) {
-         cg.GenerateStart(program);  // Generate the ovrall scafolding
-         foreach (Module module in program.parts) {
+      private static List<Token.ReservedWord> ludeTypes = new List<Token.ReservedWord> {
+         Token.ReservedWord.PRELUDE,
+         Token.ReservedWord.ROOT,
+         Token.ReservedWord.POSTLUDE
+      };
+      public void GenerateCode(Program program,ICodeEmiter emitter) {
+         this.emitter = emitter;
+
+         cg.GenerateStart(program,emitter);  // Generate the overall scafolding
+
+         foreach (Module module in program.children) {
             GenerateModuleCode(module);
          }
+
+         foreach (Token.ReservedWord ludeType in ludeTypes) {
+
+         }
+
          cg.GenerateEnd(program);
       }
 
       private void GenerateModuleCode(Module module) {
          cg.GenerateStart(module);  // Generate the code for each module
-         foreach (Layer layer in module.layers) {
+         foreach (Layer layer in module.children) {
             GenerateLayerCode(layer);
          }
          cg.GenerateEnd(module);
@@ -31,7 +45,7 @@ namespace CDL2v1 {
 
       private void GenerateLayerCode(Layer layer) {
          cg.GenerateStart(layer);
-         foreach (Section section in layer.sections) {
+         foreach (Section section in layer.children) {
             GenerateSectionCode(section);
          }
          cg.GenerateEnd(layer);
@@ -46,6 +60,11 @@ namespace CDL2v1 {
             } else if (proc is Macro macro) {
                GenerateMacroCode(macro);
             }
+         }
+         foreach (Token.ReservedWord ludeType in ludeTypes) {
+            cg.generateLudeStart(ludeType,section);
+
+            cg.generateLudeEend(ludeType,section);
          }
          cg.GenerateEnd(section);
       }

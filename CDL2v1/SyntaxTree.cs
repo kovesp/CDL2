@@ -10,11 +10,22 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
 namespace CDL2v1 {
+   internal class Set<T> : HashSet<T> {
+      public Set() { }
+      public Set(IEnumerable<T> collection) : base(collection) { }
+   }
+
+   /// <summary>
+   /// Base class for all elements that have names in the syntax tree.
+   /// </summary>
+   /// <param name="id"></param>
    internal class NamedElement(ID id) {
       public readonly ID name = id;
 
       override public string ToString() => $"{ItemTypeShortName} {name.token.tokenString}";
-      protected virtual string ItemTypeShortName => GetType().Name.ToUpper().Substring(0,3);
+      protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];
+
+      public readonly Container? parent;        // null for the Program and Modules.
    }
 
    // Marker interfaces to allow lists to be composed of permissable elements.
@@ -24,57 +35,103 @@ namespace CDL2v1 {
    public interface ProvidedElement : InterfaceElement { }
    public interface RequiredElement : InterfaceElement { }
    public interface ActualArg { }
+   public interface LudeElement { }
 
+   /// <summary>
+   /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
+   /// </summary>
+   /// <param name="id"></param>
    internal abstract class Container(ID id) : NamedElement(id) {
       public Container(ID id,Container? parent) : this(id) => (this.parent = parent)?.children.Add(this); 
 
-      public readonly Container? parent;
-      public List<Container> children = [];
+        
+      public List<Container> children = [];     // The children of the container. Layers are ordered, hence the list.
 
       public SymbolTable symbolTable = [];      // TODO: The symbol table for the container. Placeholder for now.
 
-      public readonly List<ID> prelude = [];
-      public readonly List<ID> root = [];
-      public readonly List<ID> postlude = [];     
+      public readonly Dictionary<Token.ReservedWord,List<LudeElement>> ludes = new() {
+         { Token.ReservedWord.PRELUDE,[] },
+         { Token.ReservedWord.ROOT,[] },
+         { Token.ReservedWord.POSTLUDE,[] }
+      };
+      public Action<Parser,Token.ReservedWord,Container> ParseLude = (parser,ludeType,container) => {};
+
+      public string FullName() => parent is null ? $"{ToString()}" : $"{parent.FullName()} {ToString()}";
    }
 
-   internal class Module(ID id) : Container(id) {
-      public readonly HashSet<ID> import = [];        // Imports are specified in sections, but are propagated up the module level.
+   internal class Program : Container {
+      override protected string ItemTypeShortName => "PROG";
+
+      public Program(ID id) : base(id,null) => ParseLude = Parser.ParseLudeOfIDs;
    }
 
+   /// <summary>
+   /// Represents a module in the syntax tree.
+   /// </summary>
+   /// <param name="id"></param>
+   internal class Module : Container {
+      public readonly Set<ID> import = [];         // Imports are specified in sections, but are propagated up the module level.
+      public readonly Set <ID> export = [];        // Exports are specified in sections, but are propagated up the module level.
+
+      public Module(ID id) : base(id,null) => ParseLude = Parser.ParseLudeOfIDs;
+   }
+
+   /// <summary>
+   /// Represents a layer in the syntax tree.
+   /// </summary>
+   /// <param name="id"></param>
+   /// <param name="module"></param>
    internal class Layer(ID id,Module module) : Container(id,module) {  }
 
-   internal class Section(ID id,Layer layer) : Container(id,layer) {
-      public readonly HashSet<ID> ext = [];
-      public readonly HashSet<ID> abstr = [];
-      public readonly HashSet<ID> inv = [];
-      public readonly HashSet<ID> export = [];
-      public readonly HashSet<ID> import = [];      
+   /// <summary>
+   /// Represents a section in the syntax tree.
+   /// </summary>
+   /// <param name="id"></param>
+   /// <param name="layer"></param>
+   internal class Section : Container {
+      public readonly Set<ID> ext = [];
+      public readonly Set<ID> abstr = [];
+      public readonly Set<ID> inv = [];
+      public readonly Set<ID> export = [];
+      public readonly Set<ID> import = [];      
 
       // These sets contain the names of the elements in the section. The actual elements are in the symbol table.
-      public readonly HashSet<ID> routines = [];  // Both code and macros
-      public readonly HashSet<ID> lists = [];
-      public readonly HashSet<ID> vars = [];
-      public readonly HashSet<ID> consts = [];
+      public readonly Set<ID> routines = [];  // Both code and macros
+      public readonly Set<ID> lists = [];
+      public readonly Set<ID> vars = [];
+      public readonly Set<ID> consts = [];
+
+      public Section(ID id,Layer layer) : base(id,layer) => ParseLude = Parser.ParseLudeOfCalls;
    }
 
-   internal class Proc(ID id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : NamedElement(id), ProvidedElement {
+   // ---------------------------------------------------------------------------------------------------
+
+   /// <summary>
+   /// Represents a procedure in the syntax tree. Concretely it is either a Macro or Code. 
+   /// </summary>
+   /// <param name="id">The procedure name.</param>
+   /// <param name="args">The argument list.</param>
+   /// <param name="locals">The locals.</param>
+   /// <param name="procType">The procedure type.</param>
+   /// <param name="bodyType">The type of body.</param>
+   /// <param name="section">The containing section.</param>
+   internal abstract class Proc(ID id,List<Arg> args,Set<ID> locals,Token procType,Token.TokenType bodyType,Section section) : NamedElement(id), ProvidedElement {
       public readonly Section section = section;
-      public readonly Token.ReservedWord procType = procType.rval??Token.ReservedWord.FUNCTION;   // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
-      public readonly Token.TokenType bodyType = bodyType;      // one of : or := (for CODE only) and = or =: (for MACRO only)
+      public readonly Token.ReservedWord procType = procType.rval??Token.ReservedWord.FUNCTION;    // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
+      public readonly Token.TokenType bodyType = bodyType;                                         // one of : or := (for CODE only) and = or =: (for MACRO only)
       public readonly List<Arg> args = args;
-      public readonly List<ID> locals = locals;
+      public readonly Set<ID> locals = locals;
 
       override protected string ItemTypeShortName => $"{procType}";
    }
-   internal class Macro(ID id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
+   internal class Macro(ID id,List<Arg> args,Set<ID> locals,Token procType,Token.TokenType bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
       public List<MacroElement> elements = [];
    }
-   internal class Code(ID id,List<Arg> args,List<ID> locals,Token procType,Token.TokenType bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
+   internal class Code(ID id,List<Arg> args,Set<ID> locals,Token procType,Token.TokenType bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
       public List<Alternative> alternatives = [];
    }
 
-   internal class Call(ID id) {
+   internal class Call(ID id) : LudeElement {
       public readonly ID id = id;
       public readonly List<ActualArg> args = [];
       override public string ToString() => $"{id.name}+{string.Join("+",args)}";
@@ -172,7 +229,7 @@ namespace CDL2v1 {
       override public string ToString() => $"-{name.name}";
    }
 
-   internal class ID : ConstElement, MacroElement, ActualArg {
+   internal class ID : ConstElement, MacroElement, ActualArg, LudeElement {
       public readonly string name = "ERROR";
       public readonly Token token = Token.ErrorToken;
       public ID(Token token) {
@@ -192,11 +249,4 @@ namespace CDL2v1 {
 
    internal class Undeclared(ID id) : NamedElement(id) {}
 
-   internal class Program(ID id) : NamedElement(id) {
-      public List<Module> parts = new();
-      public List<Proc> prelude = new();
-      public List<Proc> root = new();
-      public List<Proc> postlude = new();
-      override protected string ItemTypeShortName => "PROG";
-   }
 }
