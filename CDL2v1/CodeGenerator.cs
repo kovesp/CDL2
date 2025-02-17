@@ -14,10 +14,10 @@ namespace CDL2v1 {
       ICodeGenerator cg = cg;
       ICodeEmiter emitter = new SinkCodeEmitter();
 
-      private static List<Token.ReservedWord> ludeTypes = new List<Token.ReservedWord> {
-         Token.ReservedWord.PRELUDE,
-         Token.ReservedWord.ROOT,
-         Token.ReservedWord.POSTLUDE
+      private static List<RW> ludeTypes = new List<RW> {
+         RW.PRELUDE,
+         RW.ROOT,
+         RW.POSTLUDE
       };
       public void GenerateCode(Program program,ICodeEmiter emitter) {
          this.emitter = emitter;
@@ -28,40 +28,57 @@ namespace CDL2v1 {
             GenerateModuleCode(module);
          }
 
-         foreach (Token.ReservedWord ludeType in ludeTypes) {
+         foreach (RW ludeType in ludeTypes) {
 
          }
 
          cg.GenerateEnd(program);
       }
 
+      /// <summary>
+      /// Generate code for a mudule. It is up to the specific code generator to determine whether this code goes into a separate file or not.
+      /// </summary>
+      /// <param name="module"></param>
       private void GenerateModuleCode(Module module) {
          cg.GenerateStart(module);  // Generate the code for each module
+         foreach (ID expId in module.export) {
+            cg.GenerateExport(module,expId);
+         }
          foreach (Layer layer in module.children) {
-            GenerateLayerCode(layer);
+            GenerateLayer(layer);
          }
          cg.GenerateEnd(module);
       }
 
-      private void GenerateLayerCode(Layer layer) {
+      /// <summary>
+      /// Generate code for a layer. Typically there is no target code associated with this.
+      /// </summary>
+      /// <param name="layer"></param>
+      private void GenerateLayer(Layer layer) {
          cg.GenerateStart(layer);
          foreach (Section section in layer.children) {
-            GenerateSectionCode(section);
+            GenerateSection(section);
          }
          cg.GenerateEnd(layer);
       }
 
-      private void GenerateSectionCode(Section section) {
+      /// <summary>
+      /// Geberate a section. Again, there will likely be no target code associated with a section itself.
+      /// So generate code for each routine and for the ludes.
+      /// A lude is just code with a speciaol name
+      /// </summary>
+      /// <param name="section"></param>
+      private void GenerateSection(Section section) {
          cg.GenerateStart(section);
          foreach (ID procId in section.routines) {
-            Proc proc = (Proc)section.symbolTable[procId];
+            Proc proc = (Proc)section.Symbols[procId];
             if (proc is Code code) {
                GenerateCodeCode(code);
             } else if (proc is Macro macro) {
                GenerateMacroCode(macro);
             }
          }
-         foreach (Token.ReservedWord ludeType in ludeTypes) {
+         foreach (RW ludeType in ludeTypes) {
             cg.generateLudeStart(ludeType,section);
 
             cg.generateLudeEend(ludeType,section);

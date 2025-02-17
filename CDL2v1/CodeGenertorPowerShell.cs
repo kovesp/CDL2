@@ -82,8 +82,8 @@ class BoundedArray {
                case FLOAT f:
                   value += $"{f.value}";
                   break;
-               case Const c:
-                  value += PSVar(c);
+               case Const ce:
+                  value += PSVar(ce);
                   break;
                case ID id:
                   value += PSVar(id);
@@ -94,11 +94,11 @@ class BoundedArray {
          }
          emitter.Emitnl(value);
       }
-      public void GenerateCode(Var v) => emitter.Emitnl($"{PSVar(v)}";
+      public void GenerateCode(Var v) => emitter.Emitnl($"{PSVar(v)}");
       public void GenerateCode(LIST l,string lwb,string upb) => emitter.Emitnl($"{PSVar(l)} = New-Object BoundedArray {lwb} {upb}");
 
       public void GenerateCode(ActualArg arg) => emitter.Emit(arg is STRING s ? s.value : arg is ID i ? PSVar(i) : throw new NotImplementedException());
-      public void GenerateCode(Arg arg) => emitter.Emit($"${arg.name}");
+      public void GenerateCode(Param arg) => emitter.Emit($"${arg.name}");
 
       public void GenerateCodeExport(ID id) => throw new NotImplementedException();
       public void GenerateCodeImport(ID id) => throw new NotImplementedException();
@@ -118,11 +118,11 @@ class BoundedArray {
       public void GenerateStart(Call call) => throw new NotImplementedException();
 
    
-      public void generateLudeStart(Token.ReservedWord ludeType,Container section) => throw new NotImplementedException();
-      public void generateLudeEnd(Token.ReservedWord ludeType,Container section) => throw new NotImplementedException();
+      public void generateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
+      public void generateLudeEnd(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateStart(Program program,string target) => throw new NotImplementedException();
 
-      public void GenerateLudeStart(Token.ReservedWord ludeType,Container section) => throw new NotImplementedException();
-      public void GenerateLudeEend(Token.ReservedWord ludeType,Container section) => throw new NotImplementedException();
+      public void GenerateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
+      public void GenerateLudeEend(RW ludeType,Container section) => throw new NotImplementedException();
    }
 }

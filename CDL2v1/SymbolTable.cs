@@ -1,5 +1,6 @@
-﻿namespace CDL2v1 {
+﻿using System.Reflection.Metadata.Ecma335;
 
+namespace CDL2v1 {
    internal class SymbolTable : Dictionary<ID,NamedElement> {
       public bool ContainsKey(Token token) => ContainsKey(new ID(token));
       // Indexer to access elements using ID
@@ -26,12 +27,24 @@
       /// <param name="token">An ID token.</param>
       /// <returns>The ID that was constructed from the token.</returns>
       public ID Reference(ID id) {
-         if (TryGetValue(id,out NamedElement? currentValue)) { // If the ID is already in the symbol table
-            if (currentValue is Undeclared) return id; // If the ID is already an Undeclared, then do nothing               
-         } else { // If the ID is not in the symbol table
+         if (!ContainsKey(id)) {          // If the ID is not in the symbol table
             base[id] = new Undeclared(id); // Add an Undeclared to the symbol table
          }
          return id;
       }
+      /// <summary>
+      /// If the id is in the table, Return true if the id is undeclared.
+      /// If it is not in the table, insert is as undeclard and return true.
+      /// </summary>
+      /// <param name="id"></param>
+      /// <returns></returns>
+      public bool IsUndeclared(ID id) => base[Reference(id)] is Undeclared;
+      /// <summary>
+      /// Check if the ID is declared in the symbol table. If is is not in the table, enter it as undeclared.
+      /// </summary>
+      /// <param name="id">The id to check.</param>
+      /// <param name="v">The declared element if found, undeclared otherwise.</param>
+      /// <returns></returns>
+      public bool IsDeclared(ID id,out NamedElement v) => TryGetValue(Reference(id),out v) && v is not Undeclared;
    }   
 }

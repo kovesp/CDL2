@@ -16,8 +16,9 @@ namespace CDL2v1 {
    /// Tokens must be constructed using <see cref="TryCreateToken(ref string, out Token)"/>.
    /// </summary>
    internal class Token {
-      public enum TokenType { ERROR, RESWORD, INT, FLOAT, STRING, ID, PLUS, MINUS, STAR, ABORT, LABEL, ARGDIR, COLON, INLINECODEBODY, EQUALS, INLINEMACROBODY, END, SEP, ALTSEP, GRPOPEN, GRPCLOSE, COMMENT }
-      public enum ReservedWord { PROGRAM, ENDPROG, PART, MODULE, ENDMOD, LAYER, ENDLAY, SECTION, ENDSEC, ABSTR, EXT, INV, EXPORT, IMPORT, ROOT, PRELUDE, POSTLUDE, CONST, VAR, LIST, ACTION, FUNCTION, TEST, PREDICATE }
+      // The aliases are meant to be used in the parser to make the code more readable.
+
+      
       public static readonly ReservedWord[] UnitStarters = { ReservedWord.MODULE,ReservedWord.LAYER,ReservedWord.SECTION,ReservedWord.PROGRAM };
       public static readonly ReservedWord[] UnitEnders = { ReservedWord.ENDMOD,ReservedWord.ENDLAY,ReservedWord.ENDSEC,ReservedWord.ENDPROG };
 
@@ -38,24 +39,24 @@ namespace CDL2v1 {
       public static readonly ID AnonID;
       public static readonly Token AnonIDToken;
 
-
       static Token() {
          // Place multi-character glyphs first to ensure they match before any single character contained in them.
          Glyph2TokenType = new Dictionary<string,TokenType> {
-            { "=:", TokenType.INLINEMACROBODY },   // Indicates a macro body that should be inlined.
+            { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be inlined (the default for = is to inline).
             { ":=", TokenType.INLINECODEBODY },    // Indicates a code body that should be inlined.
-            { "+",  TokenType.PLUS },              // Used as affix (argument) seperator and as the success operator.
-            { "-",  TokenType.MINUS },             // Used as local variable separators and as the fail operator.
+            { "+",  TokenType.PLUS },              // Used as affix (argument) seperator and as the succeed operator.
+            { "-",  TokenType.MINUS },             // Used as local variable separator and as the fail operator.
             { "*",  TokenType.STAR },              // Repeat from group start operator and string parameter.
             { "?",  TokenType.ABORT },             // Terminate the program.
-            { ">",  TokenType.ARGDIR },            // Used to indicated the argument direction, as >in, out>, or >in-out>.
-            { ",",  TokenType.SEP },               // Used in interface lists (not yet implemented), CONST and VAR declarations, and as call separators.
+            { ">",  TokenType.PARAMDIR },            // Used to indicated the argument direction, as >in, out>, or >in-out>.
+            { ",",  TokenType.SEP },               // Used in interface lists, CONST and VAR declarations, and as call separators.
             { ";",  TokenType.ALTSEP },            // Separates alterntives.
             { "(",  TokenType.GRPOPEN },           // Starts a group and a LIST bound.
             { ")",  TokenType.GRPCLOSE },          // Ends a group and a LIST bound.
             { ":",  TokenType.COLON },             // Code that is a procedure. But also used in LIST bounds and to place labels, e.g., ACTION proc: init,(main: is not done, (try first, first; try next, next, *main); quit.
             { "=",  TokenType.EQUALS },            // Macro that is aprocedure. Also used to define constants.
             { ".",  TokenType.END },               // Ends all sentences.
+            { "#",  TokenType.COMMENT },           // Starts and ends a comment.
          };
          TokenType2Glyph = Glyph2TokenType.ToDictionary(kvp => kvp.Value,kvp => kvp.Key);
 
@@ -101,18 +102,20 @@ namespace CDL2v1 {
       readonly public string? sval;
       readonly public long? ival;
       readonly public double? fval;
-      private TokenClass tokenClass;
-      //private string value;
 
-      private enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float };
+      private enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float, Error };
 
-      private Token() => type = TokenType.ERROR;
-      
+      private Token() : this(TokenClass.Error,"ERROR","",0) { }
+      public Token(string text) : this(TokenClass.ID,text,"",0) { }
+
       private Token(TokenClass cls,string text,string fileName,int lineNumber) {
          tokenString = text;
          this.fileName = fileName;
          this.lineNumber = lineNumber;
          switch (cls) {
+            case TokenClass.Error:
+               type = TokenType.ERROR;
+               break;
             case TokenClass.Comment:
                type = TokenType.COMMENT;
                sval = text.Trim('#','\n');
@@ -215,5 +218,18 @@ namespace CDL2v1 {
             _                 => TokenType2Glyph.ContainsKey(type) ? TokenType2Glyph[type] : type.ToString(),
          };
       }
+
+      public override bool Equals(object? obj) => obj is Token token && type == token.type && type switch {
+         TokenType.RESWORD => rval == token.rval,
+         TokenType.COMMENT => sval == token.sval,
+         TokenType.STRING => sval == token.sval,
+         TokenType.INT => ival == token.ival,
+         TokenType.FLOAT => fval == token.fval,
+         TokenType.ID => sval == token.sval
+      }; 
+      public override int GetHashCode() => HashCode.Combine(type,rval,sval,ival,fval);
+
+      public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
+      public static bool operator !=(Token? left,Token? right) => !(left == right);
    }
 }

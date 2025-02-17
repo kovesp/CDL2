@@ -16,8 +16,8 @@ namespace CDL2v1 {
       }
       
       public readonly List<Token> tokens = new List<Token>();
-      public readonly static ID ErrorID = new ID();
-      public readonly static ID AnonID = new ID("Anon");
+      public readonly static ID ErrorID = new();
+      public readonly static ID AnonID = new("Anon");
       public Options options;
 
       public TokenList(Options options = Options.None) {
@@ -28,16 +28,16 @@ namespace CDL2v1 {
       public bool IsNonEmpty() => tokens.Count > 0;
       public Token Peek() => IsNonEmpty() ? tokens[0] : Token.ErrorToken;
       public Token Peek(int n) => n < tokens.Count ? tokens[n] : Token.ErrorToken;
-      public bool IsNext(Token.TokenType type) => IsNonEmpty() && tokens[0].type == type;
+      public bool IsNext(TT type) => IsNonEmpty() && tokens[0].type == type;
       /// <summary>
       /// Check if the next token is one of the types in the list.
       /// </summary>
       /// <param name="types"></param>
       /// <returns></returns>
-      public bool IsNext(List<Token.TokenType> types) => IsNonEmpty() && types.Contains(tokens[0].type);
+      public bool IsNext(List<TT> types) => IsNonEmpty() && types.Contains(tokens[0].type);
 
-      public bool IsNext(Token.ReservedWord reservedWord) => IsNonEmpty() && tokens[0].type == Token.TokenType.RESWORD && tokens[0].rval == reservedWord;
-      public bool IsNext(List<Token.ReservedWord> reservedWords) => IsNonEmpty() && tokens[0].type == Token.TokenType.RESWORD && reservedWords.Contains(tokens[0].rval??0); // ??0 is a hack to supress error: rval can't be null because tokens[0].type == Token.TokenType.RESWORD
+      public bool IsNext(RW reservedWord) => IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].rval == reservedWord;
+      public bool IsNext(List<RW> reservedWords) => IsNonEmpty() && tokens[0].type == TT.RESWORD && reservedWords.Contains(tokens[0].rval??0); // ??0 is a hack to supress error: rval can't be null because tokens[0].type == TT.RESWORD
       public Token Next() {
          if (IsNonEmpty()) {
             Token token = tokens[0];
@@ -47,14 +47,14 @@ namespace CDL2v1 {
          return Token.ErrorToken;
       }
 
-      public bool Consume(Token.TokenType type) {
+      public bool Consume(TT type) {
          if (IsNext(type)) {
             Skip();
             return true;
          }
          return false;
       }
-      public bool Consume(Token.ReservedWord type) {
+      public bool Consume(RW type) {
          if (IsNext(type)) {
             Skip();
             return true;
@@ -67,10 +67,10 @@ namespace CDL2v1 {
       public void SetOptions(Options options) {
          this.options = options;
 
-         if (options.HasFlag(Options.SkipComments)) tokens.RemoveAll(token => token.type == Token.TokenType.COMMENT);
+         if (options.HasFlag(Options.SkipComments)) tokens.RemoveAll(token => token.type == TT.COMMENT);
       }
 
-      public bool CanConsume(Token.TokenType type,out Token token) {
+      public bool CanConsume(TT type,out Token token) {
          if (IsNext(type)) {
             token = Next();
             return true;
@@ -82,7 +82,7 @@ namespace CDL2v1 {
          return false;
       }
       public bool CanConsume(out ID id) {
-         if (CanConsume(Token.TokenType.ID,out Token token)) {
+         if (CanConsume(TT.ID,out Token token)) {
             id = new ID(token);
             return true;
          }
@@ -92,7 +92,7 @@ namespace CDL2v1 {
          id = ErrorID;
          return false;
       }
-      public bool CanConsume(List<Token.TokenType> types,out Token token) {
+      public bool CanConsume(List<TT> types,out Token token) {
          if (IsNext(types)) {
             token = Next();
             return true;
@@ -103,7 +103,7 @@ namespace CDL2v1 {
          token = Token.ErrorToken;
          return false;
       }
-      public bool CanConsume(Token.TokenType type) {
+      public bool CanConsume(TT type) {
          if (IsNext(type)) {
             Next();
             return true;
@@ -115,14 +115,14 @@ namespace CDL2v1 {
       }
       public bool Optional(out ID id) {
          id = ErrorID;
-         return IsNext(Token.TokenType.ID) ? CanConsume(out id) : false;
+         return IsNext(TT.ID) ? CanConsume(out id) : false;
       }
-      public bool Optional(Token.TokenType type) => IsNext(type) ? Consume(type) : false;
-      public bool Optional(Token.ReservedWord type) => IsNext(type) ? Consume(type) : false;
-      public bool Optional(List<Token.TokenType> types,out Token token) { token = Token.ErrorToken; return IsNext(types) ? CanConsume(types,out token) : false; }
-      public bool Optional(Token.TokenType type,out Token token) { token = Token.ErrorToken; return IsNext(type) ? CanConsume(type,out token) : false; }
+      public bool Optional(TT type) => IsNext(type) ? Consume(type) : false;
+      public bool Optional(RW type) => IsNext(type) ? Consume(type) : false;
+      public bool Optional(List<TT> types,out Token token) { token = Token.ErrorToken; return IsNext(types) ? CanConsume(types,out token) : false; }
+      public bool Optional(TT type,out Token token) { token = Token.ErrorToken; return IsNext(type) ? CanConsume(type,out token) : false; }
 
-      public bool CanConsume(List<Token.TokenType> types) {
+      public bool CanConsume(List<TT> types) {
          if (IsNext(types)) {
             Next();
             return true;
@@ -133,8 +133,8 @@ namespace CDL2v1 {
          return false;
       }
 
-      public bool CanConsume(Token.ReservedWord reservedWord) {
-         if (IsNonEmpty() && tokens[0].type == Token.TokenType.RESWORD && tokens[0].rval == reservedWord) {
+      public bool CanConsume(RW reservedWord) {
+         if (IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].rval == reservedWord) {
             Next();
             return true;
          }
@@ -143,7 +143,7 @@ namespace CDL2v1 {
          }
          return false;
       }
-      public bool CanConsume(List<Token.ReservedWord> reservedWords,out Token token) {
+      public bool CanConsume(List<RW> reservedWords,out Token token) {
          if (IsNext(reservedWords)) {
             token = Next();
             return true;
@@ -161,7 +161,7 @@ namespace CDL2v1 {
       /// <param name="unit">The unit type rewerved word.</param>
       /// <param name="id">If stating a unit, the id is set, If ending a unit, it is verified that the id matches the one given in the unit close.</param>
       /// <returns></returns>
-      public bool CanConsumeContainerDelimiter(Token.ReservedWord unit,ref ID id) {
+      public bool CanConsumeContainerDelimiter(RW unit,ref ID id) {
          Debug.Assert(Token.UnitStarters.Contains(unit) || Token.UnitEnders.Contains(unit));
          if (Optional(unit) && CanConsume(out ID thisid) && CanConsumeEnd()) {
             if (Token.UnitStarters.Contains(unit)) {
@@ -176,9 +176,9 @@ namespace CDL2v1 {
          return false;
       }
 
-      internal bool CanConsumeEnd() => CanConsumeTerminator(Token.TokenType.END);
-      internal bool CanConsumeSep() => CanConsumeTerminator(Token.TokenType.SEP);
-      internal bool CanConsumeTerminator(Token.TokenType terminator) {
+      internal bool CanConsumeEnd() => CanConsumeTerminator(TT.END);
+      internal bool CanConsumeSep() => CanConsumeTerminator(TT.SEP);
+      internal bool CanConsumeTerminator(TT terminator) {
          if (IsNext(terminator)) {
             Next();
             return true;

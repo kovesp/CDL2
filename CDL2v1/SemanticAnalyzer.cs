@@ -30,7 +30,7 @@ namespace CDL2v1 {
       private void AnalyzeSection(Section section) {
          Logger.Log(1,$"Analyzing {section.name}");
          foreach (ID procId in section.routines) {
-            Proc proc = (Proc)section.symbolTable[procId];
+            Proc proc = (Proc)section.Symbols[procId];
             if (proc is Code code) {
                AnalyzeCode(code);
             } else if (proc is Macro macro) {

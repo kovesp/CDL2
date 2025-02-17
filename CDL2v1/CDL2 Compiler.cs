@@ -86,18 +86,18 @@ internal class CDL2 {
 
          // Perform semantic checks
          semanticAnalyzer = new SemanticAnalyzer();
-         if (Parser.program != null) {
+         if (Parser.currentProgram != null) {
             // TODO: If errors are found, null out the program object.
-            semanticAnalyzer.Analyze(Parser.program);
+            semanticAnalyzer.Analyze(Parser.currentProgram);
          }
 
          ICodeGenerator? cg = CreateCodeGenerator(Target);
          ICodeEmiter emitter = new DebugCodeEmitter();
-         if (Parser.program != null && cg != null) {
+         if (Parser.currentProgram != null && cg != null) {
             string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
             Logger.Log(0,$"Generating code for {Target} into {emitter.Target}");
             codeGenerator = new CodeGenerator(cg);
-            codeGenerator.GenerateCode(Parser.program,emitter);
+            codeGenerator.GenerateCode(Parser.currentProgram,emitter);
          } else {
             Console.WriteLine("No program found in the source files");
          }

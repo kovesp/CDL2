@@ -70,14 +70,15 @@ internal interface ICodeGenerator {
    public void GenerateEnd(Call call);
 
    public void GenerateCode(ActualArg arg);
-   public void GenerateCode(Arg arg);
+   public void GenerateCode(Param arg);
 
    public void GenerateCode(Const c);
    public void GenerateCode(Var v);
    public void GenerateCode(LIST l);
 
-   void GenerateLudeStart(Token.ReservedWord ludeType,Container section);
-   void GenerateLudeEend(Token.ReservedWord ludeType,Container section);
+   void GenerateLudeStart(RW ludeType,Container section);
+   void GenerateLudeEend(RW ludeType,Container section);
+   void GenerateExport(Module module,ID expId);
 
    public string FileExtension { get; }
 }
