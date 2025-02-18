@@ -12,14 +12,14 @@ namespace CDL2v1 {
    /// <param name="cg"></param>
    internal class CodeGenerator(ICodeGenerator cg) {
       ICodeGenerator cg = cg;
-      ICodeEmiter emitter = new SinkCodeEmitter();
+      CodeEmitterBase emitter = new SinkCodeEmitter();
 
       private static List<RW> ludeTypes = new List<RW> {
          RW.PRELUDE,
          RW.ROOT,
          RW.POSTLUDE
       };
-      public void GenerateCode(Program program,ICodeEmiter emitter) {
+      public void GenerateCode(Program program,CodeEmitterBase emitter) {
          this.emitter = emitter;
 
          cg.GenerateStart(program,emitter);  // Generate the overall scafolding

@@ -6,6 +6,7 @@ global using LCT = CDL2v1.LastCallType;
 
 namespace CDL2v1 {
    /// Cantral place for enumerations that are used accross the compiler as well as their abbreviations.
+   /// Thsi would be called the representation of the CDL2 language.
 
    /// <summary>
    /// Token types for the CDL2 language.

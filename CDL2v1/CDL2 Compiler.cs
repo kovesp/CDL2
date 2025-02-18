@@ -56,11 +56,11 @@ internal class CDL2 {
          Compiler.Target = target;
          Compiler.CompileSources(sources);
       },
-      rootCommand.Options[0] as Option<string[]>,
-      rootCommand.Options[1] as Option<int>,
-      rootCommand.Options[2] as Option<int>,
-      rootCommand.Options[3] as Option<bool>,
-      rootCommand.Options[4] as Option<string>);
+      (Option<string[]>)rootCommand.Options[0],
+      (Option<int>)rootCommand.Options[1],
+      (Option<int>)rootCommand.Options[2],
+      (Option<bool>)rootCommand.Options[3],
+      (Option<string>)rootCommand.Options[4]);
 
 
       // Invoke the command handler
@@ -92,7 +92,7 @@ internal class CDL2 {
          }
 
          ICodeGenerator? cg = CreateCodeGenerator(Target);
-         ICodeEmiter emitter = new DebugCodeEmitter();
+         CodeEmitterBase emitter = new DebugCodeEmitter();
          if (Parser.currentProgram != null && cg != null) {
             string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
             Logger.Log(0,$"Generating code for {Target} into {emitter.Target}");

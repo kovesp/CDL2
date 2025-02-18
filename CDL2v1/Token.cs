@@ -225,7 +225,8 @@ namespace CDL2v1 {
          TokenType.STRING => sval == token.sval,
          TokenType.INT => ival == token.ival,
          TokenType.FLOAT => fval == token.fval,
-         TokenType.ID => sval == token.sval
+         TokenType.ID => sval == token.sval,
+         _ => true
       }; 
       public override int GetHashCode() => HashCode.Combine(type,rval,sval,ival,fval);
 

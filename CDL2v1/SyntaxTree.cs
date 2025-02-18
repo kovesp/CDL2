@@ -63,7 +63,6 @@ namespace CDL2v1 {
    internal class Program : Container {
       override protected string ItemTypeShortName => "PROG";
 
-
       public Program(ID id) : base(id,null) => ParseLude = Parser.ParseLudeOfIDs;
    }
 

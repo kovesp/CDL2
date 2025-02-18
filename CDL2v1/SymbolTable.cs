@@ -45,6 +45,6 @@ namespace CDL2v1 {
       /// <param name="id">The id to check.</param>
       /// <param name="v">The declared element if found, undeclared otherwise.</param>
       /// <returns></returns>
-      public bool IsDeclared(ID id,out NamedElement v) => TryGetValue(Reference(id),out v) && v is not Undeclared;
+      public bool IsDeclared(ID id,out NamedElement? v) => TryGetValue(Reference(id),out v) && v is not Undeclared;
    }   
 }

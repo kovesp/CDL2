@@ -92,7 +92,7 @@ namespace CDL2v1 {
          if (tokens.CanConsume(RW.PART)) {
             ParseIDList(parts,null,null);
             foreach (ID part in parts) {
-               if (modules.IsDeclared(part,out NamedElement e) && e is Module m) {
+               if (modules.IsDeclared(part,out NamedElement? e) && e is Module m) {
                   currentProgram.children.Add(m);
                } else {
                   Logger.ReportError($"Expected MODULE, for the name {part} but found {e}");
