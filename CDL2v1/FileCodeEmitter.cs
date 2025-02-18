@@ -25,9 +25,9 @@ namespace CDL2v1 {
       ~FileCodeEmitter() => Target = "";
 
       /// <summary>
-      /// Write the items to the target file.
+      /// Write the item to the target file.
       /// </summary>
-      /// <param name="items"></param>
-      protected override void Write(params object[] items) => writer?.Write(items);
+      /// <param name="item"></param>
+      protected override void Write(string item) => writer?.Write(item);
    }
 }

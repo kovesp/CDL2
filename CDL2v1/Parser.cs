@@ -277,10 +277,11 @@ namespace CDL2v1 {
          return new Alternative(calls,lastCall);
       }
 
-      private Call ParseCall(ID id) {
-         Debug.Assert(currentSection != null);
-         Call call = new(currentSection.Symbols.Reference(id));
-         ParseActualArgs(call);
+      private Call ParseCall(ID id) => ParseCall(this,id);
+      private static Call ParseCall(Parser parser,ID id) {
+         Debug.Assert(parser.currentSection != null);
+         Call call = new(parser.currentSection.Symbols.Reference(id));
+         ParseActualArgs(parser,call);
          return call;
       }
 
@@ -309,15 +310,16 @@ namespace CDL2v1 {
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
       /// <param name="call"></param>
-      private void ParseActualArgs(Call call) {
-         Debug.Assert(currentSection != null);
-         while (tokens.Optional(TT.PARAMSEP)) {
-            if (tokens.Optional(out ID id)) {
-               call.args.Add(currentSection.Symbols.Reference(id));
-            } else if (tokens.CanConsume(TT.STRING,out Token str)) {
+      private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
+      private static void ParseActualArgs(Parser parser,Call call) {
+         Debug.Assert(parser.currentSection != null);
+         while (parser.tokens.Optional(TT.PARAMSEP)) {
+            if (parser.tokens.Optional(out ID id)) {
+               call.args.Add(parser.currentSection.Symbols.Reference(id));
+            } else if (parser.tokens.CanConsume(TT.STRING,out Token str)) {
                call.args.Add(new STRING(str));
             } else {
-               ReportError("Expected ID or STRING");
+               parser.ReportError("Expected ID or STRING");
             }
          }
       }
@@ -472,14 +474,27 @@ namespace CDL2v1 {
             parser.tokens.CanConsumeEnd();
          }
       }
- 
+
+      /// <summary>
+      /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
+      /// It will be stored as a Code item in the section's symbols table. The ID will be SectionName_LudeType. 
+      /// </summary>
+      /// <param name="parser"></param>
+      /// <param name="type"></param>
+      /// <param name="container"></param>
       internal static void ParseLudeOfCalls(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
+            //Debug.Assert(container != null);
+            List<Call> callList =[];
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               container.ludes[type].Add((parser.ParseCall(new ID(id))));
+               callList.Add(ParseCall(parser,new ID(id)));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
+            Code lude = new(type,(Section)container);
+            lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.Succeed)));
+            container.Symbols[lude.name] = lude;
+            container.ludes[type].Add(lude.name);
          }
       }
    

@@ -9,15 +9,18 @@ namespace CDL2v1 {
    internal abstract class CodeEmitterBase {
       public virtual string Target { get; set; } = "";
       public int IndentWidth { get; set; } = 3;
+      public int LineWidth { get; set; } = 100;
 
-      protected abstract void  Write(params object[] items);
+      protected abstract void  Write(string items);
+
+      private string CurrentLine = "";
 
       /// <summary>
       /// Emit code to the target.
       /// ToString is used on the objects.
       /// </summary>
       /// <param name="code"></param>
-      public void Emit(params object[] code) => Write(code);
+      public void Emit(params object[] code) => WriteWithIndent(0,false,false,code);
       /// <summary>
       /// Like <see cref="Emitnl(object[])"/> with a new line added.
       /// </summary>
@@ -51,10 +54,21 @@ namespace CDL2v1 {
       public void NlEmitnl(int indentLevel,params object[] code) => WriteWithIndent(indentLevel,true,true,code);
 
       protected void WriteWithIndent(int level,bool nlbefore,bool nlafter,params object[] items) {
-         if (nlbefore) Write("\n");
-         if (level > 0) Write(new string(' ',level * IndentWidth));
-         Write(items);
-         if (nlafter) Write("\n");
+         WriteNewLine(nlbefore);
+         foreach (object item in items) {
+            string currentItem = item?.ToString() ?? "";
+            if (CurrentLine.Length + currentItem.Length > LineWidth) WriteNewLine(true);
+            CurrentLine += currentItem;
+         }
+         WriteNewLine(nlafter);
+
+         void WriteNewLine(bool nl) {
+            if (nl) {
+               Write(CurrentLine);
+               Write("\n");
+               CurrentLine = new string(' ',level * IndentWidth);               
+            }
+         }
       }
 
    }

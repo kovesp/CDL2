@@ -38,6 +38,7 @@ namespace CDL2v1 {
       public static readonly Token ErrorToken;
       public static readonly ID AnonID;
       public static readonly Token AnonIDToken;
+      public static readonly Token ACTIONToken;
 
       static Token() {
          // Place multi-character glyphs first to ensure they match before any single character contained in them.
@@ -82,6 +83,7 @@ namespace CDL2v1 {
          ErrorToken = new Token();
          AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
          AnonID = new ID(AnonIDToken);
+         ACTIONToken = new Token(TokenClass.ResWord,"ACTION","",0);
       }
 
       readonly public TokenType type;

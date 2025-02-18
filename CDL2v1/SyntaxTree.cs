@@ -130,6 +130,7 @@ namespace CDL2v1 {
    }
    internal class Code(ID id,List<ID> args,Set<ID> locals,Token procType,TT bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
       public List<Alternative> alternatives = [];
+      public Code(RW ludeType,Section section) : this(new ID(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section ludes which are parameterless actions with no locals.
    }
 
    internal class Call(ID id)  {
@@ -257,6 +258,8 @@ namespace CDL2v1 {
       public ID(ID id) : this(id.token) { }
       public ID() { }
       public ID(string name) : this(new Token(name)) { }
+
+      public ID(Container container,RW rw) : this($"{container.name.token.tokenString}_{rw}") { }
 
       public override bool Equals(object? obj) => obj is ID iD && token == iD.token;
       public override int GetHashCode() => HashCode.Combine(token);

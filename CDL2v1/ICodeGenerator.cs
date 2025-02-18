@@ -79,6 +79,8 @@ internal interface ICodeGenerator {
    void GenerateLudeStart(RW ludeType,Container section);
    void GenerateLudeEend(RW ludeType,Container section);
    void GenerateExport(Module module,ID expId);
+   void generateLudeStart(RW ludeType,Section section);
+   void generateLudeEend(RW ludeType,Section section);
 
    public string FileExtension { get; }
 }

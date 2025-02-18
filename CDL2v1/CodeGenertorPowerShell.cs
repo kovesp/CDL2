@@ -124,5 +124,11 @@ class BoundedArray {
 
       public void GenerateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateLudeEend(RW ludeType,Container section) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateStart(Macro macro) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateEnd(Macro macro) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateCode(LIST l) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateExport(Module module,ID expId) => throw new NotImplementedException();
+      void ICodeGenerator.generateLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
+      void ICodeGenerator.generateLudeEend(RW ludeType,Section section) => throw new NotImplementedException();
    }
 }

@@ -14,8 +14,8 @@ namespace CDL2v1 {
       private const int DEFAULT_WIDTH = 100;
       private const int DEFAULT_INDENT = 3;
 
-      private readonly int width = DEFAULT_WIDTH;        // TODO: Implement line wrapping in PrettyPrinter.
-      private readonly int indent = DEFAULT_INDENT;
+      private readonly int LineWidth = DEFAULT_WIDTH;        // TODO: Implement line wrapping in PrettyPrinter.
+      private readonly int IndentWidth = DEFAULT_INDENT;
       private readonly CodeEmitterBase emitter;
 
       /// <summary>
@@ -32,10 +32,11 @@ namespace CDL2v1 {
       ///    PrettyPrinter pp = new("output.txt");
       /// </example>
       public PrettyPrinter(int width,int indent,CodeEmitterBase emitter) {
-         this.width = width;
-         this.indent = indent;
+         this.LineWidth = width;
+         this.IndentWidth = indent;
          this.emitter = emitter;
-         emitter.IndentWidth = this.indent;
+         emitter.IndentWidth = this.IndentWidth;
+         emitter.LineWidth = this.LineWidth;
       }
 
       /// <summary>

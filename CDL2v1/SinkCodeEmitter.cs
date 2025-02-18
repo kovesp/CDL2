@@ -7,6 +7,6 @@ using System.Threading.Tasks;
 namespace CDL2v1 {
    internal class SinkCodeEmitter : CodeEmitterBase {
       public SinkCodeEmitter() => Target = "Sink";
-      protected override void Write(params object[] items) { }
+      protected override void Write(string item) { }
    }
 }
