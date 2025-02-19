@@ -14,6 +14,8 @@ internal class CDL2 {
    public bool LineNumbers { get; set; }
    public string Target { get; set; } = "";
    public int DebugVerbosityLevel { get; internal set; }
+   public bool ParseOnly { get; internal set; }
+   public string? PrettyPrint { get; internal set; } = null;
 
    static CDL2() {
       Compiler = new CDL2();
@@ -32,35 +34,48 @@ internal class CDL2 {
                 getDefaultValue: () => -1,   // Means off
                 description: "Set the verbosity level (0-3)"),
             new Option<int>(
-                ["-d", "--debuglog"],
+                ["-d", "--debug-log"],
                 getDefaultValue: () => -1,   // Means off
                 description: "Set the debug verbosity level (0-3)"),
-            new Option<bool>(
-                "--lineNumbers",
-                getDefaultValue: () => false,
-                description: "Add line numbers to the token stream"),
             new Option<string>(
                 ["-t","--target"],
                 getDefaultValue: () => "PowerShell",
-                description: "Generate code for the specified target language. Default is PowerShell.")
+                description: "Generate code for the specified target language. Default is PowerShell."),
+            new Option<bool>(
+                "--line-numbers",
+                getDefaultValue: () => false,
+                description: "Add line numbers to the token stream."),
+            new Option<bool>(
+                "--parse-only",
+                getDefaultValue: () => false,
+                description: "Do not generate code. Verifies whther the source is valid."),
+            new Option<string?>(
+                "--pretty-print",
+                getDefaultValue: () => "",
+                description: "Pretty print the parsed code. If a value is given, it is assumed to be a filename, Otherwise output goes to the Debugger."){Arity = ArgumentArity.ZeroOrOne},
       };
 
       rootCommand.Description = "CDL2 Compiler";
 
       // Set the handler for the root command
-      rootCommand.SetHandler((string[] sources,int verbosity,int debugVerbosity,bool lineNumbers,string target) =>
+      rootCommand.SetHandler((string[] sources,int verbosity,int debugVerbosity,string target,bool lineNumbers,bool parseOnly,string? prettyPrint) =>
       {
          Compiler.VerbosityLevel = verbosity;
          Compiler.DebugVerbosityLevel = debugVerbosity;
          Compiler.LineNumbers = lineNumbers;
          Compiler.Target = target;
+         Compiler.ParseOnly = parseOnly;
+         Compiler.PrettyPrint = prettyPrint;
          Compiler.CompileSources(sources);
       },
       (Option<string[]>)rootCommand.Options[0],
       (Option<int>)rootCommand.Options[1],
       (Option<int>)rootCommand.Options[2],
-      (Option<bool>)rootCommand.Options[3],
-      (Option<string>)rootCommand.Options[4]);
+      (Option<string>)rootCommand.Options[3],
+      (Option<bool>)rootCommand.Options[4],
+      (Option<bool>)rootCommand.Options[5],
+      (Option<string?>)rootCommand.Options[6]
+      );
 
 
       // Invoke the command handler
@@ -74,7 +89,7 @@ internal class CDL2 {
    public void CompileSources(string[] args) {
       if (args.Length > 0) {
          Parser = new Parser();
-         foreach (var arg in args) {
+         foreach (string arg in args) {
             string source = Path.GetFullPath(arg);
             if (File.Exists(source)) {
                Logger.Log(0,$"Compiling {source}");
@@ -91,15 +106,19 @@ internal class CDL2 {
             semanticAnalyzer.Analyze(Parser.currentProgram);
          }
 
-         ICodeGenerator? cg = CreateCodeGenerator(Target);
-         CodeEmitterBase emitter = new DebugCodeEmitter();
-         if (Parser.currentProgram != null && cg != null) {
-            string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
-            Logger.Log(0,$"Generating code for {Target} into {emitter.Target}");
-            codeGenerator = new CodeGenerator(cg);
-            codeGenerator.GenerateCode(Parser.currentProgram,emitter);
-         } else {
-            Console.WriteLine("No program found in the source files");
+         if (PrettyPrint != "" && Parser.currentProgram != null) new PrettyPrinter(PrettyPrint).Print(Parser.currentProgram,Parser.Modules);
+
+         if (!ParseOnly) {
+            ICodeGenerator? cg = CreateCodeGenerator(Target);
+            CodeEmitterBase emitter = new DebugCodeEmitter();
+            if (Parser.currentProgram != null && cg != null) {
+               string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
+               Logger.Log(0,$"Generating code for {Target} into {emitter.Target}");
+               codeGenerator = new CodeGenerator(cg);
+               codeGenerator.GenerateCode(Parser.currentProgram,emitter);
+            } else {
+               Console.WriteLine("No program found in the source files");
+            }
          }
       }
    }

@@ -20,6 +20,9 @@ namespace CDL2v1 {
             }
          }
       }
+
+      public Set<T> AsSet<T>() where T : NamedElement => new(this.Values.OfType<T>());
+
       /// <summary>
       /// Check if the symbol table contains the given ID. If not, add an Undeclared to the symbol table.
       /// Used when a reference to an ID is encountered before the ID is declared.

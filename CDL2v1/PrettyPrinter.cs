@@ -47,13 +47,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_WIDTH"/> and an indentation width of <see cref="DEFAULT_INDENT"/> using the specified file name.
       /// </summary>
-      /// <param name="fileName"></param>
-      public PrettyPrinter(string fileName) : this(DEFAULT_WIDTH,DEFAULT_INDENT, new FileCodeEmitter(fileName)) { }
-
-      /// <summary>
-      /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_WIDTH"/> and an indentation width of <see cref="DEFAULT_INDENT"/> using the Debug Emitter.
-      /// </summary>
-      public PrettyPrinter() : this(DEFAULT_WIDTH,DEFAULT_INDENT,new DebugCodeEmitter()) { }
+      /// <param name="fileName">If this is null, use the <see cref="DebugCodeEmitter"/> instead.</param>
+      public PrettyPrinter(string? fileName) : this(DEFAULT_WIDTH,DEFAULT_INDENT,fileName.IsValidFileName() ? new FileCodeEmitter(fileName ?? "") : new DebugCodeEmitter()) { }
 
       private static readonly Dictionary<Type,(RW, RW)> units = new() {
          { typeof(Program),(RW.PROGRAM, RW.ENDPROG)},
@@ -63,7 +58,7 @@ namespace CDL2v1 {
       };
 
 
-      public void Print(Program program,List<Module> modules) {
+      public void Print(Program program,Set<Module> modules) {
          Print(program);
          Print(modules);
       }
@@ -155,25 +150,49 @@ namespace CDL2v1 {
 
       private void PrintList(RW rw,IEnumerable<ID> ids) {
          if (ids.Any()) {
-            emitter.Emit(rw," ",ids.First().token.tokenString);
+            emitter.Emit(1,rw," ",ids.First().token.tokenString);
             foreach (ID id in ids.Skip(1)) {
-               emitter.Emit(", ",id.token.tokenString);
+               emitter.Emit(", ");
+               emitter.Emit(1,id.token.tokenString);
             }
-            emitter.Emitnl(TT.END);
+            emitter.Emitnl(TT.END.TT2String());
          }
       }
 
-      public void Print(List<Module> modules) {
+      public void Print(Set<Module> modules) {
          foreach (Module module in modules) Print(module);
       }
 
       public void Print(Module module) {
+         PrintUnitStart(module);
+         foreach (Layer layer in module.children) Print(layer);
+         PrintUnitEnd(module);
+         PrintLudes(module);
       }
 
       public void Print(Layer layer) {
+         PrintUnitStart(layer);
+         foreach (Section section in layer.children) Print(section);
+         PrintUnitEnd(layer);
+         PrintLudes(layer);
       }
 
       public void Print(Section section) {
+         PrintUnitStart(section);
+         PrintList(RW.EXPORT,section.export);
+         PrintList(RW.IMPORT,section.import);
+         PrintList(RW.ABSTR,section.abstr);
+         PrintList(RW.EXT,section.ext);
+         PrintList(RW.INV,section.inv);
+
+         emitter.Emitnl("# CONST definitions #");
+         emitter.Emitnl("# VAR definitions #");
+         emitter.Emitnl("# LIST definitions #");
+         emitter.Emitnl("# MACRO definitions #");
+         emitter.Emitnl("# CODE definitions #");
+
+         PrintUnitEnd(section);
+         PrintLudes(section);
       }
 
       public void Print(Proc proc) {
@@ -194,8 +213,8 @@ namespace CDL2v1 {
       public void Print(LIST lIST) {
       }
 
-      private void PrintUnitStart(NamedElement unit) => emitter.Emitnl(units[unit.GetType()].Item1.ToString(),unit.name.token.tokenString,TT.END.ToString());
-      private void PrintUnitEnd(NamedElement unit)   => emitter.Emitnl(units[unit.GetType()].Item2.ToString(),unit.name.token.tokenString,TT.END.ToString());
+      private void PrintUnitStart(NamedElement unit) => emitter.Emitnl(units[unit.GetType()].Item1.ToString()," ",unit.name.token.tokenString,TT.END.TT2String());
+      private void PrintUnitEnd(NamedElement unit)   => emitter.Emitnl(units[unit.GetType()].Item2.ToString()," ",unit.name.token.tokenString,TT.END.TT2String());
 
    }
 }

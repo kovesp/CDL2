@@ -41,9 +41,11 @@ namespace CDL2v1 {
       }
 
       public TokenList tokens = new();
-      public SymbolTable modules = [];    // This symbol table will contain modules only.
+      public SymbolTable modules = [];             // This symbol table will contain modules only.
 
-      public  Program?          currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
+      public Set<Module> Modules => modules.AsSet<Module>();
+
+      public Program?          currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
       private Module?           currentModule;     // The current module being parsed. Should be the same as currentObject.Module.
       private Layer?            currentLayer;      // The current layer being parsed. Should be the same as currentObject.Layer.
       private Section?          currentSection;    // The current section being parsed. Should be the same as currentObject.Section.
@@ -459,7 +461,7 @@ namespace CDL2v1 {
          }
       }
 
-      private void ParseLudes(Container container) {;
+      private void ParseLudes(Container container) {
          container.ParseLude(this,RW.PRELUDE,container);
          container.ParseLude(this,RW.ROOT,container);
          container.ParseLude(this,RW.POSTLUDE,container);
