@@ -208,6 +208,7 @@ namespace CDL2v1 {
                   ParseMacroBody((Macro)proc);
                }
                currentSection.Symbols[proc.name] = proc;
+               currentSection.routines.Add(proc.name);
             }
          } else {
             throw new Exception("Expected FUNCTION, ACTION, TEST, or PREDICATE");

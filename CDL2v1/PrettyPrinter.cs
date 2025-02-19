@@ -11,18 +11,24 @@ namespace CDL2v1 {
    /// Formatted printing of the parse tree.
    /// </summary>
    internal class PrettyPrinter {
-      private const int DEFAULT_WIDTH = 100;
-      private const int DEFAULT_INDENT = 3;
+      private const int DEFAULT_LINE_LENGTH          = 100;
+      private const int DEFAULT_INDENT_MULTIPLIER    = 3;
+      private const int DEFAULT_MAX_INDENT_INCREMENT = 3;
 
-      private readonly int LineWidth = DEFAULT_WIDTH;        // TODO: Implement line wrapping in PrettyPrinter.
-      private readonly int IndentWidth = DEFAULT_INDENT;
+      private int LineLength { get; set; }              = DEFAULT_LINE_LENGTH;              // Line length for wrapping        
+      private int IndentMultiplier { get; set; }        = DEFAULT_INDENT_MULTIPLIER;                   // The indent multiplier
+      private int MaxIndentIncrement { get; set; }      = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
+
       private readonly CodeEmitterBase emitter;
+
+      private int indentLevel = 0;
 
       /// <summary>
       /// Construct a pretty printer with a maximum line length and an indentation width using the specified emitter.
       /// </summary>
       /// <param name="width"></param>
       /// <param name="indent"></param>
+      /// <param name="maxIndentIncr"></param>
       /// <param name="emitter"></param>
       /// <example>
       ///   Construct a pretty printer that outputs to a file.
@@ -31,36 +37,37 @@ namespace CDL2v1 {
       ///   or simpler
       ///    PrettyPrinter pp = new("output.txt");
       /// </example>
-      public PrettyPrinter(int width,int indent,CodeEmitterBase emitter) {
-         this.LineWidth = width;
-         this.IndentWidth = indent;
+      public PrettyPrinter(int width,int indent,int maxIndentIncr,CodeEmitterBase emitter) {
+         this.LineLength = width;
+         this.IndentMultiplier = indent;
+         this.MaxIndentIncrement = maxIndentIncr;
          this.emitter = emitter;
-         emitter.IndentWidth = this.IndentWidth;
-         emitter.LineWidth = this.LineWidth;
+         emitter.IndentWidth = this.IndentMultiplier;
+         emitter.LineWidth = this.LineLength;
       }
 
       /// <summary>
-      /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_WIDTH"/> and an indentation width of <see cref="DEFAULT_INDENT"/> using the specified emitter.
+      /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified emitter.
       /// </summary>
       /// <param name="emitter"></param>
-      public PrettyPrinter(CodeEmitterBase emitter) : this (DEFAULT_WIDTH,DEFAULT_INDENT, emitter) { }
+      public PrettyPrinter(CodeEmitterBase emitter) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter) { }
       /// <summary>
-      /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_WIDTH"/> and an indentation width of <see cref="DEFAULT_INDENT"/> using the specified file name.
+      /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file name.
       /// </summary>
       /// <param name="fileName">If this is null, use the <see cref="DebugCodeEmitter"/> instead.</param>
-      public PrettyPrinter(string? fileName) : this(DEFAULT_WIDTH,DEFAULT_INDENT,fileName.IsValidFileName() ? new FileCodeEmitter(fileName ?? "") : new DebugCodeEmitter()) { }
+      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName.IsValidFileName() ? new FileCodeEmitter(fileName ?? "") : new DebugCodeEmitter()) { }
 
-      private static readonly Dictionary<Type,(RW, RW)> units = new() {
-         { typeof(Program),(RW.PROGRAM, RW.ENDPROG)},
-         { typeof(Module),(RW.MODULE, RW.ENDMOD)},
-         { typeof(Layer),(RW.LAYER, RW.ENDLAY)},
-         { typeof(Section),(RW.SECTION, RW.ENDSEC)},
+      private record struct UnitDelim(RW Start, RW End);
+      private static readonly Dictionary<Type,UnitDelim> units = new() {
+         { typeof(Program),new (RW.PROGRAM, RW.ENDPROG)},
+         { typeof(Module),new (RW.MODULE, RW.ENDMOD)},
+         { typeof(Layer),new (RW.LAYER, RW.ENDLAY)},
+         { typeof(Section),new (RW.SECTION, RW.ENDSEC)},
       };
-
 
       public void Print(Program program,Set<Module> modules) {
          Print(program);
-         Print(modules);
+         foreach (Module module in modules) Print(module);
       }
 
       public void Print(Program program) {
@@ -68,6 +75,63 @@ namespace CDL2v1 {
          PrintList(RW.PART,program.children.Select(part=>part.name));
          PrintLudes(program);
          PrintUnitEnd(program);
+      }
+
+      public void Print(Module module) {
+         PrintUnitStart(module);
+         foreach (Layer layer in module.children) Print(layer);
+         PrintUnitEnd(module);
+         PrintLudes(module);
+      }
+
+      public void Print(Layer layer) {
+         PrintUnitStart(layer);
+         foreach (Section section in layer.children) Print(section);
+         PrintUnitEnd(layer);
+      }
+
+      public void Print(Section section) {
+         PrintUnitStart(section);
+         PrintList(RW.EXPORT,section.export);
+         PrintList(RW.IMPORT,section.import);
+         PrintList(RW.ABSTR,section.abstr);
+         PrintList(RW.EXT,section.ext);
+         PrintList(RW.INV,section.inv);
+
+         int EmitCount(IEnumerable<ID> list,string type) { int count = list.Count(); if (count > 0) emitter.Emitnl(indentLevel,$"# {count} {type} definition{(count==1 ? "" : "s")} #"); return count; }
+
+         if (EmitCount(section.consts,"CONST") > 0) {
+            emitter.Emit(indentLevel,RW.CONST," ");
+            Print((Const)section.Symbols[section.consts.First()]);
+            foreach (ID constId in section.consts.Skip(1)) {
+               emitter.Emit(indentLevel,TT.LISTSEP.TT2String()," ");
+               Print((Const)section.Symbols[constId]);
+            }
+            emitter.Emitnl(indentLevel,TT.END.TT2String());
+         }
+
+         if (EmitCount(section.vars,"VAR  ") > 0) {
+            PrintList(RW.VAR,section.vars);
+         }
+
+         if (EmitCount(section.lists,"LIST ") > 0) {
+            emitter.Emit(indentLevel,RW.LIST," ");
+            Print((LIST)section.Symbols[section.lists.First()]);
+            foreach (ID listId in section.lists.Skip(1)) {
+               emitter.Emit(indentLevel,TT.LISTSEP.TT2String()," ");
+               Print((LIST)section.Symbols[listId]);
+            }
+            emitter.Emitnl(indentLevel,TT.END.TT2String());
+         }
+
+         IEnumerable<ID> macros = section.routines.Where(r => section.Symbols[r] is Macro);
+         if (EmitCount(macros,"MACRO") > 0) foreach (ID macroId in macros) Print((Macro)section.Symbols[macroId]);
+
+         IEnumerable<ID> codes = section.routines.Where(r => section.Symbols[r] is Code);
+         if (EmitCount(codes,"CODE ") > 0) foreach (ID codeId in codes) Print((Code)section.Symbols[codeId]);
+
+         PrintUnitEnd(section);
+         PrintLudes(section);
       }
 
       private void PrintLudes(Container container) {
@@ -78,12 +142,12 @@ namespace CDL2v1 {
 
       private void PrintLude(RW ludeType,Container container) {
          if (container is Section) {
-            if (container.ludes[ludeType].Any()) {
-               emitter.Emit(ludeType," ");
+            if (container.ludes[ludeType].Count != 0) {
+               emitter.Emit(indentLevel,ludeType," ");
                // Section ludes are stored as ids of a generated Code item.
                if (container.Symbols[container.ludes[ludeType].First()] is Code code) { // This should always be the case
                   Print(code.alternatives.First());
-                  emitter.Emitnl(TT.END);
+                  emitter.Emitnl(indentLevel,TT.END);
                } else {
                   Logger.ReportError($"Internal error: {ludeType} lude is not a Code item.");
                }
@@ -150,71 +214,85 @@ namespace CDL2v1 {
 
       private void PrintList(RW rw,IEnumerable<ID> ids) {
          if (ids.Any()) {
-            emitter.Emit(1,rw," ",ids.First().token.tokenString);
+            emitter.Emit(indentLevel,rw," ",ids.First().token.tokenString);
             foreach (ID id in ids.Skip(1)) {
-               emitter.Emit(", ");
-               emitter.Emit(1,id.token.tokenString);
+               emitter.Emit(indentLevel,", ");
+               emitter.Emit(indentLevel,id.token.tokenString);
             }
-            emitter.Emitnl(TT.END.TT2String());
+            emitter.Emitnl(indentLevel,TT.END.TT2String());
          }
       }
 
-      public void Print(Set<Module> modules) {
-         foreach (Module module in modules) Print(module);
-      }
-
-      public void Print(Module module) {
-         PrintUnitStart(module);
-         foreach (Layer layer in module.children) Print(layer);
-         PrintUnitEnd(module);
-         PrintLudes(module);
-      }
-
-      public void Print(Layer layer) {
-         PrintUnitStart(layer);
-         foreach (Section section in layer.children) Print(section);
-         PrintUnitEnd(layer);
-         PrintLudes(layer);
-      }
-
-      public void Print(Section section) {
-         PrintUnitStart(section);
-         PrintList(RW.EXPORT,section.export);
-         PrintList(RW.IMPORT,section.import);
-         PrintList(RW.ABSTR,section.abstr);
-         PrintList(RW.EXT,section.ext);
-         PrintList(RW.INV,section.inv);
-
-         emitter.Emitnl("# CONST definitions #");
-         emitter.Emitnl("# VAR definitions #");
-         emitter.Emitnl("# LIST definitions #");
-         emitter.Emitnl("# MACRO definitions #");
-         emitter.Emitnl("# CODE definitions #");
-
-         PrintUnitEnd(section);
-         PrintLudes(section);
-      }
-
-      public void Print(Proc proc) {
-      }
-
       public void Print(Code code) {
+         PrintProcHead(code);
+         indentLevel++;
+         emitter.Emit(indentLevel,"# Code body#"); // emit the body
+         emitter.Emitnl(indentLevel,TT.END.TT2String());
+         indentLevel--;
       }
 
       public void Print(Macro macro) {
+         PrintProcHead(macro);
+         indentLevel++;
+         emitter.Emit(indentLevel,"# Macro body#");   // emit the body
+         emitter.Emitnl(indentLevel,TT.END.TT2String());
+         indentLevel--;
       }
 
-      public void Print(Var variable) {
+      private void PrintProcHead(Proc code) {
+         emitter.Emit(indentLevel,code.procType," ",code.name);
+         foreach (Param param in code.formals.Cast<Param>()) {
+            emitter.Emit(indentLevel,param.paramType == PT.std ? TT.PARAMSEP.TT2String() : TT.STRINGPARAMSEP.TT2String());
+            if (param.IsInput) emitter.Emit(indentLevel,TT.PARAMDIR.TT2String());
+            emitter.Emit(indentLevel,param.token.tokenString);
+            if (param.IsOutput) emitter.Emit(indentLevel,TT.PARAMDIR.TT2String());
+         }
+         if (code.locals.Any()) {
+            emitter.Emit(indentLevel," ");
+            foreach (ID local in code.locals) {
+               emitter.Emit(indentLevel,TT.LOCALSEP.TT2String(),local.token.tokenString);
+            }
+         }
+         emitter.Emitnl(indentLevel,code.bodyType.TT2String());
       }
 
-      public void Print(Const expression) {
+      public void Print(Const constant) {
+         emitter.Emit(constant.name,TT.EQUALS.TT2String());
+         foreach (ConstElement element in constant.elements) {
+            switch (element) {
+               case STRING s:
+                  emitter.Emit(indentLevel,s.value);
+                  break;
+               case INT n:
+                  emitter.Emit(indentLevel,n.value);
+                  break;
+               case FLOAT f:
+                  emitter.Emit(indentLevel,f.value);
+                  break;
+               case Const c:
+                  Print(c);
+                  break;
+               case ID id:
+                  emitter.Emit(indentLevel,id.token.tokenString);
+                  break;
+               default:
+                  throw new NotImplementedException();
+            }
+         }
       }
 
-      public void Print(LIST lIST) {
+      public void Print(LIST list) {
+         emitter.Emit(indentLevel,list.name.token.tokenString,TT.LISTBOUNDSTART.TT2String(),list.lwb.tokenString,TT.LISTBOUNDSEP.TT2String(),list.upb.tokenString,TT.LISTBOUNDEND.TT2String());
       }
 
-      private void PrintUnitStart(NamedElement unit) => emitter.Emitnl(units[unit.GetType()].Item1.ToString()," ",unit.name.token.tokenString,TT.END.TT2String());
-      private void PrintUnitEnd(NamedElement unit)   => emitter.Emitnl(units[unit.GetType()].Item2.ToString()," ",unit.name.token.tokenString,TT.END.TT2String());
+      private void PrintUnitStart(NamedElement unit) {
+         emitter.Emitnl(indentLevel,units[unit.GetType()].Start.ToString()," ",unit.name.token.tokenString,TT.END.TT2String());
+         indentLevel++;
+      }
 
+      private void PrintUnitEnd(NamedElement unit) {
+         indentLevel--;
+         emitter.Emitnl(indentLevel,units[unit.GetType()].End.ToString()," ",unit.name.token.tokenString,TT.END.TT2String());
+      }
    }
 }
