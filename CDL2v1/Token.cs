@@ -22,9 +22,10 @@ namespace CDL2v1 {
       public static readonly ReservedWord[] UnitStarters = { ReservedWord.MODULE,ReservedWord.LAYER,ReservedWord.SECTION,ReservedWord.PROGRAM };
       public static readonly ReservedWord[] UnitEnders = { ReservedWord.ENDMOD,ReservedWord.ENDLAY,ReservedWord.ENDSEC,ReservedWord.ENDPROG };
 
-      private static readonly Dictionary<string,TokenType> Glyph2TokenType;
+      public static readonly Dictionary<string,TokenType> Glyph2TokenType;
       public static readonly Dictionary<TokenType,string> TokenType2Glyph;
-      private static readonly Dictionary<string,string> Escape2Char;
+      public static readonly Dictionary<string,string> Escape2Char;
+      public static readonly Dictionary<string,string> Char2Escape =[];
 
       private static readonly Regex GlyphRE;
       private static readonly Regex ReswordRE;
@@ -61,6 +62,9 @@ namespace CDL2v1 {
          };
          TokenType2Glyph = Glyph2TokenType.ToDictionary(kvp => kvp.Value,kvp => kvp.Key);
 
+
+
+
          Escape2Char = new Dictionary<string,string> {
             { "L", "\n" },
             { "l", "\n" },
@@ -69,6 +73,9 @@ namespace CDL2v1 {
             { "\"", "\"" },
             { "$", "$" },
          };
+         Escape2Char.Values.Distinct().ToList().ForEach(v => Char2Escape[v] = Escape2Char.First(kvp => kvp.Value == v).Key.ToUpper());
+
+
          // Must match at the begining of the input
          GlyphRE = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})");
          ReswordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})");
@@ -128,7 +135,7 @@ namespace CDL2v1 {
                break;
             case TokenClass.ID:
                type = TokenType.ID;
-               tokenString = Regex.Replace(text,@"\s+"," ");  // Reduce all white space to a single space
+               tokenString = Regex.Replace(text,@"\s+"," ").Trim();  // Reduce all white space to a single space
                sval = Regex.Replace(text,@"\s+","");
                break;
             case TokenClass.ResWord:

@@ -495,7 +495,7 @@ namespace CDL2v1 {
             }
             parser.tokens.CanConsumeEnd();
             Code lude = new(type,(Section)container);
-            lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.Succeed)));
+            lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
             container.Symbols[lude.name] = lude;
             container.ludes[type].Add(lude.name);
          }

@@ -3,6 +3,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -147,7 +148,7 @@ namespace CDL2v1 {
                // Section ludes are stored as ids of a generated Code item.
                if (container.Symbols[container.ludes[ludeType].First()] is Code code) { // This should always be the case
                   Print(code.alternatives.First());
-                  emitter.Emitnl(indentLevel,TT.END);
+                  emitter.Emitnl(indentLevel,TT.END.TT2String());
                } else {
                   Logger.ReportError($"Internal error: {ludeType} lude is not a Code item.");
                }
@@ -158,37 +159,42 @@ namespace CDL2v1 {
       }
 
 
-      private void Print(Alternative alternative) => Print(alternative,0);
-      private void Print(Alternative alternative,int indentLevel) {
-         foreach (Call call in alternative.calls.Skip(1)) {
-            emitter.Emit(", ");
-            Print(call);
+      private void Print(Alternative alternative) {
+         if (alternative.calls.Count > 0) { 
+            Print(alternative.calls.First());
+            foreach (Call call in alternative.calls.Skip(1)) {
+               emitter.Emit(indentLevel,", ");
+               Print(call);
+            }
          }
-         switch (alternative.lastCall.type) {
-            case LastCallType.Standard:
-               Debug.Assert(alternative.lastCall.call != null);
-               Print(alternative.lastCall.call);
-               break;
-            case LastCallType.Succeed:
-               emitter.Emit(TT.SUCCEED);
-               break;
-            case LastCallType.Fail:
-               emitter.Emit(TT.FAIL);
-               break;
-            case LastCallType.Abort:
-               emitter.Emit(TT.ABORT);
-               break;
-            case LastCallType.Repeat:
-               emitter.Emit(TT.REPEAT);
-               Debug.Assert(alternative.lastCall.label is not null);
-               if (alternative.lastCall.label != TokenList.AnonID) {
-                  emitter.Emit(alternative.lastCall.label.token.tokenString);
-               }
-               break;
-            case LastCallType.Group:
-               Debug.Assert(alternative.lastCall.label is not null && alternative.lastCall.group is not null);
-               Print(alternative.lastCall.label,alternative.lastCall.group);
-               break;
+         if (alternative.lastCall.type != LCT.None) {
+            emitter.Emit(indentLevel,", ");
+            switch (alternative.lastCall.type) {
+               case LastCallType.Standard:
+                  Debug.Assert(alternative.lastCall.call != null);
+                  Print(alternative.lastCall.call);
+                  break;
+               case LastCallType.Succeed:
+                  emitter.Emit(TT.SUCCEED.TT2String());
+                  break;
+               case LastCallType.Fail:
+                  emitter.Emit(TT.FAIL.TT2String());
+                  break;
+               case LastCallType.Abort:
+                  emitter.Emit(TT.ABORT.TT2String());
+                  break;
+               case LastCallType.Repeat:
+                  emitter.Emit(TT.REPEAT.TT2String());
+                  Debug.Assert(alternative.lastCall.label is not null);
+                  if (alternative.lastCall.label != TokenList.AnonID) {
+                     emitter.Emit(alternative.lastCall.label.token.tokenString);
+                  }
+                  break;
+               case LastCallType.Group:
+                  Debug.Assert(alternative.lastCall.label is not null && alternative.lastCall.group is not null);
+                  Print(alternative.lastCall.label,alternative.lastCall.group);
+                  break;
+            }
          }
       }
 
@@ -210,7 +216,29 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(Call call) { }
+      public void Print(Call call) {
+         emitter.Emit(indentLevel,call.id.token.tokenString);
+         foreach (ActualArg arg in call.args) {
+            emitter.Emit(indentLevel,TT.PARAMSEP);
+            if (arg is STRING s) {
+               emitter.Emit(indentLevel,"\"",EscapedCDL2(s.value),"\"");
+            } else if (arg is ID id) {
+               emitter.Emit(indentLevel,id.token.tokenString);
+            }
+         }
+      }
+
+      private string EscapedCDL2(string str) {
+         StringBuilder sb = new();
+         foreach (char c in str) {
+            if (Token.Char2Escape.TryGetValue(c.ToString(),out string? escape)) {
+               sb.Append($"${escape}");
+            } else {
+               sb.Append(c);
+            }
+         }
+         return sb.ToString();
+      }
 
       private void PrintList(RW rw,IEnumerable<ID> ids) {
          if (ids.Any()) {
@@ -234,9 +262,33 @@ namespace CDL2v1 {
       public void Print(Macro macro) {
          PrintProcHead(macro);
          indentLevel++;
-         emitter.Emit(indentLevel,"# Macro body#");   // emit the body
+         Debug.Assert(macro.elements.Count != 0);
+         PrintMacroElement(macro.elements.First(),withNl: false);
+         foreach (MacroElement elem in macro.elements.Skip(1)) {
+            PrintMacroElement(elem,withSpace: true);
+         }
          emitter.Emitnl(indentLevel,TT.END.TT2String());
          indentLevel--;
+      }
+
+      private void PrintMacroElement(MacroElement elem,bool withSpace = false,bool withNl = true) {
+         if (withSpace) emitter.Emit(indentLevel," ");
+         switch (elem) {
+            case STRING s:
+               emitter.Emit(indentLevel,withNl && s.value.Contains('\n'),"\"",EscapedCDL2(s.value),"\"");
+               break;
+            case INT n:
+               emitter.Emit(indentLevel,n.value);
+               break;
+            case FLOAT f:
+               emitter.Emit(indentLevel,f.value);
+               break;
+            case ID id:
+               emitter.Emit(indentLevel,id.token.tokenString);
+               break;
+            default:
+               throw new NotImplementedException();
+         }
       }
 
       private void PrintProcHead(Proc code) {
@@ -253,7 +305,7 @@ namespace CDL2v1 {
                emitter.Emit(indentLevel,TT.LOCALSEP.TT2String(),local.token.tokenString);
             }
          }
-         emitter.Emitnl(indentLevel,code.bodyType.TT2String());
+         emitter.Emitnl(indentLevel," ",code.bodyType.TT2String());
       }
 
       public void Print(Const constant) {

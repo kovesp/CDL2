@@ -109,7 +109,8 @@ namespace CDL2v1 {
       Fail, 
       Abort, 
       Repeat, 
-      Group
+      Group,
+      None,                   // Use in the alternative generated for section ludes.
    }
 
 }

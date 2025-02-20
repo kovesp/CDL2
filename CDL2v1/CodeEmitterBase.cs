@@ -42,6 +42,7 @@ namespace CDL2v1 {
       /// <param name="code"></param>
       /// <returns>True if a new line was written.</returns>
       public bool Emit(int indentLevel,params object[] code) => WriteWithIndent(indentLevel,false,false,code);
+      public bool Emit(int indentLevel,bool nlbefore,params object[] code) => WriteWithIndent(indentLevel,nlbefore,false,code);
       /// <summary>
       /// Like <see cref="Emit(int, object[])"/> with a new line added at the end.
       /// This is multipl
