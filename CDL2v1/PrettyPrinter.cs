@@ -22,14 +22,26 @@ namespace CDL2v1 {
 
       private readonly CodeEmitterBase emitter;
 
-      [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeQuality","IDE0052:Remove unread private members",Justification = "VS not recognizing that it is being used in ++ and --.")]
-      private int IndentLevel {
-         get => emitter?.IndentLevel ?? 0;
-         set {
-            if (emitter is not null) emitter.IndentLevel = value;
-         }
-      }
 
+      /// <summary>
+      /// Perform action with an increased indent level.
+      /// </summary>
+      /// <param name="action"></param>
+      void Indented(Action action) {
+         emitter.IndentLevel++;
+         action();
+         emitter.IndentLevel--;
+      }
+      /// <summary>
+      /// Perform action keeping produced output together on one line.
+      /// </summary>
+      /// <param name="action"></param>
+      void KeepTogether(Action action) {
+         bool keepTogether = emitter.KeepTogether;
+         emitter.KeepTogether = true;
+         action();
+         emitter.KeepTogether = keepTogether;
+      }
 
 
       /// <summary>
@@ -81,35 +93,27 @@ namespace CDL2v1 {
          foreach (Module module in modules) Print(module);
       }
 
-      public void Print(Program program) {
-         PrintUnitStart(program);
-         PrintList(RW.PART,program.children.Select(part=>part.name));
+      public void Print(Program program) => PrintContainer(program,() => {
+         PrintList(RW.PART,program.children.Select(part => part.name));
          PrintLudes(program);
-         PrintUnitEnd(program);
-      }
+      });
 
-      public void Print(Module module) {
-         PrintUnitStart(module);
-         foreach (Layer layer in module.children) Print(layer);
-         PrintUnitEnd(module);
-         PrintLudes(module);
-      }
+      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.children) Print(layer); }); 
 
-      public void Print(Layer layer) {
-         PrintUnitStart(layer);
-         foreach (Section section in layer.children) Print(section);
-         PrintUnitEnd(layer);
-      }
+      public void Print(Layer layer)   => PrintContainer(layer,()  => { foreach (Section section in layer.children) Print(section); });
 
-      public void Print(Section section) {
-         PrintUnitStart(section);
+      public void Print(Section section) => PrintContainer(section,() => {
          PrintList(RW.EXPORT,section.export);
          PrintList(RW.IMPORT,section.import);
          PrintList(RW.ABSTR,section.abstr);
          PrintList(RW.EXT,section.ext);
          PrintList(RW.INV,section.inv);
 
-         int EmitCount(IEnumerable<ID> list,string type) { int count = list.Count(); if (count > 0) Emitnl($"# {count} {type} definition{(count==1 ? "" : "s")} #"); return count; }
+         int EmitCount(IEnumerable<ID> list,string type) { 
+            int count = list.Count();
+            if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #"); }
+            return count;
+         }
 
          if (EmitCount(section.consts,"CONST") > 0) {
             Emit(RW.CONST," ");
@@ -141,9 +145,7 @@ namespace CDL2v1 {
          IEnumerable<ID> codes = section.routines.Where(r => section.Symbols[r] is Code);
          if (EmitCount(codes,"CODE ") > 0) foreach (ID codeId in codes) Print((Code)section.Symbols[codeId]);
 
-         PrintUnitEnd(section);
-         PrintLudes(section);
-      }     
+      });     
 
       private void PrintLudes(Container container) {
          PrintLude(RW.PRELUDE,container);
@@ -168,9 +170,10 @@ namespace CDL2v1 {
          }
       }
 
-      private void Print(Alternative alternative) {
+      private void Print(Alternative alternative,bool extraSpace=false) {
+         emitter.ExtraIndent = 0;
          if (alternative.calls.Count > 0) { 
-            Print(alternative.calls.First());
+            Print(alternative.calls.First(),extraSpace:extraSpace,firstInAlternative:true);
             foreach (Call call in alternative.calls.Skip(1)) {
                EmitSeparator(TT.CALLSEP);
                Print(call);
@@ -182,7 +185,7 @@ namespace CDL2v1 {
             switch (alternative.lastCall.type) {
                case LastCallType.Standard:
                   Debug.Assert(alternative.lastCall.call != null,"alternative.lastCall.call is null");
-                  Print(alternative.lastCall.call);
+                  Print(alternative.lastCall.call,firstInAlternative:alternative.calls.Count==0);
                   break;
                case LastCallType.Succeed:
                   Emit(TT.SUCCEED);
@@ -208,27 +211,24 @@ namespace CDL2v1 {
          }
       }
 
-      private void Print(Group group) {
-         IndentLevel++;
+      private void Print(Group group) => Indented(() => {
          NlEmit(TT.GRPOPEN);
          if (group.name != TokenList.AnonID) Emit(group.name.token.tokenString,TT.LABELSEP);
          Print(group.alternatives);
          Emit(TT.GRPCLOSE);
-         IndentLevel--;
-      }
+      });
 
       private void Print(List<Alternative> alternatives) {
          Debug.Assert(alternatives.Any(),"alternatives list is empty");
          Print(alternatives.First());
          foreach (Alternative alternative in alternatives.Skip(1)) {
             EmitSeparatorWithNL(TT.ALTSEP);
-            //Emit(" ");
-            Print(alternative);
+            Print(alternative,extraSpace:true);
          }
       }
 
-      public void Print(Call call) {
-         Emit(call.id.token.tokenString);
+      public void Print(Call call,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
+         EmitWithExtraSpace(extraSpace,call.id.token.tokenString);
          foreach (ActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {
@@ -237,7 +237,9 @@ namespace CDL2v1 {
                Emit(id.token.tokenString);
             }
          }
-      }
+         // This is safe, because the MaxIndentIncrement limits the extra indent.
+         if (!firstInAlternative && emitter.WillKeepTogetherNotFitOnCurrentLine()) emitter.ExtraIndent++;
+      });
 
       private static string EscapedCDL2(string str) {
          StringBuilder sb = new();
@@ -264,27 +266,27 @@ namespace CDL2v1 {
 
       public void Print(Code code) {
          PrintProcHead(code);
-         IndentLevel++;
-         Debug.Assert(code.alternatives.Count != 0,"alternatives list is empty");
-         Print(code.alternatives.First());
-         foreach (Alternative alt in code.alternatives.Skip(1)) {
-            EmitSeparatorWithNL(TT.ALTSEP);
-            Print(alt);
-         }
-         EmitSeparatorWithNL(TT.END);
-         IndentLevel--;
+         Indented(() => {
+            Debug.Assert(code.alternatives.Count != 0,"alternatives list is empty");
+            Print(code.alternatives.First());
+            foreach (Alternative alt in code.alternatives.Skip(1)) {
+               EmitSeparatorWithNL(TT.ALTSEP);
+               Print(alt);
+            }
+            EmitSeparatorWithNL(TT.END);
+         });
       }
 
       public void Print(Macro macro) {
          PrintProcHead(macro);
-         IndentLevel++;
-         Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
-         PrintMacroElement(macro.elements.First(),withNl: false);
-         foreach (MacroElement elem in macro.elements.Skip(1)) {
-            PrintMacroElement(elem,withSpace: true);
-         }
-         EmitSeparatorWithNL(TT.END);
-         IndentLevel--;
+         Indented(() => {
+            Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
+            PrintMacroElement(macro.elements.First(),withNl: false);
+            foreach (MacroElement elem in macro.elements.Skip(1)) {
+               PrintMacroElement(elem,withSpace: true);
+            }
+            EmitSeparatorWithNL(TT.END);
+         });
       }
 
       private void PrintMacroElement(MacroElement elem,bool withSpace = false,bool withNl = true) {
@@ -352,14 +354,29 @@ namespace CDL2v1 {
          Emit(list.name.token.tokenString,TT.LISTBOUNDSTART,list.lwb.tokenString,TT.LISTBOUNDSEP,list.upb.tokenString,TT.LISTBOUNDEND);
       }
 
-      private void PrintUnitStart(NamedElement unit) {
-         Emitnl(units[unit.GetType()].Start.ToString()," ",unit.name.token.tokenString,TT.END);
-         IndentLevel++;
-      }
+      //private void PrintUnitStart(NamedElement unit) {
+      //   Emitnl(units[unit.GetType()].Start.ToString()," ",unit.name.token.tokenString,TT.END);
+      //   IndentLevel++;
+      //}
 
-      private void PrintUnitEnd(NamedElement unit) {
-         IndentLevel--;
+      //private void PrintUnitEnd(NamedElement unit) {
+      //   IndentLevel--;
+      //   Emitnl(units[unit.GetType()].End.ToString()," ",unit.name.token.tokenString,TT.END);
+      //}
+
+      /// <summary>
+      /// Print the start and end of a container unit, and then the contents.
+      /// Print the ludes for the containier if it can have any at the corect place.
+      /// (Why they couldn't position the ludes in the same place for a PROGRAM as the other items is a mystery).
+      /// </summary>
+      /// <param name="unit"></param>
+      /// <param name="action"></param>
+      private void PrintContainer(Container unit,Action action) {
+         Emitnl(units[unit.GetType()].Start.ToString()," ",unit.name.token.tokenString,TT.END);
+         Indented(() => action());
+         if (unit is Program) PrintLudes(unit);
          Emitnl(units[unit.GetType()].End.ToString()," ",unit.name.token.tokenString,TT.END);
+         if (unit is Module || unit is Section) PrintLudes(unit);
       }
 
       /// <summary>
@@ -376,9 +393,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="items"></param>
       private void Emit(params object[] items) => emitter.Emit(TranslateTokens(items));
-      private void EmitSeparator(TT sep,bool space=true) => emitter.EmitIgnoreLineLength(sep+(space?" ":""));
+      private void EmitWithExtraSpace(bool extraSpace,params object[] items) => emitter.EmitWithExtraSpace(extraSpace,TranslateTokens(items));
+      private void EmitSeparator(TT sep,bool space=true) => emitter.EmitIgnoreLineLength(TranslateToken(sep)+(space?" ":""));
       private void EmitSeparatorWithNL(TT sep) => emitter.EmitIgnoreLineLength(TranslateToken(sep),NL:true);
       private void Emitnl(params object[] items) => emitter.Emitnl(TranslateTokens(items));
       private void NlEmit(params object[] items) => emitter.NlEmit(TranslateTokens(items));
+      private void NlEmitnl(params object[] items) => emitter.NlEmitnl(TranslateTokens(items));
    }
 }
