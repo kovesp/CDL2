@@ -13,7 +13,5 @@ namespace CDL2v1 {
             return fileName.All(ch => !Path.GetInvalidFileNameChars().Contains(ch));
          }
       }
-
-      public static string TT2String(this TokenType tokenType) => Token.TokenType2Glyph[tokenType];
    }
 }

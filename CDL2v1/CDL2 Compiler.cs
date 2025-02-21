@@ -110,7 +110,7 @@ internal class CDL2 {
 
          if (!ParseOnly) {
             ICodeGenerator? cg = CreateCodeGenerator(Target);
-            CodeEmitterBase emitter = new DebugCodeEmitter();
+            CodeEmitterBase emitter = new CodeEmitterDebug();
             if (Parser.currentProgram != null && cg != null) {
                string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
                Logger.Log(0,$"Generating code for {Target} into {emitter.Target}");

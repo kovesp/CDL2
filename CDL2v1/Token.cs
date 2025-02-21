@@ -62,9 +62,6 @@ namespace CDL2v1 {
          };
          TokenType2Glyph = Glyph2TokenType.ToDictionary(kvp => kvp.Value,kvp => kvp.Key);
 
-
-
-
          Escape2Char = new Dictionary<string,string> {
             { "L", "\n" },
             { "l", "\n" },
@@ -92,6 +89,8 @@ namespace CDL2v1 {
          AnonID = new ID(AnonIDToken);
          ACTIONToken = new Token(TokenClass.ResWord,"ACTION","",0);
       }
+
+      public static string ToGlyph(TokenType tt) => Token.TokenType2Glyph.TryGetValue(tt,out string? glyph) ? glyph ?? "" : "";
 
       readonly public TokenType type;
       // Depending on the type, one of the following may be populated:

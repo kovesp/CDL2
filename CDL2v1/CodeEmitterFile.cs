@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 
 namespace CDL2v1 {
-   internal class FileCodeEmitter : CodeEmitterBase {
+   internal class CodeEmitterFile : CodeEmitterBase {
       private StreamWriter? writer = null;
       private string? target = null;
 
@@ -20,14 +20,14 @@ namespace CDL2v1 {
          }
       }
 
-      public FileCodeEmitter() => Target = "";
-      public FileCodeEmitter(string targetFileName) => Target = targetFileName;
-      ~FileCodeEmitter() => Target = "";
+      public CodeEmitterFile() => Target = "";
+      public CodeEmitterFile(string targetFileName) => Target = targetFileName;
+      ~CodeEmitterFile() => Target = "";
 
       /// <summary>
       /// Write the item to the target file.
       /// </summary>
       /// <param name="item"></param>
-      protected override void Write(string item) => writer?.Write(item);
+      protected override void WriteLine(string item) => writer?.WriteLine(item);
    }
 }

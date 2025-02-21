@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
    internal class CodeGeneratorPowerShell : ICodeGenerator {
-      CodeEmitterBase emitter = new SinkCodeEmitter();
+      CodeEmitterBase emitter = new CodeEmitterSink();
       string module = "";
       string layer = "";
       string section = "";

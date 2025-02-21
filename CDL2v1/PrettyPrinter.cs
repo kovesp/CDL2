@@ -17,12 +17,20 @@ namespace CDL2v1 {
       private const int DEFAULT_MAX_INDENT_INCREMENT = 3;
 
       private int LineLength { get; set; }              = DEFAULT_LINE_LENGTH;              // Line length for wrapping        
-      private int IndentMultiplier { get; set; }        = DEFAULT_INDENT_MULTIPLIER;                   // The indent multiplier
+      private int IndentMultiplier { get; set; }        = DEFAULT_INDENT_MULTIPLIER;        // The indent multiplier
       private int MaxIndentIncrement { get; set; }      = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
 
       private readonly CodeEmitterBase emitter;
 
-      private int indentLevel = 0;
+      [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeQuality","IDE0052:Remove unread private members",Justification = "VS not recognizing that it is being used in ++ and --.")]
+      private int IndentLevel {
+         get => emitter?.IndentLevel ?? 0;
+         set {
+            if (emitter is not null) emitter.IndentLevel = value;
+         }
+      }
+
+
 
       /// <summary>
       /// Construct a pretty printer with a maximum line length and an indentation width using the specified emitter.
@@ -45,6 +53,8 @@ namespace CDL2v1 {
          this.emitter = emitter;
          emitter.IndentWidth = this.IndentMultiplier;
          emitter.LineWidth = this.LineLength;
+         emitter.IndentLevel = 0;
+         emitter.LinePrefix = "CDL2PP: ";
       }
 
       /// <summary>
@@ -55,8 +65,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file name.
       /// </summary>
-      /// <param name="fileName">If this is null, use the <see cref="DebugCodeEmitter"/> instead.</param>
-      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName.IsValidFileName() ? new FileCodeEmitter(fileName ?? "") : new DebugCodeEmitter()) { }
+      /// <param name="fileName">If this is null, use the <see cref="CodeEmitterDebug"/> instead.</param>
+      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName.IsValidFileName() ? new CodeEmitterFile(fileName ?? "") : new CodeEmitterDebug()) { }
 
       private record struct UnitDelim(RW Start, RW End);
       private static readonly Dictionary<Type,UnitDelim> units = new() {
@@ -99,16 +109,16 @@ namespace CDL2v1 {
          PrintList(RW.EXT,section.ext);
          PrintList(RW.INV,section.inv);
 
-         int EmitCount(IEnumerable<ID> list,string type) { int count = list.Count(); if (count > 0) emitter.Emitnl(indentLevel,$"# {count} {type} definition{(count==1 ? "" : "s")} #"); return count; }
+         int EmitCount(IEnumerable<ID> list,string type) { int count = list.Count(); if (count > 0) Emitnl($"# {count} {type} definition{(count==1 ? "" : "s")} #"); return count; }
 
          if (EmitCount(section.consts,"CONST") > 0) {
-            emitter.Emit(indentLevel,RW.CONST," ");
+            Emit(RW.CONST," ");
             Print((Const)section.Symbols[section.consts.First()]);
             foreach (ID constId in section.consts.Skip(1)) {
-               emitter.Emit(indentLevel,TT.LISTSEP.TT2String()," ");
+               EmitSeparator(TT.LISTSEP);
                Print((Const)section.Symbols[constId]);
             }
-            emitter.Emitnl(indentLevel,TT.END.TT2String());
+            EmitSeparatorWithNL(TT.END);
          }
 
          if (EmitCount(section.vars,"VAR  ") > 0) {
@@ -116,13 +126,13 @@ namespace CDL2v1 {
          }
 
          if (EmitCount(section.lists,"LIST ") > 0) {
-            emitter.Emit(indentLevel,RW.LIST," ");
+            Emit(RW.LIST," ");
             Print((LIST)section.Symbols[section.lists.First()]);
             foreach (ID listId in section.lists.Skip(1)) {
-               emitter.Emit(indentLevel,TT.LISTSEP.TT2String()," ");
+               EmitSeparator(TT.LISTSEP);
                Print((LIST)section.Symbols[listId]);
             }
-            emitter.Emitnl(indentLevel,TT.END.TT2String());
+            EmitSeparatorWithNL(TT.END);
          }
 
          IEnumerable<ID> macros = section.routines.Where(r => section.Symbols[r] is Macro);
@@ -133,7 +143,7 @@ namespace CDL2v1 {
 
          PrintUnitEnd(section);
          PrintLudes(section);
-      }
+      }     
 
       private void PrintLudes(Container container) {
          PrintLude(RW.PRELUDE,container);
@@ -144,11 +154,11 @@ namespace CDL2v1 {
       private void PrintLude(RW ludeType,Container container) {
          if (container is Section) {
             if (container.ludes[ludeType].Count != 0) {
-               emitter.Emit(indentLevel,ludeType," ");
+               Emit(ludeType," ");
                // Section ludes are stored as ids of a generated Code item.
                if (container.Symbols[container.ludes[ludeType].First()] is Code code) { // This should always be the case
                   Print(code.alternatives.First());
-                  emitter.Emitnl(indentLevel,TT.END.TT2String());
+                  EmitSeparatorWithNL(TT.END);
                } else {
                   Logger.ReportError($"Internal error: {ludeType} lude is not a Code item.");
                }
@@ -158,77 +168,78 @@ namespace CDL2v1 {
          }
       }
 
-
       private void Print(Alternative alternative) {
          if (alternative.calls.Count > 0) { 
             Print(alternative.calls.First());
             foreach (Call call in alternative.calls.Skip(1)) {
-               emitter.Emit(indentLevel,", ");
+               EmitSeparator(TT.CALLSEP);
                Print(call);
             }
+            if (alternative.lastCall.type != LCT.None) EmitSeparator(TT.CALLSEP);
          }
-         if (alternative.lastCall.type != LCT.None) {
-            emitter.Emit(indentLevel,", ");
+
+         if (alternative.lastCall.type != LCT.None) {            
             switch (alternative.lastCall.type) {
                case LastCallType.Standard:
-                  Debug.Assert(alternative.lastCall.call != null);
+                  Debug.Assert(alternative.lastCall.call != null,"alternative.lastCall.call is null");
                   Print(alternative.lastCall.call);
                   break;
                case LastCallType.Succeed:
-                  emitter.Emit(TT.SUCCEED.TT2String());
+                  Emit(TT.SUCCEED);
                   break;
                case LastCallType.Fail:
-                  emitter.Emit(TT.FAIL.TT2String());
+                  Emit(TT.FAIL);
                   break;
                case LastCallType.Abort:
-                  emitter.Emit(TT.ABORT.TT2String());
+                  Emit(TT.ABORT);
                   break;
                case LastCallType.Repeat:
-                  emitter.Emit(TT.REPEAT.TT2String());
-                  Debug.Assert(alternative.lastCall.label is not null);
+                  Emit(TT.REPEAT);
+                  Debug.Assert(alternative.lastCall.label is not null,"alternative.lastcall.label is null");
                   if (alternative.lastCall.label != TokenList.AnonID) {
-                     emitter.Emit(alternative.lastCall.label.token.tokenString);
+                     Emit(alternative.lastCall.label.token.tokenString);
                   }
                   break;
                case LastCallType.Group:
-                  Debug.Assert(alternative.lastCall.label is not null && alternative.lastCall.group is not null);
-                  Print(alternative.lastCall.label,alternative.lastCall.group);
+                  Debug.Assert(alternative.lastCall.group is not null,"alternative.group is null");
+                  Print(alternative.lastCall.group);
                   break;
             }
          }
       }
 
-      private void Print(ID label,Group group) {
-         emitter.Emit(TT.GRPOPEN);
-         if (label != TokenList.AnonID) emitter.Emit(label.token.tokenString,TT.LABELSEP);
+      private void Print(Group group) {
+         IndentLevel++;
+         NlEmit(TT.GRPOPEN);
+         if (group.name != TokenList.AnonID) Emit(group.name.token.tokenString,TT.LABELSEP);
          Print(group.alternatives);
-         emitter.Emit(TT.GRPCLOSE);
+         Emit(TT.GRPCLOSE);
+         IndentLevel--;
       }
 
-      private void Print(Group group) => Print(TokenList.AnonID,group);
-
       private void Print(List<Alternative> alternatives) {
-         Debug.Assert(alternatives.Any());
+         Debug.Assert(alternatives.Any(),"alternatives list is empty");
          Print(alternatives.First());
          foreach (Alternative alternative in alternatives.Skip(1)) {
-            emitter.Emitnl(TT.ALTSEP);
+            EmitSeparatorWithNL(TT.ALTSEP);
+            //Emit(" ");
             Print(alternative);
          }
       }
 
       public void Print(Call call) {
-         emitter.Emit(indentLevel,call.id.token.tokenString);
+         Emit(call.id.token.tokenString);
          foreach (ActualArg arg in call.args) {
-            emitter.Emit(indentLevel,TT.PARAMSEP);
+            Emit(TT.PARAMSEP);
             if (arg is STRING s) {
-               emitter.Emit(indentLevel,"\"",EscapedCDL2(s.value),"\"");
+               Emit("\"",EscapedCDL2(s.value),"\"");
             } else if (arg is ID id) {
-               emitter.Emit(indentLevel,id.token.tokenString);
+               Emit(id.token.tokenString);
             }
          }
       }
 
-      private string EscapedCDL2(string str) {
+      private static string EscapedCDL2(string str) {
          StringBuilder sb = new();
          foreach (char c in str) {
             if (Token.Char2Escape.TryGetValue(c.ToString(),out string? escape)) {
@@ -242,49 +253,54 @@ namespace CDL2v1 {
 
       private void PrintList(RW rw,IEnumerable<ID> ids) {
          if (ids.Any()) {
-            emitter.Emit(indentLevel,rw," ",ids.First().token.tokenString);
+            Emit(rw," ",ids.First().token.tokenString);
             foreach (ID id in ids.Skip(1)) {
-               emitter.Emit(indentLevel,", ");
-               emitter.Emit(indentLevel,id.token.tokenString);
+               EmitSeparator(TT.LISTSEP);
+               Emit(id.token.tokenString);
             }
-            emitter.Emitnl(indentLevel,TT.END.TT2String());
+            EmitSeparatorWithNL(TT.END);
          }
       }
 
       public void Print(Code code) {
          PrintProcHead(code);
-         indentLevel++;
-         emitter.Emit(indentLevel,"# Code body#"); // emit the body
-         emitter.Emitnl(indentLevel,TT.END.TT2String());
-         indentLevel--;
+         IndentLevel++;
+         Debug.Assert(code.alternatives.Count != 0,"alternatives list is empty");
+         Print(code.alternatives.First());
+         foreach (Alternative alt in code.alternatives.Skip(1)) {
+            EmitSeparatorWithNL(TT.ALTSEP);
+            Print(alt);
+         }
+         EmitSeparatorWithNL(TT.END);
+         IndentLevel--;
       }
 
       public void Print(Macro macro) {
          PrintProcHead(macro);
-         indentLevel++;
-         Debug.Assert(macro.elements.Count != 0);
+         IndentLevel++;
+         Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
          PrintMacroElement(macro.elements.First(),withNl: false);
          foreach (MacroElement elem in macro.elements.Skip(1)) {
             PrintMacroElement(elem,withSpace: true);
          }
-         emitter.Emitnl(indentLevel,TT.END.TT2String());
-         indentLevel--;
+         EmitSeparatorWithNL(TT.END);
+         IndentLevel--;
       }
 
       private void PrintMacroElement(MacroElement elem,bool withSpace = false,bool withNl = true) {
-         if (withSpace) emitter.Emit(indentLevel," ");
+         if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
-               emitter.Emit(indentLevel,withNl && s.value.Contains('\n'),"\"",EscapedCDL2(s.value),"\"");
+               Emit((withNl && s.value.Contains('\n')?"\n":""),"\"",EscapedCDL2(s.value),"\"");
                break;
             case INT n:
-               emitter.Emit(indentLevel,n.value);
+               Emit(n.value);
                break;
             case FLOAT f:
-               emitter.Emit(indentLevel,f.value);
+               Emit(f.value);
                break;
             case ID id:
-               emitter.Emit(indentLevel,id.token.tokenString);
+               Emit(id.token.tokenString);
                break;
             default:
                throw new NotImplementedException();
@@ -292,40 +308,39 @@ namespace CDL2v1 {
       }
 
       private void PrintProcHead(Proc code) {
-         emitter.Emit(indentLevel,code.procType," ",code.name);
+         Emit(code.procType," ",code.name);
          foreach (Param param in code.formals.Cast<Param>()) {
-            emitter.Emit(indentLevel,param.paramType == PT.std ? TT.PARAMSEP.TT2String() : TT.STRINGPARAMSEP.TT2String());
-            if (param.IsInput) emitter.Emit(indentLevel,TT.PARAMDIR.TT2String());
-            emitter.Emit(indentLevel,param.token.tokenString);
-            if (param.IsOutput) emitter.Emit(indentLevel,TT.PARAMDIR.TT2String());
+            Emit(param.paramType == PT.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
+            if (param.IsInput) Emit(TT.PARAMDIR);
+            Emit(param.token.tokenString);
+            if (param.IsOutput) Emit(TT.PARAMDIR);
          }
          if (code.locals.Any()) {
-            emitter.Emit(indentLevel," ");
             foreach (ID local in code.locals) {
-               emitter.Emit(indentLevel,TT.LOCALSEP.TT2String(),local.token.tokenString);
+               Emit(" ",TT.LOCALSEP,local.token.tokenString);
             }
          }
-         emitter.Emitnl(indentLevel," ",code.bodyType.TT2String());
+         Emitnl(code.bodyType);
       }
 
       public void Print(Const constant) {
-         emitter.Emit(constant.name,TT.EQUALS.TT2String());
+         Emit(constant.name,TT.EQUALS);
          foreach (ConstElement element in constant.elements) {
             switch (element) {
                case STRING s:
-                  emitter.Emit(indentLevel,s.value);
+                  Emit(s.value);
                   break;
                case INT n:
-                  emitter.Emit(indentLevel,n.value);
+                  Emit(n.value);
                   break;
                case FLOAT f:
-                  emitter.Emit(indentLevel,f.value);
+                  Emit(f.value);
                   break;
                case Const c:
                   Print(c);
                   break;
                case ID id:
-                  emitter.Emit(indentLevel,id.token.tokenString);
+                  Emit(id.token.tokenString);
                   break;
                default:
                   throw new NotImplementedException();
@@ -334,17 +349,36 @@ namespace CDL2v1 {
       }
 
       public void Print(LIST list) {
-         emitter.Emit(indentLevel,list.name.token.tokenString,TT.LISTBOUNDSTART.TT2String(),list.lwb.tokenString,TT.LISTBOUNDSEP.TT2String(),list.upb.tokenString,TT.LISTBOUNDEND.TT2String());
+         Emit(list.name.token.tokenString,TT.LISTBOUNDSTART,list.lwb.tokenString,TT.LISTBOUNDSEP,list.upb.tokenString,TT.LISTBOUNDEND);
       }
 
       private void PrintUnitStart(NamedElement unit) {
-         emitter.Emitnl(indentLevel,units[unit.GetType()].Start.ToString()," ",unit.name.token.tokenString,TT.END.TT2String());
-         indentLevel++;
+         Emitnl(units[unit.GetType()].Start.ToString()," ",unit.name.token.tokenString,TT.END);
+         IndentLevel++;
       }
 
       private void PrintUnitEnd(NamedElement unit) {
-         indentLevel--;
-         emitter.Emitnl(indentLevel,units[unit.GetType()].End.ToString()," ",unit.name.token.tokenString,TT.END.TT2String());
+         IndentLevel--;
+         Emitnl(units[unit.GetType()].End.ToString()," ",unit.name.token.tokenString,TT.END);
       }
+
+      /// <summary>
+      /// Translate all objects to strings using their to ToString, unless it is a TokenType, then use the glyph.
+      /// </summary>
+      /// <param name="items"></param>
+      /// <returns></returns>
+      private static string[] TranslateTokens(params object[] items) => items.Select(item => TranslateToken(item)).ToArray();
+      private static string TranslateToken(object item) => item is TT tt ? Token.ToGlyph(tt) : item.ToString() ?? "";
+
+      /// <summary>
+      /// Emit the specified items at the current indent level.
+      /// The methods with nl will add a new line at the begining or end.
+      /// </summary>
+      /// <param name="items"></param>
+      private void Emit(params object[] items) => emitter.Emit(TranslateTokens(items));
+      private void EmitSeparator(TT sep,bool space=true) => emitter.EmitIgnoreLineLength(sep+(space?" ":""));
+      private void EmitSeparatorWithNL(TT sep) => emitter.EmitIgnoreLineLength(TranslateToken(sep),NL:true);
+      private void Emitnl(params object[] items) => emitter.Emitnl(TranslateTokens(items));
+      private void NlEmit(params object[] items) => emitter.NlEmit(TranslateTokens(items));
    }
 }

@@ -12,7 +12,7 @@ namespace CDL2v1 {
    /// <param name="cg"></param>
    internal class CodeGenerator(ICodeGenerator cg) {
       ICodeGenerator cg = cg;
-      CodeEmitterBase emitter = new SinkCodeEmitter();
+      CodeEmitterBase emitter = new CodeEmitterSink();
 
       private static List<RW> ludeTypes = new List<RW> {
          RW.PRELUDE,

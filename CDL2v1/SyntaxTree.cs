@@ -151,7 +151,7 @@ namespace CDL2v1 {
       public readonly LCT type = type;
       public readonly Group? group;
       public readonly Call? call;
-      public readonly ID? label;
+      public readonly ID? label = TokenList.AnonID;
 
       public LastCall(Call call) : this(LCT.Standard) => this.call = call;
       public LastCall(Group group) : this(LCT.Group) => this.group = group;
@@ -173,7 +173,7 @@ namespace CDL2v1 {
       public readonly LastCall lastCall = lastCall;
    }
    // Note that the name in this case is the label.
-   internal class Group(ID id,List<Alternative> alternatives) : NamedElement(id) {
+   internal class Group(ID label,List<Alternative> alternatives) : NamedElement(label) {
       public readonly List<Alternative> alternatives = alternatives;
    }
 
