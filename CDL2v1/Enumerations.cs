@@ -50,6 +50,7 @@ namespace CDL2v1 {
       GRPCLOSE       = 19,
       LISTBOUNDEND   = 19,  // Alias for GRPCLOSE
       COMMENT        = 20,
+      NOBODY         = 21, // IMPORTed PROCs have no body
    }
 
    /// <summary>

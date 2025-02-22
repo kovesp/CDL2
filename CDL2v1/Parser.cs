@@ -19,13 +19,13 @@ namespace CDL2v1 {
       /// <param name="parser"></param>
       public class CompilationObject(Parser parser) {
          private enum OT {ABSTR, EXT, INV, IMPORT, EXPORT, VAR, CONSTANT, LIST, FUNCTION, ACTION, TEST, PREDICATE, PRELUDE, ROOT, POSTLUDE, MODULE, LAYER, SECTION, PROGRAM }
-         private static readonly OT[] ProcTypes = [OT.FUNCTION, OT.ACTION, OT.TEST, OT.PREDICATE];
+         private static readonly OT[] AlgTypes = [OT.FUNCTION, OT.ACTION, OT.TEST, OT.PREDICATE];
          
          public string Program => (parser?.currentProgram?.ToString()+" ") ?? "";
          public string Module  => (parser?.currentModule?.ToString() + " ") ?? "";
          public string Layer   => (parser?.currentLayer?.ToString() + " ") ?? "";
          public string Section => (parser?.currentSection?.ToString() + " ") ?? "";
-         public string Obj     => $"{(ProcTypes.Contains(type) ? $"{type} {name}" : "")}";
+         public string Obj     => $"{(AlgTypes.Contains(type) ? $"{type} {name}" : "")}";
 
          private readonly Parser parser = parser;
          private OT type;
@@ -156,7 +156,7 @@ namespace CDL2v1 {
          // Layers don't have ludes.
       }
 
-      private static readonly List<RW> procTypes = [RW.FUNCTION,RW.ACTION,RW.TEST,RW.PREDICATE];
+      private static readonly List<RW> AlgTypes = [RW.FUNCTION,RW.ACTION,RW.TEST,RW.PREDICATE];
       private void ParseSection(ID sectionId) {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
@@ -171,8 +171,8 @@ namespace CDL2v1 {
          // Now could see routines, lists, vars, consts in any order.
          // Parse each type and return its ID.
          while (!tokens.IsNext(RW.ENDSEC)) {
-            if (tokens.IsNext(procTypes)) {
-               ParseProc();
+            if (tokens.IsNext(AlgTypes)) {
+               ParseAlgorithm();
             } else if (tokens.IsNext(RW.LIST)) {
                ParseList();
             } else if (tokens.IsNext(RW.VAR)) {
@@ -180,47 +180,48 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.CONST)) {
                ParseConst();
             } else {
-               throw new Exception("Expected ROUTINE, LIST, VAR, or CONST");
+               Logger.LogError("Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST");
             }
          }
 
          // Consume the ENDSEC
          tokens.CanConsumeContainerDelimiter(RW.ENDSEC,ref sectionId);
-         // Now could see prelude, root, postlude in that order. This implementation implies that only parameterless procs can be called.
+         // Now could see prelude, root, postlude in that order.
          ParseLudes(currentSection);
       }
 
       private static readonly List<TT> bodyTypes = [TT.INLINECODEBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.CODEBODY];
-      private void ParseProc() {
+      private void ParseAlgorithm() {
          Debug.Assert(currentSection != null);
-         if (tokens.CanConsume(procTypes,out Token procType) && tokens.CanConsume(out ID id)) {
-            currentObject.Object = (procType.rval ?? RW.FUNCTION, id);
+         if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
+            currentObject.Object = (algType.rval ?? RW.FUNCTION, id);
             List<ID> formals = ParseParams();
-            Set<ID> locals = [];
-            Proc proc = new(currentSection); ;
+            Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
                // IMPORT declarations. Check if it is in the import list.
                if (currentSection.import.Contains(id)) {
-                  proc = new Proc(id,formals,procType,currentSection);
+                  algorithm = new Algorithm(id,formals,algType,currentSection);
                } else {
                   Logger.LogError($"Routine {id} is not exported in section {currentSection.name}");
+                  return;
                }
             } else {
-               locals = ParseLocals();
+               Set<ID> locals = ParseLocals();
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
                   if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
                      // Parse the code body
-                     proc = new Code(id,formals,locals,procType,bodyType.type,currentSection);
-                     ParseCodeBody((Code)proc);
+                     algorithm = new Code(id,formals,locals,algType,bodyType.type,currentSection);
+                     ParseCodeBody((Code)algorithm);
                   } else {
                      // Parse the macro body
-                     proc = new Macro(id,formals,locals,procType,bodyType.type,currentSection);
-                     ParseMacroBody((Macro)proc);
+                     algorithm = new Macro(id,formals,locals,algType,bodyType.type,currentSection);
+                     ParseMacroBody((Macro)algorithm);
                   }
                }
             }
-            currentSection.Symbols[proc.name] = proc;
-            currentSection.routines.Add(proc.name);
+            Debug.Assert(algorithm != null);
+            currentSection.Symbols[algorithm.name] = algorithm;
+            currentSection.routines.Add(algorithm.name);
          } else {
             throw new Exception("Expected FUNCTION, ACTION, TEST, or PREDICATE");
          }
@@ -248,8 +249,8 @@ namespace CDL2v1 {
             }
          }
       }
-      private void ParseCodeBody(Code proc) {
-         proc.alternatives = ParseAlternatives();
+      private void ParseCodeBody(Code algorithm) {
+         algorithm.alternatives = ParseAlternatives();
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
       private List<Alternative> ParseAlternatives() {
@@ -374,16 +375,17 @@ namespace CDL2v1 {
       /// <exception cref="Exception"></exception>
       private void ParseListBody(ID id) {
          Debug.Assert(currentSection != null);
-         if (  tokens.CanConsume(TT.LISTBOUNDSTART) &&
+         if (  tokens.Optional(TT.LISTBOUNDSTART) &&
                tokens.CanConsume(boundTypes,out Token lwb) &&
                tokens.CanConsume(TT.LISTBOUNDSEP) &&
                (tokens.CanConsume(TT.ID,out Token upb) || tokens.CanConsume(TT.INT,out upb)) &&
                tokens.CanConsume(TT.LISTBOUNDEND)) {
             currentSection.Symbols[id] = new LIST(id,lwb,upb);
-         } else {
-            throw new Exception("Expected list bounds");
+         } else if (!currentSection.import.Contains(id)) {
+            Logger.LogError($"LIST {id} with has invalid bounds in section {currentSection.name}");
          }
       }
+
       /// <summary>
       /// Parse a var declaration.
       /// </summary>
@@ -399,6 +401,7 @@ namespace CDL2v1 {
       /// Parse a constant declaration.
       /// </summary>
       private void ParseConst() {
+         Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST)) {
             Debug.Assert(currentSection != null);
             ParseIDList(currentSection.consts,null,id => ParseConstBody(id));
@@ -415,8 +418,10 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          Const c = new(id);
          currentSection.Symbols[id] = c;
-         if (tokens.CanConsume(TT.EQUALS)) {
+         if (tokens.Optional(TT.EQUALS)) {
             ParseConstElements(c);
+         } else if (!currentSection.import.Contains(id)) {
+            Logger.LogError($"CONST {id} with no definition is not imported in section {currentSection.name}");
          }
       }
 

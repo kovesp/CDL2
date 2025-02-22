@@ -103,8 +103,8 @@ class BoundedArray {
       public void GenerateCodeExport(ID id) => throw new NotImplementedException();
       public void GenerateCodeImport(ID id) => throw new NotImplementedException();
 
-      public void GenerateProcHeaderStart(Proc proc) => emitter.Emit($"function {PSName(proc.name)} (");
-      public void GenerateProcHeaderEnd(Proc proc) => emitter.Emitnl(") {");
+      public void GenerateProcHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.name)} (");
+      public void GenerateProcHeaderEnd(Algorithm proc) => emitter.Emitnl(") {");
 
       public void GenerateStart(Code code) => throw new NotImplementedException();
       public void GenerateEnd(Code code) => throw new NotImplementedException();

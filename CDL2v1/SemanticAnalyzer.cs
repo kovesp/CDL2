@@ -39,7 +39,7 @@ namespace CDL2v1 {
 
 
          foreach (ID procId in section.routines) {
-            Proc proc = (Proc)section.Symbols[procId];
+            Algorithm proc = (Algorithm)section.Symbols[procId];
             if (proc is Code code) {
                AnalyzeCode(code);
             } else if (proc is Macro macro) {

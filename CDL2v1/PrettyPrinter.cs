@@ -309,8 +309,8 @@ namespace CDL2v1 {
          }
       }
 
-      private void PrintProcHead(Proc code) {
-         Emit(code.procType," ",code.name);
+      private void PrintProcHead(Algorithm code) {
+         Emit(code.algType," ",code.name);
          foreach (Param param in code.formals.Cast<Param>()) {
             Emit(param.paramType == PT.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
             if (param.IsInput) Emit(TT.PARAMDIR);

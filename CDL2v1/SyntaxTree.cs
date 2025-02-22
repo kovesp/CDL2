@@ -112,40 +112,36 @@ namespace CDL2v1 {
    // ---------------------------------------------------------------------------------------------------
 
    /// <summary>
-   /// Represents a procedure in the syntax tree. Concretely it is either a Macro or Code. 
+   /// Represents an algorithm in the syntax tree. Concretely it is either a Macro or Code. 
    /// </summary>
-   /// <param name="id">The procedure name.</param>
+   /// <param name="id">The algorithm name.</param>
    /// <param name="formals">The argument list.</param>
    /// <param name="locals">The locals.</param>
-   /// <param name="procType">The procedure type.</param>
+   /// <param name="algType">The algorithm type.</param>
    /// <param name="bodyType">The type of body.</param>
    /// <param name="section">The containing section.</param>
-   internal class Proc(ID id,List<ID> formals,Set<ID> locals,Token procType,TT bodyType,Section section) : NamedElement(id), ProvidedElement {
+   internal class Algorithm(ID id,List<ID> formals,Set<ID> locals,Token algType,TT bodyType,Section section) : NamedElement(id), ProvidedElement {
       public readonly Section section = section;
-      public readonly RW procType = procType.rval??RW.FUNCTION;    // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
+      public readonly RW algType = algType.rval??RW.FUNCTION;    // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
       public readonly TT bodyType = bodyType;                      // one of : or := (for CODE only) and = or =: (for MACRO only)
       public readonly List<ID> formals = formals;                  // These will actually be Param-s which are IDs with annotations.
       public readonly Set<ID> locals = locals;
 
       /// <summary>
-      /// Used to declare an imported proc.
+      /// Used to declare an imported algorithm.
       /// </summary>
       /// <param name="id"></param>
       /// <param name="formals"></param>
-      /// <param name="procType">CODEBODY is used for body type, but this is ignored.</param>
+      /// <param name="algType"></param>
       /// <param name="section"></param>
-      public Proc(ID id,List<ID> formals,Token procType,Section section) : this(id,formals,[],procType,TT.CODEBODY,section) { }
-      public Proc(Section section) : this(TokenList.ErrorID,[],new Token(RW.FUNCTION),section) { }
+      public Algorithm(ID id,List<ID> formals,Token algType,Section section) : this(id,formals,[],algType,TT.NOBODY,section) { }
 
-      //public Token ProcType { get; }
-      //public Section CurrentSection { get; }
-
-      override protected string ItemTypeShortName => $"{procType}";
+      override protected string ItemTypeShortName => $"{algType}";
    }
-   internal class Macro(ID id,List<ID> args,Set<ID> locals,Token procType,TT bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
+   internal class Macro(ID id,List<ID> args,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,args,locals,algType,bodyType,section) {
       public List<MacroElement> elements = [];
    }
-   internal class Code(ID id,List<ID> args,Set<ID> locals,Token procType,TT bodyType,Section section) : Proc(id,args,locals,procType,bodyType,section) {
+   internal class Code(ID id,List<ID> args,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,args,locals,algType,bodyType,section) {
       public List<Alternative> alternatives = [];
       public Code(RW ludeType,Section section) : this(new ID(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section ludes which are parameterless actions with no locals.
    }
@@ -157,7 +153,7 @@ namespace CDL2v1 {
    }
    /// <summary>
    /// The last element(in an alternative) can be:
-   /// Standard - a normal procedure call which is the last item in the alternatives' procs list.
+   /// Standard - a normal algorithm call which is the last item in the alternative's call list.
    /// Success, Fail, Abort - i.e., +, -, or?.
    /// Repeat - * with a reference to the group that is repeated possibly using the label
    /// Group - a nested group.
@@ -218,13 +214,13 @@ namespace CDL2v1 {
       }
       override public string ToString() => $"\"{value}\"";
    }
-   internal class LIST(ID id,Token lwb,Token upb) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
+   internal class LIST(ID id,Token lwb,Token upb) : NamedElement(id), MacroElement, ConstElement {
       // Stored as tokens to allow for the possibility of a const reference or an intgeger. If a const reference, the reference will be resolved during the semantic analysis.
       public readonly Token lwb = lwb;
       public readonly Token upb = upb;
       // override public string ToString() => $"LIST {name.name}({lwb.sval}:{upb.sval})";
    }
-   internal class Var(ID id) : NamedElement(id), MacroElement, ProvidedElement {
+   internal class Var(ID id) : NamedElement(id), MacroElement {
       override public string ToString() => $"VAR {name.name}";
    }
    internal class Const(ID id) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
@@ -233,7 +229,7 @@ namespace CDL2v1 {
    }
 
    /// <summary>
-   /// Represents a formal argument in a procedure.
+   /// Represents a formal argument in an algirithm.
    /// It is just an ID with anotations. An arg is considered to be euqal to another arg or ID if the names are the same.
    /// </summary>
    /// <param name="id"></param>
