@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,6 +13,11 @@ namespace CDL2v1 {
          } else {
             return fileName.All(ch => !Path.GetInvalidFileNameChars().Contains(ch));
          }
+      }
+
+      public static IEnumerable<Type> GetImplementorsOfInterface<TInterface>() {
+         return Assembly.GetExecutingAssembly().GetTypes()
+             .Where(type => typeof(TInterface).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract);
       }
    }
 }

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata.Ecma335;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -195,21 +196,31 @@ namespace CDL2v1 {
          if (tokens.CanConsume(procTypes,out Token procType) && tokens.CanConsume(out ID id)) {
             currentObject.Object = (procType.rval ?? RW.FUNCTION, id);
             List<ID> formals = ParseParams();
-            Set<ID> locals = ParseLocals();
-            Proc proc;
-            if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
-               if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
-                  // Parse the code body
-                  proc = new Code(id,formals,locals,procType,bodyType.type,currentSection);
-                  ParseCodeBody((Code)proc);
+            Set<ID> locals = [];
+            Proc proc = new(currentSection); ;
+            if (tokens.Optional(TT.END)) {
+               // IMPORT declarations. Check if it is in the import list.
+               if (currentSection.import.Contains(id)) {
+                  proc = new Proc(id,formals,procType,currentSection);
                } else {
-                  // Parse the macro body
-                  proc = new Macro(id,formals,locals,procType,bodyType.type,currentSection);
-                  ParseMacroBody((Macro)proc);
+                  Logger.LogError($"Routine {id} is not exported in section {currentSection.name}");
                }
-               currentSection.Symbols[proc.name] = proc;
-               currentSection.routines.Add(proc.name);
+            } else {
+               locals = ParseLocals();
+               if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
+                  if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
+                     // Parse the code body
+                     proc = new Code(id,formals,locals,procType,bodyType.type,currentSection);
+                     ParseCodeBody((Code)proc);
+                  } else {
+                     // Parse the macro body
+                     proc = new Macro(id,formals,locals,procType,bodyType.type,currentSection);
+                     ParseMacroBody((Macro)proc);
+                  }
+               }
             }
+            currentSection.Symbols[proc.name] = proc;
+            currentSection.routines.Add(proc.name);
          } else {
             throw new Exception("Expected FUNCTION, ACTION, TEST, or PREDICATE");
          }

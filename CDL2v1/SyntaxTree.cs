@@ -41,9 +41,8 @@ namespace CDL2v1 {
    /// </summary>
    /// <param name="id"></param>
    internal abstract class Container(ID id) : NamedElement(id) {
-      public Container(ID id,Container? parent) : this(id) => (this.parent = parent)?.children.Add(this); 
+      public Container(ID id,Container? parent) : this(id) => (this.parent = parent)?.children.Add(this);
 
-        
       public List<Container> children = [];     // The children of the container. Layers are ordered, hence the list.
 
       public SymbolTable Symbols = [];
@@ -103,6 +102,11 @@ namespace CDL2v1 {
       public readonly Set<ID> consts = [];
 
       public Section(ID id,Layer layer) : base(id,layer) => ParseLude = Parser.ParseLudeOfCalls;
+
+      public static Type[] ProvidedElementImplementors;
+      static Section() {
+         ProvidedElementImplementors = Extensions.GetImplementorsOfInterface<ProvidedElement>().ToArray<Type>();
+      }
    }
 
    // ---------------------------------------------------------------------------------------------------
@@ -116,12 +120,25 @@ namespace CDL2v1 {
    /// <param name="procType">The procedure type.</param>
    /// <param name="bodyType">The type of body.</param>
    /// <param name="section">The containing section.</param>
-   internal abstract class Proc(ID id,List<ID> formals,Set<ID> locals,Token procType,TT bodyType,Section section) : NamedElement(id), ProvidedElement {
+   internal class Proc(ID id,List<ID> formals,Set<ID> locals,Token procType,TT bodyType,Section section) : NamedElement(id), ProvidedElement {
       public readonly Section section = section;
       public readonly RW procType = procType.rval??RW.FUNCTION;    // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
       public readonly TT bodyType = bodyType;                      // one of : or := (for CODE only) and = or =: (for MACRO only)
       public readonly List<ID> formals = formals;                  // These will actually be Param-s which are IDs with annotations.
       public readonly Set<ID> locals = locals;
+
+      /// <summary>
+      /// Used to declare an imported proc.
+      /// </summary>
+      /// <param name="id"></param>
+      /// <param name="formals"></param>
+      /// <param name="procType">CODEBODY is used for body type, but this is ignored.</param>
+      /// <param name="section"></param>
+      public Proc(ID id,List<ID> formals,Token procType,Section section) : this(id,formals,[],procType,TT.CODEBODY,section) { }
+      public Proc(Section section) : this(TokenList.ErrorID,[],new Token(RW.FUNCTION),section) { }
+
+      //public Token ProcType { get; }
+      //public Section CurrentSection { get; }
 
       override protected string ItemTypeShortName => $"{procType}";
    }

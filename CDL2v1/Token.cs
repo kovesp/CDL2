@@ -115,6 +115,7 @@ namespace CDL2v1 {
 
       private Token() : this(TokenClass.Error,"ERROR","",0) { }
       public Token(string text) : this(TokenClass.ID,text,"",0) { }
+      public Token(RW rw) : this(TokenClass.ResWord,rw.ToString(),"",0) { }
 
       private Token(TokenClass cls,string text,string fileName,int lineNumber) {
          tokenString = text;
