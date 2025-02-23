@@ -178,7 +178,7 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.VAR)) {
                ParseVar();
             } else if (tokens.IsNext(RW.CONST)) {
-               ParseConst();
+               ParseConsts();
             } else {
                Logger.LogError("Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST");
             }
@@ -205,9 +205,11 @@ namespace CDL2v1 {
                   Logger.LogError($"Routine {id} is not exported in section {currentSection.name}");
                   return;
                }
+            } else if (currentSection.import.Contains(id)) {
+               Logger.LogError($"Algorithm {id} is imported but has locals or a body in section {currentSection.name}");
             } else {
                Set<ID> locals = ParseLocals();
-               if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
+               if (tokens.CanConsume(bodyTypes,out Token bodyType)) {                  
                   if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
                      // Parse the code body
                      algorithm = new Code(id,formals,locals,algType,bodyType.type,currentSection);
@@ -223,7 +225,7 @@ namespace CDL2v1 {
             currentSection.Symbols[algorithm.name] = algorithm;
             currentSection.routines.Add(algorithm.name);
          } else {
-            throw new Exception("Expected FUNCTION, ACTION, TEST, or PREDICATE");
+            Logger.LogError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be imp0ossible");
          }
       }
 
@@ -400,7 +402,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a constant declaration.
       /// </summary>
-      private void ParseConst() {
+      private void ParseConsts() {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST)) {
             Debug.Assert(currentSection != null);
@@ -419,7 +421,11 @@ namespace CDL2v1 {
          Const c = new(id);
          currentSection.Symbols[id] = c;
          if (tokens.Optional(TT.EQUALS)) {
-            ParseConstElements(c);
+            if (currentSection.import.Contains(id)) {
+               Logger.LogError($"CONST {id} with definition is imported in section {currentSection.name}");
+            } else {
+               ParseConstElements(c);
+            }
          } else if (!currentSection.import.Contains(id)) {
             Logger.LogError($"CONST {id} with no definition is not imported in section {currentSection.name}");
          }
