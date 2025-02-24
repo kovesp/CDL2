@@ -7,6 +7,8 @@ using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Threading.Tasks;
 
+using static CDL2v1.Logger;
+
 namespace CDL2v1 {
    /// <summary>
    /// Formatted printing of the parse tree.
@@ -162,7 +164,7 @@ namespace CDL2v1 {
                   Print(code.alternatives.First());
                   EmitSeparatorWithNL(TT.END);
                } else {
-                  Logger.ReportError($"Internal error: {ludeType} lude is not a Code item.");
+                  ReportError($"Internal error: {ludeType} lude is not a Code item.");
                }
             }
          } else { 

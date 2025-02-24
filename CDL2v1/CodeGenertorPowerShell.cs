@@ -48,26 +48,42 @@ class BoundedArray {
 }
 ";
 
-      public void GenerateStart(Program program,CodeEmitterBase emitter) { 
+      public void GenerateStart(Program program,CodeEmitterBase emitter) {
          this.emitter = emitter;
          emitter.Emitnl(ProgramHeader);
+         EmitUnitStartComment(program);
       }
 
-      public void GenerateEnd(Program program) { }
+      public void GenerateEnd(Program program) {
+         EmitUnitEndComment(program);
+      }
 
-      public void GenerateStart(Module module) { this.module = module.name.name; emitter.Emitnl($"# Begin {module.FullName()}"); }
-      public void GenerateStart(Layer layer) { this.layer = layer.name.name; emitter.Emitnl($"# Begin {layer.FullName()}"); }
-      public void GenerateStart(Section section) { this.section = section.name.name; emitter.Emitnl($"# Begin {section.FullName()}"); }
-      public void GenerateEnd(Module module) => emitter.Emitnl($"# End {module.FullName()}");
-      public void GenerateEnd(Layer layer) => emitter.Emitnl($"# End {layer.FullName()}");
-      public void GenerateEnd(Section section) => emitter.Emitnl($"# End {section.FullName()}");
+      public void GenerateStart(Module module) {
+         this.module = module.name.name;
+         EmitUnitStartComment(module);
+      }
+      public void GenerateEnd(Module module) {
+         EmitUnitEndComment(module);
+      }
+      public void GenerateStart(Layer layer) {
+         this.layer = layer.name.name;
+         EmitUnitStartComment(layer);
+      }
+      public void GenerateEnd(Layer layer) {
+         EmitUnitEndComment(layer);
+      }
+      public void GenerateStart(Section section) {
+         this.section = section.name.name;
+         EmitUnitStartComment(section);
+      }      
+      public void GenerateEnd(Section section) {
+         EmitUnitEndComment(section);
+      }
 
-      private string PSVar(string name) => $"${PSName(name)}";
-      private string PSVar(ID name) => $"${PSName(name)}";
-      private string PSVar(NamedElement name) => $"${PSName(name)}";
-      private string PSName(string name) => $"{module}_{layer}_{section}_{name}";
-      private string PSName(ID name) => $"{module}_{layer}_{section}_{name}";
-      private string PSName(NamedElement name) => $"{module}_{layer}_{section}_{name.name}";
+      private static string PSVar(ID name) => $"${PSName(name)}";
+      private static string PSVar(NamedElement name) => $"${PSName(name)}";
+      private static string PSName(ID name) => name.AsName();
+      private static string PSName(NamedElement name) => name.AsName();
 
       public void GenerateCode(Const c) {
          string value = "{PSVar(c)} = ";
@@ -77,10 +93,10 @@ class BoundedArray {
                   value += $"\"{s.value}\"";
                   break;
                case INT n:
-                  value += $"{n.value}";
+                  value += n.value;
                   break;
                case FLOAT f:
-                  value += $"{f.value}";
+                  value += f.value;
                   break;
                case Const ce:
                   value += PSVar(ce);
@@ -100,35 +116,43 @@ class BoundedArray {
       public void GenerateCode(ActualArg arg) => emitter.Emit(arg is STRING s ? s.value : arg is ID i ? PSVar(i) : throw new NotImplementedException());
       public void GenerateCode(Param arg) => emitter.Emit($"${arg.name}");
 
-      public void GenerateCodeExport(ID id) => throw new NotImplementedException();
-      public void GenerateCodeImport(ID id) => throw new NotImplementedException();
+      public void GenerateCodeExport(ID id) { }
+      public void GenerateCodeImport(ID id) { }
 
-      public void GenerateProcHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.name)} (");
-      public void GenerateProcHeaderEnd(Algorithm proc) => emitter.Emitnl(") {");
+      public void GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.name)} (");
+      public void GenerateAlgorithmHeaderEnd(Algorithm proc) => emitter.Emitnl(") {");
 
       public void GenerateStart(Code code) => throw new NotImplementedException();
       public void GenerateEnd(Code code) => throw new NotImplementedException();
 
       public void GenerateEnd(Alternative alternative) => throw new NotImplementedException();
       public void GenerateEnd(Group group) => throw new NotImplementedException();
-      public void GenerateEnd(Call call) => throw new NotImplementedException();     
+      public void GenerateEnd(Call call) => throw new NotImplementedException();
 
       public void GenerateStart(Alternative alternative) => throw new NotImplementedException();
       public void GenerateStart(Group group) => throw new NotImplementedException();
       public void GenerateStart(Call call) => throw new NotImplementedException();
 
-   
-      public void generateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
+
+      public void generateLudeStart(RW ludeType,Container section) {
+
+      }
       public void generateLudeEnd(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateStart(Program program,string target) => throw new NotImplementedException();
 
       public void GenerateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateLudeEend(RW ludeType,Container section) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateStart(Macro macro) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateEnd(Macro macro) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateCode(LIST l) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateExport(Module module,ID expId) => throw new NotImplementedException();
-      void ICodeGenerator.generateLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
-      void ICodeGenerator.generateLudeEend(RW ludeType,Section section) => throw new NotImplementedException();
+      public void GenerateStart(Macro macro) { }
+      public void GenerateEnd(Macro macro) => emitter.Emitnl("}");
+      public void GenerateCode(LIST l) => throw new NotImplementedException();
+      public void GenerateExport(Module module,ID expId) => throw new NotImplementedException();
+      public void GenerateLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
+      public void GenerateLudeEend(RW ludeType,Section section) => throw new NotImplementedException();
+      public void GenerateParamSeparator() => emitter.Emit(",");
+
+
+      private void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName()}");
+      private void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName()}");
+      public void GenerateLocalDeclaration(ID local) => emitter.Emitnl($"   {PSVar(local)} = $null");
    }
 }

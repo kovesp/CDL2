@@ -24,15 +24,19 @@ namespace CDL2v1 {
 
          cg.GenerateStart(program,emitter);  // Generate the overall scafolding
 
+
+         foreach (RW ludeType in ludeTypes) {
+
+
+         }
+         cg.GenerateEnd(program);
+
          foreach (Module module in program.children) {
             GenerateModuleCode(module);
          }
 
-         foreach (RW ludeType in ludeTypes) {
 
-         }
 
-         cg.GenerateEnd(program);
       }
 
       /// <summary>
@@ -79,16 +83,30 @@ namespace CDL2v1 {
             }
          }
          foreach (RW ludeType in ludeTypes) {
-            cg.generateLudeStart(ludeType,section);
+            cg.GenerateLudeStart(ludeType,section);
 
-            cg.generateLudeEend(ludeType,section);
+            cg.GenerateLudeEend(ludeType,section);
          }
          cg.GenerateEnd(section);
       }
 
       private void GenerateMacroCode(Macro macro) {
          cg.GenerateStart(macro);
+         GenerateAlgorithmHeader(macro);
+
          cg.GenerateEnd(macro);
+      }
+
+      private void GenerateAlgorithmHeader(Algorithm alg) {
+         cg.GenerateAlgorithmHeaderStart(alg);
+         if (alg.formals.Count > 0) {
+            cg.GenerateCode((Param)alg.formals[0]);
+            foreach (Param formal in alg.formals.Skip(1)) {
+               cg.GenerateParamSeparator();
+               cg.GenerateCode(formal);
+            }
+         }
+         cg.GenerateAlgorithmHeaderEnd(alg);
       }
 
       private void GenerateCodeCode(Code code) {

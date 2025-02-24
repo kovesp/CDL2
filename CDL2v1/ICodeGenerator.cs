@@ -71,6 +71,7 @@ internal interface ICodeGenerator {
 
    public void GenerateCode(ActualArg arg);
    public void GenerateCode(Param arg);
+   public void GenerateLocalDeclaration(ID local);
 
    public void GenerateCode(Const c);
    public void GenerateCode(Var v);
@@ -79,8 +80,10 @@ internal interface ICodeGenerator {
    void GenerateLudeStart(RW ludeType,Container section);
    void GenerateLudeEend(RW ludeType,Container section);
    void GenerateExport(Module module,ID expId);
-   void generateLudeStart(RW ludeType,Section section);
-   void generateLudeEend(RW ludeType,Section section);
+
+   public void GenerateAlgorithmHeaderStart(Algorithm proc);
+   public void GenerateAlgorithmHeaderEnd(Algorithm proc);
+   public void GenerateParamSeparator();
 
    public string FileExtension { get; }
 }

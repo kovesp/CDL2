@@ -11,6 +11,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using static CDL2v1.Logger;
+
 namespace CDL2v1 {
    internal class Parser {
       /// <summary>
@@ -30,7 +32,8 @@ namespace CDL2v1 {
          private readonly Parser parser = parser;
          private OT type;
          private ID name = TokenList.ErrorID;
-         
+         public bool IsValid { get; set; } = true;
+
          public (RW,ID) Object {
             set {
                type = (OT)Enum.Parse(typeof(OT),value.Item1.ToString());
@@ -64,6 +67,9 @@ namespace CDL2v1 {
          // The list of tokens should contain a set of modules and possibly a program
          tokens.SetOptions(TokenList.Options.SkipComments | TokenList.Options.ThrowOnUnexpectedToken); // Remove comments from the token list and throw on unexpected tokens
                                                                                                        // The first token should be a module or program
+         Logger.logger.ErrorAction = SkipToNextEnd;
+         Logger.logger.CurrentObject = currentObject;
+
          while (tokens.IsNonEmpty()) {
             ID unitId = TokenList.ErrorID;
             if (tokens.CanConsumeContainerDelimiter(RW.MODULE,ref unitId)) {
@@ -78,8 +84,9 @@ namespace CDL2v1 {
                throw new Exception("Expected MODULE or PROGRAM");
             }
          }
-         //TODO: Must verify that no undeclareds ramain when parsing is complete.
-         //TODO: Must verify that All ids referenced in CONST elements refer to a declared const, var, or list.
+
+         Logger.logger.CurrentObject = null;
+         Logger.logger.ErrorAction = null;
       }
 
       private void ParseProgram(ID programId) {
@@ -87,7 +94,7 @@ namespace CDL2v1 {
          currentObject.Object = (RW.PROGRAM, programId);
          currentProgram = new Program(programId);
          currentProgram.Symbols[currentProgram.name] = currentProgram;
-         Logger.Log(1,$"Parsing {currentProgram}");
+         Log(1,$"Parsing {currentProgram}");
 
          // Now should see parts
          List<ID> parts = [];
@@ -98,7 +105,7 @@ namespace CDL2v1 {
                if (modules.IsDeclared(part,out NamedElement? e) && e is Module m) {
                   currentProgram.children.Add(m);
                } else {
-                  Logger.ReportError($"Expected MODULE, for the name {part} but found {e}");
+                  ReportError($"Expected MODULE, for the name {part} but found {e}");
                }
             }
          }
@@ -127,7 +134,7 @@ namespace CDL2v1 {
          currentObject.Object = (RW.MODULE, moduleId);
          currentModule = new Module(moduleId);
          modules[currentModule.name] = currentModule;
-         Logger.Log(1,$"Parsing {currentObject}");
+         Log(1,$"Parsing {currentObject}");
 
          // Now should see layers
          ID layerId = TokenList.ErrorID;
@@ -144,7 +151,7 @@ namespace CDL2v1 {
          currentObject.Object = (RW.MODULE, layerId);
          currentLayer = new Layer(layerId,currentModule);
          currentModule.Symbols[currentLayer.name] = currentLayer;
-         Logger.Log(1,$"Parsing {currentObject}");
+         Log(1,$"Parsing {currentObject}");
 
          // Now should see sections
          ID sectionId = TokenList.ErrorID;
@@ -162,7 +169,7 @@ namespace CDL2v1 {
          currentObject.Object = (RW.SECTION, sectionId);
          currentSection = new Section(sectionId,currentLayer);
          currentLayer.Symbols[currentSection.name] = currentSection;
-         Logger.Log(1,$"Parsing {currentObject}");
+         Log(1,$"Parsing {currentObject}");
 
          // Now should see section parts
          // Interfaces first
@@ -180,7 +187,7 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.CONST)) {
                ParseConsts();
             } else {
-               Logger.LogError("Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST");
+               ReportError("Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST");
             }
          }
 
@@ -202,11 +209,11 @@ namespace CDL2v1 {
                if (currentSection.import.Contains(id)) {
                   algorithm = new Algorithm(id,formals,algType,currentSection);
                } else {
-                  Logger.LogError($"Routine {id} is not exported in section {currentSection.name}");
+                  ReportError($"Routine {id} is not exported in section {currentSection.name}");
                   return;
                }
             } else if (currentSection.import.Contains(id)) {
-               Logger.LogError($"Algorithm {id} is imported but has locals or a body in section {currentSection.name}");
+               ReportError($"Algorithm {id} is imported but has locals or a body in section {currentSection.name}");
             } else {
                Set<ID> locals = ParseLocals();
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {                  
@@ -225,7 +232,7 @@ namespace CDL2v1 {
             currentSection.Symbols[algorithm.name] = algorithm;
             currentSection.routines.Add(algorithm.name);
          } else {
-            Logger.LogError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be imp0ossible");
+            ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be imp0ossible");
          }
       }
 
@@ -384,7 +391,7 @@ namespace CDL2v1 {
                tokens.CanConsume(TT.LISTBOUNDEND)) {
             currentSection.Symbols[id] = new LIST(id,lwb,upb);
          } else if (!currentSection.import.Contains(id)) {
-            Logger.LogError($"LIST {id} with has invalid bounds in section {currentSection.name}");
+            LogError($"LIST {id} with has invalid bounds in section {currentSection.name}");
          }
       }
 
@@ -422,12 +429,12 @@ namespace CDL2v1 {
          currentSection.Symbols[id] = c;
          if (tokens.Optional(TT.EQUALS)) {
             if (currentSection.import.Contains(id)) {
-               Logger.LogError($"CONST {id} with definition is imported in section {currentSection.name}");
+               LogError($"CONST {id} with definition is imported in section {currentSection.name}");
             } else {
                ParseConstElements(c);
             }
          } else if (!currentSection.import.Contains(id)) {
-            Logger.LogError($"CONST {id} with no definition is not imported in section {currentSection.name}");
+            LogError($"CONST {id} with no definition is not imported in section {currentSection.name}");
          }
       }
 
@@ -534,7 +541,7 @@ namespace CDL2v1 {
          tokens.CanConsumeEnd();
       }
 
-      private void ReportError(string v) => Logger.ReportError($"MOD {currentModule} LAY {currentLayer} SEC {currentSection}: {v}");
+      private void ReportError(string v) => ReportError($"MOD {currentModule} LAY {currentLayer} SEC {currentSection}: {v}");
       internal void SkipToNextEnd() {
          while (!tokens.IsNext(TT.END)) tokens.Skip();
          tokens.Skip(); // The end itself

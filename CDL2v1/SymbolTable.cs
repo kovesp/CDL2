@@ -1,23 +1,25 @@
-﻿using System.Reflection.Metadata.Ecma335;
+﻿using System.ComponentModel;
+using System.Reflection.Metadata.Ecma335;
 
 namespace CDL2v1 {
    internal class SymbolTable : Dictionary<ID,NamedElement> {
+      public Container? parent;
+
       public bool ContainsKey(Token token) => ContainsKey(new ID(token));
-      // Indexer to access elements using ID
-      public NamedElement this[Token token] {
-         get => base[new ID(token)];
-         // This is used to add elements when being declared. So if it already exists, then
-         // - if the current value is an Undeclared, then replace it with the new value.
-         // - if the current value is not an Undeclared, then throw an exception.
+
+      public new NamedElement this[ID id] {
+         get => base[id];
          set {
-            ID id = new(token);
             if (TryGetValue(id,out NamedElement? currentValue)) {
                if (currentValue is Undeclared) {
                   base[id] = value;
-                  return;
+               } else {
+                  throw new Exception($"ID {id} already declared as {currentValue}");
                }
-               throw new Exception($"ID {id} already declared as {currentValue}");
+            } else {
+               base[id] = value;
             }
+            id.parent = parent; // Each ID knows its parent container
          }
       }
 

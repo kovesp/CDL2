@@ -238,6 +238,17 @@ namespace CDL2v1 {
          _ => true
       }; 
       public override int GetHashCode() => HashCode.Combine(type,rval,sval,ival,fval);
+      /// <summary>
+      /// Return the token as a name. If the token is an ID, the name is returned.
+      /// - Runs of spaces and non-letters are replaced with the replacement string.
+      /// - If the token is not an ID, the token type is prepended to the name.
+      /// - The name is lowercased.
+      /// </summary>
+      /// <param name="spaceReplacement"></param>
+      /// <returns>The normalized name.</returns>
+      /// <example>Token.TryCreateToken("3.14",out Token token).AsName() -> "float_3_14"</example>
+      internal string AsName(string replacement = "_") 
+         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(tokenString,@"(?:\s+|[^\p{L}\d])",replacement).ToLower()}";
 
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);

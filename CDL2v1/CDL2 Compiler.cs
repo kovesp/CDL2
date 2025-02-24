@@ -5,6 +5,8 @@ using System.IO;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 
+using static CDL2v1.Logger;
+
 internal class CDL2 {
    public static string Version = "1.0.0";
 
@@ -92,7 +94,7 @@ internal class CDL2 {
          foreach (string arg in args) {
             string source = Path.GetFullPath(arg);
             if (File.Exists(source)) {
-               Logger.Log(0,$"Compiling {source}");
+               Log(0,$"Compiling {source}");
                TokenList sourceTokens = LexicalAnalyzer.Tokenize(source);
                // Add the tokens comprising the file to the syntax tree
                Parser.Parse(sourceTokens);
@@ -113,7 +115,7 @@ internal class CDL2 {
             CodeEmitterBase emitter = new CodeEmitterDebug();
             if (Parser.currentProgram != null && cg != null) {
                string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
-               Logger.Log(0,$"Generating code for {Target} into {emitter.Target}");
+               Log(0,$"Generating code for {Target} into {emitter.Target}");
                codeGenerator = new CodeGenerator(cg);
                codeGenerator.GenerateCode(Parser.currentProgram,emitter);
             } else {
@@ -137,7 +139,7 @@ internal class CDL2 {
    }
 
    /// <summary>
-   /// Called by <see cref="Logger.ReportError"/> to skip to the next END token."/>
+   /// Called by <see cref="ReportError"/> to skip to the next END token."/>
    /// </summary>
    internal void SkipToNextEnd() {
       if (Parser != null) {

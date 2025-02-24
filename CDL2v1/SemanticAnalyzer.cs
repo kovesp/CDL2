@@ -4,32 +4,34 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using static CDL2v1.Logger;
+
 namespace CDL2v1 {
    internal class SemanticAnalyzer {
       internal void Analyze(Program program) {
-         Logger.Log(0,$"Analyzing {program}");
+         Log(0,$"Analyzing {program}");
          foreach (Module module in program.children) {
             AnalyzeModule(module);
          }
       }
 
       private void AnalyzeModule(Module module) {
-         Logger.Log(1,$"Analyzing {module.name}");
+         Log(1,$"Analyzing {module.name}");
          foreach (Layer layer in module.children) {
             AnalyzeLayer(layer);
          }
       }
 
       private void AnalyzeLayer(Layer layer) {
-         Logger.Log(1,$"Analyzing {layer.name}");
+         Log(1,$"Analyzing {layer.name}");
          foreach (Section section in layer.children) {
             AnalyzeSection(section);
          }
       }
 
       private void AnalyzeSection(Section section) {
-         Logger.Log(1,$"Analyzing {section.name}");
-         Logger.Log(2,$"Analyzing provided interfaces");
+         Log(1,$"Analyzing {section.name}");
+         Log(2,$"Analyzing provided interfaces");
          AnalyzeProvidedInterfaces(section,RW.ABSTR,section.abstr);
          AnalyzeProvidedInterfaces(section,RW.EXT,section.ext);
          AnalyzeProvidedInterfaces(section,RW.EXPORT,section.export);
@@ -63,21 +65,23 @@ namespace CDL2v1 {
          foreach (ID id in set) {
             if (section.Symbols.ContainsKey(id)) {
                if (section.Symbols[id] is Undeclared) {
-                  Logger.LogError($"{kind} {id} is undeclared in section {section.name}");
+                  ReportError(section,$"{kind} {id} is undeclared");
                } else if (section.Symbols[id] is not ProvidedElement) {
-                  Logger.LogError($"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}} in section {section.name}");
+                  ReportError(section,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}}");
                }
             } else {
-               Logger.LogError($"{kind} {id} not found in section {section.name}");
+               ReportError(section,$"{kind} {id} not found");
             }
          }
       }
 
+      private static void ReportError(Container unit,string message) => Logger.ReportError($"{unit.ContainerName()}: {message}");
+
       private void AnalyzeMacro(Macro macro) {
-         Logger.Log(2,$"Analyzing {macro.name}");
+         Log(2,$"Analyzing {macro.name}");
       }
       private void AnalyzeCode(Code code) {
-         Logger.Log(2,$"Analyzing {code.name}");
+         Log(2,$"Analyzing {code.name}");
       }
    }
 }

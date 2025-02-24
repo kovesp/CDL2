@@ -23,6 +23,7 @@ namespace CDL2v1 {
       public readonly ID name = id;
 
       override public string ToString() => $"{ItemTypeShortName} {name.token.tokenString}";
+      public string AsName(string replacement="") => name.AsName(replacement);
       protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];
 
       public Container? parent;        // null for the Program and Modules.
@@ -41,11 +42,15 @@ namespace CDL2v1 {
    /// </summary>
    /// <param name="id"></param>
    internal abstract class Container(ID id) : NamedElement(id) {
-      public Container(ID id,Container? parent) : this(id) => (this.parent = parent)?.children.Add(this);
+      public readonly SymbolTable Symbols = [];
+      public Container(ID id,Container? parent) : this(id) {
+         (this.parent = parent)?.children.Add(this);
+         Symbols.parent = this;
+      }
 
       public List<Container> children = [];     // The children of the container. Layers are ordered, hence the list.
 
-      public SymbolTable Symbols = [];
+
 
       // The ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
       // Section ludes will be generated as Code items and given the name of the lude type (which are not legal as a CDL2 name).
@@ -54,9 +59,17 @@ namespace CDL2v1 {
          { RW.ROOT,[] },
          { RW.POSTLUDE,[] }
       };
-      public Action<Parser,RW,Container> ParseLude = (parser,ludeType,container) => {};
+      public Action<Parser,RW,Container> ParseLude = (parser,ludeType,container) => { };
 
       public string FullName() => parent is null ? $"{ToString()}" : $"{parent.FullName()} {ToString()}";
+
+      public string ContainerName() => this switch {
+         Program => $"PROG {name.token.tokenString}",
+         Module  => $"MOD  {name.token.tokenString}",
+         Layer   => $"MOD  {parent?.name.token.tokenString} LAY {name.token.tokenString}",
+         Section => $"MOD  {parent?.parent?.name.token.tokenString} LAY {parent?.name.token.tokenString} SEC {name.token.tokenString}",
+         _      => "Container"
+      };
    }
 
    internal class Program : Container {
@@ -73,7 +86,7 @@ namespace CDL2v1 {
       public readonly Set<ID> import = [];         // Imports are specified in sections, but are propagated up the module level.
       public readonly Set <ID> export = [];        // Exports are specified in sections, but are propagated up the module level.
 
-      public Module(ID id) : base(id,null) => ParseLude = Parser.ParseLudeOfIDs;
+      public Module(ID id) : base(id) => ParseLude = Parser.ParseLudeOfIDs;
    }
 
    /// <summary>
@@ -263,6 +276,8 @@ namespace CDL2v1 {
    internal class ID : ConstElement, MacroElement, ActualArg {
       public readonly Token token = Token.ErrorToken;
       public readonly string name = Token.ErrorToken.tokenString;
+      public Container? parent = null;
+
       public ID(Token token) {
          Debug.Assert(token.type == TT.ID && token.sval != null,"Program constructor: id not TokenType.ID or sval is null");
          this.token = token;
@@ -277,6 +292,11 @@ namespace CDL2v1 {
       public override bool Equals(object? obj) => obj is ID iD && token == iD.token;
       public override int GetHashCode() => HashCode.Combine(token);
       public override string ToString() => token.tokenString;
+      public string AsName(string separator="_",string spaceReplacement="") {
+         string parentPrefix = parent is null ? "" : $"{parent.AsName(spaceReplacement)}{separator}";
+         return $"{parentPrefix}{token.AsName(spaceReplacement)}";
+      }
+ 
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator !=(ID left,ID right) => !(left == right);
    }

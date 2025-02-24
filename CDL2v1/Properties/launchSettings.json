@@ -2,7 +2,7 @@
   "profiles": {
     "CDL2v1": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Test.cdl2\r\n--verbose 0 --debug-log 3\r\n--parse-only --pretty-print",
+      "commandLineArgs": "--sources Test.cdl2\r\n--verbose 0 --debug-log 3",
       "workingDirectory": "C:\\CDL2"
     }
   }
