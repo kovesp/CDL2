@@ -148,7 +148,7 @@ namespace CDL2v1 {
 
       private void ParseLayer(ID layerId) {
          Debug.Assert(currentModule != null);
-         currentObject.Object = (RW.MODULE, layerId);
+         currentObject.Object = (RW.LAYER, layerId);
          currentLayer = new Layer(layerId,currentModule);
          currentModule.Symbols[currentLayer.name] = currentLayer;
          Log(1,$"Parsing {currentObject}");

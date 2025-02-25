@@ -19,7 +19,7 @@ namespace CDL2v1 {
             } else {
                base[id] = value;
             }
-            id.parent = parent; // Each ID knows its parent container
+            id.parent = value is Container c ? c : value is not null && value.parent is not null ? (Container)value.parent : null; // Each ID knows its parent container
          }
       }
 

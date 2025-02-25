@@ -24,9 +24,7 @@ namespace CDL2v1 {
 
          cg.GenerateStart(program,emitter);  // Generate the overall scafolding
 
-
          foreach (RW ludeType in ludeTypes) {
-
 
          }
          cg.GenerateEnd(program);

@@ -82,7 +82,7 @@ class BoundedArray {
 
       private static string PSVar(ID name) => $"${PSName(name)}";
       private static string PSVar(NamedElement name) => $"${PSName(name)}";
-      private static string PSName(ID name) => name.AsName();
+      private static string PSName(ID name) => name.AsIdentifier();
       private static string PSName(NamedElement name) => name.AsName();
 
       public void GenerateCode(Const c) {

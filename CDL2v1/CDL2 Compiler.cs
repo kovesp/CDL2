@@ -6,6 +6,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 
 using static CDL2v1.Logger;
+using System.Diagnostics;
 
 internal class CDL2 {
    public static string Version = "1.0.0";
@@ -78,8 +79,6 @@ internal class CDL2 {
       (Option<bool>)rootCommand.Options[5],
       (Option<string?>)rootCommand.Options[6]
       );
-
-
       // Invoke the command handler
       rootCommand.Invoke(args);
    }

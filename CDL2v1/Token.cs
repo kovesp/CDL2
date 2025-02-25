@@ -246,9 +246,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="spaceReplacement"></param>
       /// <returns>The normalized name.</returns>
-      /// <example>Token.TryCreateToken("3.14",out Token token).AsName() -> "float_3_14"</example>
-      internal string AsName(string replacement = "_") 
-         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(tokenString,@"(?:\s+|[^\p{L}\d])",replacement).ToLower()}";
+      /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
+      internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
+         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(tokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier()}";
 
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);

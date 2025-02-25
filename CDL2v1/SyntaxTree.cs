@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Security;
 using System.Text;
@@ -23,10 +24,10 @@ namespace CDL2v1 {
       public readonly ID name = id;
 
       override public string ToString() => $"{ItemTypeShortName} {name.token.tokenString}";
-      public string AsName(string replacement="") => name.AsName(replacement);
+      public string AsName(string replacement="") => name.AsIdentifier(replacement);
       protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];
 
-      public Container? parent;        // null for the Program and Modules.
+      public Container? parent;      // null for the Program and Modules.
    }
 
    // Marker interfaces to allow lists to be composed of permissable elements.
@@ -42,15 +43,14 @@ namespace CDL2v1 {
    /// </summary>
    /// <param name="id"></param>
    internal abstract class Container(ID id) : NamedElement(id) {
-      public readonly SymbolTable Symbols = [];
+      public readonly SymbolTable Symbols = new SymbolTable();
       public Container(ID id,Container? parent) : this(id) {
-         (this.parent = parent)?.children.Add(this);
-         Symbols.parent = this;
+         this.parent = parent;
+         this.parent?.children.Add(this);
+         Symbols.parent = this.parent;
       }
 
       public List<Container> children = [];     // The children of the container. Layers are ordered, hence the list.
-
-
 
       // The ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
       // Section ludes will be generated as Code items and given the name of the lude type (which are not legal as a CDL2 name).
@@ -133,12 +133,20 @@ namespace CDL2v1 {
    /// <param name="algType">The algorithm type.</param>
    /// <param name="bodyType">The type of body.</param>
    /// <param name="section">The containing section.</param>
-   internal class Algorithm(ID id,List<ID> formals,Set<ID> locals,Token algType,TT bodyType,Section section) : NamedElement(id), ProvidedElement {
-      public readonly Section section = section;
-      public readonly RW algType = algType.rval??RW.FUNCTION;    // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
-      public readonly TT bodyType = bodyType;                      // one of : or := (for CODE only) and = or =: (for MACRO only)
-      public readonly List<ID> formals = formals;                  // These will actually be Param-s which are IDs with annotations.
-      public readonly Set<ID> locals = locals;
+   internal class Algorithm : NamedElement, ProvidedElement {
+     // public readonly Section section = section;
+      public readonly RW algType;            // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
+      public readonly TT bodyType;           // one of : or := (for CODE only) and = or =: (for MACRO only)
+      public readonly List<ID> formals;      // These will actually be Param-s which are IDs with annotations.
+      public readonly Set<ID> locals;
+
+      public Algorithm(ID id,List<ID> formals,Set<ID> locals,Token algType,TT bodyType,Section section) : base(id) {
+         this.formals = formals;
+         this.locals = locals;
+         this.algType = algType.rval ?? RW.FUNCTION;
+         this.bodyType = bodyType;
+         this.parent = section;
+      }
 
       /// <summary>
       /// Used to declare an imported algorithm.
@@ -147,7 +155,7 @@ namespace CDL2v1 {
       /// <param name="formals"></param>
       /// <param name="algType"></param>
       /// <param name="section"></param>
-      public Algorithm(ID id,List<ID> formals,Token algType,Section section) : this(id,formals,[],algType,TT.NOBODY,section) { }
+      public Algorithm(ID id,List<ID> formals,Token algType,Section section) : this(id,formals,[],algType,TT.NOBODY,section) => parent = section;
 
       override protected string ItemTypeShortName => $"{algType}";
    }
@@ -292,9 +300,9 @@ namespace CDL2v1 {
       public override bool Equals(object? obj) => obj is ID iD && token == iD.token;
       public override int GetHashCode() => HashCode.Combine(token);
       public override string ToString() => token.tokenString;
-      public string AsName(string separator="_",string spaceReplacement="") {
-         string parentPrefix = parent is null ? "" : $"{parent.AsName(spaceReplacement)}{separator}";
-         return $"{parentPrefix}{token.AsName(spaceReplacement)}";
+      public string AsIdentifier(string separator="_",string replacement="") { 
+         string parentPrefix = parent is null ? "" : $"{parent.AsName(replacement)}{separator}";
+         return $"{parentPrefix}{token.AsIdentifier(replacement)}";
       }
  
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
