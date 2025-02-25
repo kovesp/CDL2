@@ -47,7 +47,7 @@ namespace CDL2v1 {
       public Container(ID id,Container? parent) : this(id) {
          this.parent = parent;
          this.parent?.children.Add(this);
-         Symbols.parent = this.parent;
+         Symbols.owner = this;
       }
 
       public List<Container> children = [];     // The children of the container. Layers are ordered, hence the list.
@@ -284,7 +284,7 @@ namespace CDL2v1 {
    internal class ID : ConstElement, MacroElement, ActualArg {
       public readonly Token token = Token.ErrorToken;
       public readonly string name = Token.ErrorToken.tokenString;
-      public Container? parent = null;
+      public SymbolTable? owner;
 
       public ID(Token token) {
          Debug.Assert(token.type == TT.ID && token.sval != null,"Program constructor: id not TokenType.ID or sval is null");
@@ -301,7 +301,7 @@ namespace CDL2v1 {
       public override int GetHashCode() => HashCode.Combine(token);
       public override string ToString() => token.tokenString;
       public string AsIdentifier(string separator="_",string replacement="") { 
-         string parentPrefix = parent is null ? "" : $"{parent.AsName(replacement)}{separator}";
+         string parentPrefix = owner is null || owner.owner is null ? "" : $"{owner.owner.AsName(replacement)}{separator}";
          return $"{parentPrefix}{token.AsIdentifier(replacement)}";
       }
  

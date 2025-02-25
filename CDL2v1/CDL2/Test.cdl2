@@ -1,0 +1,107 @@
+# A simple CDL2 v1 program
+# cspell:ignore ENDSEC ENDLAY ENDMOD printnl ABSTR INV ENDPROG decr
+MODULE mod.
+   LAYER base.
+      SECTION arithmetic macros.
+         ABSTR add, incr, sub, decr, mul, mul by, set, sets, eq, ne, gt, ge, lt, le.
+
+         ACTION test macro with multi line body =
+            "$L using namespace System.IO"
+            "$L using namespace System".
+
+         FUNCTION add+>a+>b+sum>   = sum " = " a "+" b.
+         FUNCTION incr+>x>         = x "++".
+         FUNCTION sub+>a+>b+sum>   = sum " = " a "-" b.
+         FUNCTION decr+>x>         = x "--".
+         FUNCTION mul+>a+>b+prod>  = prod " = " a "*" b.
+         FUNCTION mul by+>prod>+>a = prod " *= " a.
+
+         FUNCTION set+x>+>y        = x "=" y.
+         FUNCTION sets+x>*y        = x "=" y.
+
+         TEST gt+>a+>b             = a ">"  b.
+         TEST ge+>a+>b             = a ">=" b.
+         TEST eq+>a+>b             = a "==" b.
+         TEST ne+>a+>b             = a "!=" b.
+         TEST le+>a+>b             = a "<=" b.
+         TEST lt+>a+>b             = a "<"  b.
+
+
+      ENDSEC arithmetic macros.
+      SECTION string macros.
+         ABSTR concat, append, appends.
+         FUNCTION concat+>s1+>s2+s> = s " = " s1 "+" s2.
+         FUNCTION append+>s>+>s1    = s "+=" s1.
+         FUNCTION appends+>s>*s1    = s "+=" s1.
+      ENDSEC string macros.
+      SECTION io macros.
+         ABSTR print, newline, printnl.
+         ACTION initialize console: +.
+         ACTION print*str   = "$L Console.Write(" str ");".
+         ACTION newline     : print+"$L".
+         ACTION printnl*str : print+str, newline.
+      ENDSEC io macros.
+      PRELUDE initialize console.
+   ENDLAY base.
+   LAYER main.
+      SECTION simple code.
+         INV add, set, append, appends, printnl.
+         CONST a=1, b=2, lwb=0, upb=100.
+         VAR x,y,z.
+         LIST l1(lwb:upb).
+         ACTION run the program -c -s:
+            add+a+b+c, sets+s+"Adding ", append+s+a, appends+s+" to ", append+s+b, appends+s+" is ",
+               append+s+c, printnl+s.
+      ENDSEC simple code.
+      ROOT run the program.
+      SECTION factorials.
+         INV le, set, sub, mul by, eq, decr.
+         CONST zero = 0, one = 1.
+         FUNCTION factorial 1+>n+fac> -n1:
+            le+n+zero, set+fac+one;
+            sub+n+one+n1, factorial 1+n1+fac, mul by+fac+n.
+         FUNCTION factorial 2+>n+fac>:
+            set+fac+one,
+               (le+n+zero;
+                  (eq+n+zero;
+                   mul by+fac+n, decr+n, *)).
+         FUNCTION factorial 3+>n+fac>:
+            set+fac+one,
+               (at end check: le+n+zero;
+                  (eq+n+zero;
+                   mul by+fac+n, decr+n, *at end check)).
+         TEST factorial 4+>n+fac>:
+            set+fac+one,
+               (at end check: le+n+zero, -;
+                  (eq+n+zero, +;
+                   mul by+fac+n, decr+n, *at end check)).
+
+         CONST fac input 1 = 10, fac input 2 = 5.
+
+         TEST fac test option 1: -.
+
+         ACTION test factorials -fac:
+            fac test option 1, set+fac input+fac input1, print+"factorial 1+", print+fac input, print+"+", printnl+fac,
+               factorial 1+fac input+fac, print+"factorial 1+", print+fac input, print+"+", printnl+fac,
+               factorial 2+fac input+fac, print+"factorial 2+", print+fac input, print+"+", printnl+fac,
+                  factorial 3+fac input+fac, print+"factorial 3+", print+fac input, print+"+", printnl+fac,
+                     factorial 4+fac input+fac, print+"factorial 4+", print+fac input, print+"+",
+                     printnl+fac;
+            set+fac input+fac input 2,
+            factorial 1+fac input+fac, print+"factorial 1+", print+fac input, print+"+", printnl+fac,
+               factorial 2+fac input+fac, print+"factorial 2+", print+fac input, print+"+", printnl+fac,
+                  factorial 3+fac input+fac, print+"factorial 3+", print+fac input, print+"+", printnl+fac,
+                     factorial 4+fac input+fac, print+"factorial 4+", print+fac input, print+"+",
+                     printnl+fac.
+      ENDSEC factorials.
+      ROOT test factorials.
+   ENDLAY main.
+ENDMOD mod.
+PRELUDE io macros.
+ROOT code.
+
+PROGRAM prog.
+   PART mod.
+   PRELUDE mod.
+   ROOT mod.
+ENDPROG prog.

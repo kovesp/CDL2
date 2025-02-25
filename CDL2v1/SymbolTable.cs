@@ -3,7 +3,7 @@ using System.Reflection.Metadata.Ecma335;
 
 namespace CDL2v1 {
    internal class SymbolTable : Dictionary<ID,NamedElement> {
-      public Container? parent;
+      public Container? owner;   // The COntainer that owns this symboll table.
 
       public bool ContainsKey(Token token) => ContainsKey(new ID(token));
 
@@ -19,7 +19,7 @@ namespace CDL2v1 {
             } else {
                base[id] = value;
             }
-            id.parent = value is Container c ? c : value is not null && value.parent is not null ? (Container)value.parent : null; // Each ID knows its parent container
+            id.owner = this;
          }
       }
 
@@ -51,5 +51,7 @@ namespace CDL2v1 {
       /// <param name="v">The declared element if found, undeclared otherwise.</param>
       /// <returns></returns>
       public bool IsDeclared(ID id,out NamedElement? v) => TryGetValue(Reference(id),out v) && v is not Undeclared;
+
+      public override string ToString() => $"SymbolTable[{(owner is null ? "Modules" : owner.ToString())}]";
    }   
 }

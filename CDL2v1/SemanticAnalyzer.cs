@@ -58,7 +58,7 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeInvs(Section section) {
-         // INV items must be in some section in the current layer declared as EXT or in the current layer's parent declared as ABSTR.
+         // INV items must be in some section in the current layer declared as EXT or in the current layer's owner declared as ABSTR.
       }
 
       private static void AnalyzeProvidedInterfaces(Section section,RW kind,Set<ID> set) {
