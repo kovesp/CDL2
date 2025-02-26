@@ -50,31 +50,40 @@ namespace CDL2v1 {
          Symbols.owner = this;
       }
 
-      public List<Container> children = [];     // The children of the container. Layers are ordered, hence the list.
+      /// <summary>
+      /// The children of the container. Layers are ordered, hence the list.
+      /// </summary>
+      public List<Container> children = [];
 
       // The ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
-      // Section ludes will be generated as Code items and given the name of the lude type (which are not legal as a CDL2 name).
+      // Section ludes will be generated as Procedure items and given the name of the lude type (which are not legal as a CDL2 name).
       public readonly Dictionary<RW,List<ID>> ludes = new() {
          { RW.PRELUDE,[] },
          { RW.ROOT,[] },
          { RW.POSTLUDE,[] }
       };
+
+      /// <summary>
+      /// Sets the ParseLude action for the container. The default is to do nothing.
+      /// </summary>
       public Action<Parser,RW,Container> ParseLude = (parser,ludeType,container) => { };
 
-      public string FullName() => parent is null ? $"{ToString()}" : $"{parent.FullName()} {ToString()}";
-
-      public string ContainerName() => this switch {
-         Program => $"PROG {name.token.tokenString}",
-         Module  => $"MOD  {name.token.tokenString}",
-         Layer   => $"MOD  {parent?.name.token.tokenString} LAY {name.token.tokenString}",
-         Section => $"MOD  {parent?.parent?.name.token.tokenString} LAY {parent?.name.token.tokenString} SEC {name.token.tokenString}",
-         _      => "Container"
-      };
+      /// <summary>
+      /// The short name of the container with its type. Used in the ToString method.
+      /// </summary>
+      public string ContainerName => $"{parent?.ContainerName ?? ""} {ItemTypeShortName} {name.token.tokenString}";
    }
 
+   /// <summary>
+   /// Represents a program in the syntax tree.
+   /// </summary>
    internal class Program : Container {
       override protected string ItemTypeShortName => "PROG";
 
+      /// <summary>
+      /// Program ludes are a list of module IDs.
+      /// </summary>
+      /// <param name="id"></param>
       public Program(ID id) : base(id,null) => ParseLude = Parser.ParseLudeOfIDs;
    }
 
@@ -86,11 +95,16 @@ namespace CDL2v1 {
       public readonly Set<ID> import = [];         // Imports are specified in sections, but are propagated up the module level.
       public readonly Set <ID> export = [];        // Exports are specified in sections, but are propagated up the module level.
 
+      /// <summary>
+      /// Moduel ludes are a list of section IDs.
+      /// </summary>
+      /// <param name="id"></param>
       public Module(ID id) : base(id) => ParseLude = Parser.ParseLudeOfIDs;
    }
 
    /// <summary>
    /// Represents a layer in the syntax tree.
+   /// Notice that layers don't have ludes.
    /// </summary>
    /// <param name="id"></param>
    /// <param name="module"></param>
@@ -102,6 +116,9 @@ namespace CDL2v1 {
    /// <param name="id"></param>
    /// <param name="layer"></param>
    internal class Section : Container {
+      /// <summary>
+      /// The interfaces.
+      /// </summary>
       public readonly Set<ID> ext = [];
       public readonly Set<ID> abstr = [];
       public readonly Set<ID> inv = [];
@@ -114,6 +131,12 @@ namespace CDL2v1 {
       public readonly Set<ID> vars = [];
       public readonly Set<ID> consts = [];
 
+      /// <summary>
+      /// Sections have ludes each of which contains the ID of an internally generated CODE FUNCTION or ACTION which consist of a single alternative.
+      /// TODO: Ensure that the generated CODE is correctly typed and that only ACTIONs and/or FUNCTIONs are called.
+      /// </summary>
+      /// <param name="id"></param>
+      /// <param name="layer"></param>
       public Section(ID id,Layer layer) : base(id,layer) => ParseLude = Parser.ParseLudeOfCalls;
 
       public static Type[] ProvidedElementImplementors;
@@ -125,7 +148,7 @@ namespace CDL2v1 {
    // ---------------------------------------------------------------------------------------------------
 
    /// <summary>
-   /// Represents an algorithm in the syntax tree. Concretely it is either a Macro or Code. 
+   /// Represents an algorithm in the syntax tree. Concretely it is either a Macro or Procedure. 
    /// </summary>
    /// <param name="id">The algorithm name.</param>
    /// <param name="formals">The argument list.</param>
@@ -133,7 +156,7 @@ namespace CDL2v1 {
    /// <param name="algType">The algorithm type.</param>
    /// <param name="bodyType">The type of body.</param>
    /// <param name="section">The containing section.</param>
-   internal class Algorithm : NamedElement, ProvidedElement {
+   internal abstract class Algorithm : NamedElement, ProvidedElement {
      // public readonly Section section = section;
       public readonly RW algType;            // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
       public readonly TT bodyType;           // one of : or := (for CODE only) and = or =: (for MACRO only)
@@ -148,23 +171,40 @@ namespace CDL2v1 {
          this.parent = section;
       }
 
-      /// <summary>
-      /// Used to declare an imported algorithm.
-      /// </summary>
-      /// <param name="id"></param>
-      /// <param name="formals"></param>
-      /// <param name="algType"></param>
-      /// <param name="section"></param>
-      public Algorithm(ID id,List<ID> formals,Token algType,Section section) : this(id,formals,[],algType,TT.NOBODY,section) => parent = section;
-
       override protected string ItemTypeShortName => $"{algType}";
    }
+
+   /// <summary>
+   /// An imported algorithm is a reference to an algorithm in another module. Thus it has only a header and no body.
+   /// </summary>
+   internal class ImportedAlgorithm : Algorithm {
+      public ImportedAlgorithm(ID id,List<ID> formals,Token algType,Section section) : base(id,formals,[],algType,TT.NOBODY,section) => parent = section;
+   }
+
+   /// <summary>
+   /// Represents a macro in the syntax tree.
+   /// </summary>
+   /// <param name="id"></param>
+   /// <param name="args"></param>
+   /// <param name="locals"></param>
+   /// <param name="algType"></param>
+   /// <param name="bodyType"></param>
+   /// <param name="section"></param>
    internal class Macro(ID id,List<ID> args,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,args,locals,algType,bodyType,section) {
       public List<MacroElement> elements = [];
    }
-   internal class Code(ID id,List<ID> args,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,args,locals,algType,bodyType,section) {
+   /// <summary>
+   /// Represents a code in the syntax tree.
+   /// </summary>
+   /// <param name="id"></param>
+   /// <param name="args"></param>
+   /// <param name="locals"></param>
+   /// <param name="algType"></param>
+   /// <param name="bodyType"></param>
+   /// <param name="section"></param>
+   internal class Procedure(ID id,List<ID> args,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,args,locals,algType,bodyType,section) {
       public List<Alternative> alternatives = [];
-      public Code(RW ludeType,Section section) : this(new ID(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section ludes which are parameterless actions with no locals.
+      public Procedure(RW ludeType,Section section) : this(new ID(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section ludes which are parameterless actions with no locals.
    }
 
    internal class Call(ID id)  {

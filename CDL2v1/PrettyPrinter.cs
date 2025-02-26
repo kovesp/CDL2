@@ -144,8 +144,8 @@ namespace CDL2v1 {
          IEnumerable<ID> macros = section.routines.Where(r => section.Symbols[r] is Macro);
          if (EmitCount(macros,"MACRO") > 0) foreach (ID macroId in macros) Print((Macro)section.Symbols[macroId]);
 
-         IEnumerable<ID> codes = section.routines.Where(r => section.Symbols[r] is Code);
-         if (EmitCount(codes,"CODE ") > 0) foreach (ID codeId in codes) Print((Code)section.Symbols[codeId]);
+         IEnumerable<ID> codes = section.routines.Where(r => section.Symbols[r] is Procedure);
+         if (EmitCount(codes,"CODE ") > 0) foreach (ID codeId in codes) Print((Procedure)section.Symbols[codeId]);
 
       });     
 
@@ -159,12 +159,12 @@ namespace CDL2v1 {
          if (container is Section) {
             if (container.ludes[ludeType].Count != 0) {
                Emit(ludeType," ");
-               // Section ludes are stored as ids of a generated Code item.
-               if (container.Symbols[container.ludes[ludeType].First()] is Code code) { // This should always be the case
+               // Section ludes are stored as ids of a generated Procedure item.
+               if (container.Symbols[container.ludes[ludeType].First()] is Procedure code) { // This should always be the case
                   Print(code.alternatives.First());
                   EmitSeparatorWithNL(TT.END);
                } else {
-                  ReportError($"Internal error: {ludeType} lude is not a Code item.");
+                  ReportError($"Internal error: {ludeType} lude is not a Procedure item.");
                }
             }
          } else { 
@@ -266,7 +266,7 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(Code code) {
+      public void Print(Procedure code) {
          PrintProcHead(code);
          Indented(() => {
             Debug.Assert(code.alternatives.Count != 0,"alternatives list is empty");

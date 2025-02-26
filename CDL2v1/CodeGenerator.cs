@@ -74,7 +74,7 @@ namespace CDL2v1 {
          cg.GenerateStart(section);
          foreach (ID procId in section.routines) {
             Algorithm proc = (Algorithm)section.Symbols[procId];
-            if (proc is Code code) {
+            if (proc is Procedure code) {
                GenerateCodeCode(code);
             } else if (proc is Macro macro) {
                GenerateMacroCode(macro);
@@ -107,7 +107,7 @@ namespace CDL2v1 {
          cg.GenerateAlgorithmHeaderEnd(alg);
       }
 
-      private void GenerateCodeCode(Code code) {
+      private void GenerateCodeCode(Procedure code) {
          cg.GenerateStart(code);
          cg.GenerateEnd(code);
       }

@@ -122,8 +122,8 @@ class BoundedArray {
       public void GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.name)} (");
       public void GenerateAlgorithmHeaderEnd(Algorithm proc) => emitter.Emitnl(") {");
 
-      public void GenerateStart(Code code) => throw new NotImplementedException();
-      public void GenerateEnd(Code code) => throw new NotImplementedException();
+      public void GenerateStart(Procedure code) => throw new NotImplementedException();
+      public void GenerateEnd(Procedure code) => throw new NotImplementedException();
 
       public void GenerateEnd(Alternative alternative) => throw new NotImplementedException();
       public void GenerateEnd(Group group) => throw new NotImplementedException();
@@ -151,8 +151,8 @@ class BoundedArray {
       public void GenerateParamSeparator() => emitter.Emit(",");
 
 
-      private void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName()}");
-      private void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName()}");
+      private void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName}");
+      private void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName}");
       public void GenerateLocalDeclaration(ID local) => emitter.Emitnl($"   {PSVar(local)} = $null");
    }
 }

@@ -55,7 +55,7 @@ namespace CDL2v1 {
             { ";",  TokenType.ALTSEP },            // Separates alterntives.
             { "(",  TokenType.GRPOPEN },           // Starts a group and a LIST bound.
             { ")",  TokenType.GRPCLOSE },          // Ends a group and a LIST bound.
-            { ":",  TokenType.COLON },             // Code that is a procedure. But also used in LIST bounds and to place labels, e.g., ACTION proc: init,(main: is not done, (try first, first; try next, next, *main); quit.
+            { ":",  TokenType.COLON },             // Procedure that is a procedure. But also used in LIST bounds and to place labels, e.g., ACTION proc: init,(main: is not done, (try first, first; try next, next, *main); quit.
             { "=",  TokenType.EQUALS },            // Macro that is aprocedure. Also used to define constants.
             { ".",  TokenType.END },               // Ends all sentences.
             { "#",  TokenType.COMMENT },           // Starts and ends a comment.

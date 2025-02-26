@@ -42,7 +42,7 @@ namespace CDL2v1 {
 
          foreach (ID procId in section.routines) {
             Algorithm proc = (Algorithm)section.Symbols[procId];
-            if (proc is Code code) {
+            if (proc is Procedure code) {
                AnalyzeCode(code);
             } else if (proc is Macro macro) {
                AnalyzeMacro(macro);
@@ -75,12 +75,12 @@ namespace CDL2v1 {
          }
       }
 
-      private static void ReportError(Container unit,string message) => Logger.ReportError($"{unit.ContainerName()}: {message}");
+      private static void ReportError(Container unit,string message) => Logger.ReportError($"{unit.ContainerName}: {message}");
 
       private void AnalyzeMacro(Macro macro) {
          Log(2,$"Analyzing {macro.name}");
       }
-      private void AnalyzeCode(Code code) {
+      private void AnalyzeCode(Procedure code) {
          Log(2,$"Analyzing {code.name}");
       }
    }

@@ -58,8 +58,8 @@ internal interface ICodeGenerator {
    /// }
    /// </summary>
    /// <param name="macro"></param>
-   public void GenerateStart(Code code);
-   public void GenerateEnd(Code code);
+   public void GenerateStart(Procedure code);
+   public void GenerateEnd(Procedure code);
 
    public void GenerateStart(Alternative alternative);
    public void GenerateEnd(Alternative alternative);

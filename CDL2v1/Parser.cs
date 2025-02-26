@@ -205,22 +205,22 @@ namespace CDL2v1 {
             List<ID> formals = ParseParams();
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
-               // IMPORT declarations. Check if it is in the import list.
+               // IMPORT declaration. Check if it is in the import list.
                if (currentSection.import.Contains(id)) {
-                  algorithm = new Algorithm(id,formals,algType,currentSection);
+                  algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
                } else {
-                  ReportError($"Routine {id} is not exported in section {currentSection.name}");
+                  ReportError($"{algType} {id} is not exported but has no body.");
                   return;
                }
             } else if (currentSection.import.Contains(id)) {
-               ReportError($"Algorithm {id} is imported but has locals or a body in section {currentSection.name}");
+               ReportError($"{algType} {id} is imported but has locals or a body.");
             } else {
                Set<ID> locals = ParseLocals();
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {                  
                   if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
                      // Parse the code body
-                     algorithm = new Code(id,formals,locals,algType,bodyType.type,currentSection);
-                     ParseCodeBody((Code)algorithm);
+                     algorithm = new Procedure(id,formals,locals,algType,bodyType.type,currentSection);
+                     ParseProcedureBody((Procedure)algorithm);
                   } else {
                      // Parse the macro body
                      algorithm = new Macro(id,formals,locals,algType,bodyType.type,currentSection);
@@ -232,7 +232,7 @@ namespace CDL2v1 {
             currentSection.Symbols[algorithm.name] = algorithm;
             currentSection.routines.Add(algorithm.name);
          } else {
-            ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be imp0ossible");
+            ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
       }
 
@@ -258,7 +258,7 @@ namespace CDL2v1 {
             }
          }
       }
-      private void ParseCodeBody(Code algorithm) {
+      private void ParseProcedureBody(Procedure algorithm) {
          algorithm.alternatives = ParseAlternatives();
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
@@ -334,7 +334,7 @@ namespace CDL2v1 {
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
       /// <param name="call"></param>
-      private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
+      // private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
       private static void ParseActualArgs(Parser parser,Call call) {
          Debug.Assert(parser.currentSection != null);
          while (parser.tokens.Optional(TT.PARAMSEP)) {
@@ -466,22 +466,23 @@ namespace CDL2v1 {
       private void ParseInterfaces() {
          Debug.Assert(currentSection != null && currentModule != null);
          // Provided interfaces
-         ParseSimpleList(RW.ABSTR,currentSection.abstr);
-         ParseSimpleList(RW.EXT,currentSection.ext);
-         ParseSimpleList(RW.EXPORT,currentSection.export);
+         ParseInterfaceList(RW.ABSTR,currentSection.abstr);
+         ParseInterfaceList(RW.EXT,currentSection.ext);
+         ParseInterfaceList(RW.EXPORT,currentSection.export);
          // Required interfaces
-         ParseSimpleList(RW.INV,currentSection.inv);
-         ParseSimpleList(RW.IMPORT,currentSection.import,currentModule.import);
+         ParseInterfaceList(RW.INV,currentSection.inv);
+         ParseInterfaceList(RW.IMPORT,currentSection.import,currentModule.import);
       }
 
       /// <summary>
       /// Parse a simple list of IDs occuring in interfaces.
+      /// TODO: Verify that the IDs are uniqe within BOTH interface lists.
       /// </summary>
       /// <param name="interfaceType"></param>
-      /// <param name="idList1"></param>
-      /// <param name="idList2"></param>
+      /// <param name="idList1">The section intrface list.</param>
+      /// <param name="idList2">The module interface list for imports.</param>
       /// <returns></returns>
-      private bool ParseSimpleList(RW interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
+      private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
          Debug.Assert(currentSection != null);
          if (tokens.Consume(interfaceType)) {
             ParseIDList(idList1,idList2);
@@ -509,7 +510,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
-      /// It will be stored as a Code item in the section's symbols table. The ID will be SectionName_LudeType. 
+      /// It will be stored as a Procedure item in the section's symbols table. The ID will be SectionName_LudeType. 
       /// </summary>
       /// <param name="parser"></param>
       /// <param name="type"></param>
@@ -523,18 +524,26 @@ namespace CDL2v1 {
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
-            Code lude = new(type,(Section)container);
+            Procedure lude = new(type,(Section)container);
             lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
             container.Symbols[lude.name] = lude;
             container.ludes[type].Add(lude.name);
          }
       }
-   
+
+      /// <summary>
+      /// Parse a list of IDs. The list is terminated by a period. The lists are normally sets.
+      /// The lists cannot contain duplicates
+      /// TODO: Can an import be in more than one section in a module? Let's assume no.
+      /// </summary>
+      /// <param name="idList1"></param>
+      /// <param name="idList2"></param>
+      /// <param name="processID"></param>
       private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID = null) {
          while (tokens.IsNext(TT.ID)) {
             ID id = new(tokens.Next());
-            if (!idList1.Contains(id)) idList1.Add(id);
             if (idList2 != null && !idList2.Contains(id)) idList2.Add(id);
+            if (!idList1.Contains(id)) idList1.Add(id);
             processID?.Invoke(id);
             if (!tokens.CanConsumeSep()) break;
          }
