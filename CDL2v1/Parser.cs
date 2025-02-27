@@ -45,7 +45,7 @@ namespace CDL2v1 {
       }
 
       public TokenList tokens = new();
-      public SymbolTable modules = [];             // This symbol table will contain modules only.
+      public SymbolTable modules = new();             // This symbol table will contain modules only.
 
       public Set<Module> Modules => modules.AsSet<Module>();
 
@@ -485,7 +485,7 @@ namespace CDL2v1 {
       private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
          Debug.Assert(currentSection != null);
          if (tokens.Consume(interfaceType)) {
-            ParseIDList(idList1,idList2);
+            ParseIDList(idList1,idList2,container:currentSection);
             return true;
          } else {
             return false;
@@ -539,12 +539,13 @@ namespace CDL2v1 {
       /// <param name="idList1"></param>
       /// <param name="idList2"></param>
       /// <param name="processID"></param>
-      private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID = null) {
+      private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID = null,Container? container=null) {
          while (tokens.IsNext(TT.ID)) {
             ID id = new(tokens.Next());
             if (idList2 != null && !idList2.Contains(id)) idList2.Add(id);
             if (!idList1.Contains(id)) idList1.Add(id);
             processID?.Invoke(id);
+            container?.Symbols.Reference(id);
             if (!tokens.CanConsumeSep()) break;
          }
          tokens.CanConsumeEnd();

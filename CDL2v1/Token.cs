@@ -204,7 +204,7 @@ namespace CDL2v1 {
          if (HandleMatch(IdRE,TokenClass.ID,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(IntRE,TokenClass.Int,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token,fileName,lineNumber)) return true;
-         if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token,fileName,lineNumber)) return true; // Must be place after Int & Float as they may start with + or -
+         if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token,fileName,lineNumber)) return true; // Must be placed after Int & Float as they may start with + or -
 
          return false;
       }
@@ -217,25 +217,23 @@ namespace CDL2v1 {
       public override string ToString() {
          string EscapedString() => sval != null ? sval.Replace("\n","\\n").Replace("\r","\\r").Replace("\t","\\t").Replace("\"","\\\"") : string.Empty;
          return type switch {
-            TokenType.RESWORD => rval?.ToString() ?? "NONE",
-            TokenType.COMMENT => $"COMMENT<{EscapedString()}>",
-            TokenType.STRING  => $"STRING<{EscapedString()}>",
-            TokenType.INT     => $"INT<{ival?.ToString() ?? "0"}>",
-            TokenType.FLOAT   => $"FLOAT<{fval?.ToString() ?? "0.0"}>",
-            TokenType.ID      => $"ID<{sval ?? string.Empty}>",
-            TokenType.ERROR   => "ERROR",
-            _                 => TokenType2Glyph.ContainsKey(type) ? TokenType2Glyph[type] : type.ToString(),
+            TT.RESWORD => rval?.ToString() ?? "NONE",
+            TT.COMMENT => $"COMMENT<{EscapedString()}>",
+            TT.STRING  => $"STRING<{EscapedString()}>",
+            TT.INT     => $"INT<{ival?.ToString() ?? "0"}>",
+            TT.FLOAT   => $"FLOAT<{fval?.ToString() ?? "0.0"}>",
+            TT.ID      => $"ID<{sval ?? string.Empty}>",
+            TT.ERROR   => "ERROR",
+            _          => TokenType2Glyph.ContainsKey(type) ? TokenType2Glyph[type] : type.ToString(),
          };
       }
 
       public override bool Equals(object? obj) => obj is Token token && type == token.type && type switch {
-         TokenType.RESWORD => rval == token.rval,
-         TokenType.COMMENT => sval == token.sval,
-         TokenType.STRING => sval == token.sval,
-         TokenType.INT => ival == token.ival,
-         TokenType.FLOAT => fval == token.fval,
-         TokenType.ID => sval == token.sval,
-         _ => true
+         TT.COMMENT or TT.STRING or TT.ID => sval == token.sval,
+         TT.RESWORD                       => rval == token.rval,
+         TT.INT                           => ival == token.ival,
+         TT.FLOAT                         => fval == token.fval,
+         _                                => false
       }; 
       public override int GetHashCode() => HashCode.Combine(type,rval,sval,ival,fval);
       /// <summary>
