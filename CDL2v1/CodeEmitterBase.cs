@@ -3,6 +3,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
@@ -15,7 +16,7 @@ namespace CDL2v1 {
       /// <summary>
       /// The number of characters to use for the line width.
       /// </summary>
-      public int LineWidth { get; set; } = 100;
+      public int LineLength { get; set; } = 100;
       /// <summary>
       /// The current level of indentation.
       /// Note that whyen it decreases, ExtraIndent is reset to 0.
@@ -57,6 +58,10 @@ namespace CDL2v1 {
             }
          }
       }
+      /// <summary>
+      /// If true, the LineLength is ignored.
+      /// </summary>
+      public bool IgnoreLineLength { get; set; } = false;
 
       private string KeepTogetherBuffer = "";
       private bool KeepTogetherState = false;
@@ -131,9 +136,9 @@ namespace CDL2v1 {
          } else { 
             bool wasNewline = WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
             foreach (object item in items) {
-               string[] currentItems = (item?.ToString() ?? "").Split('\n');
+               string[] currentItems = Regex.Split(item?.ToString() ?? "",@"\r\n|\r|\n");
 
-               if (honorLineLength && WillNotFitOnCurrentLine(currentItems[0])) wasNewline = wasNewline || WriteNewLine(true);
+               if (!IgnoreLineLength && honorLineLength && WillNotFitOnCurrentLine(currentItems[0])) wasNewline = wasNewline || WriteNewLine(true);
                AddToCurrentLine(currentItems[0],extraSpace);
                foreach (string currentItem in currentItems.Skip(1)) {
                   wasNewline = wasNewline || WriteNewLine(true);
@@ -144,7 +149,7 @@ namespace CDL2v1 {
          }
       }
 
-      public bool WillNotFitOnCurrentLine(string s) => CurrentLine.Length + s.Length > LineWidth;
+      public bool WillNotFitOnCurrentLine(string s) => CurrentLine.Length + s.Length > LineLength;
       public bool WillKeepTogetherNotFitOnCurrentLine() => WillNotFitOnCurrentLine(KeepTogetherBuffer);
 
       // Initialize CurrentLine with the indent if empty.

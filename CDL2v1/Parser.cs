@@ -31,7 +31,7 @@ namespace CDL2v1 {
 
          private readonly Parser parser = parser;
          private OT type;
-         private ID name = TokenList.ErrorID;
+         private ID name = ID.ErrorID;
          public bool IsValid { get; set; } = true;
 
          public (RW,ID) Object {
@@ -71,7 +71,7 @@ namespace CDL2v1 {
          Logger.logger.CurrentObject = currentObject;
 
          while (tokens.IsNonEmpty()) {
-            ID unitId = TokenList.ErrorID;
+            ID unitId = ID.ErrorID;
             if (tokens.CanConsumeContainerDelimiter(RW.MODULE,ref unitId)) {
                ParseModule(unitId);
             } else if (tokens.CanConsumeContainerDelimiter(RW.PROGRAM,ref unitId)) {
@@ -102,8 +102,9 @@ namespace CDL2v1 {
          if (tokens.CanConsume(RW.PART)) {
             ParseIDList(parts,null,null);
             foreach (ID part in parts) {
-               if (modules.IsDeclared(part,out NamedElement? e) && e is Module m) {
-                  currentProgram.children.Add(m);
+               if (modules.IsDeclared(part,out NamedElement? e) && e is Module mod) {
+                  currentProgram.children.Add(mod);
+                  currentProgram.Symbols[part] = mod;
                } else {
                   ReportError($"Expected MODULE, for the name {part} but found {e}");
                }
@@ -137,7 +138,7 @@ namespace CDL2v1 {
          Log(1,$"Parsing {currentObject}");
 
          // Now should see layers
-         ID layerId = TokenList.ErrorID;
+         ID layerId = ID.ErrorID;
          while (tokens.CanConsumeContainerDelimiter(RW.LAYER,ref layerId)) {
             ParseLayer(layerId);
          }
@@ -154,7 +155,7 @@ namespace CDL2v1 {
          Log(1,$"Parsing {currentObject}");
 
          // Now should see sections
-         ID sectionId = TokenList.ErrorID;
+         ID sectionId = ID.ErrorID;
          while (tokens.CanConsumeContainerDelimiter(RW.SECTION,ref sectionId)) {
             ParseSection(sectionId);
          }
@@ -202,7 +203,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             currentObject.Object = (algType.rval ?? RW.FUNCTION, id);
-            List<ID> formals = ParseParams();
+            List<Param> formals = ParseParams();
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the import list.
@@ -240,9 +241,10 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.Optional(TT.END)) {
             if (tokens.Optional(TT.ID,out Token idToken)) {
-               ID id = new(idToken);
+               ID id = ID.From(idToken);
+               Param param = new(id,PD.NONE,PT.std);
                // The id can be an arg, a local or a symbol table reference (whether declared or not).
-               if (macro.formals.Contains(id) || macro.locals.Contains(id)) {
+               if (macro.formals.Contains(param) || macro.locals.Contains(id)) {
                   macro.elements.Add(id);
                } else {
                   macro.elements.Add(currentSection.Symbols.Reference(id));
@@ -321,11 +323,11 @@ namespace CDL2v1 {
       private ID ParseOptionalLabel() {
          if (tokens.Peek().type == TT.ID && tokens.Peek(1).type == TT.LABELSEP) {
             // Consume the label and the colon
-            ID label = new(tokens.Next());
+            ID label = ID.From(tokens.Next());
             tokens.Next();
             return label;
          } else {
-            return TokenList.AnonID;
+            return ID.AnonID;
          }
       }
 
@@ -350,12 +352,12 @@ namespace CDL2v1 {
 
       private Set<ID> ParseLocals() {
          Set<ID> locals = [];
-         while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token id)) locals.Add(new ID(id));
+         while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token id)) locals.Add(ID.From(id));
          return locals;
       }
       private static readonly List<TT> formalTypes = [TT.PARAMSEP,TT.STRINGPARAMSEP];
-      private List<ID> ParseParams() {
-         List<ID> args = [];
+      private List<Param> ParseParams() {
+         List<Param> args = [];
          while (tokens.Optional(formalTypes,out Token paramTypeInd)) {
             bool isIn = tokens.Optional(TT.PARAMDIR);
             if (tokens.CanConsume(out ID id)) {
@@ -447,7 +449,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
-               c.elements.Add(currentSection.Symbols.Reference(new ID(elemId)));
+               c.elements.Add(currentSection.Symbols.Reference(ID.From(elemId)));
             } else if (tokens.Optional(TT.STRING,out Token str)) {
                c.elements.Add(new STRING(str));
             } else if (tokens.Optional(TT.INT,out Token i)) {
@@ -501,7 +503,7 @@ namespace CDL2v1 {
       internal static void ParseLudeOfIDs(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
             while (parser.tokens.Optional(TT.ID,out Token  id)) {
-               container.ludes[type].Add(new ID(id));
+               container.ludes[type].Add(ID.From(id));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
@@ -520,7 +522,7 @@ namespace CDL2v1 {
             //Debug.Assert(container != null);
             List<Call> callList =[];
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               callList.Add(ParseCall(parser,new ID(id)));
+               callList.Add(ParseCall(parser,ID.From(id)));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
@@ -541,7 +543,7 @@ namespace CDL2v1 {
       /// <param name="processID"></param>
       private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID = null,Container? container=null) {
          while (tokens.IsNext(TT.ID)) {
-            ID id = new(tokens.Next());
+            ID id = ID.From(tokens.Next());
             if (idList2 != null && !idList2.Contains(id)) idList2.Add(id);
             if (!idList1.Contains(id)) idList1.Add(id);
             processID?.Invoke(id);

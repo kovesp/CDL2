@@ -86,7 +86,7 @@ namespace CDL2v1 {
 
          ErrorToken = new Token();
          AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
-         AnonID = new ID(AnonIDToken);
+         AnonID = ID.From(AnonIDToken);
          ACTIONToken = new Token(TokenClass.ResWord,"ACTION","",0);
       }
 
@@ -247,7 +247,7 @@ namespace CDL2v1 {
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
       internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
          => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(tokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier()}";
-
+      internal static Token From(Container container,RW rw) => new(TokenClass.ID,$"{container.name.name}_{rw}","",0);
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);
    }

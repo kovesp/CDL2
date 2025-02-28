@@ -16,8 +16,6 @@ namespace CDL2v1 {
       }
       
       public readonly List<Token> tokens = new List<Token>();
-      public readonly static ID ErrorID = new();
-      public readonly static ID AnonID = new("Anon");
       public Options options;
 
       public TokenList(Options options = Options.None) {
@@ -83,13 +81,13 @@ namespace CDL2v1 {
       }
       public bool CanConsume(out ID id) {
          if (CanConsume(TT.ID,out Token token)) {
-            id = new ID(token);
+            id = ID.From(token);
             return true;
          }
          if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
             throw new Exception($"Expected ID, but found {Peek().type}");
          }
-         id = ErrorID;
+         id = ID.ErrorID;
          return false;
       }
       public bool CanConsume(List<TT> types,out Token token) {
@@ -114,7 +112,7 @@ namespace CDL2v1 {
          return false;
       }
       public bool Optional(out ID id) {
-         id = ErrorID;
+         id = ID.ErrorID;
          return IsNext(TT.ID) ? CanConsume(out id) : false;
       }
       public bool Optional(TT type) => IsNext(type) ? Consume(type) : false;
@@ -172,7 +170,7 @@ namespace CDL2v1 {
                return true;
             }
          }
-         id = TokenList.ErrorID;
+         id = ID.ErrorID;
          return false;
       }
 

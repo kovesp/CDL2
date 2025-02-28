@@ -87,7 +87,7 @@ class BoundedArray {
 
       public void GenerateCode(Const c) {
          string value = "{PSVar(c)} = ";
-         foreach (ConstElement e in c.elements) {
+         foreach (IConstElement e in c.elements) {
             switch (e) {
                case STRING s:
                   value += $"\"{s.value}\"";
@@ -113,7 +113,7 @@ class BoundedArray {
       public void GenerateCode(Var v) => emitter.Emitnl($"{PSVar(v)}");
       public void GenerateCode(LIST l,string lwb,string upb) => emitter.Emitnl($"{PSVar(l)} = New-Object BoundedArray {lwb} {upb}");
 
-      public void GenerateCode(ActualArg arg) => emitter.Emit(arg is STRING s ? s.value : arg is ID i ? PSVar(i) : throw new NotImplementedException());
+      public void GenerateCode(IActualArg arg) => emitter.Emit(arg is STRING s ? s.value : arg is ID i ? PSVar(i) : throw new NotImplementedException());
       public void GenerateCode(Param arg) => emitter.Emit($"${arg.name}");
 
       public void GenerateCodeExport(ID id) { }
@@ -122,8 +122,8 @@ class BoundedArray {
       public void GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.name)} (");
       public void GenerateAlgorithmHeaderEnd(Algorithm proc) => emitter.Emitnl(") {");
 
-      public void GenerateStart(Procedure code) => throw new NotImplementedException();
-      public void GenerateEnd(Procedure code) => throw new NotImplementedException();
+      public void GenerateStart(Procedure code) { }
+      public void GenerateEnd(Procedure code) => emitter.NlEmitnl("}");
 
       public void GenerateEnd(Alternative alternative) => throw new NotImplementedException();
       public void GenerateEnd(Group group) => throw new NotImplementedException();
@@ -143,7 +143,7 @@ class BoundedArray {
       public void GenerateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateLudeEend(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateStart(Macro macro) { }
-      public void GenerateEnd(Macro macro) => emitter.Emitnl("}");
+      public void GenerateEnd(Macro macro) => emitter.NlEmitnl("}");
       public void GenerateCode(LIST l) => throw new NotImplementedException();
       public void GenerateExport(Module module,ID expId) => throw new NotImplementedException();
       public void GenerateLudeStart(RW ludeType,Section section) => throw new NotImplementedException();

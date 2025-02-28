@@ -66,7 +66,7 @@ namespace CDL2v1 {
             if (section.Symbols.ContainsKey(id)) {
                if (section.Symbols[id] is Undeclared) {
                   ReportError(section,$"{kind} {id} is undeclared");
-               } else if (section.Symbols[id] is not ProvidedElement) {
+               } else if (section.Symbols[id] is not IProvidedElement) {
                   ReportError(section,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}}");
                }
             } else {

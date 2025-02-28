@@ -31,12 +31,12 @@ namespace CDL2v1 {
    }
 
    // Marker interfaces to allow lists to be composed of permissable elements.
-   public interface MacroElement { }
-   public interface ConstElement { }
-   public interface InterfaceElement { }
-   public interface ProvidedElement : InterfaceElement { }
-   public interface RequiredElement : InterfaceElement { }
-   public interface ActualArg { }
+   internal interface IMacroElement { }
+   internal interface IConstElement { }
+   internal interface IInterfaceElement { }
+   internal interface IProvidedElement : IInterfaceElement { }
+   internal interface IRequiredElement : IInterfaceElement { }
+   internal interface IActualArg { }
 
    /// <summary>
    /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
@@ -141,7 +141,7 @@ namespace CDL2v1 {
 
       public static Type[] ProvidedElementImplementors;
       static Section() {
-         ProvidedElementImplementors = Extensions.GetImplementorsOfInterface<ProvidedElement>().ToArray<Type>();
+         ProvidedElementImplementors = Extensions.GetImplementorsOfInterface<IProvidedElement>().ToArray<Type>();
       }
    }
 
@@ -156,14 +156,14 @@ namespace CDL2v1 {
    /// <param name="algType">The algorithm type.</param>
    /// <param name="bodyType">The type of body.</param>
    /// <param name="section">The containing section.</param>
-   internal abstract class Algorithm : NamedElement, ProvidedElement {
+   internal abstract class Algorithm : NamedElement, IProvidedElement {
      // public readonly Section section = section;
       public readonly RW algType;            // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
       public readonly TT bodyType;           // one of : or := (for CODE only) and = or =: (for MACRO only)
-      public readonly List<ID> formals;      // These will actually be Param-s which are IDs with annotations.
+      public readonly List<Param> formals;
       public readonly Set<ID> locals;
 
-      public Algorithm(ID id,List<ID> formals,Set<ID> locals,Token algType,TT bodyType,Section section) : base(id) {
+      public Algorithm(ID id,List<Param> formals,Set<ID> locals,Token algType,TT bodyType,Section section) : base(id) {
          this.formals = formals;
          this.locals = locals;
          this.algType = algType.rval ?? RW.FUNCTION;
@@ -178,38 +178,38 @@ namespace CDL2v1 {
    /// An imported algorithm is a reference to an algorithm in another module. Thus it has only a header and no body.
    /// </summary>
    internal class ImportedAlgorithm : Algorithm {
-      public ImportedAlgorithm(ID id,List<ID> formals,Token algType,Section section) : base(id,formals,[],algType,TT.NOBODY,section) => parent = section;
+      public ImportedAlgorithm(ID id,List<Param> formals,Token algType,Section section) : base(id,formals,[],algType,TT.NOBODY,section) => parent = section;
    }
 
    /// <summary>
    /// Represents a macro in the syntax tree.
    /// </summary>
    /// <param name="id"></param>
-   /// <param name="args"></param>
+   /// <param name="formals"></param>
    /// <param name="locals"></param>
    /// <param name="algType"></param>
    /// <param name="bodyType"></param>
    /// <param name="section"></param>
-   internal class Macro(ID id,List<ID> args,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,args,locals,algType,bodyType,section) {
-      public List<MacroElement> elements = [];
+   internal class Macro(ID id,List<Param> formals,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,formals,locals,algType,bodyType,section) {
+      public List<IMacroElement> elements = [];
    }
    /// <summary>
    /// Represents a code in the syntax tree.
    /// </summary>
    /// <param name="id"></param>
-   /// <param name="args"></param>
+   /// <param name="formals"></param>
    /// <param name="locals"></param>
    /// <param name="algType"></param>
    /// <param name="bodyType"></param>
    /// <param name="section"></param>
-   internal class Procedure(ID id,List<ID> args,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,args,locals,algType,bodyType,section) {
+   internal class Procedure(ID id,List<Param> formals,Set<ID> locals,Token algType,TT bodyType,Section section) : Algorithm(id,formals,locals,algType,bodyType,section) {
       public List<Alternative> alternatives = [];
-      public Procedure(RW ludeType,Section section) : this(new ID(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section ludes which are parameterless actions with no locals.
+      public Procedure(RW ludeType,Section section) : this(ID.From(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section ludes which are parameterless actions with no locals.
    }
 
    internal class Call(ID id)  {
       public readonly ID id = id;
-      public readonly List<ActualArg> args = [];
+      public readonly List<IActualArg> args = [];
       override public string ToString() => $"{id.name}+{string.Join("+",args)}";
    }
    /// <summary>
@@ -225,7 +225,7 @@ namespace CDL2v1 {
       public readonly LCT type = type;
       public readonly Group? group;
       public readonly Call? call;
-      public readonly ID? label = TokenList.AnonID;
+      public readonly ID? label = ID.AnonID;
 
       public LastCall(Call call) : this(LCT.Standard) => this.call = call;
       public LastCall(Group group) : this(LCT.Group) => this.group = group;
@@ -236,7 +236,7 @@ namespace CDL2v1 {
             case LCT.Succeed: return "+";
             case LCT.Fail: return "-";
             case LCT.Abort: return "?";
-            case LCT.Repeat: return $"*{(label is null || label == TokenList.AnonID ? "" : label.name)}";
+            case LCT.Repeat: return $"*{(label is null || label == ID.AnonID ? "" : label.name)}";
             case LCT.Group: return group?.ToString() ?? "";
             default: return "ERROR";
          }
@@ -251,7 +251,7 @@ namespace CDL2v1 {
       public readonly List<Alternative> alternatives = alternatives;
    }
 
-   internal class INT : ConstElement, MacroElement {
+   internal class INT : IConstElement, IMacroElement {
       public readonly long value;
       public INT(Token intToken) {
          Debug.Assert(intToken.type == TT.INT && intToken.ival != null);
@@ -259,7 +259,7 @@ namespace CDL2v1 {
       }
       override public string ToString() => value.ToString();
    }
-   internal class FLOAT : ConstElement, MacroElement {
+   internal class FLOAT : IConstElement, IMacroElement {
       public readonly double value;
       public FLOAT(Token floatToken) {
          Debug.Assert(floatToken.type == TT.FLOAT && floatToken.fval != null);
@@ -267,7 +267,7 @@ namespace CDL2v1 {
       }
       override public string ToString() => value.ToString();
    }
-   internal class STRING : MacroElement, ConstElement, ActualArg {
+   internal class STRING : IMacroElement, IConstElement, IActualArg {
       public readonly string value;
       public STRING(Token str) {
          Debug.Assert(str.type == TT.STRING && str.sval != null);
@@ -275,17 +275,17 @@ namespace CDL2v1 {
       }
       override public string ToString() => $"\"{value}\"";
    }
-   internal class LIST(ID id,Token lwb,Token upb) : NamedElement(id), MacroElement, ConstElement {
+   internal class LIST(ID id,Token lwb,Token upb) : NamedElement(id), IMacroElement, IConstElement {
       // Stored as tokens to allow for the possibility of a const reference or an intgeger. If a const reference, the reference will be resolved during the semantic analysis.
       public readonly Token lwb = lwb;
       public readonly Token upb = upb;
       // override public string ToString() => $"LIST {name.name}({lwb.sval}:{upb.sval})";
    }
-   internal class Var(ID id) : NamedElement(id), MacroElement {
+   internal class Var(ID id) : NamedElement(id), IMacroElement {
       override public string ToString() => $"VAR {name.name}";
    }
-   internal class Const(ID id) : NamedElement(id), MacroElement, ConstElement, ProvidedElement {
-      public readonly List<ConstElement> elements = [];  // Will contain ids (const, var, list) and strings, ints, floats
+   internal class Const(ID id) : NamedElement(id), IMacroElement, IConstElement, IProvidedElement {
+      public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, ints, floats
       // override public string ToString() => $"CONST {name.name}={string.Join("",elements)}";
    }
 
@@ -296,57 +296,25 @@ namespace CDL2v1 {
    /// <param name="id"></param>
    /// <param name="dir"></param>
    /// <param name="type"></param>
-   internal class Param(ID id,ParamDir dir,ParamType type) : ID(id), MacroElement {
+   internal class Param(ID id,ParamDir dir,ParamType type) : NamedElement(id), IMacroElement {
       public readonly ParamDir paramDir = dir;
       public readonly ParamType paramType = type;
 
       public Boolean IsInput => paramDir == ParamDir.input || paramDir == ParamDir.transput;
       public Boolean IsOutput => paramDir == ParamDir.output || paramDir == ParamDir.transput;
 
+      public override bool Equals(object? obj) => obj is Param param && EqualityComparer<ID>.Default.Equals(name,param.name);
+      public override int GetHashCode() => HashCode.Combine(name);
 
       override public string ToString() => paramType == ParamType.std ? $"+{(IsInput ? ">" : "")}{name}{(IsOutput ? ">" : "")}" : $"*{name}";
-      //public override bool Equals(object? obj) => obj is ID arg && base.Equals(obj) && EqualityComparer<Token>.Default.Equals(token,arg.token);
-      //public override int GetHashCode() => HashCode.Combine(base.GetHashCode(),token);
 
-      //public static bool operator ==(Arg? left,Arg? right) => EqualityComparer<Arg>.Default.Equals(left,right);
-      //public static bool operator !=(Arg? left,Arg? right) => !(left == right);
+      public static bool operator ==(Param? left,Param? right) => EqualityComparer<Param>.Default.Equals(left,right);
+      public static bool operator !=(Param? left,Param? right) => !(left == right);
    }
 
-   internal class Local : NamedElement, MacroElement {
+   internal class Local : NamedElement, IMacroElement {
       public Local(ID id) : base(id) { }
       override public string ToString() => $"-{name.name}";
-   }
-
-   /// <summary>
-   /// Represents a reference to a named element, Arg or Local in the syntax tree.
-   /// It contains the token it was created from.
-   /// </summary>
-   internal class ID : ConstElement, MacroElement, ActualArg {
-      public readonly Token token = Token.ErrorToken;
-      public readonly string name = Token.ErrorToken.tokenString;
-      public SymbolTable? owner;
-
-      public ID(Token token) {
-         Debug.Assert(token.type == TT.ID && token.sval != null,"Program constructor: id not TokenType.ID or sval is null");
-         this.token = token;
-         name = token.tokenString;
-      }
-      public ID(ID id) : this(id.token) { }
-      public ID() { }
-      public ID(string name) : this(new Token(name)) { }
-
-      public ID(Container container,RW rw) : this($"{container.name.token.tokenString}_{rw}") { }
-
-      public override bool Equals(object? obj) => obj is ID iD && token == iD.token;
-      public override int GetHashCode() => HashCode.Combine(token);
-      public override string ToString() => token.tokenString;
-      public string AsIdentifier(string separator="_",string replacement="") { 
-         string parentPrefix = owner is null || owner.owner is null ? "" : $"{owner.owner.AsName(replacement)}{separator}";
-         return $"{parentPrefix}{token.AsIdentifier(replacement)}";
-      }
- 
-      public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
-      public static bool operator !=(ID left,ID right) => !(left == right);
    }
 
    internal class Undeclared(ID id) : NamedElement(id) {}

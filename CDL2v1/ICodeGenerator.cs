@@ -69,7 +69,7 @@ internal interface ICodeGenerator {
    public void GenerateStart(Call call);
    public void GenerateEnd(Call call);
 
-   public void GenerateCode(ActualArg arg);
+   public void GenerateCode(IActualArg arg);
    public void GenerateCode(Param arg);
    public void GenerateLocalDeclaration(ID local);
 

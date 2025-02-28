@@ -66,7 +66,7 @@ namespace CDL2v1 {
          this.MaxIndentIncrement = maxIndentIncr;
          this.emitter = emitter;
          emitter.IndentWidth = this.IndentMultiplier;
-         emitter.LineWidth = this.LineLength;
+         emitter.LineLength = this.LineLength;
          emitter.IndentLevel = 0;
          emitter.LinePrefix = "CDL2PP: ";
       }
@@ -201,7 +201,7 @@ namespace CDL2v1 {
                case LastCallType.Repeat:
                   Emit(TT.REPEAT);
                   Debug.Assert(alternative.lastCall.label is not null,"alternative.lastcall.label is null");
-                  if (alternative.lastCall.label != TokenList.AnonID) {
+                  if (alternative.lastCall.label != ID.AnonID) {
                      Emit(alternative.lastCall.label.token.tokenString);
                   }
                   break;
@@ -215,7 +215,7 @@ namespace CDL2v1 {
 
       private void Print(Group group) => Indented(() => {
          NlEmit(TT.GRPOPEN);
-         if (group.name != TokenList.AnonID) Emit(group.name.token.tokenString,TT.LABELSEP);
+         if (group.name != ID.AnonID) Emit(group.name.token.tokenString,TT.LABELSEP);
          Print(group.alternatives);
          Emit(TT.GRPCLOSE);
       });
@@ -231,7 +231,7 @@ namespace CDL2v1 {
 
       public void Print(Call call,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
          EmitWithExtraSpace(extraSpace,call.id.token.tokenString);
-         foreach (ActualArg arg in call.args) {
+         foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {
                Emit("\"",EscapedCDL2(s.value),"\"");
@@ -284,14 +284,14 @@ namespace CDL2v1 {
          Indented(() => {
             Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
             PrintMacroElement(macro.elements.First(),withNl: false);
-            foreach (MacroElement elem in macro.elements.Skip(1)) {
+            foreach (IMacroElement elem in macro.elements.Skip(1)) {
                PrintMacroElement(elem,withSpace: true);
             }
             EmitSeparatorWithNL(TT.END);
          });
       }
 
-      private void PrintMacroElement(MacroElement elem,bool withSpace = false,bool withNl = true) {
+      private void PrintMacroElement(IMacroElement elem,bool withSpace = false,bool withNl = true) {
          if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
@@ -316,7 +316,7 @@ namespace CDL2v1 {
          foreach (Param param in code.formals.Cast<Param>()) {
             Emit(param.paramType == PT.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
             if (param.IsInput) Emit(TT.PARAMDIR);
-            Emit(param.token.tokenString);
+            Emit(param.name.token.tokenString);
             if (param.IsOutput) Emit(TT.PARAMDIR);
          }
          if (code.locals.Any()) {
@@ -329,7 +329,7 @@ namespace CDL2v1 {
 
       public void Print(Const constant) {
          Emit(constant.name,TT.EQUALS);
-         foreach (ConstElement element in constant.elements) {
+         foreach (IConstElement element in constant.elements) {
             switch (element) {
                case STRING s:
                   Emit(s.value);

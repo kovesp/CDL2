@@ -37,7 +37,7 @@ MODULE mod.
       SECTION io macros.
          ABSTR print, newline, printnl.
          ACTION initialize console: +.
-         ACTION print*str   = "$L Console.Write(" str ");".
+         ACTION print*str   = "Write-Host " str.
          ACTION newline     : print+"$L".
          ACTION printnl*str : print+str, newline.
       ENDSEC io macros.

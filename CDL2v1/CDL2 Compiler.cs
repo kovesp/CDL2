@@ -111,7 +111,8 @@ internal class CDL2 {
 
          if (!ParseOnly) {
             ICodeGenerator? cg = CreateCodeGenerator(Target);
-            CodeEmitterBase emitter = new CodeEmitterDebug();
+            /// TODO: Add a command line option to specify the CG output file (or default it with the appropriate extension <see cref="ICodeGenerator.FileExtension"/>
+            CodeEmitterBase emitter = new CodeEmitterDebug() { IgnoreLineLength = true };
             if (Parser.currentProgram != null && cg != null) {
                string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
                Log(0,$"Generating code for {Target} into {emitter.Target}");
