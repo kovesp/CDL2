@@ -123,28 +123,25 @@ namespace CDL2v1 {
       /// This is the method that actually writes the code to the target using the <see cref="Write(string)"/> method.
       /// </summary>
       /// <param name="nlbefore"></param>
-      /// <param name="nlafter"></param>
-      /// 
-      /// <param name="honorLineLength"></param>
-      /// 
-      /// <returns>True if a new line was written.</returns>
+      /// <param name="nlafter"></param> 
+      /// <param name="honorLineLength"></param> 
       /// <param name="items"></param>
+      /// <returns>True if a new line was written.</returns>
       protected bool WriteWithIndent(bool nlbefore,bool nlafter,bool honorLineLength = true,bool extraSpace = false,params object[] items) {
          if (KeepTogether) {
             KeepTogetherBuffer += (extraSpace?" ":"")+string.Join("",items.Select(i => i?.ToString() ?? ""));
             return false;
          } else { 
             bool wasNewline = WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
-            foreach (object item in items) {
-               string[] currentItems = Regex.Split(item?.ToString() ?? "",@"\r\n|\r|\n");
-
-               if (!IgnoreLineLength && honorLineLength && WillNotFitOnCurrentLine(currentItems[0])) wasNewline = wasNewline || WriteNewLine(true);
-               AddToCurrentLine(currentItems[0],extraSpace);
-               foreach (string currentItem in currentItems.Skip(1)) {
-                  wasNewline = wasNewline || WriteNewLine(true);
-                  AddToCurrentLine(currentItem);
-               }
-            }
+            // Split the items into lines.
+            string[] lines = Regex.Split(string.Join("",items.Select(i => i?.ToString() ?? "")),@"\r\n|\r|\n");
+            // Write the pervious line if it would be too long with the first new item AND if line length is being honoured.
+            if (!IgnoreLineLength && honorLineLength && WillNotFitOnCurrentLine(lines[0])) wasNewline = wasNewline || WriteNewLine(true);
+            AddToCurrentLine(lines[0],extraSpace);
+            foreach (string line in lines.Skip(1)) {
+               wasNewline = WriteNewLine(true) || wasNewline; // Write the previous line
+               AddToCurrentLine(line);
+            }         
             return wasNewline || WriteNewLine(nlafter);
          }
       }

@@ -53,7 +53,7 @@ internal class CDL2 {
                 getDefaultValue: () => false,
                 description: "Do not generate code. Verifies whther the source is valid."),
             new Option<string?>(
-                "--pretty-print",
+                ["-p","--pretty-print"],
                 getDefaultValue: () => "",
                 description: "Pretty print the parsed code. If a value is given, it is assumed to be a filename, Otherwise output goes to the Debugger."){Arity = ArgumentArity.ZeroOrOne},
       };
@@ -77,8 +77,8 @@ internal class CDL2 {
       (Option<string>)rootCommand.Options[3],
       (Option<bool>)rootCommand.Options[4],
       (Option<bool>)rootCommand.Options[5],
-      (Option<string?>)rootCommand.Options[6]
-      );
+      (Option<string?>)rootCommand.Options[6]);
+
       // Invoke the command handler
       rootCommand.Invoke(args);
    }
