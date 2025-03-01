@@ -46,6 +46,20 @@ class BoundedArray {
         }
     }
 }
+class CDL2Ref {
+   [PSVariable]   $Var     = $null
+   [Int32]        $Value   = 0   
+   CDL2Ref([string]$name) { 
+      $this.Var = Get-Variable -Name $name -Scope Script
+      $this.Reset() 
+   }
+   [void]Reset() { 
+      $this.Value = $this.Var.Value
+   }
+   [void]Finalize() { 
+      Set-Variable -Name $this.Var.Name -Value $this.Value -Scope Script 
+   }
+}
 ";
 
       public void GenerateStart(Program program,CodeEmitterBase emitter) {
