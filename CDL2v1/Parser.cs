@@ -216,7 +216,7 @@ namespace CDL2v1 {
             } else if (currentSection.import.Contains(id)) {
                ReportError($"{algType} {id} is imported but has locals or a body.");
             } else {
-               Set<ID> locals = ParseLocals();
+               Set<Local> locals = ParseLocals();
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {                  
                   if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
                      // Parse the code body
@@ -242,15 +242,13 @@ namespace CDL2v1 {
          while (!tokens.Optional(TT.END)) {
             if (tokens.Optional(TT.ID,out Token idToken)) {
                ID id = ID.From(idToken);
-               Affix affix = new(id,AffidDir.NONE,AffixType.std);
-               Local local = new(id);
-               // The id can be an affix or a l;ocal).
-               if (macro.formals.Contains(affix)) {
+               if (macro.TryGetAffix(id,out Affix affix)) {
                   macro.elements.Add(affix);
-               } else if (macro.locals.Contains(local)) {
+               } else if (macro.TryGetLocal(id,out Local local)) {
                   macro.elements.Add(local);
                } else {
-                  ReportError($"ID {id} in a macro body is not a formal parameter or a local");
+                  // Can be a Var, Const, or List. TODO: Semantic Analysis to verify.
+                  macro.elements.Add(id);
                }
             } else if (tokens.Optional(TT.STRING,out Token str)) {
                macro.elements.Add(new STRING(str));
@@ -353,9 +351,9 @@ namespace CDL2v1 {
          }
       }
 
-      private Set<ID> ParseLocals() {
-         Set<ID> locals = [];
-         while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token id)) locals.Add(ID.From(id));
+      private Set<Local> ParseLocals() {
+         Set<Local> locals = [];
+         while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token token)) locals.Add(new Local(ID.From(token)));
          return locals;
       }
       private static readonly List<TT> formalTypes = [TT.PARAMSEP,TT.STRINGPARAMSEP];
@@ -385,7 +383,7 @@ namespace CDL2v1 {
       private static readonly List<TT> boundTypes = [TT.ID,TT.INT];
       /// <summary>
       /// Parse the body of a list declaration. Format is lname(lwb:upb).
-      /// <affix name="id"></affix>
+      /// <affix name="token"></affix>
       /// <exception cref="Exception"></exception>
       private void ParseListBody(ID id) {
          Debug.Assert(currentSection != null);
@@ -427,7 +425,7 @@ namespace CDL2v1 {
       /// We should see an '=' followed by a sequence of constant elements (e.g., numbers, strings, etc.) terminated by a period or a comma.
       /// The terminator will be consumed by <see cref="ParseIDList(ICollection{ID}, ICollection{ID}?, Action{ID}?)
       /// </summary>
-      /// <affix name="id">The id of the constant.</affix>
+      /// <affix name="token">The token of the constant.</affix>
       private void ParseConstBody(ID id) {
          Debug.Assert(currentSection != null);
          Const c = new(id);

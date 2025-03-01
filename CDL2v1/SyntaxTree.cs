@@ -171,6 +171,10 @@ namespace CDL2v1 {
          this.parent = section;
       }
 
+      public bool TryGetAffix(ID id,out Affix affix) => (affix = formals.FirstOrDefault(affix => affix.name == id)) != null;
+      public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.name == id)) != null;
+
+
       override protected string ItemTypeShortName => $"{algType}";
    }
 
@@ -275,16 +279,23 @@ namespace CDL2v1 {
       }
       override public string ToString() => $"\"{value}\"";
    }
-   internal class LIST(ID id,Token lwb,Token upb) : NamedElement(id), IConstElement {
+   internal class LIST : NamedElement, IMacroElement, IConstElement {
       // Stored as tokens to allow for the possibility of a const reference or an intgeger. If a const reference, the reference will be resolved during the semantic analysis.
-      public readonly Token lwb = lwb;
-      public readonly Token upb = upb;
+      public readonly Token? lwb;
+      public readonly Token? upb;
+
+      public LIST(ID id,Token lwb,Token upb) : base(id) {
+         this.lwb = lwb;
+         this.upb = upb;
+      }
+
+      public LIST(ID id) : base(id) { }
       // override public string ToString() => $"LIST {name.name}({lwb.sval}:{upb.sval})";
    }
-   internal class Var(ID id) : NamedElement(id) {
+   internal class Var(ID id) : NamedElement(id), IMacroElement {
       override public string ToString() => $"VAR {name.name}";
    }
-   internal class Const(ID id) : NamedElement(id), IConstElement, IProvidedElement {
+   internal class Const(ID id) : NamedElement(id), IConstElement, IMacroElement, IProvidedElement {
       public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, ints, floats
       // override public string ToString() => $"CONST {name.name}={string.Join("",elements)}";
    }

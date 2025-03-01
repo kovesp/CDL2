@@ -5,7 +5,7 @@ namespace CDL2v1 {
    /// Represents a reference to a named element, Arg or Local in the syntax tree.
    /// It contains the token it was created from.
    /// </summary>
-   internal class ID : IConstElement, IActualArg {
+   internal class ID : IConstElement, IMacroElement, IActualArg {
       public readonly Token token = Token.ErrorToken;
       public readonly string name = Token.ErrorToken.tokenString;
       public SymbolTable? owner;
