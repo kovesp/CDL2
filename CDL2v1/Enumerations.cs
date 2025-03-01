@@ -1,7 +1,7 @@
 ﻿global using TT = CDL2v1.TokenType;
 global using RW = CDL2v1.ReservedWord;
-global using PD = CDL2v1.ParamDir;
-global using PT = CDL2v1.ParamType;
+global using PD = CDL2v1.AffidDir;
+global using PT = CDL2v1.AffixType;
 global using LCT = CDL2v1.LastCallType;
 
 namespace CDL2v1 {
@@ -85,7 +85,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Formal parameter directions of procedures.
    /// </summary>
-   public enum ParamDir { 
+   public enum AffidDir { 
       input,
       output, 
       transput, 
@@ -96,7 +96,7 @@ namespace CDL2v1 {
    ///   std : standard argument
    ///   str : string argument
    /// </summary>
-   public enum ParamType { 
+   public enum AffixType { 
       std, 
       str 
    }

@@ -313,15 +313,15 @@ namespace CDL2v1 {
 
       private void PrintProcHead(Algorithm code) {
          Emit(code.algType," ",code.name);
-         foreach (Param param in code.formals.Cast<Param>()) {
-            Emit(param.paramType == PT.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
+         foreach (Affix param in code.formals.Cast<Affix>()) {
+            Emit(param.paramType == AffixType.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
             if (param.IsInput) Emit(TT.PARAMDIR);
             Emit(param.name.token.tokenString);
             if (param.IsOutput) Emit(TT.PARAMDIR);
          }
          if (code.locals.Any()) {
-            foreach (ID local in code.locals) {
-               Emit(" ",TT.LOCALSEP,local.token.tokenString);
+            foreach (Local local in code.locals) {
+               Emit(" ",TT.LOCALSEP,local.name.token.tokenString);
             }
          }
          Emitnl(code.bodyType);

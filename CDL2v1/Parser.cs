@@ -18,7 +18,7 @@ namespace CDL2v1 {
       /// <summary>
       /// The object being compiled. Used mainly for error reporting.
       /// </summary>
-      /// <param name="parser"></param>
+      /// <affix name="parser"></affix>
       public class CompilationObject(Parser parser) {
          private enum OT {ABSTR, EXT, INV, IMPORT, EXPORT, VAR, CONSTANT, LIST, FUNCTION, ACTION, TEST, PREDICATE, PRELUDE, ROOT, POSTLUDE, MODULE, LAYER, SECTION, PROGRAM }
          private static readonly OT[] AlgTypes = [OT.FUNCTION, OT.ACTION, OT.TEST, OT.PREDICATE];
@@ -60,7 +60,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Recursive descent parser for CDL2.
       /// </summary>
-      /// <param name="tokens"></param>
+      /// <affix name="tokens"></affix>
       /// <exception cref="Exception"></exception>
       internal void Parse(TokenList tokens) {
          this.tokens = tokens;
@@ -130,7 +130,7 @@ namespace CDL2v1 {
       /// THis is irrlevant for parsing, it will be handled in the semantic analysis.
       /// TODO: Semantic analysis to enforce CDL2 lab or compiler convention.
       /// </summary>
-      /// <param name="moduleId">The ID (name) of the module.</param>
+      /// <affix name="moduleId">The ID (name) of the module.</affix>
       private void ParseModule(ID moduleId) {
          currentObject.Object = (RW.MODULE, moduleId);
          currentModule = new Module(moduleId);
@@ -203,7 +203,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             currentObject.Object = (algType.rval ?? RW.FUNCTION, id);
-            List<Param> formals = ParseParams();
+            List<Affix> formals = ParseParams();
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the import list.
@@ -242,12 +242,15 @@ namespace CDL2v1 {
          while (!tokens.Optional(TT.END)) {
             if (tokens.Optional(TT.ID,out Token idToken)) {
                ID id = ID.From(idToken);
-               Param param = new(id,PD.NONE,PT.std);
-               // The id can be an arg, a local or a symbol table reference (whether declared or not).
-               if (macro.formals.Contains(param) || macro.locals.Contains(id)) {
-                  macro.elements.Add(id);
+               Affix affix = new(id,AffidDir.NONE,AffixType.std);
+               Local local = new(id);
+               // The id can be an affix or a l;ocal).
+               if (macro.formals.Contains(affix)) {
+                  macro.elements.Add(affix);
+               } else if (macro.locals.Contains(local)) {
+                  macro.elements.Add(local);
                } else {
-                  macro.elements.Add(currentSection.Symbols.Reference(id));
+                  ReportError($"ID {id} in a macro body is not a formal parameter or a local");
                }
             } else if (tokens.Optional(TT.STRING,out Token str)) {
                macro.elements.Add(new STRING(str));
@@ -335,7 +338,7 @@ namespace CDL2v1 {
       /// Parse the actual arguments of a call.
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
-      /// <param name="call"></param>
+      /// <affix name="call"></affix>
       // private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
       private static void ParseActualArgs(Parser parser,Call call) {
          Debug.Assert(parser.currentSection != null);
@@ -356,17 +359,17 @@ namespace CDL2v1 {
          return locals;
       }
       private static readonly List<TT> formalTypes = [TT.PARAMSEP,TT.STRINGPARAMSEP];
-      private List<Param> ParseParams() {
-         List<Param> args = [];
+      private List<Affix> ParseParams() {
+         List<Affix> args = [];
          while (tokens.Optional(formalTypes,out Token paramTypeInd)) {
             bool isIn = tokens.Optional(TT.PARAMDIR);
             if (tokens.CanConsume(out ID id)) {
                bool isOut = tokens.Optional(TT.PARAMDIR);
-               PD paramDir = isIn ? (isOut ? PD.transput : PD.input) : (isOut ? PD.output : PD.NONE);
-               PT paramType = paramTypeInd.type == TT.PARAMSEP ? ParamType.std : ParamType.str;
-               if (paramType == ParamType.str && paramDir != ParamDir.NONE) ReportError("String arguments cannot have a direction");
-               if (paramType == ParamType.std && paramDir == ParamDir.NONE) ReportError("Standard arguments must be input, output, or transput");
-               args.Add(new Param(id,paramDir,paramType));
+               AffidDir paramDir = isIn ? (isOut ? AffidDir.transput : AffidDir.input) : (isOut ? AffidDir.output : AffidDir.NONE);
+               AffixType paramType = paramTypeInd.type == TT.PARAMSEP ? AffixType.std : AffixType.str;
+               if (paramType == AffixType.str && paramDir != AffidDir.NONE) ReportError("String arguments cannot have a direction");
+               if (paramType == AffixType.std && paramDir == AffidDir.NONE) ReportError("Standard arguments must be input, output, or transput");
+               args.Add(new Affix(id,paramDir,paramType));
             }
          }
          return args;
@@ -382,7 +385,7 @@ namespace CDL2v1 {
       private static readonly List<TT> boundTypes = [TT.ID,TT.INT];
       /// <summary>
       /// Parse the body of a list declaration. Format is lname(lwb:upb).
-      /// <param name="id"></param>
+      /// <affix name="id"></affix>
       /// <exception cref="Exception"></exception>
       private void ParseListBody(ID id) {
          Debug.Assert(currentSection != null);
@@ -424,7 +427,7 @@ namespace CDL2v1 {
       /// We should see an '=' followed by a sequence of constant elements (e.g., numbers, strings, etc.) terminated by a period or a comma.
       /// The terminator will be consumed by <see cref="ParseIDList(ICollection{ID}, ICollection{ID}?, Action{ID}?)
       /// </summary>
-      /// <param name="id">The id of the constant.</param>
+      /// <affix name="id">The id of the constant.</affix>
       private void ParseConstBody(ID id) {
          Debug.Assert(currentSection != null);
          Const c = new(id);
@@ -443,7 +446,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse the elements of a constant declaration.
       /// </summary>
-      /// <param name="c"></param>
+      /// <affix name="c"></affix>
       /// <exception cref="Exception"></exception>
       private void ParseConstElements(Const c) {
          Debug.Assert(currentSection != null);
@@ -480,9 +483,9 @@ namespace CDL2v1 {
       /// Parse a simple list of IDs occuring in interfaces.
       /// TODO: Verify that the IDs are uniqe within BOTH interface lists.
       /// </summary>
-      /// <param name="interfaceType"></param>
-      /// <param name="idList1">The section intrface list.</param>
-      /// <param name="idList2">The module interface list for imports.</param>
+      /// <affix name="interfaceType"></affix>
+      /// <affix name="idList1">The section intrface list.</affix>
+      /// <affix name="idList2">The module interface list for imports.</affix>
       /// <returns></returns>
       private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
          Debug.Assert(currentSection != null);
@@ -514,9 +517,9 @@ namespace CDL2v1 {
       /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
       /// It will be stored as a Procedure item in the section's symbols table. The ID will be SectionName_LudeType. 
       /// </summary>
-      /// <param name="parser"></param>
-      /// <param name="type"></param>
-      /// <param name="container"></param>
+      /// <affix name="parser"></affix>
+      /// <affix name="type"></affix>
+      /// <affix name="container"></affix>
       internal static void ParseLudeOfCalls(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
             //Debug.Assert(container != null);
@@ -538,9 +541,9 @@ namespace CDL2v1 {
       /// The lists cannot contain duplicates
       /// TODO: Can an import be in more than one section in a module? Let's assume no.
       /// </summary>
-      /// <param name="idList1"></param>
-      /// <param name="idList2"></param>
-      /// <param name="processID"></param>
+      /// <affix name="idList1"></affix>
+      /// <affix name="idList2"></affix>
+      /// <affix name="processID"></affix>
       private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID = null,Container? container=null) {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());

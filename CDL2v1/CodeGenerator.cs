@@ -112,7 +112,7 @@ namespace CDL2v1 {
          cg.GenerateAlgorithmHeaderStart(alg);
          if (alg.formals.Count > 0) {
             cg.GenerateCode(alg.formals[0]);
-            foreach (Param formal in alg.formals.Skip(1)) {
+            foreach (Affix formal in alg.formals.Skip(1)) {
                cg.GenerateParamSeparator();
                cg.GenerateCode(formal);
             }

@@ -70,7 +70,7 @@ internal interface ICodeGenerator {
    public void GenerateEnd(Call call);
 
    public void GenerateCode(IActualArg arg);
-   public void GenerateCode(Param arg);
+   public void GenerateCode(Affix arg);
    public void GenerateLocalDeclaration(ID local);
 
    public void GenerateCode(Const c);
