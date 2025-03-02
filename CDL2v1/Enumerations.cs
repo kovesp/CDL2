@@ -1,6 +1,6 @@
 ﻿global using TT = CDL2v1.TokenType;
 global using RW = CDL2v1.ReservedWord;
-global using PD = CDL2v1.AffidDir;
+global using PD = CDL2v1.AffixDir;
 global using PT = CDL2v1.AffixType;
 global using LCT = CDL2v1.LastCallType;
 
@@ -85,7 +85,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Formal parameter directions of procedures.
    /// </summary>
-   public enum AffidDir { 
+   public enum AffixDir { 
       input,
       output, 
       transput, 
@@ -111,7 +111,7 @@ namespace CDL2v1 {
       Abort, 
       Repeat, 
       Group,
-      None,                   // Use in the alternative generated for section ludes.
+      None,                   // Use in the alternative generated for section Ludes.
    }
 
 }

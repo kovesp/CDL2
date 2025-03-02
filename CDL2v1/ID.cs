@@ -25,7 +25,7 @@ namespace CDL2v1 {
          return UniqueIDs.TryGetValue(token.sval,out ID? id) ? id : UniqueIDs[token.sval] = new ID(token);
       }
       /// <summary>
-      /// Used to create the Proceures for Section ludes.
+      /// Used to create the Proceures for Section Ludes.
       /// </summary>
       /// <param name="section"></param>
       /// <param name="ludetype">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>
@@ -53,7 +53,7 @@ namespace CDL2v1 {
       public override int GetHashCode() => HashCode.Combine(token);
       public override string ToString() => token.tokenString;
       public string AsIdentifier(string separator="_",string replacement="") { 
-         string parentPrefix = owner is null || owner.owner is null ? "" : $"{owner.owner.AsName(replacement)}{separator}";
+         string parentPrefix = owner is null || owner.Owner is null ? "" : $"{owner.Owner.AsName(replacement)}{separator}";
          return $"{parentPrefix}{token.AsIdentifier(replacement)}";
       }
  

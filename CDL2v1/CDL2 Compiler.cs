@@ -107,17 +107,17 @@ internal class CDL2 {
             semanticAnalyzer.Analyze(Parser.currentProgram);
          }
 
-         if (PrettyPrint != "" && Parser.currentProgram != null) new PrettyPrinter(PrettyPrint).Print(Parser.currentProgram,Parser.Modules);
+         if (PrettyPrint != "" && (Parser.currentProgram != null || Parser.Modules.Count >0)) new PrettyPrinter(PrettyPrint).Print(Parser.currentProgram,Parser.Modules);
 
          if (!ParseOnly) {
             ICodeGenerator? cg = CreateCodeGenerator(Target);
             /// TODO: Add a command line option to specify the CG output file (or default it with the appropriate extension <see cref="ICodeGenerator.FileExtension"/>
             CodeEmitterBase emitter = new CodeEmitterDebug() { IgnoreLineLength = true };
-            if (Parser.currentProgram != null && cg != null) {
+            if ((Parser.currentProgram != null || Parser.Modules.Count > 0) && cg != null) {
                string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
                Log(0,$"Generating code for {Target} into {emitter.Target}");
                codeGenerator = new CodeGenerator(cg);
-               codeGenerator.GenerateCode(Parser.currentProgram,emitter);
+               codeGenerator.GenerateCode(Parser.currentProgram,Parser.Modules,emitter);
             } else {
                Console.WriteLine("No program found in the source files");
             }

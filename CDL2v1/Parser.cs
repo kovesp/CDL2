@@ -103,7 +103,7 @@ namespace CDL2v1 {
             ParseIDList(parts,null,null);
             foreach (ID part in parts) {
                if (modules.IsDeclared(part,out NamedElement? e) && e is Module mod) {
-                  currentProgram.children.Add(mod);
+                  currentProgram.Children.Add(mod);
                   currentProgram.Symbols[part] = mod;
                } else {
                   ReportError($"Expected MODULE, for the name {part} but found {e}");
@@ -119,9 +119,9 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a module.
       /// This implementation uses the implementation favoured by the CDL2 lab, i.e., that a PROGRAM is required to specify the participating modules.
-      /// The PROGRAM ludes specify modules, such modules must have corresponding ludes which specify sections, and the sections have ludes specifying the routines to call.
+      /// The PROGRAM Ludes specify modules, such modules must have corresponding Ludes which specify sections, and the sections have Ludes specifying the routines to call.
       /// 
-      /// The CDL2 compiler required that only a single module have ludes.
+      /// The CDL2 compiler required that only a single module have Ludes.
       /// 
       /// This implementation therefore will:
       /// * If there is a PROGRAM, follow the CDL2 lab convention.
@@ -161,7 +161,7 @@ namespace CDL2v1 {
          }
          // Consume the ENDLAY
          tokens.CanConsumeContainerDelimiter(RW.ENDLAY,ref layerId);
-         // Layers don't have ludes.
+         // Layers don't have Ludes.
       }
 
       private static readonly List<RW> AlgTypes = [RW.FUNCTION,RW.ACTION,RW.TEST,RW.PREDICATE];
@@ -242,7 +242,7 @@ namespace CDL2v1 {
          while (!tokens.Optional(TT.END)) {
             if (tokens.Optional(TT.ID,out Token idToken)) {
                ID id = ID.From(idToken);
-               if (macro.TryGetAffix(id,out Affix affix)) {
+               if (macro.TryGetAffix(id,out Affix? affix)) {
                   macro.elements.Add(affix);
                } else if (macro.TryGetLocal(id,out Local local)) {
                   macro.elements.Add(local);
@@ -363,10 +363,10 @@ namespace CDL2v1 {
             bool isIn = tokens.Optional(TT.PARAMDIR);
             if (tokens.CanConsume(out ID id)) {
                bool isOut = tokens.Optional(TT.PARAMDIR);
-               AffidDir paramDir = isIn ? (isOut ? AffidDir.transput : AffidDir.input) : (isOut ? AffidDir.output : AffidDir.NONE);
+               AffixDir paramDir = isIn ? (isOut ? AffixDir.transput : AffixDir.input) : (isOut ? AffixDir.output : AffixDir.NONE);
                AffixType paramType = paramTypeInd.type == TT.PARAMSEP ? AffixType.std : AffixType.str;
-               if (paramType == AffixType.str && paramDir != AffidDir.NONE) ReportError("String arguments cannot have a direction");
-               if (paramType == AffixType.std && paramDir == AffidDir.NONE) ReportError("Standard arguments must be input, output, or transput");
+               if (paramType == AffixType.str && paramDir != AffixDir.NONE) ReportError("String arguments cannot have a direction");
+               if (paramType == AffixType.std && paramDir == AffixDir.NONE) ReportError("Standard arguments must be input, output, or transput");
                args.Add(new Affix(id,paramDir,paramType));
             }
          }
@@ -504,7 +504,7 @@ namespace CDL2v1 {
       internal static void ParseLudeOfIDs(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
             while (parser.tokens.Optional(TT.ID,out Token  id)) {
-               container.ludes[type].Add(ID.From(id));
+               container.Ludes[type].Add(ID.From(id));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
@@ -530,7 +530,7 @@ namespace CDL2v1 {
             Procedure lude = new(type,(Section)container);
             lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
             container.Symbols[lude.name] = lude;
-            container.ludes[type].Add(lude.name);
+            container.Ludes[type].Add(lude.name);
          }
       }
 

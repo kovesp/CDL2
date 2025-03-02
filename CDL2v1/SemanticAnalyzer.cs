@@ -10,21 +10,21 @@ namespace CDL2v1 {
    internal class SemanticAnalyzer {
       internal void Analyze(Program program) {
          Log(0,$"Analyzing {program}");
-         foreach (Module module in program.children) {
+         foreach (Module module in program.Children) {
             AnalyzeModule(module);
          }
       }
 
       private void AnalyzeModule(Module module) {
          Log(1,$"Analyzing {module.name}");
-         foreach (Layer layer in module.children) {
+         foreach (Layer layer in module.Children) {
             AnalyzeLayer(layer);
          }
       }
 
       private void AnalyzeLayer(Layer layer) {
          Log(1,$"Analyzing {layer.name}");
-         foreach (Section section in layer.children) {
+         foreach (Section section in layer.Children) {
             AnalyzeSection(section);
          }
       }
@@ -58,7 +58,7 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeInvs(Section section) {
-         // INV items must be in some section in the current layer declared as EXT or in the current layer's owner declared as ABSTR.
+         // INV items must be in some section in the current layer declared as EXT or in the current layer's Owner declared as ABSTR.
       }
 
       private static void AnalyzeProvidedInterfaces(Section section,RW kind,Set<ID> set) {

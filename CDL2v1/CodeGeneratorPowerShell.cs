@@ -8,91 +8,59 @@ using System.Threading.Tasks;
 namespace CDL2v1 {
    internal class CodeGeneratorPowerShell : ICodeGenerator {
       CodeEmitterBase emitter = new CodeEmitterSink();
-      string module = "";
-      string layer = "";
-      string section = "";
-      string proc = "";
 
       public string FileExtension => ".ps1";
 
       private static string ProgramHeader => @"
 class BoundedArray {
-    [int]$LowerBound
-    [int]$UpperBound
-    [object[]]$Array
+   [int]$LowerBound
+   [int]$UpperBound
+   [Array]$Array
+   
 
-    BoundedArray([int]$lowerBound, [int]$upperBound) {
-        if ($upperBound - $lowerBound < 0) {
-            throw [System.ArgumentException]::new(""Upper bound must be greater than or equal to lower bound."")
-        }
-        $this.LowerBound = $lowerBound
-        $this.UpperBound = $upperBound
-        $this.Array = New-Object object[] ($upperBound - $lowerBound + 1)
-    }
-
-    [object]GetItem([int]$index) {
-        if ($index - $this.LowerBound -ge 0 -and $index - $this.LowerBound -le $this.UpperBound - $this.LowerBound) {
-            return $this.Array[$index - $this.LowerBound]
-        } else {
-            throw [System.IndexOutOfRangeException]::new(""Index out of range."")
-        }
-    }
-
-    [void]SetItem([int]$index, [object]$value) {
-        if ($index - $this.LowerBound -ge 0 -and $index - $this.LowerBound -le $this.UpperBound - $this.LowerBound) {
-            $this.Array[$index - $this.LowerBound] = $value
-        } else {
-            throw [System.IndexOutOfRangeException]::new(""Index out of range."")
-        }
-    }
-}
-class CDL2Ref {
-   [PSVariable]   $Var     = $null
-   [Int32]        $Value   = 0   
-   CDL2Ref([string]$name) { 
-      $this.Var = Get-Variable -Name $name -Scope Script
-      $this.Reset() 
+   BoundedArray([int]$lowerBound, [int]$upperBound) {
+       if ($upperBound - $lowerBound -lt 0) {
+           throw [System.ArgumentException]::new(""Upper bound $($this.UpperBound) must be greater than or equal to lower bound $($this.LowerBound)."")
+       }
+       $this.LowerBound = $lowerBound
+       $this.UpperBound = $upperBound
+       $this.Array = $script:TypeAlias.Word::new($upperBound - $lowerBound + 1)
    }
-   [void]Reset() { 
-      $this.Value = $this.Var.Value
+   [void]CheckIndex([int]$index) {
+      if ($index - $this.LowerBound -ge 0 -and $index - $this.LowerBound -le $this.UpperBound - $this.LowerBound) {
+         return
+      } else {
+         throw [System.IndexOutOfRangeException]::new(""Index: $index, LowerBound: $($this.LowerBound), UpperBound: $($this.UpperBound)"")
+       }
    }
-   [void]Finalize() { 
-      Set-Variable -Name $this.Var.Name -Value $this.Value -Scope Script 
+   # These do NOT create a [] indexer
+   [object]Item([int]$index) {
+      $this.CheckIndex($index)
+      return $this.Array[$index - $this.LowerBound]
+   }
+
+   [void]Item([int]$index, $value) {
+      $this.CheckIndex($index)
+      $this.Array[$index - $this.LowerBound] = $value
    }
 }
 ";
 
-      public void GenerateStart(Program program,CodeEmitterBase emitter) {
+      public void GenerateStart(Program? program,CodeEmitterBase emitter) {
          this.emitter = emitter;
          emitter.Emitnl(ProgramHeader);
-         EmitUnitStartComment(program);
+         if (program != null) EmitUnitStartComment(program);
       }
 
-      public void GenerateEnd(Program program) {
-         EmitUnitEndComment(program);
+      public void GenerateEnd(Program? program) {
+         if (program != null) EmitUnitEndComment(program);
       }
-
-      public void GenerateStart(Module module) {
-         this.module = module.name.name;
-         EmitUnitStartComment(module);
-      }
-      public void GenerateEnd(Module module) {
-         EmitUnitEndComment(module);
-      }
-      public void GenerateStart(Layer layer) {
-         this.layer = layer.name.name;
-         EmitUnitStartComment(layer);
-      }
-      public void GenerateEnd(Layer layer) {
-         EmitUnitEndComment(layer);
-      }
-      public void GenerateStart(Section section) {
-         this.section = section.name.name;
-         EmitUnitStartComment(section);
-      }      
-      public void GenerateEnd(Section section) {
-         EmitUnitEndComment(section);
-      }
+      public void GenerateStart(Module module) => EmitUnitStartComment(module);
+      public void GenerateEnd(Module module) => EmitUnitEndComment(module);
+      public void GenerateStart(Layer layer) => EmitUnitStartComment(layer);
+      public void GenerateEnd(Layer layer) => EmitUnitEndComment(layer);
+      public void GenerateStart(Section section) => EmitUnitStartComment(section);
+      public void GenerateEnd(Section section) => EmitUnitEndComment(section);
 
       private static string PSVar(ID name) => $"${PSName(name)}";
       private static string PSVar(NamedElement name) => $"${PSName(name)}";
@@ -102,25 +70,14 @@ class CDL2Ref {
       public void GenerateCode(Const c) {
          string value = "{PSVar(c)} = ";
          foreach (IConstElement e in c.elements) {
-            switch (e) {
-               case STRING s:
-                  value += $"\"{s.value}\"";
-                  break;
-               case INT n:
-                  value += n.value;
-                  break;
-               case FLOAT f:
-                  value += f.value;
-                  break;
-               case Const ce:
-                  value += PSVar(ce);
-                  break;
-               case ID id:
-                  value += PSVar(id);
-                  break;
-               default:
-                  throw new NotImplementedException();
-            }
+            value += e switch {
+               STRING s => $"\"{s.value}\"",
+               INT n    => n.value,
+               FLOAT f  => f.value,
+               Const ce => PSVar(ce),
+               ID id    => PSVar(id),
+               _        => throw new NotImplementedException(),
+            };
          }
          emitter.Emitnl(value);
       }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.CommandLine;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Metadata;
@@ -27,7 +28,7 @@ namespace CDL2v1 {
       public string AsName(string replacement="") => name.AsIdentifier(replacement);
       protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];
 
-      public Container? parent;      // null for the Program and Modules.
+      public Container? Parent;      // null for the Program and Modules.
    }
 
    // Marker interfaces to allow lists to be composed of permissable elements.
@@ -45,19 +46,19 @@ namespace CDL2v1 {
    internal abstract class Container(ID id) : NamedElement(id) {
       public readonly SymbolTable Symbols = new SymbolTable();
       public Container(ID id,Container? parent) : this(id) {
-         this.parent = parent;
-         this.parent?.children.Add(this);
-         Symbols.owner = this;
+         this.Parent = parent;
+         this.Parent?.Children.Add(this);
+         Symbols.Owner = this;
       }
 
       /// <summary>
-      /// The children of the container. Layers are ordered, hence the list.
+      /// The Children of the container. Layers are ordered, hence the list.
       /// </summary>
-      public List<Container> children = [];
+      public List<Container> Children = [];
 
-      // The ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
-      // Section ludes will be generated as Procedure items and given the name of the lude type (which are not legal as a CDL2 name).
-      public readonly Dictionary<RW,List<ID>> ludes = new() {
+      // The Ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
+      // Section Ludes will be generated as Procedure items and given the name of the lude type (which are not legal as a CDL2 name).
+      public readonly Dictionary<RW,List<ID>> Ludes = new() {
          { RW.PRELUDE,[] },
          { RW.ROOT,[] },
          { RW.POSTLUDE,[] }
@@ -71,7 +72,7 @@ namespace CDL2v1 {
       /// <summary>
       /// The short name of the container with its type. Used in the ToString method.
       /// </summary>
-      public string ContainerName => $"{parent?.ContainerName ?? ""} {ItemTypeShortName} {name.token.tokenString}";
+      public string ContainerName => $"{Parent?.ContainerName ?? ""} {ItemTypeShortName} {name.token.tokenString}";
    }
 
    /// <summary>
@@ -81,10 +82,17 @@ namespace CDL2v1 {
       override protected string ItemTypeShortName => "PROG";
 
       /// <summary>
-      /// Program ludes are a list of module IDs.
+      /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param name="id"></param>
       public Program(ID id) : base(id,null) => ParseLude = Parser.ParseLudeOfIDs;
+
+      /// <summary>
+      /// Get the modules that have the given lude type.
+      /// </summary>
+      /// <param name="ludeType"></param>
+      /// <returns>A collection of modules that are in the lude of the given type.</returns>
+      public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => (Module)Symbols[id]);
    }
 
    /// <summary>
@@ -96,7 +104,7 @@ namespace CDL2v1 {
       public readonly Set <ID> export = [];        // Exports are specified in sections, but are propagated up the module level.
 
       /// <summary>
-      /// Moduel ludes are a list of section IDs.
+      /// Moduel Ludes are a list of section IDs.
       /// </summary>
       /// <param name="id"></param>
       public Module(ID id) : base(id) => ParseLude = Parser.ParseLudeOfIDs;
@@ -104,7 +112,7 @@ namespace CDL2v1 {
 
    /// <summary>
    /// Represents a layer in the syntax tree.
-   /// Notice that layers don't have ludes.
+   /// Notice that layers don't have Ludes.
    /// </summary>
    /// <param name="id"></param>
    /// <param name="module"></param>
@@ -132,7 +140,7 @@ namespace CDL2v1 {
       public readonly Set<ID> consts = [];
 
       /// <summary>
-      /// Sections have ludes each of which contains the ID of an internally generated CODE FUNCTION or ACTION which consist of a single alternative.
+      /// Sections have Ludes each of which contains the ID of an internally generated CODE FUNCTION or ACTION which consist of a single alternative.
       /// TODO: Ensure that the generated CODE is correctly typed and that only ACTIONs and/or FUNCTIONs are called.
       /// </summary>
       /// <param name="id"></param>
@@ -168,11 +176,11 @@ namespace CDL2v1 {
          this.locals = locals;
          this.algType = algType.rval ?? RW.FUNCTION;
          this.bodyType = bodyType;
-         this.parent = section;
+         this.Parent = section;
       }
 
-      public bool TryGetAffix(ID id,out Affix affix) => (affix = formals.FirstOrDefault(affix => affix.name == id)) != null;
-      public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.name == id)) != null;
+      public bool TryGetAffix(ID id,out Affix affix) => (affix = formals.FirstOrDefault(affix => affix.name == id,Affix.Default)) != Affix.Default;
+      public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.name == id,Local.Default)) != Local.Default;
 
 
       override protected string ItemTypeShortName => $"{algType}";
@@ -182,7 +190,7 @@ namespace CDL2v1 {
    /// An imported algorithm is a reference to an algorithm in another module. Thus it has only a header and no body.
    /// </summary>
    internal class ImportedAlgorithm : Algorithm {
-      public ImportedAlgorithm(ID id,List<Affix> formals,Token algType,Section section) : base(id,formals,[],algType,TT.NOBODY,section) => parent = section;
+      public ImportedAlgorithm(ID id,List<Affix> formals,Token algType,Section section) : base(id,formals,[],algType,TT.NOBODY,section) => Parent = section;
    }
 
    /// <summary>
@@ -208,7 +216,7 @@ namespace CDL2v1 {
    /// <param name="section"></param>
    internal class Procedure(ID id,List<Affix> formals,Set<Local> locals,Token algType,TT bodyType,Section section) : Algorithm(id,formals,locals,algType,bodyType,section) {
       public List<Alternative> alternatives = [];
-      public Procedure(RW ludeType,Section section) : this(ID.From(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section ludes which are parameterless actions with no locals.
+      public Procedure(RW ludeType,Section section) : this(ID.From(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section Ludes which are parameterless actions with no locals.
    }
 
    internal class Call(ID id)  {
@@ -307,12 +315,13 @@ namespace CDL2v1 {
    /// <param name="id"></param>
    /// <param name="dir"></param>
    /// <param name="type"></param>
-   internal class Affix(ID id,AffidDir dir,AffixType type) : NamedElement(id), IMacroElement {
-      public readonly AffidDir paramDir = dir;
+   internal class Affix(ID id,AffixDir dir,AffixType type) : NamedElement(id), IMacroElement {
+      internal static readonly Affix Default = new (ID.AnonID,AffixDir.NONE,AffixType.std);
+      public readonly AffixDir paramDir = dir;
       public readonly AffixType paramType = type;
 
-      public Boolean IsInput => paramDir == AffidDir.input || paramDir == AffidDir.transput;
-      public Boolean IsOutput => paramDir == AffidDir.output || paramDir == AffidDir.transput;
+      public Boolean IsInput => paramDir == AffixDir.input || paramDir == AffixDir.transput;
+      public Boolean IsOutput => paramDir == AffixDir.output || paramDir == AffixDir.transput;
 
       public override bool Equals(object? obj) => obj is Affix param && EqualityComparer<ID>.Default.Equals(name,param.name);
       public override int GetHashCode() => HashCode.Combine(name);
@@ -324,6 +333,7 @@ namespace CDL2v1 {
    }
 
    internal class Local : NamedElement, IMacroElement {
+      internal static readonly Local Default = new(ID.AnonID);
       public Local(ID id) : base(id) { }
       override public string ToString() => $"-{name.name}";
    }

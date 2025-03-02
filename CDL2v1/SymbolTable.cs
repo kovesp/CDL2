@@ -3,7 +3,7 @@ using System.Reflection.Metadata.Ecma335;
 
 namespace CDL2v1 {
    internal class SymbolTable {
-      public Container? owner;   // The COntainer that owns this symboll table.
+      public Container? Owner;   // The COntainer that owns this symboll table.
       private Dictionary<ID,NamedElement> table = [];
 
       public NamedElement this[ID id] {
@@ -53,6 +53,6 @@ namespace CDL2v1 {
       /// <returns></returns>
       public bool IsDeclared(ID id,out NamedElement? v) => table.TryGetValue(Reference(id),out v) && v is not Undeclared;
 
-      public override string ToString() => $"SymbolTable[{(owner is null ? "Global" : owner.ToString())}]";
+      public override string ToString() => $"SymbolTable[{(Owner is null ? "Global" : Owner.ToString())}]";
    }   
 }

@@ -90,19 +90,19 @@ namespace CDL2v1 {
          { typeof(Section),new (RW.SECTION, RW.ENDSEC)},
       };
 
-      public void Print(Program program,Set<Module> modules) {
-         Print(program);
+      public void Print(Program? program,Set<Module> modules) {
+         if (program != null) Print(program);
          foreach (Module module in modules) Print(module);
       }
 
       public void Print(Program program) => PrintContainer(program,() => {
-         PrintList(RW.PART,program.children.Select(part => part.name));
+         PrintList(RW.PART,program.Children.Select(part => part.name));
          PrintLudes(program);
       });
 
-      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.children) Print(layer); }); 
+      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Children) Print(layer); }); 
 
-      public void Print(Layer layer)   => PrintContainer(layer,()  => { foreach (Section section in layer.children) Print(section); });
+      public void Print(Layer layer)   => PrintContainer(layer,()  => { foreach (Section section in layer.Children) Print(section); });
 
       public void Print(Section section) => PrintContainer(section,() => {
          PrintList(RW.EXPORT,section.export);
@@ -157,10 +157,10 @@ namespace CDL2v1 {
 
       private void PrintLude(RW ludeType,Container container) {
          if (container is Section) {
-            if (container.ludes[ludeType].Count != 0) {
+            if (container.Ludes[ludeType].Count != 0) {
                Emit(ludeType," ");
-               // Section ludes are stored as ids of a generated Procedure item.
-               if (container.Symbols[container.ludes[ludeType].First()] is Procedure code) { // This should always be the case
+               // Section Ludes are stored as ids of a generated Procedure item.
+               if (container.Symbols[container.Ludes[ludeType].First()] is Procedure code) { // This should always be the case
                   Print(code.alternatives.First());
                   EmitSeparatorWithNL(TT.END);
                } else {
@@ -168,7 +168,7 @@ namespace CDL2v1 {
                }
             }
          } else { 
-            PrintList(ludeType,container.ludes[ludeType]);
+            PrintList(ludeType,container.Ludes[ludeType]);
          }
       }
 
@@ -306,6 +306,12 @@ namespace CDL2v1 {
             case ID id:
                Emit(id.token.tokenString);
                break;
+            case Affix affix:
+               Emit(affix.name.token.tokenString);
+               break;
+            case Local local:
+               Emit(local.name.token.tokenString);
+               break;
             default:
                throw new NotImplementedException();
          }
@@ -353,7 +359,7 @@ namespace CDL2v1 {
       }
 
       public void Print(LIST list) {
-         Emit(list.name.token.tokenString,TT.LISTBOUNDSTART,list.lwb.tokenString,TT.LISTBOUNDSEP,list.upb.tokenString,TT.LISTBOUNDEND);
+         Emit(list.name.token.tokenString,TT.LISTBOUNDSTART,list.lwb?.tokenString??"???",TT.LISTBOUNDSEP,list.upb?.tokenString??"???",TT.LISTBOUNDEND);
       }
 
       //private void PrintUnitStart(NamedElement unit) {
@@ -368,8 +374,8 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Print the start and end of a container unit, and then the contents.
-      /// Print the ludes for the containier if it can have any at the corect place.
-      /// (Why they couldn't position the ludes in the same place for a PROGRAM as the other items is a mystery).
+      /// Print the Ludes for the containier if it can have any at the corect place.
+      /// (Why they couldn't position the Ludes in the same place for a PROGRAM as the other items is a mystery).
       /// </summary>
       /// <param name="unit"></param>
       /// <param name="action"></param>
