@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
    internal class CodeGeneratorPowerShell : ICodeGenerator {
-      CodeEmitterBase emitter = new CodeEmitterSink();
+      EmitterBase emitter = new EmitterSink();
 
       public string FileExtension => ".ps1";
 
@@ -46,7 +46,7 @@ class BoundedArray {
 }
 ";
 
-      public void GenerateStart(Program? program,CodeEmitterBase emitter) {
+      public void GenerateStart(Program? program,EmitterBase emitter) {
          this.emitter = emitter;
          emitter.Emitnl(ProgramHeader);
          if (program != null) EmitUnitStartComment(program);

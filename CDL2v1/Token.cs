@@ -28,7 +28,7 @@ namespace CDL2v1 {
       public static readonly Dictionary<string,string> Char2Escape =[];
 
       private static readonly Regex GlyphRE;
-      private static readonly Regex ReswordRE;
+      private static readonly Regex ReservedWordRE;
       private static readonly Regex StringEscapeRE;
       private static readonly Regex IdRE;
       private static readonly Regex StringRE;
@@ -45,18 +45,18 @@ namespace CDL2v1 {
          // Place multi-character glyphs first to ensure they match before any single character contained in them.
          Glyph2TokenType = new Dictionary<string,TokenType> {
             { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be inlined (the default for = is to inline).
-            { ":=", TokenType.INLINECODEBODY },    // Indicates a code body that should be inlined.
-            { "+",  TokenType.PLUS },              // Used as affix (argument) seperator and as the succeed operator.
+            { ":=", TokenType.INLINECODEBODY },    // Indicates a procedure body that should be inlined.
+            { "+",  TokenType.PLUS },              // Used as affix (argument) separator and as the succeed operator.
             { "-",  TokenType.MINUS },             // Used as local variable separator and as the fail operator.
             { "*",  TokenType.STAR },              // Repeat from group start operator and string parameter.
             { "?",  TokenType.ABORT },             // Terminate the program.
-            { ">",  TokenType.PARAMDIR },            // Used to indicated the argument direction, as >in, out>, or >in-out>.
+            { ">",  TokenType.AFFIXDIR },          // Used to indicated the argument direction, as >in, out>, or >in-out>.
             { ",",  TokenType.SEP },               // Used in interface lists, CONST and VAR declarations, and as call separators.
-            { ";",  TokenType.ALTSEP },            // Separates alterntives.
+            { ";",  TokenType.ALTSEP },            // Separates alternatives.
             { "(",  TokenType.GRPOPEN },           // Starts a group and a LIST bound.
             { ")",  TokenType.GRPCLOSE },          // Ends a group and a LIST bound.
-            { ":",  TokenType.COLON },             // Procedure that is a procedure. But also used in LIST bounds and to place labels, e.g., ACTION proc: init,(main: is not done, (try first, first; try next, next, *main); quit.
-            { "=",  TokenType.EQUALS },            // Macro that is aprocedure. Also used to define constants.
+            { ":",  TokenType.COLON },             // Algorithm that is a procedure. But also used in LIST bounds and to place labels, e.g., ACTION proc: init,(main: is not done, (try first, first; try next, next, *main); quit.
+            { "=",  TokenType.EQUALS },            // Algorithm that is a macro and normally inlined. Also used to define constants.
             { ".",  TokenType.END },               // Ends all sentences.
             { "#",  TokenType.COMMENT },           // Starts and ends a comment.
          };
@@ -73,15 +73,15 @@ namespace CDL2v1 {
          Escape2Char.Values.Distinct().ToList().ForEach(v => Char2Escape[v] = Escape2Char.First(kvp => kvp.Value == v).Key.ToUpper());
 
 
-         // Must match at the begining of the input
+         // Must match at the beginning of the input
          GlyphRE = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})");
-         ReswordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})");
+         ReservedWordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})");
          IdRE = new Regex(@"^[a-z][a-z0-9 ]*");
          StringRE = new Regex(@"^"".*?(?:$"".*?)*""");
          CommentRE = new Regex(@"^(?m:#(.*)?(?:#|$))");
          IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?\d+)");
          FloatRE = new Regex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?");
-         // Must match all occurences anywhere in a string
+         // Must match all occurrences anywhere in a string
          StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys/*.Select(Regex.Escape)*/)}])");
 
          ErrorToken = new Token();
@@ -94,22 +94,22 @@ namespace CDL2v1 {
 
       readonly public TokenType type;
       // Depending on the type, one of the following may be populated:
-      //    RESWORD: rval is the enum of the reserved word
-      //    ID:      sval is the identifier name
-      //    INT:     ival is the long
-      //    STRING:  sval is the string
-      //    FLOAT:   fval is the double
-      //    COMMENT: sval is the comment
+      //    RESWORD: reservedWordValue is the enum of the reserved word
+      //    ID:      stringValue is the identifier name
+      //    INT:     intValue is the long
+      //    STRING:  stringValue is the string
+      //    FLOAT:   floatValue is the double
+      //    COMMENT: stringValue is the comment
 
       readonly public string tokenString = "";
       readonly public int lineNumber = 0;
       readonly public int columnNumber = 0;
       readonly public string fileName = "";
 
-      readonly public ReservedWord? rval;
-      readonly public string? sval;
-      readonly public long? ival;
-      readonly public double? fval;
+      readonly public ReservedWord? reservedWordValue;
+      readonly public string? stringValue;
+      readonly public long? intValue;
+      readonly public double? floatValue;
 
       private enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float, Error };
 
@@ -127,20 +127,20 @@ namespace CDL2v1 {
                break;
             case TokenClass.Comment:
                type = TokenType.COMMENT;
-               sval = text.Trim('#','\n');
+               stringValue = text.Trim('#','\n');
                break;
             case TokenClass.String:
                type = TokenType.STRING;
-               sval = StringEscapeRE.Replace(text.Trim('"'),match => Escape2Char[match.Groups[1].Value]);
+               stringValue = StringEscapeRE.Replace(text.Trim('"'),match => Escape2Char[match.Groups[1].Value]);
                break;
             case TokenClass.ID:
                type = TokenType.ID;
                tokenString = Regex.Replace(text,@"\s+"," ").Trim();  // Reduce all white space to a single space
-               sval = Regex.Replace(text,@"\s+","");
+               stringValue = Regex.Replace(text,@"\s+","");
                break;
             case TokenClass.ResWord:
                type = TokenType.RESWORD;
-               rval = Enum.Parse<ReservedWord>(text);
+               reservedWordValue = Enum.Parse<ReservedWord>(text);
                break;
             case TokenClass.Glyph:
                type = Glyph2TokenType[text];
@@ -149,14 +149,14 @@ namespace CDL2v1 {
                type = TokenType.INT;
                tokenString = text;
                try {
-                  ival = long.Parse(text,text.StartsWith("0x") ? NumberStyles.HexNumber : NumberStyles.Integer,CultureInfo.InvariantCulture);
+                  intValue = long.Parse(text,text.StartsWith("0x") ? NumberStyles.HexNumber : NumberStyles.Integer,CultureInfo.InvariantCulture);
                } catch {
                   type = TokenType.ERROR;
                }
                break;
             case TokenClass.Float:
                type = TokenType.FLOAT;
-               fval = double.Parse(text);
+               floatValue = double.Parse(text);
                break;
          }
       }
@@ -183,7 +183,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Scan the next token and return it token. Remove the consumed chartecters from input.
+      /// Scan the next token and return it token. Remove the consumed characters from input.
       /// Comments are also returned as tokens.
       /// Return true, if a valid token was found.
       /// This is the only way to construct tokens, as all constructors are private.
@@ -200,7 +200,7 @@ namespace CDL2v1 {
          if (string.IsNullOrEmpty(input)) return false;
          if (HandleMatch(CommentRE,TokenClass.Comment,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(StringRE,TokenClass.String,ref input,out token,fileName,lineNumber)) return true;
-         if (HandleMatch(ReswordRE,TokenClass.ResWord,ref input,out token,fileName,lineNumber)) return true;
+         if (HandleMatch(ReservedWordRE,TokenClass.ResWord,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(IdRE,TokenClass.ID,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(IntRE,TokenClass.Int,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token,fileName,lineNumber)) return true;
@@ -208,34 +208,34 @@ namespace CDL2v1 {
 
          return false;
       }
-      // TODO: Remove this when linenumber passed in TryCreateToken
+      // TODO: Remove this when line number passed in TryCreateToken
       public static bool TryCreateToken(ref string input,out Token token) {
          int lineNumber = 0;
          return TryCreateToken(ref input,out token,"",ref lineNumber);
       }
 
       public override string ToString() {
-         string EscapedString() => sval != null ? sval.Replace("\n","\\n").Replace("\r","\\r").Replace("\t","\\t").Replace("\"","\\\"") : string.Empty;
+         string EscapedString() => stringValue != null ? stringValue.Replace("\n","\\n").Replace("\r","\\r").Replace("\t","\\t").Replace("\"","\\\"") : string.Empty;
          return type switch {
-            TT.RESWORD => rval?.ToString() ?? "NONE",
+            TT.RESWORD => reservedWordValue?.ToString() ?? "NONE",
             TT.COMMENT => $"COMMENT<{EscapedString()}>",
             TT.STRING  => $"STRING<{EscapedString()}>",
-            TT.INT     => $"INT<{ival?.ToString() ?? "0"}>",
-            TT.FLOAT   => $"FLOAT<{fval?.ToString() ?? "0.0"}>",
-            TT.ID      => $"ID<{sval ?? string.Empty}>",
+            TT.INT     => $"INT<{intValue?.ToString() ?? "0"}>",
+            TT.FLOAT   => $"FLOAT<{floatValue?.ToString() ?? "0.0"}>",
+            TT.ID      => $"ID<{stringValue ?? string.Empty}>",
             TT.ERROR   => "ERROR",
             _          => TokenType2Glyph.ContainsKey(type) ? TokenType2Glyph[type] : type.ToString(),
          };
       }
 
       public override bool Equals(object? obj) => obj is Token token && type == token.type && type switch {
-         TT.COMMENT or TT.STRING or TT.ID => sval == token.sval,
-         TT.RESWORD                       => rval == token.rval,
-         TT.INT                           => ival == token.ival,
-         TT.FLOAT                         => fval == token.fval,
+         TT.COMMENT or TT.STRING or TT.ID => stringValue == token.stringValue,
+         TT.RESWORD                       => reservedWordValue == token.reservedWordValue,
+         TT.INT                           => intValue == token.intValue,
+         TT.FLOAT                         => floatValue == token.floatValue,
          _                                => false
       }; 
-      public override int GetHashCode() => HashCode.Combine(type,rval,sval,ival,fval);
+      public override int GetHashCode() => HashCode.Combine(type,reservedWordValue,stringValue,intValue,floatValue);
       /// <summary>
       /// Return the token as a name. If the token is an ID, the name is returned.
       /// - Runs of spaces and non-letters are replaced with the replacement string.

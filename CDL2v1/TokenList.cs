@@ -34,8 +34,8 @@ namespace CDL2v1 {
       /// <returns></returns>
       public bool IsNext(List<TT> types) => IsNonEmpty() && types.Contains(tokens[0].type);
 
-      public bool IsNext(RW reservedWord) => IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].rval == reservedWord;
-      public bool IsNext(List<RW> reservedWords) => IsNonEmpty() && tokens[0].type == TT.RESWORD && reservedWords.Contains(tokens[0].rval??0); // ??0 is a hack to supress error: rval can't be null because tokens[0].type == TT.RESWORD
+      public bool IsNext(RW reservedWord) => IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].reservedWordValue == reservedWord;
+      public bool IsNext(List<RW> reservedWords) => IsNonEmpty() && tokens[0].type == TT.RESWORD && reservedWords.Contains(tokens[0].reservedWordValue??0); // ??0 is a hack to suppress error: reservedWordValue can't be null because tokens[0].type == TT.RESWORD
       public Token Next() {
          if (IsNonEmpty()) {
             Token token = tokens[0];
@@ -132,12 +132,12 @@ namespace CDL2v1 {
       }
 
       public bool CanConsume(RW reservedWord) {
-         if (IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].rval == reservedWord) {
+         if (IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].reservedWordValue == reservedWord) {
             Next();
             return true;
          }
          if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected reserved word {reservedWord}, but found {Peek().rval}");
+            throw new Exception($"Expected reserved word {reservedWord}, but found {Peek().reservedWordValue}");
          }
          return false;
       }
@@ -147,7 +147,7 @@ namespace CDL2v1 {
             return true;
          }
          if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected reserved word {reservedWords}, but found {Peek().rval}");
+            throw new Exception($"Expected reserved word {reservedWords}, but found {Peek().reservedWordValue}");
          }
          token = Token.ErrorToken;
          return false;
@@ -156,17 +156,17 @@ namespace CDL2v1 {
       /// <summary>
       /// Consume a unit start (MODULE, LAYER, SECTION, PROGRAM or end (ENDMOD, ENDLAY, ENDSEC, ENDPROG) reserved word and an ID and the ending period.
       /// </summary>
-      /// <param name="unit">The unit type rewerved word.</param>
+      /// <param name="unit">The unit type reserved word.</param>
       /// <param name="id">If stating a unit, the id is set, If ending a unit, it is verified that the id matches the one given in the unit close.</param>
       /// <returns></returns>
       public bool CanConsumeContainerDelimiter(RW unit,ref ID id) {
          Debug.Assert(Token.UnitStarters.Contains(unit) || Token.UnitEnders.Contains(unit));
-         if (Optional(unit) && CanConsume(out ID thisid) && CanConsumeEnd()) {
+         if (Optional(unit) && CanConsume(out ID thisId) && CanConsumeEnd()) {
             if (Token.UnitStarters.Contains(unit)) {
-               id = thisid;
+               id = thisId;
                return true;
             } else if (Token.UnitEnders.Contains(unit)) {
-               if (thisid != id) throw new Exception($"Expected {id} in {unit.ToString()} but found {thisid}");
+               if (thisId != id) throw new Exception($"Expected {id} in {unit.ToString()} but found {thisId}");
                return true;
             }
          }

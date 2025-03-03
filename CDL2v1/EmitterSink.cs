@@ -5,8 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   internal class CodeEmitterSink : CodeEmitterBase {
-      public CodeEmitterSink() => Target = "Sink";
+   internal class EmitterSink : EmitterBase {
+      public EmitterSink() => Target = "Sink";
       protected override void WriteLine(string item) { }
    }
 }

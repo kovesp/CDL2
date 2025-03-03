@@ -20,7 +20,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Base class for all elements that have names in the syntax tree.
    /// </summary>
-   /// <param name="id"></param>
+   /// <affix name="id"></affix>
    internal class NamedElement(ID id) {
       public readonly ID name = id;
 
@@ -31,7 +31,7 @@ namespace CDL2v1 {
       public Container? Parent;      // null for the Program and Modules.
    }
 
-   // Marker interfaces to allow lists to be composed of permissable elements.
+   // Marker interfaces to allow lists to be composed of permissible elements.
    internal interface IMacroElement { }
    internal interface IConstElement { }
    internal interface IInterfaceElement { }
@@ -42,7 +42,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
    /// </summary>
-   /// <param name="id"></param>
+   /// <affix name="id"></affix>
    internal abstract class Container(ID id) : NamedElement(id) {
       public readonly SymbolTable Symbols = new SymbolTable();
       public Container(ID id,Container? parent) : this(id) {
@@ -84,13 +84,13 @@ namespace CDL2v1 {
       /// <summary>
       /// Program Ludes are a list of module IDs.
       /// </summary>
-      /// <param name="id"></param>
+      /// <affix name="id"></affix>
       public Program(ID id) : base(id,null) => ParseLude = Parser.ParseLudeOfIDs;
 
       /// <summary>
       /// Get the modules that have the given lude type.
       /// </summary>
-      /// <param name="ludeType"></param>
+      /// <affix name="ludeType"></affix>
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
       public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => (Module)Symbols[id]);
    }
@@ -98,15 +98,15 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a module in the syntax tree.
    /// </summary>
-   /// <param name="id"></param>
+   /// <affix name="id"></affix>
    internal class Module : Container {
       public readonly Set<ID> import = [];         // Imports are specified in sections, but are propagated up the module level.
       public readonly Set <ID> export = [];        // Exports are specified in sections, but are propagated up the module level.
 
       /// <summary>
-      /// Moduel Ludes are a list of section IDs.
+      /// Module Ludes are a list of section IDs.
       /// </summary>
-      /// <param name="id"></param>
+      /// <affix name="id"></affix>
       public Module(ID id) : base(id) => ParseLude = Parser.ParseLudeOfIDs;
    }
 
@@ -114,15 +114,15 @@ namespace CDL2v1 {
    /// Represents a layer in the syntax tree.
    /// Notice that layers don't have Ludes.
    /// </summary>
-   /// <param name="id"></param>
-   /// <param name="module"></param>
+   /// <affix name="id"></affix>
+   /// <affix name="module"></affix>
    internal class Layer(ID id,Module module) : Container(id,module) {  }
 
    /// <summary>
    /// Represents a section in the syntax tree.
    /// </summary>
-   /// <param name="id"></param>
-   /// <param name="layer"></param>
+   /// <affix name="id"></affix>
+   /// <affix name="layer"></affix>
    internal class Section : Container {
       /// <summary>
       /// The interfaces.
@@ -136,15 +136,15 @@ namespace CDL2v1 {
       // These sets contain the names of the elements in the section. The actual elements are in the symbol table.
       public readonly Set<ID> routines = [];  // Both code and macros
       public readonly Set<ID> lists = [];
-      public readonly Set<ID> vars = [];
-      public readonly Set<ID> consts = [];
+      public readonly Set<ID> variables = [];
+      public readonly Set<ID> constants = [];
 
       /// <summary>
       /// Sections have Ludes each of which contains the ID of an internally generated CODE FUNCTION or ACTION which consist of a single alternative.
       /// TODO: Ensure that the generated CODE is correctly typed and that only ACTIONs and/or FUNCTIONs are called.
       /// </summary>
-      /// <param name="id"></param>
-      /// <param name="layer"></param>
+      /// <affix name="id"></affix>
+      /// <affix name="layer"></affix>
       public Section(ID id,Layer layer) : base(id,layer) => ParseLude = Parser.ParseLudeOfCalls;
 
       public static Type[] ProvidedElementImplementors;
@@ -158,15 +158,15 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents an algorithm in the syntax tree. Concretely it is either a Macro or Procedure. 
    /// </summary>
-   /// <param name="id">The algorithm name.</param>
-   /// <param name="formals">The argument list.</param>
-   /// <param name="locals">The locals.</param>
-   /// <param name="algType">The algorithm type.</param>
-   /// <param name="bodyType">The type of body.</param>
-   /// <param name="section">The containing section.</param>
+   /// <affix name="id">The algorithm name.</affix>
+   /// <affix name="formals">The argument list.</affix>
+   /// <affix name="locals">The locals.</affix>
+   /// <affix name="algType">The algorithm type.</affix>
+   /// <affix name="bodyType">The type of body.</affix>
+   /// <affix name="section">The containing section.</affix>
    internal abstract class Algorithm : NamedElement, IProvidedElement {
      // public readonly Section section = section;
-      public readonly RW algType;            // one of FUNCTION, ACTION, TEST or PREDICATE (rval will never be null)
+      public readonly RW algType;            // one of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
       public readonly TT bodyType;           // one of : or := (for CODE only) and = or =: (for MACRO only)
       public readonly List<Affix> formals;
       public readonly Set<Local> locals;
@@ -174,7 +174,7 @@ namespace CDL2v1 {
       public Algorithm(ID id,List<Affix> formals,Set<Local> locals,Token algType,TT bodyType,Section section) : base(id) {
          this.formals = formals;
          this.locals = locals;
-         this.algType = algType.rval ?? RW.FUNCTION;
+         this.algType = algType.reservedWordValue ?? RW.FUNCTION;
          this.bodyType = bodyType;
          this.Parent = section;
       }
@@ -196,24 +196,24 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a macro in the syntax tree.
    /// </summary>
-   /// <param name="id"></param>
-   /// <param name="formals"></param>
-   /// <param name="locals"></param>
-   /// <param name="algType"></param>
-   /// <param name="bodyType"></param>
-   /// <param name="section"></param>
+   /// <affix name="id"></affix>
+   /// <affix name="formals"></affix>
+   /// <affix name="locals"></affix>
+   /// <affix name="algType"></affix>
+   /// <affix name="bodyType"></affix>
+   /// <affix name="section"></affix>
    internal class Macro(ID id,List<Affix> formals,Set<Local> locals,Token algType,TT bodyType,Section section) : Algorithm(id,formals,locals,algType,bodyType,section) {
       public List<IMacroElement> elements = [];
    }
    /// <summary>
    /// Represents a code in the syntax tree.
    /// </summary>
-   /// <param name="id"></param>
-   /// <param name="formals"></param>
-   /// <param name="locals"></param>
-   /// <param name="algType"></param>
-   /// <param name="bodyType"></param>
-   /// <param name="section"></param>
+   /// <affix name="id"></affix>
+   /// <affix name="formals"></affix>
+   /// <affix name="locals"></affix>
+   /// <affix name="algType"></affix>
+   /// <affix name="bodyType"></affix>
+   /// <affix name="section"></affix>
    internal class Procedure(ID id,List<Affix> formals,Set<Local> locals,Token algType,TT bodyType,Section section) : Algorithm(id,formals,locals,algType,bodyType,section) {
       public List<Alternative> alternatives = [];
       public Procedure(RW ludeType,Section section) : this(ID.From(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section) { } // Used for section Ludes which are parameterless actions with no locals.
@@ -231,7 +231,7 @@ namespace CDL2v1 {
    /// Repeat - * with a reference to the group that is repeated possibly using the label
    /// Group - a nested group.
    /// </summary>
-   /// <param name="type"></param>   
+   /// <affix name="type"></affix>   
    internal class LastCall(LCT type) {
       
       public readonly LCT type = type;
@@ -266,29 +266,29 @@ namespace CDL2v1 {
    internal class INT : IConstElement, IMacroElement {
       public readonly long value;
       public INT(Token intToken) {
-         Debug.Assert(intToken.type == TT.INT && intToken.ival != null);
-         value = (long)intToken.ival;
+         Debug.Assert(intToken.type == TT.INT && intToken.intValue != null);
+         value = (long)intToken.intValue;
       }
       override public string ToString() => value.ToString();
    }
    internal class FLOAT : IConstElement, IMacroElement {
       public readonly double value;
       public FLOAT(Token floatToken) {
-         Debug.Assert(floatToken.type == TT.FLOAT && floatToken.fval != null);
-         value = (double)floatToken.fval;
+         Debug.Assert(floatToken.type == TT.FLOAT && floatToken.floatValue != null);
+         value = (double)floatToken.floatValue;
       }
       override public string ToString() => value.ToString();
    }
    internal class STRING : IMacroElement, IConstElement, IActualArg {
       public readonly string value;
       public STRING(Token str) {
-         Debug.Assert(str.type == TT.STRING && str.sval != null);
-         value = str.sval;
+         Debug.Assert(str.type == TT.STRING && str.stringValue != null);
+         value = str.stringValue;
       }
       override public string ToString() => $"\"{value}\"";
    }
    internal class LIST : NamedElement, IMacroElement, IConstElement {
-      // Stored as tokens to allow for the possibility of a const reference or an intgeger. If a const reference, the reference will be resolved during the semantic analysis.
+      // Stored as tokens to allow for the possibility of a const reference or an integer. If a const reference, the reference will be resolved during the semantic analysis.
       public readonly Token? lwb;
       public readonly Token? upb;
 
@@ -298,35 +298,35 @@ namespace CDL2v1 {
       }
 
       public LIST(ID id) : base(id) { }
-      // override public string ToString() => $"LIST {name.name}({lwb.sval}:{upb.sval})";
+      // override public string ToString() => $"LIST {name.name}({lwb.stringValue}:{upb.stringValue})";
    }
    internal class Var(ID id) : NamedElement(id), IMacroElement {
       override public string ToString() => $"VAR {name.name}";
    }
    internal class Const(ID id) : NamedElement(id), IConstElement, IMacroElement, IProvidedElement {
-      public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, ints, floats
+      public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
       // override public string ToString() => $"CONST {name.name}={string.Join("",elements)}";
    }
 
    /// <summary>
-   /// Represents a formal argument in an algirithm.
-   /// It is just an ID with anotations. An arg is considered to be euqal to another arg or ID if the names are the same.
+   /// Represents a formal argument in an algorithm.
+   /// It is just an ID with annotations. An arg is considered to be equal to another arg or ID if the names are the same.
    /// </summary>
-   /// <param name="id"></param>
-   /// <param name="dir"></param>
-   /// <param name="type"></param>
+   /// <affix name="id"></affix>
+   /// <affix name="dir"></affix>
+   /// <affix name="type"></affix>
    internal class Affix(ID id,AffixDir dir,AffixType type) : NamedElement(id), IMacroElement {
       internal static readonly Affix Default = new (ID.AnonID,AffixDir.NONE,AffixType.std);
-      public readonly AffixDir paramDir = dir;
-      public readonly AffixType paramType = type;
+      public readonly AffixDir affixDir = dir;
+      public readonly AffixType affixType = type;
 
-      public Boolean IsInput => paramDir == AffixDir.input || paramDir == AffixDir.transput;
-      public Boolean IsOutput => paramDir == AffixDir.output || paramDir == AffixDir.transput;
+      public Boolean IsInput => affixDir == AffixDir.input || affixDir == AffixDir.transput;
+      public Boolean IsOutput => affixDir == AffixDir.output || affixDir == AffixDir.transput;
 
-      public override bool Equals(object? obj) => obj is Affix param && EqualityComparer<ID>.Default.Equals(name,param.name);
+      public override bool Equals(object? obj) => obj is Affix affix && EqualityComparer<ID>.Default.Equals(name,affix.name);
       public override int GetHashCode() => HashCode.Combine(name);
 
-      override public string ToString() => paramType == AffixType.std ? $"+{(IsInput ? ">" : "")}{name}{(IsOutput ? ">" : "")}" : $"*{name}";
+      override public string ToString() => affixType == AffixType.std ? $"+{(IsInput ? ">" : "")}{name}{(IsOutput ? ">" : "")}" : $"*{name}";
 
       public static bool operator ==(Affix? left,Affix? right) => EqualityComparer<Affix>.Default.Equals(left,right);
       public static bool operator !=(Affix? left,Affix? right) => !(left == right);

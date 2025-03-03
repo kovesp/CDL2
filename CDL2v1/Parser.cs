@@ -127,7 +127,7 @@ namespace CDL2v1 {
       /// * If there is a PROGRAM, follow the CDL2 lab convention.
       /// * Otherwise it will follow the CD2 compiler convention.
       /// 
-      /// THis is irrlevant for parsing, it will be handled in the semantic analysis.
+      /// THis is irrelevant for parsing, it will be handled in the semantic analysis.
       /// TODO: Semantic analysis to enforce CDL2 lab or compiler convention.
       /// </summary>
       /// <affix name="moduleId">The ID (name) of the module.</affix>
@@ -176,7 +176,7 @@ namespace CDL2v1 {
          // Interfaces first
          ParseInterfaces();
 
-         // Now could see routines, lists, vars, consts in any order.
+         // Now could see routines, lists, variables, constants in any order.
          // Parse each type and return its ID.
          while (!tokens.IsNext(RW.ENDSEC)) {
             if (tokens.IsNext(AlgTypes)) {
@@ -186,7 +186,7 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.VAR)) {
                ParseVar();
             } else if (tokens.IsNext(RW.CONST)) {
-               ParseConsts();
+               ParseConstants();
             } else {
                ReportError("Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST");
             }
@@ -202,7 +202,7 @@ namespace CDL2v1 {
       private void ParseAlgorithm() {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
-            currentObject.Object = (algType.rval ?? RW.FUNCTION, id);
+            currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
             List<Affix> formals = ParseParams();
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
@@ -297,7 +297,7 @@ namespace CDL2v1 {
             }
          } while (tokens.Optional(TT.CALLSEP));
          if (lastCall == null) {
-            // The last all postion contained an actual call so convert it to a last call
+            // The last all position contained an actual call so convert it to a last call
             lastCall = new LastCall(calls.Last());
             calls.RemoveAt(calls.Count - 1);
          }
@@ -359,15 +359,15 @@ namespace CDL2v1 {
       private static readonly List<TT> formalTypes = [TT.PARAMSEP,TT.STRINGPARAMSEP];
       private List<Affix> ParseParams() {
          List<Affix> args = [];
-         while (tokens.Optional(formalTypes,out Token paramTypeInd)) {
-            bool isIn = tokens.Optional(TT.PARAMDIR);
+         while (tokens.Optional(formalTypes,out Token affixTypeInd)) {
+            bool isIn = tokens.Optional(TT.AFFIXDIR);
             if (tokens.CanConsume(out ID id)) {
-               bool isOut = tokens.Optional(TT.PARAMDIR);
-               AffixDir paramDir = isIn ? (isOut ? AffixDir.transput : AffixDir.input) : (isOut ? AffixDir.output : AffixDir.NONE);
-               AffixType paramType = paramTypeInd.type == TT.PARAMSEP ? AffixType.std : AffixType.str;
-               if (paramType == AffixType.str && paramDir != AffixDir.NONE) ReportError("String arguments cannot have a direction");
-               if (paramType == AffixType.std && paramDir == AffixDir.NONE) ReportError("Standard arguments must be input, output, or transput");
-               args.Add(new Affix(id,paramDir,paramType));
+               bool isOut = tokens.Optional(TT.AFFIXDIR);
+               AffixDir affixDir = isIn ? (isOut ? AffixDir.transput : AffixDir.input) : (isOut ? AffixDir.output : AffixDir.NONE);
+               AffixType affixType = affixTypeInd.type == TT.PARAMSEP ? AffixType.std : AffixType.str;
+               if (affixType == AffixType.str && affixDir != AffixDir.NONE) ReportError("String arguments cannot have a direction");
+               if (affixType == AffixType.std && affixDir == AffixDir.NONE) ReportError("Standard arguments must be input, output, or transput");
+               args.Add(new Affix(id,affixDir,affixType));
             }
          }
          return args;
@@ -382,7 +382,7 @@ namespace CDL2v1 {
 
       private static readonly List<TT> boundTypes = [TT.ID,TT.INT];
       /// <summary>
-      /// Parse the body of a list declaration. Format is lname(lwb:upb).
+      /// Parse the body of a list declaration. Format is list-name(lwb:upb).
       /// <affix name="token"></affix>
       /// <exception cref="Exception"></exception>
       private void ParseListBody(ID id) {
@@ -405,18 +405,18 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.VAR)) {
             Debug.Assert(currentSection != null);
-            ParseIDList(currentSection.vars,null,id => currentSection.Symbols[id] = new Var(id));
+            ParseIDList(currentSection.variables,null,id => currentSection.Symbols[id] = new Var(id));
          }
       }
 
       /// <summary>
       /// Parse a constant declaration.
       /// </summary>
-      private void ParseConsts() {
+      private void ParseConstants() {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST)) {
             Debug.Assert(currentSection != null);
-            ParseIDList(currentSection.consts,null,id => ParseConstBody(id));
+            ParseIDList(currentSection.constants,null,id => ParseConstBody(id));
          }
       }
 
@@ -478,11 +478,11 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse a simple list of IDs occuring in interfaces.
-      /// TODO: Verify that the IDs are uniqe within BOTH interface lists.
+      /// Parse a simple list of IDs occurring in interfaces.
+      /// TODO: Verify that the IDs are unique within BOTH interface lists.
       /// </summary>
       /// <affix name="interfaceType"></affix>
-      /// <affix name="idList1">The section intrface list.</affix>
+      /// <affix name="idList1">The section interface list.</affix>
       /// <affix name="idList2">The module interface list for imports.</affix>
       /// <returns></returns>
       private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {

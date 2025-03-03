@@ -4,8 +4,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Documents;
+using System.Windows.Media;
 
 using static CDL2v1.Logger;
 
@@ -22,13 +26,13 @@ namespace CDL2v1 {
       private int IndentMultiplier { get; set; }        = DEFAULT_INDENT_MULTIPLIER;        // The indent multiplier
       private int MaxIndentIncrement { get; set; }      = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
 
-      private readonly CodeEmitterBase emitter;
+      private readonly EmitterBase emitter;
 
 
       /// <summary>
       /// Perform action with an increased indent level.
       /// </summary>
-      /// <param name="action"></param>
+      /// <affix name="action"></affix>
       void Indented(Action action) {
          emitter.IndentLevel++;
          action();
@@ -37,7 +41,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Perform action keeping produced output together on one line.
       /// </summary>
-      /// <param name="action"></param>
+      /// <affix name="action"></affix>
       void KeepTogether(Action action) {
          bool keepTogether = emitter.KeepTogether;
          emitter.KeepTogether = true;
@@ -45,14 +49,48 @@ namespace CDL2v1 {
          emitter.KeepTogether = keepTogether;
       }
 
+      public record Decoration (string Color,DS Style);
+
+      public static Dictionary<SE,Decoration> Decorators = new() {
+         { SE.Unit          ,new Decoration("DarkBlue",DS.Bold) },
+         { SE.InputAffix    ,new Decoration("Gold",DS.Normal) },
+         { SE.OutputAffix   ,new Decoration("Red",DS.Normal) },
+         { SE.TransputAffix ,new Decoration("DarkRed",DS.Normal) },
+         { SE.Local         ,new Decoration("DarkOrange",DS.Normal) },
+         { SE.Const         ,new Decoration("Olive",DS.Normal) },
+         { SE.Var           ,new Decoration("OliveDrab",DS.Normal) },
+         { SE.List          ,new Decoration("DarkOliveGreen",DS.Normal) },
+       };
+      public static Dictionary<AIT,Decoration> InvocationDecorators = new() {
+         { AIT.None                           ,new Decoration("DarkGreen"       ,DS.Normal) },
+         { AIT.CanFail                        ,new Decoration("DarkGreen"       ,DS.Italic) },
+         { AIT.Macro                          ,new Decoration("DarkGreen"       ,DS.Underline) },
+
+         { AIT.Ext                            ,new Decoration("MediumAquamarine",DS.Normal) },
+         { AIT.Abstr                          ,new Decoration("LightGreen"      ,DS.Normal) },
+         { AIT.Imported                       ,new Decoration("Blue"            ,DS.Normal) },
+
+         { AIT.CanFail|AIT.Ext                ,new Decoration("MediumAquamarine",DS.Italic) },
+         { AIT.CanFail|AIT.Abstr              ,new Decoration("LightGreen"      ,DS.Italic) },
+         { AIT.CanFail|AIT.Imported           ,new Decoration("Blue"            ,DS.Italic) },
+
+         { AIT.Macro|AIT.Ext                  ,new Decoration("MediumAquamarine",DS.Underline) },
+         { AIT.Macro|AIT.Abstr                ,new Decoration("LightGreen"      ,DS.Underline) },
+         { AIT.Macro|AIT.Imported             ,new Decoration("Blue"            ,DS.Underline) },
+
+         { AIT.CanFail|AIT.Macro|AIT.Ext      ,new Decoration("MediumAquamarine",DS.Italic|DS.Underline) },
+         { AIT.CanFail|AIT.Macro|AIT.Abstr    ,new Decoration("LightGreen"      ,DS.Italic|DS.Underline) },
+         { AIT.CanFail|AIT.Macro|AIT.Imported ,new Decoration("Blue"            ,DS.Italic|DS.Underline) }
+       };
+
 
       /// <summary>
       /// Construct a pretty printer with a maximum line length and an indentation width using the specified emitter.
       /// </summary>
-      /// <param name="width"></param>
-      /// <param name="indent"></param>
-      /// <param name="maxIndentIncr"></param>
-      /// <param name="emitter"></param>
+      /// <affix name="width"></affix>
+      /// <affix name="indent"></affix>
+      /// <affix name="maxIndentIncrement"></affix>
+      /// <affix name="emitter"></affix>
       /// <example>
       ///   Construct a pretty printer that outputs to a file.
       ///   
@@ -60,10 +98,10 @@ namespace CDL2v1 {
       ///   or simpler
       ///    PrettyPrinter pp = new("output.txt");
       /// </example>
-      public PrettyPrinter(int width,int indent,int maxIndentIncr,CodeEmitterBase emitter) {
+      public PrettyPrinter(int width,int indent,int maxIndentIncrement,EmitterBase emitter) {
          this.LineLength = width;
          this.IndentMultiplier = indent;
-         this.MaxIndentIncrement = maxIndentIncr;
+         this.MaxIndentIncrement = maxIndentIncrement;
          this.emitter = emitter;
          emitter.IndentWidth = this.IndentMultiplier;
          emitter.LineLength = this.LineLength;
@@ -74,16 +112,16 @@ namespace CDL2v1 {
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified emitter.
       /// </summary>
-      /// <param name="emitter"></param>
-      public PrettyPrinter(CodeEmitterBase emitter) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter) { }
+      /// <affix name="emitter"></affix>
+      public PrettyPrinter(EmitterBase emitter) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter) { }
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file name.
       /// </summary>
-      /// <param name="fileName">If this is null, use the <see cref="CodeEmitterDebug"/> instead.</param>
-      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName.IsValidFileName() ? new CodeEmitterFile(fileName ?? "") : new CodeEmitterDebug()) { }
+      /// <affix name="fileName">If this is null, use the <see cref="EmitterDebug"/> instead.</affix>
+      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName.IsValidFileName() ? new EmitterFile(fileName ?? "") : new EmitterWindow()) { }
 
-      private record struct UnitDelim(RW Start, RW End);
-      private static readonly Dictionary<Type,UnitDelim> units = new() {
+      private record struct UnitDelimiter(RW Start, RW End);
+      private static readonly Dictionary<Type,UnitDelimiter> units = new() {
          { typeof(Program),new (RW.PROGRAM, RW.ENDPROG)},
          { typeof(Module),new (RW.MODULE, RW.ENDMOD)},
          { typeof(Layer),new (RW.LAYER, RW.ENDLAY)},
@@ -117,18 +155,18 @@ namespace CDL2v1 {
             return count;
          }
 
-         if (EmitCount(section.consts,"CONST") > 0) {
+         if (EmitCount(section.constants,"CONST") > 0) {
             Emit(RW.CONST," ");
-            Print((Const)section.Symbols[section.consts.First()]);
-            foreach (ID constId in section.consts.Skip(1)) {
+            Print((Const)section.Symbols[section.constants.First()]);
+            foreach (ID constId in section.constants.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
                Print((Const)section.Symbols[constId]);
             }
             EmitSeparatorWithNL(TT.END);
          }
 
-         if (EmitCount(section.vars,"VAR  ") > 0) {
-            PrintList(RW.VAR,section.vars);
+         if (EmitCount(section.variables,"VAR  ") > 0) {
+            PrintList(RW.VAR,section.variables);
          }
 
          if (EmitCount(section.lists,"LIST ") > 0) {
@@ -200,7 +238,7 @@ namespace CDL2v1 {
                   break;
                case LastCallType.Repeat:
                   Emit(TT.REPEAT);
-                  Debug.Assert(alternative.lastCall.label is not null,"alternative.lastcall.label is null");
+                  Debug.Assert(alternative.lastCall.label is not null,"alternative.lastCall.label is null");
                   if (alternative.lastCall.label != ID.AnonID) {
                      Emit(alternative.lastCall.label.token.tokenString);
                   }
@@ -319,11 +357,11 @@ namespace CDL2v1 {
 
       private void PrintProcHead(Algorithm code) {
          Emit(code.algType," ",code.name);
-         foreach (Affix param in code.formals.Cast<Affix>()) {
-            Emit(param.paramType == AffixType.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
-            if (param.IsInput) Emit(TT.PARAMDIR);
-            Emit(param.name.token.tokenString);
-            if (param.IsOutput) Emit(TT.PARAMDIR);
+         foreach (Affix affix in code.formals.Cast<Affix>()) {
+            Emit(affix.affixType == AffixType.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
+            if (affix.IsInput) Emit(TT.AFFIXDIR);
+            Emit(affix.name.token.tokenString);
+            if (affix.IsOutput) Emit(TT.AFFIXDIR);
          }
          if (code.locals.Any()) {
             foreach (Local local in code.locals) {
@@ -374,32 +412,32 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Print the start and end of a container unit, and then the contents.
-      /// Print the Ludes for the containier if it can have any at the corect place.
+      /// Print the Ludes for the container if it can have any at the correct place.
       /// (Why they couldn't position the Ludes in the same place for a PROGRAM as the other items is a mystery).
       /// </summary>
-      /// <param name="unit"></param>
-      /// <param name="action"></param>
+      /// <affix name="unit"></affix>
+      /// <affix name="action"></affix>
       private void PrintContainer(Container unit,Action action) {
-         Emitnl(units[unit.GetType()].Start.ToString()," ",unit.name.token.tokenString,TT.END);
+         Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.name.token.tokenString,TT.END);
          Indented(() => action());
          if (unit is Program) PrintLudes(unit);
-         Emitnl(units[unit.GetType()].End.ToString()," ",unit.name.token.tokenString,TT.END);
+         Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.name.token.tokenString,TT.END);
          if (unit is Module || unit is Section) PrintLudes(unit);
       }
 
       /// <summary>
       /// Translate all objects to strings using their to ToString, unless it is a TokenType, then use the glyph.
       /// </summary>
-      /// <param name="items"></param>
+      /// <affix name="items"></affix>
       /// <returns></returns>
       private static string[] TranslateTokens(params object[] items) => items.Select(item => TranslateToken(item)).ToArray();
       private static string TranslateToken(object item) => item is TT tt ? Token.ToGlyph(tt) : item.ToString() ?? "";
 
       /// <summary>
       /// Emit the specified items at the current indent level.
-      /// The methods with nl will add a new line at the begining or end.
+      /// The methods with nl will add a new line at the beginning or end.
       /// </summary>
-      /// <param name="items"></param>
+      /// <affix name="items"></affix>
       private void Emit(params object[] items) => emitter.Emit(TranslateTokens(items));
       private void EmitWithExtraSpace(bool extraSpace,params object[] items) => emitter.EmitWithExtraSpace(extraSpace,TranslateTokens(items));
       private void EmitSeparator(TT sep,bool space=true) => emitter.EmitIgnoreLineLength(TranslateToken(sep)+(space?" ":""));
@@ -407,5 +445,7 @@ namespace CDL2v1 {
       private void Emitnl(params object[] items) => emitter.Emitnl(TranslateTokens(items));
       private void NlEmit(params object[] items) => emitter.NlEmit(TranslateTokens(items));
       private void NlEmitnl(params object[] items) => emitter.NlEmitnl(TranslateTokens(items));
+
+
    }
 }

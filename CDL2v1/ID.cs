@@ -21,8 +21,8 @@ namespace CDL2v1 {
       /// <param name="token"></param>
       /// <returns></returns>
       public static ID From(Token token) {
-         Debug.Assert(token.type == TT.ID && token.sval != null,"CreateID: Token is not an ID type or sval is null");
-         return UniqueIDs.TryGetValue(token.sval,out ID? id) ? id : UniqueIDs[token.sval] = new ID(token);
+         Debug.Assert(token.type == TT.ID && token.stringValue != null,"CreateID: Token is not an ID type or stringValue is null");
+         return UniqueIDs.TryGetValue(token.stringValue,out ID? id) ? id : UniqueIDs[token.stringValue] = new ID(token);
       }
       /// <summary>
       /// Used to create the Proceures for Section Ludes.
@@ -40,7 +40,7 @@ namespace CDL2v1 {
       public ID Id => this;
 
       private ID(Token token) {
-         Debug.Assert(token.type == TT.ID && token.sval != null,"Program constructor: id not TokenType.ID or sval is null");
+         Debug.Assert(token.type == TT.ID && token.stringValue != null,"Program constructor: id not TokenType.ID or stringValue is null");
          this.token = token;
          name = token.tokenString;
       }

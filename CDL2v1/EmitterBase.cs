@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   internal abstract class CodeEmitterBase {
+   internal abstract class EmitterBase {
       public virtual string Target { get; set; } = "";
       /// <summary>
       /// The number of spaces to use for each level of indentation.
@@ -71,6 +71,13 @@ namespace CDL2v1 {
       /// It is up to the concrete subclass to use or ignore this
       /// </summary>
       public string LinePrefix { get; set; } = "";
+
+      public bool SupportsDecoration { get; set; } = false;
+
+      /// <summary>
+      /// Override this to close the target.
+      /// </summary>
+      public virtual void Close() { }
 
       /// <summary>
       /// Write the item to the target. Must be supplied by concrete sublcasses.

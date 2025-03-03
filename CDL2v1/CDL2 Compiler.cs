@@ -107,12 +107,25 @@ internal class CDL2 {
             semanticAnalyzer.Analyze(Parser.currentProgram);
          }
 
-         if (PrettyPrint != "" && (Parser.currentProgram != null || Parser.Modules.Count >0)) new PrettyPrinter(PrettyPrint).Print(Parser.currentProgram,Parser.Modules);
+         if (PrettyPrint != "" && (Parser.currentProgram != null || Parser.Modules.Count > 0)) {
+            EmitterBase emitter;
+            if (PrettyPrint == null) {
+               emitter = new EmitterDebug();
+            } else if (PrettyPrint == "w" || PrettyPrint == "Window") {
+               emitter = new EmitterWindow();
+            } else if (PrettyPrint.IsValidFileName()) {  // Must be placed after check for window
+               emitter = new EmitterFile(PrettyPrint);
+            } else {
+               emitter = new EmitterDebug();
+            }
+            new PrettyPrinter(emitter).Print(Parser.currentProgram,Parser.Modules);
+            emitter.Close();
+         }
 
          if (!ParseOnly) {
             ICodeGenerator? cg = CreateCodeGenerator(Target);
             /// TODO: Add a command line option to specify the CG output file (or default it with the appropriate extension <see cref="ICodeGenerator.FileExtension"/>
-            CodeEmitterBase emitter = new CodeEmitterDebug() { IgnoreLineLength = true };
+            EmitterBase emitter = new EmitterDebug() { IgnoreLineLength = true };
             if ((Parser.currentProgram != null || Parser.Modules.Count > 0) && cg != null) {
                string targetFileName = Path.ChangeExtension(args[0],cg.FileExtension);
                Log(0,$"Generating code for {Target} into {emitter.Target}");
@@ -141,9 +154,5 @@ internal class CDL2 {
    /// <summary>
    /// Called by <see cref="ReportError"/> to skip to the next END token."/>
    /// </summary>
-   internal void SkipToNextEnd() {
-      if (Parser != null) {
-         Parser.SkipToNextEnd();
-      }
-   }
+   internal void SkipToNextEnd() => Parser?.SkipToNextEnd();
 }

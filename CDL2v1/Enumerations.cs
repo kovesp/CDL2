@@ -1,12 +1,15 @@
-﻿global using TT = CDL2v1.TokenType;
-global using RW = CDL2v1.ReservedWord;
-global using PD = CDL2v1.AffixDir;
-global using PT = CDL2v1.AffixType;
+﻿global using TT  = CDL2v1.TokenType;
+global using RW  = CDL2v1.ReservedWord;
+global using PD  = CDL2v1.AffixDir;
+global using PT  = CDL2v1.AffixType;
 global using LCT = CDL2v1.LastCallType;
+global using SE  = CDL2v1.SyntacticElement;
+global using AIT = CDL2v1.AlgorithmInvocationType;
+global using DS  = CDL2v1.DecorationStyle;
 
 namespace CDL2v1 {
-   /// Cantral place for enumerations that are used accross the compiler as well as their abbreviations.
-   /// Thsi would be called the representation of the CDL2 language.
+   /// Central place for enumerations that are used across the compiler as well as their abbreviations.
+   /// This would be called the representation of the CDL2 language.
 
    /// <summary>
    /// Token types for the CDL2 language.
@@ -29,7 +32,7 @@ namespace CDL2v1 {
       REPEAT         = 8,  // Alias for STAR
       STRINGPARAMSEP = 8,  // Alias for STAR
       ABORT          = 9,
-      PARAMDIR       = 10,
+      AFFIXDIR       = 10,
       COLON          = 11,
       LABELSEP       = 11,  // Alias for COLON
       CODEBODY       = 11,  // Alias for COLON
@@ -112,6 +115,48 @@ namespace CDL2v1 {
       Repeat, 
       Group,
       None,                   // Use in the alternative generated for section Ludes.
+   }
+
+   /// <summary>
+   /// Used for PrettyPrint decoration
+   /// </summary>
+   public enum SyntacticElement {
+      Unit,
+      ReservedWord,
+      AlgorithmInvocation,
+      InputAffix,
+      OutputAffix,
+      TransputAffix,
+      Local,
+      Const,
+      Var,
+      List,
+   }
+   /// <summary>
+   /// Algorithm Invocation types.
+   /// Use the CanFail flag to select italic.
+   /// Use the Macro flag to select underline.
+   /// If the algorithm is
+   ///   - defined in the current section select dark green
+   ///   - invoked from extension select lighter green
+   ///   - invoked from abstraction select even lighter green
+   ///   - imported from another module select orange
+   /// </summary>
+   [Flags]
+   public enum AlgorithmInvocationType {
+      None = 0,         // 
+      CanFail = 1,      // Test or Predicate: Italic (otherwise Normal)
+      Macro = 2,        // Macro: (underline)
+      Abstr = 4,        // Abstr from previous layer: 
+      Ext = 8,          // Ext from another section in current layer
+      Imported = 16,    // Imported from another module
+   }
+   [Flags]
+   public enum DecorationStyle {
+      Normal      = 0,
+      Bold        = 1,
+      Italic      = 2,
+      Underline   = 4,
    }
 
 }

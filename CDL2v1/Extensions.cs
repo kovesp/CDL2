@@ -7,6 +7,8 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.IO;
+using System.Diagnostics;
 
 namespace CDL2v1 {
    public static class Extensions {
@@ -32,5 +34,16 @@ namespace CDL2v1 {
             return prefix.ToLower() + str.ToLower().Replace(" ",replacement);
          }
       }
+
+      internal static string Decorate(this string str,EmitterBase emitter,SE element,AIT invocationType) {
+         if (emitter.SupportsDecoration) {
+            PrettyPrinter.Decoration decor = element == SE.AlgorithmInvocation ? PrettyPrinter.InvocationDecorators[invocationType] : PrettyPrinter.Decorators[element];
+            Debug.Assert(decor != null,$"No decoration for {element}");
+            return $"<span color='{decor.Color}' style='{decor.Style}'>{str}</span>";
+         } else {
+            return str;
+         }
+      }
+      internal static string Decorate(this RW rw,EmitterBase emitter,SE element) => rw.ToString().Decorate(emitter,element,AIT.None);
    }
 }

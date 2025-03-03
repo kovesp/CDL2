@@ -14,7 +14,7 @@ namespace CDL2v1 {
    /// <param name="cg"></param>
    internal class CodeGenerator(ICodeGenerator cg) {
       private ICodeGenerator cg = cg;
-      private CodeEmitterBase emitter = new CodeEmitterSink();
+      private EmitterBase emitter = new EmitterSink();
 
       private static readonly List<RW> ludeTypes = [ RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
 
@@ -25,7 +25,7 @@ namespace CDL2v1 {
       /// <param name="program"></param>
       /// <param name="modules"></param>
       /// <param name="emitter"></param>
-      public void GenerateCode(Program? program,Set<Module> modules,CodeEmitterBase emitter) {
+      public void GenerateCode(Program? program,Set<Module> modules,EmitterBase emitter) {
          this.emitter = emitter;
 
          cg.GenerateStart(program,emitter);  // Generate the overall scafolding

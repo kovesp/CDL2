@@ -1,7 +1,8 @@
 ﻿using System.Diagnostics;
+using System.IO;
 
 namespace CDL2v1 {
-   internal class CodeEmitterFile : CodeEmitterBase {
+   internal class EmitterFile : EmitterBase {
       private StreamWriter? writer = null;
       private string? target = null;
 
@@ -20,9 +21,9 @@ namespace CDL2v1 {
          }
       }
 
-      public CodeEmitterFile() => Target = "";
-      public CodeEmitterFile(string targetFileName) => Target = targetFileName;
-      ~CodeEmitterFile() => Target = "";
+      public EmitterFile() => Target = "";
+      public EmitterFile(string targetFileName) => Target = targetFileName;
+      ~EmitterFile() => Target = "";
 
       /// <summary>
       /// Write the item to the target file.
