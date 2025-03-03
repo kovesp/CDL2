@@ -1,5 +1,6 @@
 # A simple CDL2 v1 program
-# cspell:ignore ENDSEC ENDLAY ENDMOD printnl ABSTR INV ENDPROG decr
+# Ignore Spelling: ENDSEC ENDLAY ENDMOD printnl ABSTR INV ENDPROG decr incr mul mul by sets appends
+# Ignore Spelling: lwb upb eq ne ge lt le namespace str concat io fac prog
 MODULE mod.
    LAYER base.
       SECTION arithmetic macros.

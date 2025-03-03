@@ -1,4 +1,7 @@
-#cspell:ignore ENDMOD ENDLAY ENDSEC decr ABSTR
+# Ignore Spelling: lwb upb eq ne ge lt le namespace str concat io fac prog decr cspell
+# Ignore Spelling: ENDMOD ENDLAY ENDSEC quicksort incr msg 
+# cspell:ignore ENDMOD ENDLAY ENDSEC decr ABSTR
+
 MODULE quicksort.
    LAYER base.
       SECTION arithmetic.

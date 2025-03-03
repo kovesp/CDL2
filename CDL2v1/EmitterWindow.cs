@@ -1,3 +1,6 @@
+// Ignore Spelling: CDL
+
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
@@ -6,16 +9,16 @@ using System.Windows.Media;
 
 namespace CDL2v1 {
    internal class EmitterWindow : EmitterBase {
-      private Window window;
-      private TextBlock outputTextBlock;
+      private Window? window;
+      private TextBlock? outputTextBlock;
 
       public EmitterWindow() {
          SupportsDecoration = true;
 
          // Create and start a new STA thread for the WPF window
-         Thread thread = new Thread(() => {
+         Thread thread = new(() => {
             // Initialize the WPF application context
-            Application app = new Application();
+            Application app = new();
 
             window = new Window {
                Title = "Pretty Print Window",
@@ -70,12 +73,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="item"></param>
       protected override void WriteLine(string item) {
-         Regex spanRegex = new Regex(@"<span\s*(color='(?<color>[^']*)')?\s*(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",RegexOptions.IgnoreCase);
+         Regex spanRegex = new(@"<span\s*(color='(?<color>[^']*)')?\s*(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",RegexOptions.IgnoreCase);
          int lastIndex = 0;
 
          foreach (Match match in spanRegex.Matches(item)) {
             if (match.Index > lastIndex) {
-               AppendText(item.Substring(lastIndex,match.Index - lastIndex),Brushes.Black);
+               AppendText(item[lastIndex..match.Index],Brushes.Black);
             }
 
             var color = match.Groups["color"].Value;
@@ -84,12 +87,13 @@ namespace CDL2v1 {
 
             Brush brush = Brushes.Black;
             if (!string.IsNullOrEmpty(color)) {
-               brush = (Brush)new BrushConverter().ConvertFromString(color);
+               var  b = new BrushConverter().ConvertFromString(color);
+               if (b != null) brush = (Brush)b;
             }
 
             FontWeight fontWeight = FontWeights.Normal;
             FontStyle fontStyle = FontStyles.Normal;
-            TextDecorationCollection textDecorations = null;
+            TextDecorationCollection? textDecorations = null;
 
             if (!string.IsNullOrEmpty(style)) {
 
@@ -133,18 +137,18 @@ namespace CDL2v1 {
          }
 
          if (lastIndex < item.Length) {
-            AppendText(item.Substring(lastIndex),Brushes.Black);
+            AppendText(item[lastIndex..],Brushes.Black);
          }
          AppendText("",Brushes.Black,lineBreak: true);
       }
 
-      private void AppendText(string text,Brush color,FontWeight fontWeight = default,FontStyle fontStyle = default,TextDecorationCollection textDecorations = null,bool lineBreak = false) {
+      private void AppendText(string text,Brush color,FontWeight fontWeight = default,FontStyle fontStyle = default,TextDecorationCollection? textDecorations = null,bool lineBreak = false) {
          while (window == null) Thread.Sleep(100); // Wait for the window to be created
-                                                   // Ensure the operation is performed on the UI thread
+         // Ensure the operation is performed on the UI thread
          window.Dispatcher.Invoke(() => {
             var run = new System.Windows.Documents.Run(text) { Foreground = color,FontWeight = fontWeight,FontStyle = fontStyle,TextDecorations = textDecorations };
-            outputTextBlock.Inlines.Add(run);
-            if (lineBreak) outputTextBlock.Inlines.Add(new System.Windows.Documents.LineBreak());
+            outputTextBlock?.Inlines.Add(run);
+            if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
          });
       }
    }

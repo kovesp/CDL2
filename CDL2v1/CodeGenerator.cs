@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Ignore Spelling: CDL
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -13,8 +15,8 @@ namespace CDL2v1 {
    /// </summary>
    /// <param name="cg"></param>
    internal class CodeGenerator(ICodeGenerator cg) {
-      private ICodeGenerator cg = cg;
-      private EmitterBase emitter = new EmitterSink();
+      private readonly ICodeGenerator cg = cg;
+      //private EmitterBase emitter = new EmitterSink();
 
       private static readonly List<RW> ludeTypes = [ RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
 
@@ -26,9 +28,7 @@ namespace CDL2v1 {
       /// <param name="modules"></param>
       /// <param name="emitter"></param>
       public void GenerateCode(Program? program,Set<Module> modules,EmitterBase emitter) {
-         this.emitter = emitter;
-
-         cg.GenerateStart(program,emitter);  // Generate the overall scafolding
+         cg.GenerateStart(program,emitter);  // Generate the overall scaffolding
          foreach (RW ludeType in ludeTypes)
             foreach (Module mod in (program != null ? program.Lude(ludeType) : modules).Where(mod => mod.Ludes[ludeType].Count > 0))
                GenerateLude(ludeType,mod);
@@ -48,7 +48,7 @@ namespace CDL2v1 {
             foreach (Container layer in mod.Children) {
                foreach (Container section in layer.Children) {
                   if (section.name == secId) {
-                     Debug.Assert(section.Ludes[ludeType].Count == 1,$"CG: {section} referenced in {ludeType} of {mod}. Expected referrence to single Procedure, found {section.Ludes[ludeType].Count}");
+                     Debug.Assert(section.Ludes[ludeType].Count == 1,$"CG: {section} referenced in {ludeType} of {mod}. Expected reference to single Procedure, found {section.Ludes[ludeType].Count}");
                      ID procId = section.Ludes[ludeType][0];
                      Logger.Log($"Generating proc for {procId}");
                      GenerateProcedureCode((Procedure)section.Symbols[procId]);
@@ -80,9 +80,9 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Geberate a section. Again, there will likely be no target proc associated with a section itself.
+      /// Generate a section. Again, there will likely be no target proc associated with a section itself.
       /// So generate proc for each routine and for the Ludes.
-      /// A lude is just proc with a speciaol name
+      /// A lude is just proc with a special name
       /// </summary>
       /// <param name="section"></param>
       private void GenerateSection(Section section) {
@@ -95,11 +95,6 @@ namespace CDL2v1 {
                GenerateMacroCode(macro);
             }
          }
-         //foreach (RW ludeType in ludeTypes) {
-         //   cg.GenerateLudeStart(ludeType,section);
-
-         //   cg.GenerateLudeEend(ludeType,section);
-         //}
          cg.GenerateEnd(section);
       }
 
