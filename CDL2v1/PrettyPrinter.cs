@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Xps;
 
 using static CDL2v1.Logger;
 
@@ -53,6 +54,7 @@ namespace CDL2v1 {
 
       public static Dictionary<SE,Decoration> Decorators = new() {
          { SE.Unit          ,new Decoration("DarkBlue",DS.Bold) },
+         { SE.ReservedWord  ,new Decoration("DarkBlue",DS.Bold) },
          { SE.InputAffix    ,new Decoration("Gold",DS.Normal) },
          { SE.OutputAffix   ,new Decoration("Red",DS.Normal) },
          { SE.TransputAffix ,new Decoration("DarkRed",DS.Normal) },
@@ -62,25 +64,37 @@ namespace CDL2v1 {
          { SE.List          ,new Decoration("DarkOliveGreen",DS.Normal) },
        };
       public static Dictionary<AIT,Decoration> InvocationDecorators = new() {
-         { AIT.None                           ,new Decoration("DarkGreen"       ,DS.Normal) },
-         { AIT.CanFail                        ,new Decoration("DarkGreen"       ,DS.Italic) },
-         { AIT.Macro                          ,new Decoration("DarkGreen"       ,DS.Underline) },
+         { AIT.None                                             ,new Decoration("DarkGreen"       ,DS.Normal) },
+         { AIT.CanFail                                          ,new Decoration("DarkGreen"       ,DS.Italic) },
+         { AIT.Macro                                            ,new Decoration("DarkGreen"       ,DS.Underline) },
 
-         { AIT.Ext                            ,new Decoration("MediumAquamarine",DS.Normal) },
-         { AIT.Abstr                          ,new Decoration("LightGreen"      ,DS.Normal) },
-         { AIT.Imported                       ,new Decoration("Blue"            ,DS.Normal) },
+         { AIT.Ext                                              ,new Decoration("MediumAquamarine",DS.Normal) },
+         { AIT.Abstr                                            ,new Decoration("LightGreen"      ,DS.Normal) },
+         { AIT.Abstr|AIT.Ext                                    ,new Decoration("LightGreen"      ,DS.Normal) },
+         { AIT.Imported                                         ,new Decoration("Blue"            ,DS.Normal) },
+         { AIT.Imported|AIT.Abstr                               ,new Decoration("Blue"            ,DS.Normal) },
+         { AIT.Imported|AIT.Abstr|AIT.Ext                       ,new Decoration("Blue"            ,DS.Normal) },
 
-         { AIT.CanFail|AIT.Ext                ,new Decoration("MediumAquamarine",DS.Italic) },
-         { AIT.CanFail|AIT.Abstr              ,new Decoration("LightGreen"      ,DS.Italic) },
-         { AIT.CanFail|AIT.Imported           ,new Decoration("Blue"            ,DS.Italic) },
+         { AIT.CanFail|AIT.Ext                                  ,new Decoration("MediumAquamarine",DS.Italic) },
+         { AIT.CanFail|AIT.Abstr                                ,new Decoration("LightGreen"      ,DS.Italic) },
+         { AIT.CanFail|AIT.Abstr|AIT.Ext                        ,new Decoration("LightGreen"      ,DS.Italic) },
+         { AIT.CanFail|AIT.Imported                             ,new Decoration("Blue"            ,DS.Italic) },
+         { AIT.CanFail|AIT.Imported|AIT.Abstr                   ,new Decoration("LightGreen"      ,DS.Italic) },
+         { AIT.CanFail|AIT.Imported|AIT.Abstr|AIT.Ext           ,new Decoration("LightGreen"      ,DS.Italic) },
 
-         { AIT.Macro|AIT.Ext                  ,new Decoration("MediumAquamarine",DS.Underline) },
-         { AIT.Macro|AIT.Abstr                ,new Decoration("LightGreen"      ,DS.Underline) },
-         { AIT.Macro|AIT.Imported             ,new Decoration("Blue"            ,DS.Underline) },
+         { AIT.Macro|AIT.Ext                                    ,new Decoration("MediumAquamarine",DS.Underline) },
+         { AIT.Macro|AIT.Abstr                                  ,new Decoration("LightGreen"      ,DS.Underline) },
+         { AIT.Macro|AIT.Abstr|AIT.Ext                          ,new Decoration("LightGreen"      ,DS.Underline) },
+         { AIT.Macro|AIT.Imported                               ,new Decoration("Blue"            ,DS.Underline) },
+         { AIT.Macro|AIT.Imported|AIT.Abstr                     ,new Decoration("LightGreen"      ,DS.Underline) },
+         { AIT.Macro|AIT.Imported|AIT.Abstr|AIT.Ext             ,new Decoration("LightGreen"      ,DS.Underline) },
 
-         { AIT.CanFail|AIT.Macro|AIT.Ext      ,new Decoration("MediumAquamarine",DS.Italic|DS.Underline) },
-         { AIT.CanFail|AIT.Macro|AIT.Abstr    ,new Decoration("LightGreen"      ,DS.Italic|DS.Underline) },
-         { AIT.CanFail|AIT.Macro|AIT.Imported ,new Decoration("Blue"            ,DS.Italic|DS.Underline) }
+         { AIT.CanFail|AIT.Macro|AIT.Ext                        ,new Decoration("MediumAquamarine",DS.Italic|DS.Underline) },
+         { AIT.CanFail|AIT.Macro|AIT.Abstr                      ,new Decoration("LightGreen"      ,DS.Italic|DS.Underline) },
+         { AIT.CanFail|AIT.Macro|AIT.Abstr|AIT.Ext              ,new Decoration("LightGreen"      ,DS.Italic|DS.Underline) },
+         { AIT.CanFail|AIT.Macro|AIT.Imported                   ,new Decoration("Blue"            ,DS.Italic|DS.Underline) },
+         { AIT.CanFail|AIT.Macro|AIT.Imported|AIT.Abstr         ,new Decoration("Blue"            ,DS.Italic|DS.Underline) },
+         { AIT.CanFail|AIT.Macro|AIT.Imported|AIT.Abstr|AIT.Ext ,new Decoration("Blue"            ,DS.Italic|DS.Underline) },
        };
 
 
@@ -156,7 +170,7 @@ namespace CDL2v1 {
          }
 
          if (EmitCount(section.constants,"CONST") > 0) {
-            Emit(RW.CONST," ");
+            Emit(RW.CONST.Decorate(emitter,SE.ReservedWord)," ");
             Print((Const)section.Symbols[section.constants.First()]);
             foreach (ID constId in section.constants.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
@@ -170,7 +184,7 @@ namespace CDL2v1 {
          }
 
          if (EmitCount(section.lists,"LIST ") > 0) {
-            Emit(RW.LIST," ");
+            Emit(RW.LIST.Decorate(emitter,SE.ReservedWord)," ");
             Print((LIST)section.Symbols[section.lists.First()]);
             foreach (ID listId in section.lists.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
@@ -196,7 +210,7 @@ namespace CDL2v1 {
       private void PrintLude(RW ludeType,Container container) {
          if (container is Section) {
             if (container.Ludes[ludeType].Count != 0) {
-               Emit(ludeType," ");
+               Emit(ludeType.Decorate(emitter,SE.ReservedWord)," ");
                // Section Ludes are stored as ids of a generated Procedure item.
                if (container.Symbols[container.Ludes[ludeType].First()] is Procedure code) { // This should always be the case
                   Print(code.alternatives.First());
@@ -268,7 +282,37 @@ namespace CDL2v1 {
       }
 
       public void Print(Call call,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
-         EmitWithExtraSpace(extraSpace,call.id.token.tokenString);
+         AIT callDecorator = AIT.None;
+         if (call.id.owner != null) {
+            if (call.id.owner.TryGetValue(call.id,out NamedElement? ne) && ne is Algorithm algorithm) {
+               if (algorithm is Macro) callDecorator |= AIT.Macro;
+               if (algorithm.algType == RW.TEST || algorithm.algType == RW.PREDICATE) callDecorator |= AIT.CanFail;
+            }
+            if (call.id.owner.Owner is Section section) {
+               // This covers local usages
+               if (section.abstr.Contains(call.id)) callDecorator |= AIT.Abstr;
+               if (section.ext.Contains(call.id)) callDecorator |= AIT.Ext;
+               if (section.import.Contains(call.id)) callDecorator |= AIT.Imported;
+
+               if (section.inv.Contains(call.id)) {
+                  if (section.Parent is Layer currentLayer) {
+                     if (!TryFindInvocationType(call.id,ref callDecorator,AIT.Ext,currentLayer)) {
+                        if (currentLayer.Parent is Module module) {
+                           int layerIndex = module.Children.IndexOf(currentLayer);
+                           if (layerIndex > 1) {
+                              Layer previousLayer = (Layer)module.Children[layerIndex - 1];
+                              TryFindInvocationType(call.id,ref callDecorator,AIT.Abstr,previousLayer);
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+         } else {
+            ReportError($"Internal error: {call.id} has no owner.");
+         }
+
+            EmitWithExtraSpace(extraSpace,call.id.token.tokenString.Decorate(emitter,SE.AlgorithmInvocation,callDecorator));
          foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {
@@ -279,6 +323,19 @@ namespace CDL2v1 {
          }
          // This is safe, because the MaxIndentIncrement limits the extra indent.
          if (!firstInAlternative && emitter.WillKeepTogetherNotFitOnCurrentLine()) emitter.ExtraIndent++;
+
+         static bool TryFindInvocationType(ID id,ref AIT callDecorator,AIT callAttribute,Layer layer) {
+            foreach (Section section in layer.Children.Cast<Section>()) {
+               if (section.import.Contains(id)) {
+                  callDecorator |= AIT.Imported;
+                  return true;
+               } else if ((callAttribute == AIT.Ext ? section.ext : section.abstr).Contains(id)) {
+                  callDecorator |= callAttribute;
+                  return true;
+               }
+            }
+            return false;
+         }
       });
 
       private static string EscapedCDL2(string str) {
@@ -295,7 +352,7 @@ namespace CDL2v1 {
 
       private void PrintList(RW rw,IEnumerable<ID> ids) {
          if (ids.Any()) {
-            Emit(rw," ",ids.First().token.tokenString);
+            Emit(rw.Decorate(emitter,SE.ReservedWord)," ",ids.First().token.tokenString);
             foreach (ID id in ids.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
                Emit(id.token.tokenString);

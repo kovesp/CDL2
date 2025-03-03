@@ -54,5 +54,6 @@ namespace CDL2v1 {
       public bool IsDeclared(ID id,out NamedElement? v) => table.TryGetValue(Reference(id),out v) && v is not Undeclared;
 
       public override string ToString() => $"SymbolTable[{(Owner is null ? "Global" : Owner.ToString())}]";
+      internal  bool TryGetValue(ID id,out NamedElement? ne) => table.TryGetValue(id,out ne);
    }   
 }

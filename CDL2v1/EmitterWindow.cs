@@ -98,32 +98,32 @@ namespace CDL2v1 {
             if (!string.IsNullOrEmpty(style)) {
 
                switch (style.ToLower()) {
-                  case "Normal":
+                  case "normal":
                      break;
-                  case "Bold":
+                  case "bold":
                      fontWeight = FontWeights.Bold;
                      break;
-                  case "Italic":
+                  case "italic":
                      fontStyle = FontStyles.Italic;
                      break;
-                  case "Underline":
+                  case "underline":
                      textDecorations = TextDecorations.Underline;
                      break;
-                  case "Bold, Italic":
+                  case "bold, italic":
                      fontWeight = FontWeights.Bold;
                      fontStyle = FontStyles.Italic;
                      break;
-                  case "Bold, Underline": {
+                  case "bold, underline": {
                         fontWeight = FontWeights.Bold;
                         textDecorations = TextDecorations.Underline;
                         break;
                      }
-                  case "Italic, Underline": {
+                  case "italic, underline": {
                         fontStyle = FontStyles.Italic;
                         textDecorations = TextDecorations.Underline;
                         break;
                      }
-                  case "Bold, Italic, Underline": {
+                  case "bold, italic, underline": {
                         fontWeight = FontWeights.Bold;
                         fontStyle = FontStyles.Italic;
                         textDecorations = TextDecorations.Underline;
