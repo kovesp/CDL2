@@ -18,7 +18,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Returns the ID for the given token. If the ID does not exist, it is created.
       /// </summary>
-      /// <param name="token"></param>
+      /// <param id="token"></param>
       /// <returns></returns>
       public static ID From(Token token) {
          Debug.Assert(token.type == TT.ID && token.stringValue != null,"CreateID: Token is not an ID type or stringValue is null");
@@ -27,8 +27,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Used to create the Proceures for Section Ludes.
       /// </summary>
-      /// <param name="section"></param>
-      /// <param name="ludetype">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>
+      /// <param id="section"></param>
+      /// <param id="ludetype">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>
       /// <returns></returns>
       public static ID From(Section section,RW ludetype) => From(Token.From(section,ludetype));
 

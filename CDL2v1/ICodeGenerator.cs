@@ -57,7 +57,7 @@ internal interface ICodeGenerator {
    ///    }
    /// }
    /// </summary>
-   /// <param name="macro"></param>
+   /// <param id="macro"></param>
    public void GenerateStart(Procedure code);
    public void GenerateEnd(Procedure code);
 

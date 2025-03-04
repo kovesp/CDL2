@@ -35,15 +35,20 @@ namespace CDL2v1 {
          }
       }
 
-      internal static string Decorate(this string str,EmitterBase emitter,SE element,AIT invocationType) {
+      internal static string Decorate(this string str,EmitterBase emitter,SE element,AlgorithmNameType invocationType) {
          if (emitter.SupportsDecoration) {
-            PrettyPrinter.Decoration decor = element == SE.AlgorithmInvocation ? PrettyPrinter.InvocationDecorators[invocationType] : PrettyPrinter.Decorators[element];
-            Debug.Assert(decor != null,$"No decoration for {element}");
-            return $"<span color='{decor.Color}' style='{decor.Style}'>{str}</span>";
+            PrettyPrinter.Decoration decoration = element == SE.AlgorithmName ? PrettyPrinter.InvocationDecorators[invocationType] : PrettyPrinter.Decorators[element];
+            Debug.Assert(decoration != null,$"No decoration for {element}");
+            return $"<span fg='{decoration.FG}' bg='{decoration.BG}' style='{decoration.Style}'>{str}</span>";
          } else {
             return str;
          }
       }
-      internal static string Decorate(this RW rw,EmitterBase emitter,SE element) => rw.ToString().Decorate(emitter,element,AIT.None);
+      internal static string Decorate(this RW rw,EmitterBase emitter,SE element) => rw.ToString().Decorate(emitter,element,AlgorithmNameType.None);
+      internal static string Decorate(this string str,EmitterBase emitter,SE element) =>str.Decorate(emitter,element,AlgorithmNameType.None);
+      internal static string Decorate(this Token token,EmitterBase emitter,SE element) => token.tokenString.Decorate(emitter,element,AlgorithmNameType.None);
+      internal static string Decorate(this ID id,EmitterBase emitter,SE element) => id.name.Decorate(emitter,element,AlgorithmNameType.None);
+      internal static string Decorate(this long i,EmitterBase emitter) => i.ToString().Decorate(emitter,SE.Number,AlgorithmNameType.None);
+      internal static string Decorate(this double d,EmitterBase emitter) => d.ToString().Decorate(emitter,SE.Number,AlgorithmNameType.None);
    }
 }

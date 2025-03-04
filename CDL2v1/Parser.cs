@@ -18,7 +18,7 @@ namespace CDL2v1 {
       /// <summary>
       /// The object being compiled. Used mainly for error reporting.
       /// </summary>
-      /// <affix name="parser"></affix>
+      /// <affix id="parser"></affix>
       public class CompilationObject(Parser parser) {
          private enum OT {ABSTR, EXT, INV, IMPORT, EXPORT, VAR, CONSTANT, LIST, FUNCTION, ACTION, TEST, PREDICATE, PRELUDE, ROOT, POSTLUDE, MODULE, LAYER, SECTION, PROGRAM }
          private static readonly OT[] AlgTypes = [OT.FUNCTION, OT.ACTION, OT.TEST, OT.PREDICATE];
@@ -60,7 +60,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Recursive descent parser for CDL2.
       /// </summary>
-      /// <affix name="tokens"></affix>
+      /// <affix id="tokens"></affix>
       /// <exception cref="Exception"></exception>
       internal void Parse(TokenList tokens) {
          this.tokens = tokens;
@@ -93,7 +93,7 @@ namespace CDL2v1 {
          // The next token should be an ID
          currentObject.Object = (RW.PROGRAM, programId);
          currentProgram = new Program(programId);
-         currentProgram.Symbols[currentProgram.name] = currentProgram;
+         currentProgram.Symbols[currentProgram.id] = currentProgram;
          Log(1,$"Parsing {currentProgram}");
 
          // Now should see parts
@@ -106,7 +106,7 @@ namespace CDL2v1 {
                   currentProgram.Children.Add(mod);
                   currentProgram.Symbols[part] = mod;
                } else {
-                  ReportError($"Expected MODULE, for the name {part} but found {e}");
+                  ReportError($"Expected MODULE, for the id {part} but found {e}");
                }
             }
          }
@@ -130,11 +130,11 @@ namespace CDL2v1 {
       /// THis is irrelevant for parsing, it will be handled in the semantic analysis.
       /// TODO: Semantic analysis to enforce CDL2 lab or compiler convention.
       /// </summary>
-      /// <affix name="moduleId">The ID (name) of the module.</affix>
+      /// <affix id="moduleId">The ID (id) of the module.</affix>
       private void ParseModule(ID moduleId) {
          currentObject.Object = (RW.MODULE, moduleId);
          currentModule = new Module(moduleId);
-         modules[currentModule.name] = currentModule;
+         modules[currentModule.id] = currentModule;
          Log(1,$"Parsing {currentObject}");
 
          // Now should see layers
@@ -151,7 +151,7 @@ namespace CDL2v1 {
          Debug.Assert(currentModule != null);
          currentObject.Object = (RW.LAYER, layerId);
          currentLayer = new Layer(layerId,currentModule);
-         currentModule.Symbols[currentLayer.name] = currentLayer;
+         currentModule.Symbols[currentLayer.id] = currentLayer;
          Log(1,$"Parsing {currentObject}");
 
          // Now should see sections
@@ -169,7 +169,7 @@ namespace CDL2v1 {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
          currentSection = new Section(sectionId,currentLayer);
-         currentLayer.Symbols[currentSection.name] = currentSection;
+         currentLayer.Symbols[currentSection.id] = currentSection;
          Log(1,$"Parsing {currentObject}");
 
          // Now should see section parts
@@ -230,8 +230,8 @@ namespace CDL2v1 {
                }
             }
             Debug.Assert(algorithm != null);
-            currentSection.Symbols[algorithm.name] = algorithm;
-            currentSection.routines.Add(algorithm.name);
+            currentSection.Symbols[algorithm.id] = algorithm;
+            currentSection.routines.Add(algorithm.id);
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
@@ -336,7 +336,7 @@ namespace CDL2v1 {
       /// Parse the actual arguments of a call.
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
-      /// <affix name="call"></affix>
+      /// <affix id="call"></affix>
       // private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
       private static void ParseActualArgs(Parser parser,Call call) {
          Debug.Assert(parser.currentSection != null);
@@ -382,8 +382,8 @@ namespace CDL2v1 {
 
       private static readonly List<TT> boundTypes = [TT.ID,TT.INT];
       /// <summary>
-      /// Parse the body of a list declaration. Format is list-name(lwb:upb).
-      /// <affix name="token"></affix>
+      /// Parse the body of a list declaration. Format is list-id(lwb:upb).
+      /// <affix id="token"></affix>
       /// <exception cref="Exception"></exception>
       private void ParseListBody(ID id) {
          Debug.Assert(currentSection != null);
@@ -394,7 +394,7 @@ namespace CDL2v1 {
                tokens.CanConsume(TT.LISTBOUNDEND)) {
             currentSection.Symbols[id] = new LIST(id,lwb,upb);
          } else if (!currentSection.import.Contains(id)) {
-            LogError($"LIST {id} with has invalid bounds in section {currentSection.name}");
+            LogError($"LIST {id} with has invalid bounds in section {currentSection.id}");
          }
       }
 
@@ -425,26 +425,26 @@ namespace CDL2v1 {
       /// We should see an '=' followed by a sequence of constant elements (e.g., numbers, strings, etc.) terminated by a period or a comma.
       /// The terminator will be consumed by <see cref="ParseIDList(ICollection{ID}, ICollection{ID}?, Action{ID}?)
       /// </summary>
-      /// <affix name="token">The token of the constant.</affix>
+      /// <affix id="token">The token of the constant.</affix>
       private void ParseConstBody(ID id) {
          Debug.Assert(currentSection != null);
          Const c = new(id);
          currentSection.Symbols[id] = c;
          if (tokens.Optional(TT.EQUALS)) {
             if (currentSection.import.Contains(id)) {
-               LogError($"CONST {id} with definition is imported in section {currentSection.name}");
+               LogError($"CONST {id} with definition is imported in section {currentSection.id}");
             } else {
                ParseConstElements(c);
             }
          } else if (!currentSection.import.Contains(id)) {
-            LogError($"CONST {id} with no definition is not imported in section {currentSection.name}");
+            LogError($"CONST {id} with no definition is not imported in section {currentSection.id}");
          }
       }
 
       /// <summary>
       /// Parse the elements of a constant declaration.
       /// </summary>
-      /// <affix name="c"></affix>
+      /// <affix id="c"></affix>
       /// <exception cref="Exception"></exception>
       private void ParseConstElements(Const c) {
          Debug.Assert(currentSection != null);
@@ -481,9 +481,9 @@ namespace CDL2v1 {
       /// Parse a simple list of IDs occurring in interfaces.
       /// TODO: Verify that the IDs are unique within BOTH interface lists.
       /// </summary>
-      /// <affix name="interfaceType"></affix>
-      /// <affix name="idList1">The section interface list.</affix>
-      /// <affix name="idList2">The module interface list for imports.</affix>
+      /// <affix id="interfaceType"></affix>
+      /// <affix id="idList1">The section interface list.</affix>
+      /// <affix id="idList2">The module interface list for imports.</affix>
       /// <returns></returns>
       private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
          Debug.Assert(currentSection != null);
@@ -515,9 +515,9 @@ namespace CDL2v1 {
       /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
       /// It will be stored as a Procedure item in the section's symbols table. The ID will be SectionName_LudeType. 
       /// </summary>
-      /// <affix name="parser"></affix>
-      /// <affix name="type"></affix>
-      /// <affix name="container"></affix>
+      /// <affix id="parser"></affix>
+      /// <affix id="type"></affix>
+      /// <affix id="container"></affix>
       internal static void ParseLudeOfCalls(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
             //Debug.Assert(container != null);
@@ -529,8 +529,8 @@ namespace CDL2v1 {
             parser.tokens.CanConsumeEnd();
             Procedure lude = new(type,(Section)container);
             lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
-            container.Symbols[lude.name] = lude;
-            container.Ludes[type].Add(lude.name);
+            container.Symbols[lude.id] = lude;
+            container.Ludes[type].Add(lude.id);
          }
       }
 
@@ -539,9 +539,9 @@ namespace CDL2v1 {
       /// The lists cannot contain duplicates
       /// TODO: Can an import be in more than one section in a module? Let's assume no.
       /// </summary>
-      /// <affix name="idList1"></affix>
-      /// <affix name="idList2"></affix>
-      /// <affix name="processID"></affix>
+      /// <affix id="idList1"></affix>
+      /// <affix id="idList2"></affix>
+      /// <affix id="processID"></affix>
       private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null,Action<ID>? processID = null,Container? container=null) {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());

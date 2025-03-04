@@ -11,6 +11,9 @@ namespace CDL2v1 {
    internal class EmitterWindow : EmitterBase {
       private Window? window;
       private TextBlock? outputTextBlock;
+      private Dictionary<string,Brush> colorMap = [];
+      private FontFamily? symbolFont;
+
 
       public EmitterWindow() {
          SupportsDecoration = true;
@@ -20,10 +23,21 @@ namespace CDL2v1 {
             // Initialize the WPF application context
             Application app = new();
 
+            // Create brushes for each color used by the pretty printer
+            foreach (string color in PrettyPrinter.UsedColors()) {
+               colorMap[color] = new BrushConverter().ConvertFromString(color) as Brush ?? Brushes.Black;
+            }
+            FontFamily symbolFont = new("Wingdings 3");
+
+            colorMap["Foreground"] = colorMap[PrettyPrinter.Decorators[SE.Other].FG]; // Use SE.Other background
+            colorMap["Background"] = colorMap[PrettyPrinter.Decorators[SE.Other].BG]; // Use SE.Other foreground
+
             window = new Window {
                Title = "Pretty Print Window",
                Width = 800,
                Height = 900,
+               Foreground = colorMap["Foreground"],
+               Background = colorMap["Background"],
                Content = new Grid {
                   RowDefinitions = {
                             new RowDefinition { Height = new GridLength(1, GridUnitType.Star) },
@@ -34,7 +48,7 @@ namespace CDL2v1 {
                                 Content = outputTextBlock = new TextBlock {
                                     FontSize = 14,
                                     TextWrapping = TextWrapping.Wrap,
-                                    Margin = new Thickness(10)
+                                    Margin = new Thickness(10),
                                 }
                             },
                             new Button {
@@ -46,7 +60,7 @@ namespace CDL2v1 {
                         }
                }
             };
-
+            
             // Set the button click event handler
             ((Button)((Grid)window.Content).Children[1]).Click += (s,e) => window.Close();
 
@@ -54,9 +68,7 @@ namespace CDL2v1 {
             window.Closed += (s,e) => app.Shutdown();
 
             // Show the window and start the dispatcher
-            
             app.Run(window);
-            //System.Windows.Threading.Dispatcher.Run();
          });
 
          thread.SetApartmentState(ApartmentState.STA);
@@ -69,28 +81,26 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Write the item to the window.
-      /// The text may contain sequences of <spam color="colorName" style="Normal|Bold|Italic|BoldItalic">text</spam>.
+      /// The text may contain sequences of <spam fg="colorName" style="Normal|Bold|Italic|BoldItalic">text</spam>.
       /// </summary>
-      /// <param name="item"></param>
+      /// <param id="item"></param>
       protected override void WriteLine(string item) {
-         Regex spanRegex = new(@"<span\s*(color='(?<color>[^']*)')?\s*(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",RegexOptions.IgnoreCase);
+         while (window == null) Thread.Sleep(100); // Wait for the window to be created
+         while (outputTextBlock == null) Thread.Sleep(100);
          int lastIndex = 0;
 
          foreach (Match match in spanRegex.Matches(item)) {
             if (match.Index > lastIndex) {
-               AppendText(item[lastIndex..match.Index],Brushes.Black);
+               AppendText(item[lastIndex..match.Index],colorMap["Foreground"],colorMap["Background"]);
             }
 
-            var color = match.Groups["color"].Value;
-            var style = match.Groups["style"].Value;
-            var text = match.Groups["text"].Value;
+            string fg = match.Groups["fg"].Value;
+            string bg = match.Groups["bg"].Value;
+            string style = match.Groups["style"].Value;
+            string text = match.Groups["text"].Value;
 
-            Brush brush = Brushes.Black;
-            if (!string.IsNullOrEmpty(color)) {
-               var  b = new BrushConverter().ConvertFromString(color);
-               if (b != null) brush = (Brush)b;
-            }
-
+            Brush fgBrush = string.IsNullOrEmpty(fg) ? colorMap["Foreground"] : colorMap[fg];
+            Brush bgBrush = string.IsNullOrEmpty(bg) ? colorMap["Background"] : colorMap[bg];
             FontWeight fontWeight = FontWeights.Normal;
             FontStyle fontStyle = FontStyles.Normal;
             TextDecorationCollection? textDecorations = null;
@@ -132,22 +142,35 @@ namespace CDL2v1 {
                }
             }
 
-            AppendText(text,brush,fontWeight,fontStyle,textDecorations);
+            AppendText(text,fgBrush,bgBrush,fontWeight,fontStyle,textDecorations);
             lastIndex = match.Index + match.Length;
          }
 
-         if (lastIndex < item.Length) {
-            AppendText(item[lastIndex..],Brushes.Black);
-         }
-         AppendText("",Brushes.Black,lineBreak: true);
+         if (lastIndex < item.Length) AppendText(item[lastIndex..],colorMap["Foreground"],colorMap["Background"]);
+         AppendText("",colorMap["Foreground"],colorMap["Background"],lineBreak: true);
       }
 
-      private void AppendText(string text,Brush color,FontWeight fontWeight = default,FontStyle fontStyle = default,TextDecorationCollection? textDecorations = null,bool lineBreak = false) {
-         while (window == null) Thread.Sleep(100); // Wait for the window to be created
+      private void AppendText(string text,Brush fg,Brush bg,
+                              FontWeight fontWeight = default,FontStyle fontStyle = default,
+                              TextDecorationCollection? textDecorations = null,
+                              bool lineBreak = false) {
          // Ensure the operation is performed on the UI thread
-         window.Dispatcher.Invoke(() => {
-            var run = new System.Windows.Documents.Run(text) { Foreground = color,FontWeight = fontWeight,FontStyle = fontStyle,TextDecorations = textDecorations };
-            outputTextBlock?.Inlines.Add(run);
+         Debug.Assert(window != null,"Window is null");
+         window.Dispatcher.Invoke  (() => {
+            // outputTextBlock.Background = Background;
+            outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run(text) {   Foreground = fg,
+                                                                                    Background = bg,
+                                                                                    FontWeight = fontWeight,
+                                                                                    FontStyle = fontStyle,
+                                                                                    TextDecorations = textDecorations });
+            outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run("\x86") {
+               Foreground = fg,
+               Background = bg,
+               FontWeight = fontWeight,
+               FontStyle = fontStyle,
+               FontFamily = new FontFamily("Wingdings 3"),
+               TextDecorations = textDecorations
+            });
             if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
          });
       }

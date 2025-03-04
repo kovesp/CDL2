@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection.Metadata.Ecma335;
 
 namespace CDL2v1 {
@@ -30,7 +31,7 @@ namespace CDL2v1 {
       /// Check if the symbol table contains the given ID. If not, add an Undeclared to the symbol table.
       /// Used when a reference to an ID is encountered before the ID is declared.
       /// </summary>
-      /// <param name="token">An ID token.</param>
+      /// <param id="token">An ID token.</param>
       /// <returns>The ID that was constructed from the token.</returns>
       public ID Reference(ID id) {
          if (!table.ContainsKey(id)) {          // If the ID is not in the symbol table
@@ -42,18 +43,18 @@ namespace CDL2v1 {
       /// If the id is in the table, Return true if the id is undeclared.
       /// If it is not in the table, insert is as undeclard and return true.
       /// </summary>
-      /// <param name="id"></param>
+      /// <param id="id"></param>
       /// <returns></returns>
       public bool IsUndeclared(ID id) => table[Reference(id)] is Undeclared;
       /// <summary>
       /// Check if the ID is declared in the symbol table. If is is not in the table, enter it as undeclared.
       /// </summary>
-      /// <param name="id">The id to check.</param>
-      /// <param name="v">The declared element if found, undeclared otherwise.</param>
+      /// <param id="id">The id to check.</param>
+      /// <param id="v">The declared element if found, undeclared otherwise.</param>
       /// <returns></returns>
       public bool IsDeclared(ID id,out NamedElement? v) => table.TryGetValue(Reference(id),out v) && v is not Undeclared;
 
       public override string ToString() => $"SymbolTable[{(Owner is null ? "Global" : Owner.ToString())}]";
-      internal  bool TryGetValue(ID id,out NamedElement? ne) => table.TryGetValue(id,out ne);
+      internal  bool TryGetValue(ID id,[MaybeNullWhen(false)] out NamedElement ne) => table.TryGetValue(id,out ne);
    }   
 }

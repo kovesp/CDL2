@@ -21,12 +21,12 @@ namespace CDL2v1 {
       /// The current level of indentation.
       /// Note that whyen it decreases, ExtraIndent is reset to 0.
       /// </summary>
-      public int IndentLevel { 
+      public int IndentLevel {
          get => indentLevel;
          set {
             if (value < indentLevel) ExtraIndent = 0;
             indentLevel = value;
-         } 
+         }
       }
       private int indentLevel = 0;
       /// <summary>
@@ -37,9 +37,9 @@ namespace CDL2v1 {
       /// The number of extra indent levels to add to the current line.
       /// This is reset to 0 when IndentLevel is decremented.
       /// </summary>
-      public int ExtraIndent { 
-         get => extraIndent; 
-         set { if (value >= 0 && value <= MaxExtraIndent) extraIndent = value; } 
+      public int ExtraIndent {
+         get => extraIndent;
+         set { if (value >= 0 && value <= MaxExtraIndent) extraIndent = value; }
       }
       private int extraIndent = 0;
       /// <summary>
@@ -73,6 +73,7 @@ namespace CDL2v1 {
       public string LinePrefix { get; set; } = "";
 
       public bool SupportsDecoration { get; set; } = false;
+      public Regex spanRegex = new(@"<span\s+(fg='(?<fg>[^']*)')?\s+(bg='(?<bg>[^']*)')?\s+(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",RegexOptions.IgnoreCase);
 
       /// <summary>
       /// Override this to close the target.
@@ -82,8 +83,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Write the item to the target. Must be supplied by concrete sublcasses.
       /// </summary>
-      /// <param name="item"></param>
-      protected abstract void  WriteLine(string item);
+      /// <param id="item"></param>
+      protected abstract void WriteLine(string item);
 
       /// <summary>
       /// The current line being built up.
@@ -94,71 +95,72 @@ namespace CDL2v1 {
       /// Emit code to the target.
       /// ToString is used on the objects.
       /// </summary>
-      /// <param name="code"></param>
-      public bool Emit(params object[] code) => WriteWithIndent(nlbefore:false,nlafter:false,honorLineLength:true,extraSpace:false,code);
+      /// <param id="code"></param>
+      public bool Emit(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: false,honorLineLength: true,extraSpace: false,code);
       /// <summary>
       /// Like <see cref="Emitnl(object[])"/> with a new line added.
       /// </summary>
-      /// <param name="code"></param>
+      /// <param id="code"></param>
       /// <returns>True if a new line was written.</returns>
-      public bool Emitnl(params object[] code) => WriteWithIndent(nlbefore:false,nlafter:true,honorLineLength:true,extraSpace:false,code);
+      public bool Emitnl(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: true,honorLineLength: true,extraSpace: false,code);
 
       /// <summary>
       /// Like <see cref="Emit(int, object[])"/> with a new line added at the begining.
       /// </summary>
-      /// <param name="indentLevel"></param>
-      /// <param name="code"></param>
+      /// <param id="indentLevel"></param>
+      /// <param id="code"></param>
       /// <returns>True if a new line was written.</returns>
-      public bool NlEmit(params object[] code) => WriteWithIndent(nlbefore:true,nlafter:false,honorLineLength:true,extraSpace:false,code);
+      public bool NlEmit(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: false,honorLineLength: true,extraSpace: false,code);
       /// <summary>
       /// Like <see cref="Emit(int, object[])"/> with a new line added at the begining and end.
       /// </summary>
-      /// <param name="indentLevel"></param>
-      /// <param name="code"></param>
+      /// <param id="indentLevel"></param>
+      /// <param id="code"></param>
       /// <returns>True if a new line was written.</returns>
-      public bool NlEmitnl(params object[] code) => WriteWithIndent(nlbefore:true,nlafter:true,honorLineLength:true,extraSpace:false,code);
+      public bool NlEmitnl(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: true,honorLineLength: true,extraSpace: false,code);
 
       /// <summary>
       /// Emit a string to the target without a new line.
       /// </summary>
-      /// <param name="s"></param>
-      internal void EmitIgnoreLineLength(string s,bool NL=false) => WriteWithIndent(nlbefore:false,nlafter:NL,honorLineLength:false,extraSpace:false,s);
+      /// <param id="s"></param>
+      internal void EmitIgnoreLineLength(string s,bool NL = false) => WriteWithIndent(nlbefore: false,nlafter: NL,honorLineLength: false,extraSpace: false,s);
 
-      internal void EmitWithExtraSpace(bool extraSpace,object[] items) => WriteWithIndent(nlbefore:false,nlafter:false,honorLineLength:true,extraSpace:extraSpace,items);
+      internal void EmitWithExtraSpace(bool extraSpace,object[] items) => WriteWithIndent(nlbefore: false,nlafter: false,honorLineLength: true,extraSpace: extraSpace,items);
 
       /// <summary>
       /// This is the method that actually writes the code to the target using the <see cref="Write(string)"/> method.
       /// </summary>
-      /// <param name="nlbefore"></param>
-      /// <param name="nlafter"></param> 
-      /// <param name="honorLineLength"></param> 
-      /// <param name="items"></param>
+      /// <param id="nlbefore"></param>
+      /// <param id="nlafter"></param> 
+      /// <param id="honorLineLength"></param> 
+      /// <param id="items"></param>
       /// <returns>True if a new line was written.</returns>
       protected bool WriteWithIndent(bool nlbefore,bool nlafter,bool honorLineLength = true,bool extraSpace = false,params object[] items) {
          if (KeepTogether) {
-            KeepTogetherBuffer += (extraSpace?" ":"")+string.Join("",items.Select(i => i?.ToString() ?? ""));
+            KeepTogetherBuffer += (extraSpace ? " " : "") + string.Join("",items.Select(i => i?.ToString() ?? ""));
             return false;
-         } else { 
+         } else {
             bool wasNewline = WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
             // Split the items into lines.
             string[] lines = Regex.Split(string.Join("",items.Select(i => i?.ToString() ?? "")),@"\r\n|\r|\n");
-            // Write the pervious line if it would be too long with the first new item AND if line length is being honoured.
+            // Write the previous line if it would be too long with the first new item AND if line length is being honoured.
             if (!IgnoreLineLength && honorLineLength && WillNotFitOnCurrentLine(lines[0])) wasNewline = wasNewline || WriteNewLine(true);
             AddToCurrentLine(lines[0],extraSpace);
             foreach (string line in lines.Skip(1)) {
                wasNewline = WriteNewLine(true) || wasNewline; // Write the previous line
                AddToCurrentLine(line);
-            }         
+            }
             return wasNewline || WriteNewLine(nlafter);
          }
       }
 
-      public bool WillNotFitOnCurrentLine(string s) => CurrentLine.Length + s.Length > LineLength;
+      public bool WillNotFitOnCurrentLine(string s) => GetLengthWithoutDecorations(CurrentLine) + GetLengthWithoutDecorations(s)> LineLength;
+      private int GetLengthWithoutDecorations(string str) => spanRegex.Replace(str,match => match.Groups["text"].Value).Length;
       public bool WillKeepTogetherNotFitOnCurrentLine() => WillNotFitOnCurrentLine(KeepTogetherBuffer);
 
       // Initialize CurrentLine with the indent if empty.
-      void AddToCurrentLine(string str,bool extraSpace=false) {
-         if (CurrentLine.Length == 0) CurrentLine = new string(' ',(IndentLevel + extraIndent) * IndentWidth + (extraSpace?1:0));
+      void AddToCurrentLine(string str,bool extraSpace = false) {
+         if (CurrentLine.Length == 0) CurrentLine = new string(' ',(IndentLevel + extraIndent) * IndentWidth + (extraSpace ? 1 : 0));
          CurrentLine += str;
       }
 
@@ -166,7 +168,7 @@ namespace CDL2v1 {
       bool WriteNewLine(bool nl) {
          if (nl) {
             WriteLine(CurrentLine);
-            CurrentLine = "";               
+            CurrentLine = "";
          }
          return nl;
       }

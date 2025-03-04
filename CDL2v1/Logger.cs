@@ -27,10 +27,10 @@ namespace CDL2v1 {
       /// <summary>
       /// A replaceable action to actually write the message. The default is _WriteLine defined here.
       /// </summary>
-      /// <param name="level">The level of the message. In order for the line to bw written the level must be less or equal
+      /// <param id="level">The level of the message. In order for the line to bw written the level must be less or equal
       ///         to the Compilerr.VerbosityLevel for the main output and Compiler.DebugVerbosityLevel for the debug output.
       /// </param>
-      /// <param name="message">The message to write.</param>"
+      /// <param id="message">The message to write.</param>"
       public Action<int,string> WriteLine { get; set; }
 
       public object? CurrentObject = null;
@@ -38,8 +38,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Create a logger with the given actions.
       /// </summary>
-      /// <param name="errorAction"></param>
-      /// <param name="writeLine"></param>
+      /// <param id="errorAction"></param>
+      /// <param id="writeLine"></param>
       public Logger(Action? errorAction,Action<int,string> writeLine) {
          ErrorAction = errorAction;
          WriteLine = writeLine;
@@ -47,7 +47,7 @@ namespace CDL2v1 {
       /// <summary>
       /// 
       /// </summary>
-      /// <param name="errorAction"></param>
+      /// <param id="errorAction"></param>
       public  Logger(Action? errorAction) : this(errorAction,_WriteLine) { }
       /// <summary>
       /// Create a logger with the default actions.
@@ -57,8 +57,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Log a message at the given level.
       /// </summary>
-      /// <param name="level"></param>
-      /// <param name="message"></param>
+      /// <param id="level"></param>
+      /// <param id="message"></param>
       public void _Log(int level,string message) {
          string prefix = "CDL2: "+ new string(' ',3 * level);
          message = prefix+message.Replace("\n","\n" + prefix);
@@ -68,20 +68,20 @@ namespace CDL2v1 {
       /// <summary>
       /// Log a message at level 0.
       /// </summary>
-      /// <param name="message"></param>
+      /// <param id="message"></param>
       public void _Log(string message) => _Log(0,message);
 
       /// <summary>
       /// Log an error message.
       /// </summary>
-      /// <param name="message"></param>
+      /// <param id="message"></param>
       private void _LogError(string message) => WriteLine(-1,$"CDL2 Error: {message}");
 
       /// <summary>
       /// Report an error message.
       /// If the ErrorAction is not null, it is called.
       /// </summary>
-      /// <param name="message"></param>
+      /// <param id="message"></param>
       public void _ReportError(string message) {
          string? currentObj = CurrentObject?.ToString();
          _LogError($"{(currentObj is null?"":":")} {message}");
@@ -91,8 +91,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Static versions of the logger methods used with the singleton isntance.
       /// </summary>
-      /// <param name="level"></param>
-      /// <param name="message"></param>
+      /// <param id="level"></param>
+      /// <param id="message"></param>
       public static void Log(int level,string message) => logger._Log(level,message);
       public static void Log(string message) => logger._Log(0,message);
       public static void LogError(string message) => logger._LogError(message);
@@ -102,8 +102,8 @@ namespace CDL2v1 {
       /// Writes a message to the console and debug output if the verbosity level is high enough.
       /// Can be replaced via the WriteLine property.
       /// </summary>
-      /// <param name="level"></param>
-      /// <param name="message"></param>
+      /// <param id="level"></param>
+      /// <param id="message"></param>
       private static void _WriteLine(int level,string message) {
          if (level <= CDL2.Compiler.VerbosityLevel) Console.WriteLine(message);
          if (level <= CDL2.Compiler.DebugVerbosityLevel) Debug.WriteLine(message);

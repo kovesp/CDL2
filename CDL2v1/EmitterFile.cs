@@ -7,7 +7,7 @@ namespace CDL2v1 {
       private string? target = null;
 
       /// <summary>
-      /// The target file name. Setting this will close the current file and open a new one.
+      /// The target file id. Setting this will close the current file and open a new one.
       /// The new one is opened only if the target is not null or empty.
       /// This will throw an exception if the file cannot be opened.
       /// </summary>
@@ -28,7 +28,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Write the item to the target file.
       /// </summary>
-      /// <param name="item"></param>
+      /// <param id="item"></param>
       protected override void WriteLine(string item) => writer?.WriteLine(item);
    }
 }

@@ -1,39 +1,39 @@
-# Ignore Spelling: lwb upb eq ne ge lt le namespace str concat io fac prog decr cspell
+# Ignore Spelling: lwb upb eq ne ge namespace str concat io fac prog decr cspell
 # Ignore Spelling: ENDMOD ENDLAY ENDSEC quicksort incr msg 
 # cspell:ignore ENDMOD ENDLAY ENDSEC decr ABSTR
 
 MODULE quicksort.
    LAYER base.
       SECTION arithmetic.
-         ABSTR incr, decr, greater, less, le, add, halve, make, random.
-         EXT make, le, random, incr.
+         ABSTR incr, decr, greater, less, less or equal,add, halve, make, random.
+         EXT make, random, incr, less or equal.
 
          FUNCTION incr+>a> = a "++".
          FUNCTION decr+>a> = a "--".
          TEST greater+>a+>b = a " -gt " b.
          TEST less+>a+>b = a " -lt " b.
-         TEST le+>a+>b = a " -le " b.
-         FUNCTION add +>a +>b +>c = c "=" b "+" c.
+         TEST less or equal+>a+>b = a " -le " b.
+         FUNCTION add +>a+>b+c> = c "=" a "+" b.
          FUNCTION halve +>a> = a "/=2".
-         FUNCTION make +a> +>b = a "=" b.
+         FUNCTION make +a>+>b = a "=" b.
 
          CONST min random=0, max random=200.
          FUNCTION random+>min+>max+r> =: r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
       SECTION data.
          ABSTR lwb, upb, smaller element, swap element, get element, set element, dump data.
-         INV make, le, random, incr, show msg no newline.
+         INV make, less or equal, random, incr, show msg no newline.
 
          CONST lwb=0, upb=100.
          LIST data(lwb:upb).
 
-         TEST smaller element +>p +>q =: 
+         TEST smaller element +>p+>q =: 
             data ".Item(" p ") -lt " data ".Item(" q ")".
-         ACTION swap element +>p +>q -t:
+         ACTION swap element +>p+>q -t:
             get element+p+t, set element to+p+q, set element+q+t.
-         FUNCTION get element +>i +v> =: 
+         FUNCTION get element +>i+v> =: 
             v " = " data ".Item(" i ")".
-         ACTION set element +>i +>v =: 
+         ACTION set element +>i+>v =: 
             data ".Item(" i "," v ")".
          ACTION set element to+>p+>q =
             data ".Item(" p "," data ".Item(" q "))".
@@ -47,7 +47,7 @@ MODULE quicksort.
          # Fill the array with random integers. #
          ACTION initialize data -i -r:
             make+i+lwb,
-            (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
+            (less or equal+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
             +).
       ENDSEC data.
       PRELUDE initialize data.
@@ -63,10 +63,10 @@ MODULE quicksort.
       SECTION sorter.
          INV lwb, upb, less, make, add, halve, incr, decr, swap element, smaller element, dump data.
          ACTION quicksort +>from +>to -p -q:
-            lt + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
+            less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
             +.
 
-         ACTION split + >i + >j + p> + q> - m:
+         ACTION split+>i+>j+p>+q> - m:
             make + p + i, make + q + j, add + i + j + m, halve + m,
             (again: move p up + j + p + m, move q down + i + q + m,
                (less + p + q, swap element + p + q, incr + p, decr + q, * again;

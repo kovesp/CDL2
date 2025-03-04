@@ -85,12 +85,12 @@ class BoundedArray {
       public void GenerateCode(LIST l,string lwb,string upb) => emitter.Emitnl($"{PSVar(l)} = New-Object BoundedArray {lwb} {upb}");
 
       public void GenerateCode(IActualArg arg) => emitter.Emit(arg is STRING s ? s.value : arg is ID i ? PSVar(i) : throw new NotImplementedException());
-      public void GenerateCode(Affix arg) => emitter.Emit($"${arg.name}");
+      public void GenerateCode(Affix arg) => emitter.Emit($"${arg.id}");
 
       public void GenerateCodeExport(ID id) { }
       public void GenerateCodeImport(ID id) { }
 
-      public void GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.name)} (");
+      public void GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.id)} (");
       public void GenerateAlgorithmHeaderEnd(Algorithm proc) => emitter.Emitnl(") {");
 
       public void GenerateStart(Procedure code) { }

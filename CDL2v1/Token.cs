@@ -95,7 +95,7 @@ namespace CDL2v1 {
       readonly public TokenType type;
       // Depending on the type, one of the following may be populated:
       //    RESWORD: reservedWordValue is the enum of the reserved word
-      //    ID:      stringValue is the identifier name
+      //    ID:      stringValue is the identifier id
       //    INT:     intValue is the long
       //    STRING:  stringValue is the string
       //    FLOAT:   floatValue is the double
@@ -164,12 +164,12 @@ namespace CDL2v1 {
       /// <summary>
       /// Match an RE that describes a class of tokens to the beginning of input. If it matches, construct the token and return true. 
       /// </summary>
-      /// <param name="regex">The RE that describes a token of the given class.</param>
-      /// <param name="tokenClass">The class of the token.</param>
-      /// <param name="input">The input string. If a token is found the characters consumed are removed.</param>
-      /// <param name="token">The token that was found. If none, it will be ErrorToken.</param>
+      /// <param id="regex">The RE that describes a token of the given class.</param>
+      /// <param id="tokenClass">The class of the token.</param>
+      /// <param id="input">The input string. If a token is found the characters consumed are removed.</param>
+      /// <param id="token">The token that was found. If none, it will be ErrorToken.</param>
       /// <returns>True if a token was found.</returns>
-      /// <param name="fileName"></param><param name="lineNumber"></param>
+      /// <param id="fileName"></param><param id="lineNumber"></param>
       private static bool HandleMatch(Regex regex,TokenClass tokenClass,ref string input,out Token token,string fileName,int lineNumber) {
          Match match = regex.Match(input);
          if (match.Success) {
@@ -188,10 +188,10 @@ namespace CDL2v1 {
       /// Return true, if a valid token was found.
       /// This is the only way to construct tokens, as all constructors are private.
       /// </summary>
-      /// <param name="input">The input string. Consumed characters are removed.</param>
-      /// <param name="token">The token that was found.</param>
-      /// <param name="fileName">The name of the file being tokenized.</param>
-      /// <param name="lineNumber">The line number of the token.</param>
+      /// <param id="input">The input string. Consumed characters are removed.</param>
+      /// <param id="token">The token that was found.</param>
+      /// <param id="fileName">The id of the file being tokenized.</param>
+      /// <param id="lineNumber">The line number of the token.</param>
       /// <returns>true if the staring started with a valid token.</returns>
       public static bool TryCreateToken(ref string input,out Token token,string fileName,ref int lineNumber) {
          input = input.TrimStart();
@@ -237,17 +237,17 @@ namespace CDL2v1 {
       }; 
       public override int GetHashCode() => HashCode.Combine(type,reservedWordValue,stringValue,intValue,floatValue);
       /// <summary>
-      /// Return the token as a name. If the token is an ID, the name is returned.
+      /// Return the token as a id. If the token is an ID, the id is returned.
       /// - Runs of spaces and non-letters are replaced with the replacement string.
-      /// - If the token is not an ID, the token type is prepended to the name.
-      /// - The name is lowercased.
+      /// - If the token is not an ID, the token type is prepended to the id.
+      /// - The id is lowercased.
       /// </summary>
-      /// <param name="spaceReplacement"></param>
-      /// <returns>The normalized name.</returns>
+      /// <param id="spaceReplacement"></param>
+      /// <returns>The normalized id.</returns>
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
       internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
          => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(tokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier()}";
-      internal static Token From(Container container,RW rw) => new(TokenClass.ID,$"{container.name.name}_{rw}","",0);
+      internal static Token From(Container container,RW rw) => new(TokenClass.ID,$"{container.id.name}_{rw}","",0);
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);
    }
