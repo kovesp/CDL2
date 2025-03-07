@@ -33,7 +33,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Perform action with an increased indent level.
       /// </summary>
-      /// <affix id="action"></affix>
+      /// <param id="action"></param>
       void Indented(Action action) {
          emitter.IndentLevel++;
          action();
@@ -42,7 +42,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Perform action keeping produced output together on one line.
       /// </summary>
-      /// <affix id="action"></affix>
+      /// <param id="action"></param>
       void KeepTogether(Action action) {
          bool keepTogether = emitter.KeepTogether;
          emitter.KeepTogether = true;
@@ -76,33 +76,33 @@ namespace CDL2v1 {
          { AlgorithmNameType.CanFail                                          ,new Decoration(FG:"DarkGreen",Style:DS.Italic) },
          { AlgorithmNameType.Macro                                            ,new Decoration(FG:"DarkGreen",Style:DS.Underline) },
 
-         { AlgorithmNameType.Ext                                              ,new Decoration(FG:"MediumAquamarine") },
-         { AlgorithmNameType.Abstr                                            ,new Decoration(FG:"LightGreen") },
-         { AlgorithmNameType.Abstr|AlgorithmNameType.Ext                                    ,new Decoration(FG:"LightGreen") },
-         { AlgorithmNameType.Imported                                         ,new Decoration(FG:"Blue") },
-         { AlgorithmNameType.Imported|AlgorithmNameType.Abstr                               ,new Decoration(FG:"Blue") },
-         { AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                       ,new Decoration(FG:"Blue") },
+         //{ AlgorithmNameType.Ext                                              ,new Decoration(FG:"MediumAquamarine") },
+         //{ AlgorithmNameType.Abstr                                            ,new Decoration(FG:"LightGreen") },
+         //{ AlgorithmNameType.Abstr|AlgorithmNameType.Ext                                    ,new Decoration(FG:"LightGreen") },
+         //{ AlgorithmNameType.Imported                                         ,new Decoration(FG:"Blue") },
+         //{ AlgorithmNameType.Imported|AlgorithmNameType.Abstr                               ,new Decoration(FG:"Blue") },
+         //{ AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                       ,new Decoration(FG:"Blue") },
 
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Ext                                  ,new Decoration(FG:"MediumAquamarine",Style:DS.Italic) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Abstr                                ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                        ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Imported                             ,new Decoration(FG:"Blue",            Style:DS.Italic) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Imported|AlgorithmNameType.Abstr                   ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext           ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Ext                                  ,new Decoration(FG:"MediumAquamarine",Style:DS.Italic) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Abstr                                ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                        ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Imported                             ,new Decoration(FG:"Blue",            Style:DS.Italic) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Imported|AlgorithmNameType.Abstr                   ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext           ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
 
-         { AlgorithmNameType.Macro|AlgorithmNameType.Ext                                    ,new Decoration(FG:"MediumAquamarine",Style:DS.Underline) },
-         { AlgorithmNameType.Macro|AlgorithmNameType.Abstr                                  ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
-         { AlgorithmNameType.Macro|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                          ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
-         { AlgorithmNameType.Macro|AlgorithmNameType.Imported                               ,new Decoration(FG:"Blue",            Style:DS.Underline) },
-         { AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr                     ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
-         { AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext             ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
+         //{ AlgorithmNameType.Macro|AlgorithmNameType.Ext                                    ,new Decoration(FG:"MediumAquamarine",Style:DS.Underline) },
+         //{ AlgorithmNameType.Macro|AlgorithmNameType.Abstr                                  ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
+         //{ AlgorithmNameType.Macro|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                          ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
+         //{ AlgorithmNameType.Macro|AlgorithmNameType.Imported                               ,new Decoration(FG:"Blue",            Style:DS.Underline) },
+         //{ AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr                     ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
+         //{ AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext             ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
 
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Ext                        ,new Decoration(FG:"MediumAquamarine",Style:DS.Italic|DS.Underline) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Abstr                      ,new Decoration(FG:"LightGreen",      Style:DS.Italic|DS.Underline) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Abstr|AlgorithmNameType.Ext              ,new Decoration(FG:"LightGreen",      Style:DS.Italic|DS.Underline) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported                   ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr         ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
-         { AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Ext                        ,new Decoration(FG:"MediumAquamarine",Style:DS.Italic|DS.Underline) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Abstr                      ,new Decoration(FG:"LightGreen",      Style:DS.Italic|DS.Underline) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Abstr|AlgorithmNameType.Ext              ,new Decoration(FG:"LightGreen",      Style:DS.Italic|DS.Underline) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported                   ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr         ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
+         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
        };
 
 
@@ -124,10 +124,10 @@ namespace CDL2v1 {
       /// <summary>
       /// Construct a pretty printer with a maximum line length and an indentation width using the specified emitter.
       /// </summary>
-      /// <affix id="width"></affix>
-      /// <affix id="indent"></affix>
-      /// <affix id="maxIndentIncrement"></affix>
-      /// <affix id="emitter"></affix>
+      /// <param id="width"></param>
+      /// <param id="indent"></param>
+      /// <param id="maxIndentIncrement"></param>
+      /// <param id="emitter"></param>
       /// <example>
       ///   Construct a pretty printer that outputs to a file.
       ///   
@@ -154,12 +154,12 @@ namespace CDL2v1 {
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified emitter.
       /// </summary>
-      /// <affix id="emitter"></affix>
+      /// <param id="emitter"></param>
       public PrettyPrinter(EmitterBase emitter) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter) { }
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file id.
       /// </summary>
-      /// <affix id="fileName">If this is null, use the <see cref="EmitterDebug"/> instead.</affix>
+      /// <param id="fileName">If this is null, use the <see cref="EmitterDebug"/> instead.</param>
       public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName.IsValidFileName() ? new EmitterFile(fileName ?? "") : new EmitterWindow()) { }
 
       private record struct UnitDelimiter(RW Start, RW End);
@@ -221,10 +221,10 @@ namespace CDL2v1 {
             EmitSeparatorWithNL(TT.END);
          }
 
-         IEnumerable<ID> macros = section.routines.Where(r => section.Symbols[r] is Macro);
+         IEnumerable<ID> macros = section.algorithms.Where(r => section.Symbols[r] is Macro);
          if (EmitCount(macros,"MACRO") > 0) foreach (ID macroId in macros) Print((Macro)section.Symbols[macroId]);
 
-         IEnumerable<ID> codes = section.routines.Where(r => section.Symbols[r] is Procedure);
+         IEnumerable<ID> codes = section.algorithms.Where(r => section.Symbols[r] is Procedure);
          if (EmitCount(codes,"CODE ") > 0) foreach (ID codeId in codes) Print((Procedure)section.Symbols[codeId]);
 
       });     
@@ -282,7 +282,7 @@ namespace CDL2v1 {
                   Emit(TT.REPEAT);
                   Debug.Assert(alternative.lastCall.label is not null,"alternative.lastCall.label is null");
                   if (alternative.lastCall.label != ID.AnonID) {
-                     Emit(alternative.lastCall.label.token.tokenString);
+                     Emit(alternative.lastCall.label.token.TokenString);
                   }
                   break;
                case LastCallType.Group:
@@ -295,7 +295,7 @@ namespace CDL2v1 {
 
       private void Print(Group group) => Indented(() => {
          NlEmit(TT.GRPOPEN);
-         if (group.id != ID.AnonID) Emit(group.id.token.tokenString,TT.LABELSEP);
+         if (group.id != ID.AnonID) Emit(group.id.token.TokenString,TT.LABELSEP);
          Print(group.alternatives);
          Emit(TT.GRPCLOSE);
       });
@@ -316,6 +316,7 @@ namespace CDL2v1 {
                if (algorithm is Macro) callDecorator |= AlgorithmNameType.Macro;
                if (algorithm.algorithmType == RW.TEST || algorithm.algorithmType == RW.PREDICATE) callDecorator |= AlgorithmNameType.CanFail;
             }
+
             if (call.id.owner.Owner is Section section) {
                // This covers local usages
                if (section.abstr.Contains(call.id)) callDecorator |= AlgorithmNameType.Abstr;
@@ -340,13 +341,13 @@ namespace CDL2v1 {
             ReportError($"Internal error: {call.id} has no owner.");
          }
 
-            EmitWithExtraSpace(extraSpace,call.id.token.tokenString.Decorate(emitter,SE.AlgorithmName,callDecorator));
+            EmitWithExtraSpace(extraSpace,call.id.token.TokenString.Decorate(emitter,SE.AlgorithmName,callDecorator));
          foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {
                Emit("\"",EscapedCDL2(s.value),"\"");
             } else if (arg is ID id) {
-               Emit(id.token.tokenString);
+               Emit(id.token.TokenString);
             }
          }
          // This is safe, because the MaxIndentIncrement limits the extra indent.
@@ -386,10 +387,10 @@ namespace CDL2v1 {
                   Const c => c.id.Decorate(emitter,SE.Const),
                   LIST l => l.id.Decorate(emitter,SE.List),
                   Algorithm a => a.id.Decorate(emitter,SE.InputAffix),
-                  _ => id.token.tokenString,
+                  _ => id.token.TokenString,
                };
             }
-            return id.token.tokenString;
+            return id.token.TokenString;
          }
          if (ids.Any()) {
             Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First()));
@@ -439,7 +440,7 @@ namespace CDL2v1 {
                Emit(f.value.Decorate(emitter));
                break;
             case ID id:
-               Emit(id.token.tokenString);
+               Emit(id.token.TokenString);
                break;
             case Affix affix:
                Emit(affix.id.Decorate(emitter,affix.SyntaxElement));
@@ -485,7 +486,7 @@ namespace CDL2v1 {
                   Emit(c.id.Decorate(emitter,SE.Const));
                   break;
                case ID id:
-                  Emit(id.token.tokenString);
+                  Emit(id.token.TokenString);
                   break;
                default:
                   throw new NotImplementedException();
@@ -495,17 +496,17 @@ namespace CDL2v1 {
 
       public void Print(LIST list) {
          //TODO: Look at how to print list bounds.
-         Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,list.lwb?.tokenString??"???",TT.LISTBOUNDSEP,list.upb?.tokenString??"???",TT.LISTBOUNDEND);
+         Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,list.lwb?.TokenString??"???",TT.LISTBOUNDSEP,list.upb?.TokenString??"???",TT.LISTBOUNDEND);
       }
 
       //private void PrintUnitStart(NamedElement unit) {
-      //   Emitnl(units[unit.GetType()].Start.ToString()," ",unit.id.token.tokenString,TT.END);
+      //   Emitnl(units[unit.GetType()].Start.ToString()," ",unit.id.token.TokenString,TT.END);
       //   IndentLevel++;
       //}
 
       //private void PrintUnitEnd(NamedElement unit) {
       //   IndentLevel--;
-      //   Emitnl(units[unit.GetType()].End.ToString()," ",unit.id.token.tokenString,TT.END);
+      //   Emitnl(units[unit.GetType()].End.ToString()," ",unit.id.token.TokenString,TT.END);
       //}
 
       /// <summary>
@@ -513,20 +514,20 @@ namespace CDL2v1 {
       /// Print the Ludes for the container if it can have any at the correct place.
       /// (Why they couldn't position the Ludes in the same place for a PROGRAM as the other items is a mystery).
       /// </summary>
-      /// <affix name="unit"></affix>
-      /// <affix name="action"></affix>
+      /// <param name="unit"></param>
+      /// <param name="action"></param>
       private void PrintContainer(Container unit,Action action) {
-         Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.token.tokenString,TT.END);
+         Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
          Indented(() => action());
          if (unit is Program) PrintLudes(unit);
-         Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.token.tokenString,TT.END);
+         Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
          if (unit is Module || unit is Section) PrintLudes(unit);
       }
 
       /// <summary>
       /// Translate all objects to strings using their to ToString, unless it is a TokenType, then use the glyph.
       /// </summary>
-      /// <affix id="items"></affix>
+      /// <param id="items"></param>
       /// <returns></returns>
       private static string[] TranslateTokens(params object[] items) => items.Select(item => TranslateToken(item)).ToArray();
       private static string TranslateToken(object item) => item is TT tt ? Token.ToGlyph(tt) : item.ToString() ?? "";
@@ -535,7 +536,7 @@ namespace CDL2v1 {
       /// Emit the specified items at the current indent level.
       /// The methods with nl will add a new line at the beginning or end.
       /// </summary>
-      /// <affix id="items"></affix>
+      /// <param id="items"></param>
       private void Emit(params object[] items) => emitter.Emit(TranslateTokens(items));
       private void EmitWithExtraSpace(bool extraSpace,params object[] items) => emitter.EmitWithExtraSpace(extraSpace,TranslateTokens(items));
       private void EmitSeparator(TT sep,bool space=true) => emitter.EmitIgnoreLineLength(TranslateToken(sep)+(space?" ":""));

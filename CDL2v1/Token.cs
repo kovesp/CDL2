@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -26,6 +27,8 @@ namespace CDL2v1 {
       public static readonly Dictionary<TokenType,string> TokenType2Glyph;
       public static readonly Dictionary<string,string> Escape2Char;
       public static readonly Dictionary<string,string> Char2Escape =[];
+
+      public static readonly Dictionary<string,Token> IDTokens = [];
 
       private static readonly Regex GlyphRE;
       private static readonly Regex ReservedWordRE;
@@ -76,13 +79,14 @@ namespace CDL2v1 {
          // Must match at the beginning of the input
          GlyphRE = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})");
          ReservedWordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})");
-         IdRE = new Regex(@"^[a-z][a-z0-9 ]*");
+         // Allows annotation symbols to precede and follow the ID; these are removed.
+         IdRE = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*");
          StringRE = new Regex(@"^"".*?(?:$"".*?)*""");
          CommentRE = new Regex(@"^(?m:#(.*)?(?:#|$))");
          IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?\d+)");
          FloatRE = new Regex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?");
          // Must match all occurrences anywhere in a string
-         StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys/*.Select(Regex.Escape)*/)}])");
+         StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys)}])");
 
          ErrorToken = new Token();
          AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
@@ -95,19 +99,19 @@ namespace CDL2v1 {
       readonly public TokenType type;
       // Depending on the type, one of the following may be populated:
       //    RESWORD: reservedWordValue is the enum of the reserved word
-      //    ID:      stringValue is the identifier id
+      //    ID:      StringValue is the identifier id
       //    INT:     intValue is the long
-      //    STRING:  stringValue is the string
+      //    STRING:  StringValue is the string
       //    FLOAT:   floatValue is the double
-      //    COMMENT: stringValue is the comment
+      //    COMMENT: StringValue is the comment
 
-      readonly public string tokenString = "";
+      public string TokenString { get; private set; } = "";
       readonly public int lineNumber = 0;
       readonly public int columnNumber = 0;
       readonly public string fileName = "";
 
       readonly public ReservedWord? reservedWordValue;
-      readonly public string? stringValue;
+      public string? StringValue { get; private set; }
       readonly public long? intValue;
       readonly public double? floatValue;
 
@@ -118,7 +122,7 @@ namespace CDL2v1 {
       public Token(RW rw) : this(TokenClass.ResWord,rw.ToString(),"",0) { }
 
       private Token(TokenClass cls,string text,string fileName,int lineNumber) {
-         tokenString = text;
+         TokenString = text;
          this.fileName = fileName;
          this.lineNumber = lineNumber;
          switch (cls) {
@@ -127,16 +131,16 @@ namespace CDL2v1 {
                break;
             case TokenClass.Comment:
                type = TokenType.COMMENT;
-               stringValue = text.Trim('#','\n');
+               StringValue = text.Trim('#','\n');
                break;
             case TokenClass.String:
                type = TokenType.STRING;
-               stringValue = StringEscapeRE.Replace(text.Trim('"'),match => Escape2Char[match.Groups[1].Value]);
+               StringValue = StringEscapeRE.Replace(text.Trim('"'),match => Escape2Char[match.Groups[1].Value]);
                break;
             case TokenClass.ID:
                type = TokenType.ID;
-               tokenString = Regex.Replace(text,@"\s+"," ").Trim();  // Reduce all white space to a single space
-               stringValue = Regex.Replace(text,@"\s+","");
+               TokenString = Regex.Replace(text,@"\s+"," ").Trim();  // Reduce all white space to a single space
+               StringValue = Regex.Replace(text,@"\s+","");
                break;
             case TokenClass.ResWord:
                type = TokenType.RESWORD;
@@ -147,7 +151,7 @@ namespace CDL2v1 {
                break;
             case TokenClass.Int:
                type = TokenType.INT;
-               tokenString = text;
+               TokenString = text;
                try {
                   intValue = long.Parse(text,text.StartsWith("0x") ? NumberStyles.HexNumber : NumberStyles.Integer,CultureInfo.InvariantCulture);
                } catch {
@@ -162,7 +166,8 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Match an RE that describes a class of tokens to the beginning of input. If it matches, construct the token and return true. 
+      /// Match an RE that describes a class of tokens to the beginning of input. If it matches, construct the token and return true.
+      /// The last group in the match captures the token. If it does not have groups, the entire match is the token.
       /// </summary>
       /// <param id="regex">The RE that describes a token of the given class.</param>
       /// <param id="tokenClass">The class of the token.</param>
@@ -174,7 +179,7 @@ namespace CDL2v1 {
          Match match = regex.Match(input);
          if (match.Success) {
             input = input[match.Length..].TrimStart();
-            token = new Token(tokenClass,match.Value,fileName,lineNumber);
+            token = new Token(tokenClass,match.Groups[^1].Value,fileName,lineNumber);
             return true;
          } else {
             token = ErrorToken;
@@ -201,13 +206,34 @@ namespace CDL2v1 {
          if (HandleMatch(CommentRE,TokenClass.Comment,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(StringRE,TokenClass.String,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(ReservedWordRE,TokenClass.ResWord,ref input,out token,fileName,lineNumber)) return true;
-         if (HandleMatch(IdRE,TokenClass.ID,ref input,out token,fileName,lineNumber)) return true;
+         if (HandleMatch(IdRE,TokenClass.ID,ref input,out token,fileName,lineNumber)) {
+            Debug.Assert(token.StringValue != null,"ID token has no string value");
+            // Guarantee that all IDs with the same string value (i.e., ignoring spaces) are the same.
+            if (IDTokens.TryGetValue(token.StringValue,out Token? idToken)) {
+               token = idToken;
+            } else {
+               IDTokens[token.StringValue] = token;
+            }
+            return true;
+         }
          if (HandleMatch(IntRE,TokenClass.Int,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token,fileName,lineNumber)) return true;
          if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token,fileName,lineNumber)) return true; // Must be placed after Int & Float as they may start with + or -
 
          return false;
       }
+
+      /// <summary>
+      /// Renames a token and by implications the ID it represents.
+      /// This allows changing the name of an ID without changing the ID itself, in particular where spaces are in the id.
+      /// </summary>
+      /// <param name="newName"></param>
+      public void Rename(string newName) {
+         Debug.Assert(type == TT.ID,"Rename called on non-ID token");
+         TokenString = newName;
+         StringValue = newName.Replace(" ","");
+      }
+
       // TODO: Remove this when line number passed in TryCreateToken
       public static bool TryCreateToken(ref string input,out Token token) {
          int lineNumber = 0;
@@ -215,27 +241,27 @@ namespace CDL2v1 {
       }
 
       public override string ToString() {
-         string EscapedString() => stringValue != null ? stringValue.Replace("\n","\\n").Replace("\r","\\r").Replace("\t","\\t").Replace("\"","\\\"") : string.Empty;
+         string EscapedString() => StringValue != null ? StringValue.Replace("\n","\\n").Replace("\r","\\r").Replace("\t","\\t").Replace("\"","\\\"") : string.Empty;
          return type switch {
             TT.RESWORD => reservedWordValue?.ToString() ?? "NONE",
             TT.COMMENT => $"COMMENT<{EscapedString()}>",
             TT.STRING  => $"STRING<{EscapedString()}>",
             TT.INT     => $"INT<{intValue?.ToString() ?? "0"}>",
             TT.FLOAT   => $"FLOAT<{floatValue?.ToString() ?? "0.0"}>",
-            TT.ID      => $"ID<{stringValue ?? string.Empty}>",
+            TT.ID      => $"ID<{StringValue ?? string.Empty}>",
             TT.ERROR   => "ERROR",
             _          => TokenType2Glyph.ContainsKey(type) ? TokenType2Glyph[type] : type.ToString(),
          };
       }
 
       public override bool Equals(object? obj) => obj is Token token && type == token.type && type switch {
-         TT.COMMENT or TT.STRING or TT.ID => stringValue == token.stringValue,
+         TT.COMMENT or TT.STRING or TT.ID => StringValue == token.StringValue,
          TT.RESWORD                       => reservedWordValue == token.reservedWordValue,
          TT.INT                           => intValue == token.intValue,
          TT.FLOAT                         => floatValue == token.floatValue,
          _                                => false
       }; 
-      public override int GetHashCode() => HashCode.Combine(type,reservedWordValue,stringValue,intValue,floatValue);
+      public override int GetHashCode() => HashCode.Combine(type,reservedWordValue,StringValue,intValue,floatValue);
       /// <summary>
       /// Return the token as a id. If the token is an ID, the id is returned.
       /// - Runs of spaces and non-letters are replaced with the replacement string.
@@ -246,7 +272,7 @@ namespace CDL2v1 {
       /// <returns>The normalized id.</returns>
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
       internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
-         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(tokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier()}";
+         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier()}";
       internal static Token From(Container container,RW rw) => new(TokenClass.ID,$"{container.id.name}_{rw}","",0);
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);

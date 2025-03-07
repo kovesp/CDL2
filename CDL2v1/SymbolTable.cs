@@ -3,8 +3,12 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection.Metadata.Ecma335;
 
 namespace CDL2v1 {
+   /// <summary>
+   /// Represents a symbol table for a container.
+   /// </summary>
+   [Obsolete("The SymbolTable class is deprecated. Elements are recorded in standard Dictionaries or set.",true)]
    internal class SymbolTable {
-      public Container? Owner;   // The COntainer that owns this symboll table.
+      public Container? Owner;   // The Container that owns this symbol table.
       private Dictionary<ID,NamedElement> table = [];
 
       public NamedElement this[ID id] {

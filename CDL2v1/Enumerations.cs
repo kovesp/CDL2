@@ -8,6 +8,7 @@ global using AIT = CDL2v1.AlgorithmNameType;
 global using DS  = CDL2v1.DecorationStyle;
 global using AS = CDL2v1.AnnotationSymbol;
 global using SA = CDL2v1.AnnotationSymbols;
+using System.Text;
 
 namespace CDL2v1 {
    /// Central place for enumerations that are used across the compiler as well as their abbreviations.
@@ -211,6 +212,43 @@ namespace CDL2v1 {
       Inv = 0xd2,          // Rightward pointing arrow, but thinner than Ext. Means we don't know yet where it comes from.
    }
 
-   public record AnnotationSymbols(AS Prefix1=AS.None,AS Prefix2=AS.None,AS Suffix1=AS.None,AS Suffix2=AS.None);
+   public class AnnotationSymbols(AS Prefix1 = AS.None,AS Prefix2 = AS.None,AS Suffix1 = AS.None,AS Suffix2 = AS.None) {
+      public AS Prefix1 = Prefix1;
+      public AS Prefix2 = Prefix2;
+      public AS Suffix1 = Suffix1;
+      public AS Suffix2 = Suffix2;
 
+      /// <summary>
+      /// The string to use as a prefix for a name.
+      /// </summary>
+      public string Prefix => (Prefix1 != AS.None ? $"{(char)Prefix1}" : "")+(Prefix2 != AS.None ? $"{(char)Prefix2}" : "");
+      /// <summary>
+      /// The string to use as a suffix for a name.
+      /// </summary>
+      public string Suffix => (Suffix1 != AS.None ? $"{(char)Suffix1}" : "")+(Suffix2 != AS.None ? $"{(char)Suffix2}" : "");
+
+      /// <summary>
+      /// The character class for the AnnotationSymbol enumeration.
+      /// </summary>
+      public static string CharacterClass => characterClass;
+
+      private static readonly string characterClass;
+      static AnnotationSymbols() { 
+         // Get the values of the AnnotationSymbol enumeration
+         AnnotationSymbol[] values = (AnnotationSymbol[])Enum.GetValues(typeof(AnnotationSymbol));
+
+         // Convert each value to its corresponding character and build the character class string
+         StringBuilder characterClass = new("[");
+         foreach (AnnotationSymbol value in values) {
+            if (value != AnnotationSymbol.None) {
+               characterClass.Append((char)value);
+            }
+         }
+         characterClass.Append(']');
+
+         AnnotationSymbols.characterClass = characterClass.ToString();
+      }
+   }
 }
+
+

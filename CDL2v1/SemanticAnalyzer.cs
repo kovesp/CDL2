@@ -40,7 +40,7 @@ namespace CDL2v1 {
 
 
 
-         foreach (ID procId in section.routines) {
+         foreach (ID procId in section.algorithms) {
             Algorithm proc = (Algorithm)section.Symbols[procId];
             if (proc is Procedure code) {
                AnalyzeCode(code);
