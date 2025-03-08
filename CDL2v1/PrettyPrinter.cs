@@ -170,9 +170,9 @@ namespace CDL2v1 {
          { typeof(Section),new (RW.SECTION, RW.ENDSEC)},
       };
 
-      public void Print(Program? program,Set<Module> modules) {
-         if (program != null) Print(program);
-         foreach (Module module in modules) Print(module);
+      public void Print(Dictionary<ID,Program> programs,Dictionary<ID,Module> modules) {
+         foreach (Program program in programs.Values) Print(program);
+         foreach (Module module in modules.Values) Print(module);
       }
 
       public void Print(Program program) => PrintContainer(program,() => {

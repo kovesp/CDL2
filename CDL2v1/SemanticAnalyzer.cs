@@ -6,13 +6,28 @@ using System.Threading.Tasks;
 
 using static CDL2v1.Logger;
 
+
 namespace CDL2v1 {
    internal class SemanticAnalyzer {
-      internal void Analyze(Program program) {
-         Log(0,$"Analyzing {program}");
-         foreach (Module module in program.Children) {
+      internal void Analyze(Program MainProgram) {
+         foreach (Program program in Program.Programs.Values) {
+            AnalyzeProgram(program);
+         }
+
+         AnalyzeMainProgram(MainProgram);
+
+         foreach (Module module in Program.Modules.Values) {
             AnalyzeModule(module);
          }
+      }
+
+      private void AnalyzeMainProgram(Program mainProgram) {
+         Log(0,$"Analyzing main program {mainProgram.id}");
+      }
+
+
+      private void AnalyzeProgram(Program program) {
+         Log(0,$"Analyzing {program.id}");
       }
 
       private void AnalyzeModule(Module module) {
@@ -65,7 +80,7 @@ namespace CDL2v1 {
          foreach (ID id in set) {
             if (section.Symbols.ContainsKey(id)) {
                if (section.Symbols[id] is Undeclared) {
-                  ReportError(section,$"{kind} {id} is undeclared");
+                  ReportError(section,$"{kind} {id} is Instance");
                } else if (section.Symbols[id] is not IProvidedElement) {
                   ReportError(section,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}}");
                }

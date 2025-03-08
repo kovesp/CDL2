@@ -83,27 +83,32 @@ namespace CDL2v1 {
       override protected string ItemTypeShortName => "PROG";
 
       public static readonly Dictionary<ID,Program> Programs = [];   // Contains all the programs in the syntax tree.
+      public static Program? FirstProgram = null;                    // The first program in the syntax tree.
       public static readonly Dictionary<ID,Module> Modules = [];     // Contains all the modules in the syntax tree.
 
       /// <summary>
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param id="id"></param>
-      public Program(ID id) : base(id,null) => ParseLude = Parser.ParseLudeOfIDs;
+      public Program(ID id) : base(id,null) {
+         ParseLude = Parser.ParseLudeOfIDs;
+         FirstProgram ??= this;
+      }
 
       /// <summary>
       /// Get the modules that have the given lude type.
       /// </summary>
       /// <param id="ludeType"></param>
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
-      public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => (Module)Symbols[id]);
+      public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => Program.Modules[id]);
+      internal static Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)),out Program? program) ? program : null;
    }
 
-   /// <summary>
-   /// Represents a module in the syntax tree.
-   /// </summary>
-   /// <param id="id"></param>
-   internal class Module : Container {
+      /// <summary>
+      /// Represents a module in the syntax tree.
+      /// </summary>
+      /// <param id="id"></param>
+      internal class Module : Container {
       public readonly Set<ID> imports = [];         // Imports are specified in sections, but are propagated up the module level.
       public readonly Set <ID> exports = [];        // Exports are specified in sections, but are propagated up the module level.
 
@@ -369,7 +374,7 @@ namespace CDL2v1 {
       }
       override public string ToString() => $"\"{value}\"";
    }
-   internal class LIST : NamedElement, IMacroElement, IConstElement, ,ICDL2Object {
+   internal class LIST : NamedElement, IMacroElement, IConstElement,ICDL2Object {
       // Stored as tokens to allow for the possibility of a const reference or an integer. If a const reference, the reference will be resolved during the semantic analysis.
       public readonly Token? lwb;
       public readonly Token? upb;
@@ -424,6 +429,8 @@ namespace CDL2v1 {
       override public string ToString() => $"-{id.name}";
    }
 
-   internal class Undeclared(ID id) : NamedElement(id) {}
+   internal class Undeclared() : NamedElement(ID.AnonID), ICDL2Object {
+      internal readonly static Undeclared Instance = new();
+   }
 
 }

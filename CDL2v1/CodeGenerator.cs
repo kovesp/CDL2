@@ -27,13 +27,13 @@ namespace CDL2v1 {
       /// <param id="program"></param>
       /// <param id="modules"></param>
       /// <param id="emitter"></param>
-      public void GenerateCode(Program? program,Set<Module> modules,EmitterBase emitter) {
+      public void GenerateCode(Program program,EmitterBase emitter) {
          cg.GenerateStart(program,emitter);  // Generate the overall scaffolding
          foreach (RW ludeType in ludeTypes)
-            foreach (Module mod in (program != null ? program.Lude(ludeType) : modules).Where(mod => mod.Ludes[ludeType].Count > 0))
+            foreach (Module mod in program.Lude(ludeType).Where(mod => mod.Ludes[ludeType].Count > 0))
                GenerateLude(ludeType,mod);
          cg.GenerateEnd(program);
-         foreach (Module module in modules) {
+         foreach (Module module in program.Children.Cast<Module>()) {
             GenerateModuleCode(module);
          }
       }

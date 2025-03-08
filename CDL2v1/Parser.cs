@@ -47,7 +47,7 @@ namespace CDL2v1 {
       public TokenList tokens = new();
 
 
-      public Program?           currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
+      public  Program?          currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
       private Module?           currentModule;     // The current module being parsed. Should be the same as currentObject.Module.
       private Layer?            currentLayer;      // The current layer being parsed. Should be the same as currentObject.Layer.
       private Section?          currentSection;    // The current section being parsed. Should be the same as currentObject.Section.
@@ -213,7 +213,7 @@ namespace CDL2v1 {
                ReportError($"Algorithm {id} already declared in section {currentSection.id} as {currentSection.local[id].GetType().Name}");
                return;
             }
-            List<Affix> formals = ParseParams();
+            List<Affix> formals = ParseFormals();
             if (formals == null) return;
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
@@ -227,7 +227,7 @@ namespace CDL2v1 {
             } else if (currentSection.import.Contains(id)) {
                ReportError($"{algType} {id} is imported but has locals or a body.");
             } else {
-               Set<Local> locals = ParseLocals();
+               Set<Local>? locals = ParseLocals();
                if (locals == null) return;
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {                  
                   if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
@@ -376,7 +376,7 @@ namespace CDL2v1 {
          return locals;
       }
       private static readonly List<TT> formalTypes = [TT.PARAMSEP,TT.STRINGPARAMSEP];
-      private List<Affix>? ParseParams() {
+      private List<Affix>? ParseFormals() {
          List<Affix> args = [];
          while (tokens.Optional(formalTypes,out Token affixTypeInd)) {
             bool isIn = tokens.Optional(TT.AFFIXDIR);
@@ -477,7 +477,16 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
-               c.elements.Add(currentSection.Symbols.Reference(ID.From(elemId)));
+               ID id = ID.From(elemId);
+               if (currentSection.local.ContainsKey(id)) {
+                  // The ID is already declared in this section. It can only be a constant or undeclared.
+                  // That will be true even if it is invoked or imported.
+                  Debug.Assert(currentSection.local[id] is Const || currentSection.local[id] is Undeclared);
+                  c.elements.Add(id);
+               } else if (currentSection.import.Contains(id)) {
+                  currentSection.local[id] = Undeclared.Instance;
+                  c.elements.Add(id);
+               }
             } else if (tokens.Optional(TT.STRING,out Token str)) {
                c.elements.Add(new STRING(str));
             } else if (tokens.Optional(TT.INT,out Token i)) {
