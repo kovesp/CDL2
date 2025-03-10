@@ -3,6 +3,7 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Windows.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -34,8 +35,8 @@ namespace CDL2v1 {
 
             window = new Window {
                Title = "Pretty Print Window",
-               Width = 800,
-               Height = 900,
+               Width = 900,
+               Height = 1200,
                Foreground = colorMap["Foreground"],
                Background = colorMap["Background"],
                Content = new Grid {
@@ -73,6 +74,9 @@ namespace CDL2v1 {
 
          thread.SetApartmentState(ApartmentState.STA);
          thread.Start();
+         // Wait for the window to stabilize
+         while (window == null) Thread.Sleep(100);
+         while (outputTextBlock == null) Thread.Sleep(100);
       }
 
       public override void Close() {
@@ -85,8 +89,6 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="item"></param>
       protected override void WriteLine(string item) {
-         while (window == null) Thread.Sleep(100); // Wait for the window to be created
-         while (outputTextBlock == null) Thread.Sleep(100);
          int lastIndex = 0;
 
          foreach (Match match in spanRegex.Matches(item)) {
@@ -105,37 +107,37 @@ namespace CDL2v1 {
             FontStyle fontStyle = FontStyles.Normal;
             TextDecorationCollection? textDecorations = null;
 
-            if (!string.IsNullOrEmpty(style)) {
 
+            if (!string.IsNullOrEmpty(style)) {
                switch (style.ToLower()) {
                   case "normal":
                      break;
                   case "bold":
-                     fontWeight = FontWeights.Bold;
+                     fontWeight = PrettyPrinter.Bold;
                      break;
                   case "italic":
-                     fontStyle = FontStyles.Italic;
+                     fontStyle = PrettyPrinter.Italic;
                      break;
                   case "underline":
                      textDecorations = TextDecorations.Underline;
                      break;
                   case "bold, italic":
-                     fontWeight = FontWeights.Bold;
-                     fontStyle = FontStyles.Italic;
+                     fontWeight = PrettyPrinter.Bold;
+                     fontStyle = PrettyPrinter.Italic;
                      break;
                   case "bold, underline": {
-                        fontWeight = FontWeights.Bold;
+                        fontWeight = PrettyPrinter.Bold;
                         textDecorations = TextDecorations.Underline;
                         break;
                      }
                   case "italic, underline": {
-                        fontStyle = FontStyles.Italic;
+                        fontStyle = PrettyPrinter.Italic;
                         textDecorations = TextDecorations.Underline;
                         break;
                      }
                   case "bold, italic, underline": {
-                        fontWeight = FontWeights.Bold;
-                        fontStyle = FontStyles.Italic;
+                        fontWeight = PrettyPrinter.Bold;
+                        fontStyle = PrettyPrinter.Italic;
                         textDecorations = TextDecorations.Underline;
                         break;
                      }
@@ -150,19 +152,23 @@ namespace CDL2v1 {
          AppendText("",colorMap["Foreground"],colorMap["Background"],lineBreak: true);
       }
 
+      private const char ThinSpace = '\u2009';
       private void AppendText(string text,Brush fg,Brush bg,
                               FontWeight fontWeight = default,FontStyle fontStyle = default,
                               TextDecorationCollection? textDecorations = null,
                               bool lineBreak = false) {
          // Ensure the operation is performed on the UI thread
          Debug.Assert(window != null,"Window is null");
-         window.Dispatcher.Invoke  (() => {
-            // outputTextBlock.Background = Background;
-            outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run(text) {   Foreground = fg,
-                                                                                    Background = bg,
-                                                                                    FontWeight = fontWeight,
-                                                                                    FontStyle = fontStyle,
-                                                                                    TextDecorations = textDecorations });
+         window.Dispatcher.Invoke(() => {
+            text = Regex.Replace(text,@"( := | =: | = | : )\s*$",$"{ThinSpace}$1",RegexOptions.IgnorePatternWhitespace);
+            outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run(text) {
+               Foreground = fg,
+               Background = bg,
+               FontWeight = fontWeight,
+               FontStyle = fontStyle,
+               FontFamily = new FontFamily("Cascadia Code"),
+               TextDecorations = textDecorations
+            });
             //outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run("\x86") {
             //   Foreground = fg,
             //   Background = bg,
@@ -172,8 +178,42 @@ namespace CDL2v1 {
             //   TextDecorations = textDecorations
             //});
             if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
+         },isRenderingSuspended ? DispatcherPriority.Background : DispatcherPriority.Normal);
+      }
+
+      public bool isRenderingSuspended = false;
+      // Call this before making multiple updates
+      public override void BeginUpdate() {
+         if (window == null) return;
+         isRenderingSuspended = true;
+         window.Dispatcher.Invoke(() => {
+            // Find the ScrollViewer in the visual tree
+            if (outputTextBlock != null) {
+               ScrollViewer? scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
+               scrollViewer?.SetValue(ScrollViewer.CanContentScrollProperty,false);
+            }
          });
       }
+
+      // Call this after completing updates
+      public override void EndUpdate() {
+         if (window == null) return;
+         isRenderingSuspended = false;
+         window.Dispatcher.Invoke(() => {
+            // Re-enable scrolling and force layout update
+            if (outputTextBlock != null) {
+               ScrollViewer? scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
+               scrollViewer?.SetValue(ScrollViewer.CanContentScrollProperty,true);
+               outputTextBlock.UpdateLayout();
+            }
+         });
+      }
+      // Helper to find parent element of specific type
+      private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject => VisualTreeHelper.GetParent(child) switch {
+         null => null,
+         T parent => parent,
+         var parentObject => FindVisualParent<T>(parentObject),
+      };
    }
 }
 
