@@ -120,7 +120,7 @@ namespace CDL2v1 {
          List<ID> parts = [];
 
          if (tokens.CanConsume(RW.PART)) {
-            ParseIDList(RW.PART,parts);
+            ParseIDList(RW.PART,currentProgram.Parts);
             // TODO: Semantic Analysis to verify that the parts are modules.
          }
          ParseLudes(currentProgram);
@@ -570,9 +570,11 @@ namespace CDL2v1 {
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
-            Procedure lude = new(type,(Section)container);
+            Section section = (Section)container;
+            Procedure lude = new(type,section);
             lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
-            container.Ludes[type].Add(lude.id);
+            section.Ludes[type].Add(lude.id);
+            section.local[lude.id] = lude;
          }
       }
 

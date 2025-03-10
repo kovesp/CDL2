@@ -88,6 +88,7 @@ namespace CDL2v1 {
 
       public static readonly Dictionary<ID,Program> Programs = [];   // Contains all the programs in the syntax tree.
       public static Program? FirstProgram = null;                    // The first program in the syntax tree.
+      internal Set<ID> Parts = [];
       public static readonly Dictionary<ID,Module> Modules = [];     // Contains all the modules in the syntax tree.
 
       /// <summary>

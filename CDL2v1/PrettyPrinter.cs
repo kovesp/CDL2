@@ -121,8 +121,6 @@ namespace CDL2v1 {
          return colors;
       }
 
-
-
       /// <summary>
       /// Construct a pretty printer with a maximum line length and an indentation width using the specified emitter.
       /// </summary>
@@ -177,14 +175,14 @@ namespace CDL2v1 {
          foreach (Module module in modules.Values) Print(module);
       }
 
-      public void Print(Program program) => PrintContainer(program,() => {
-         PrintList(RW.PART,program.Children.Select(part => part.id));
+      public void Print(Program program) =>PrintContainer(program,() => {
+         PrintList(RW.PART,program.Parts);
          PrintLudes(program);
-      });
+      },Newline:true);
 
-      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Children) Print(layer); }); 
+      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Children.Cast<Layer>()) Print(layer); },Newline:true); 
 
-      public void Print(Layer layer)   => PrintContainer(layer,()  => { foreach (Section section in layer.Children) Print(section); });
+      public void Print(Layer layer)   => PrintContainer(layer,()  => { foreach (Section section in layer.Children.Cast<Section>()) Print(section); });
 
       public void Print(Section section) => PrintContainer(section,() => {
          PrintList(RW.EXPORT,section.export);
@@ -502,16 +500,6 @@ namespace CDL2v1 {
          Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,list.lwb?.TokenString??"???",TT.LISTBOUNDSEP,list.upb?.TokenString??"???",TT.LISTBOUNDEND);
       }
 
-      //private void PrintUnitStart(NamedElement unit) {
-      //   Emitnl(units[unit.GetType()].Start.ToString()," ",unit.id.token.TokenString,TT.END);
-      //   IndentLevel++;
-      //}
-
-      //private void PrintUnitEnd(NamedElement unit) {
-      //   IndentLevel--;
-      //   Emitnl(units[unit.GetType()].End.ToString()," ",unit.id.token.TokenString,TT.END);
-      //}
-
       /// <summary>
       /// Print the start and end of a container unit, and then the contents.
       /// Print the Ludes for the container if it can have any at the correct place.
@@ -519,12 +507,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Name="unit"></param>
       /// <param Name="action"></param>
-      private void PrintContainer(Container unit,Action action) {
+      private void PrintContainer(Container unit,Action action,bool Newline = false) {
          Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
          Indented(() => action());
-         if (unit is Program) PrintLudes(unit);
          Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
          if (unit is Module || unit is Section) PrintLudes(unit);
+         if (Newline) Emitnl();
       }
 
       /// <summary>
@@ -547,7 +535,5 @@ namespace CDL2v1 {
       private void Emitnl(params object[] items) => emitter.Emitnl(TranslateTokens(items));
       private void NlEmit(params object[] items) => emitter.NlEmit(TranslateTokens(items));
       private void NlEmitnl(params object[] items) => emitter.NlEmitnl(TranslateTokens(items));
-
-
    }
 }
