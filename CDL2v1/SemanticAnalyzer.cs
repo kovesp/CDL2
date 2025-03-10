@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Ignore Spelling: CDL
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -22,30 +24,30 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeMainProgram(Program mainProgram) {
-         Log(0,$"Analyzing main program {mainProgram.id}");
+         Log(0,$"Analyzing MAIN {mainProgram.ContainerName}");
       }
 
 
       private void AnalyzeProgram(Program program) {
-         Log(0,$"Analyzing {program.id}");
+         Log(0,$"Analyzing {program.ContainerName}");
       }
 
       private void AnalyzeModule(Module module) {
-         Log(1,$"Analyzing {module.id}");
+         Log(1,$"Analyzing {module.ContainerName}");
          foreach (Layer layer in module.Children) {
             AnalyzeLayer(layer);
          }
       }
 
       private void AnalyzeLayer(Layer layer) {
-         Log(1,$"Analyzing {layer.id}");
+         Log(1,$"Analyzing {layer.ContainerName}");
          foreach (Section section in layer.Children) {
             AnalyzeSection(section);
          }
       }
 
       private void AnalyzeSection(Section section) {
-         Log(1,$"Analyzing {section.id}");
+         Log(1,$"Analyzing {section.ContainerName}");
          Log(2,$"Analyzing provided interfaces");
          AnalyzeProvidedInterfaces(section,RW.ABSTR,section.abstr);
          AnalyzeProvidedInterfaces(section,RW.EXT,section.ext);
@@ -55,11 +57,11 @@ namespace CDL2v1 {
 
 
 
-         foreach (ID procId in section.algorithms) {
-            Algorithm proc = (Algorithm)section.Symbols[procId];
-            if (proc is Procedure code) {
-               AnalyzeCode(code);
-            } else if (proc is Macro macro) {
+         foreach (Algorithm algorithm in section.local.Values.Where(obj => obj is Algorithm algorithm)) {
+            Log(2,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
+            if (algorithm is Procedure procedure) {
+               AnalyzeCode(procedure);
+            } else if (algorithm is Macro macro) {
                AnalyzeMacro(macro);
             }
          }
@@ -77,26 +79,24 @@ namespace CDL2v1 {
       }
 
       private static void AnalyzeProvidedInterfaces(Section section,RW kind,Set<ID> set) {
-         foreach (ID id in set) {
-            if (section.Symbols.ContainsKey(id)) {
-               if (section.Symbols[id] is Undeclared) {
-                  ReportError(section,$"{kind} {id} is Instance");
-               } else if (section.Symbols[id] is not IProvidedElement) {
-                  ReportError(section,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}}");
-               }
-            } else {
-               ReportError(section,$"{kind} {id} not found");
-            }
-         }
+         //foreach (ID id in set) {
+         //   if (section.Symbols.ContainsKey(id)) {
+         //      if (section.Symbols[id] is Undeclared) {
+         //         ReportError(section,$"{kind} {id} is Instance");
+         //      } else if (section.Symbols[id] is not IProvidedElement) {
+         //         ReportError(section,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}}");
+         //      }
+         //   } else {
+         //      ReportError(section,$"{kind} {id} not found");
+         //   }
+         //}
       }
 
       private static void ReportError(Container unit,string message) => Logger.ReportError($"{unit.ContainerName}: {message}");
 
       private void AnalyzeMacro(Macro macro) {
-         Log(2,$"Analyzing {macro.id}");
       }
       private void AnalyzeCode(Procedure code) {
-         Log(2,$"Analyzing {code.id}");
       }
    }
 }

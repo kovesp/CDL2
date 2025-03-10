@@ -90,6 +90,11 @@ MODULE quicksort.
 ENDMOD quicksort.
 PRELUDE data.
 ROOT sorter.
+PROGRAM sort.
+   PART quicksort.
+   PRELUDE quicksort.
+   ROOT quicksort.
+ENDPROG sort.
 
 
 

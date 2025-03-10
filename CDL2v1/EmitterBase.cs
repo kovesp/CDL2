@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Ignore Spelling: CDL Emitnl Nl nlafter nlbefore
+
+using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,7 +21,7 @@ namespace CDL2v1 {
       public int LineLength { get; set; } = 100;
       /// <summary>
       /// The current level of indentation.
-      /// Note that whyen it decreases, ExtraIndent is reset to 0.
+      /// Note that when it decreases, ExtraIndent is reset to 0.
       /// </summary>
       public int IndentLevel {
          get => indentLevel;

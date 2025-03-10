@@ -163,14 +163,14 @@ namespace CDL2v1 {
                                                                                     FontWeight = fontWeight,
                                                                                     FontStyle = fontStyle,
                                                                                     TextDecorations = textDecorations });
-            outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run("\x86") {
-               Foreground = fg,
-               Background = bg,
-               FontWeight = fontWeight,
-               FontStyle = fontStyle,
-               FontFamily = new FontFamily("Wingdings 3"),
-               TextDecorations = textDecorations
-            });
+            //outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run("\x86") {
+            //   Foreground = fg,
+            //   Background = bg,
+            //   FontWeight = fontWeight,
+            //   FontStyle = fontStyle,
+            //   FontFamily = new FontFamily("Wingdings 3"),
+            //   TextDecorations = textDecorations
+            //});
             if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
          });
       }

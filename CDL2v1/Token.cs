@@ -225,9 +225,9 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Renames a token and by implications the ID it represents.
-      /// This allows changing the name of an ID without changing the ID itself, in particular where spaces are in the id.
+      /// This allows changing the Name of an ID without changing the ID itself, in particular where spaces are in the id.
       /// </summary>
-      /// <param name="newName"></param>
+      /// <param Name="newName"></param>
       public void Rename(string newName) {
          Debug.Assert(type == TT.ID,"Rename called on non-ID token");
          TokenString = newName;
@@ -273,7 +273,7 @@ namespace CDL2v1 {
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
       internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
          => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier()}";
-      internal static Token From(Container container,RW rw) => new(TokenClass.ID,$"{container.id.name}_{rw}","",0);
+      internal static Token From(Container container,RW rw) => new(TokenClass.ID,$"{container.id.Name}_{rw}","",0);
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);
    }

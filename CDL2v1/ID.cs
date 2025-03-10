@@ -7,7 +7,8 @@ namespace CDL2v1 {
    /// </summary>
    internal class ID : IConstElement, IMacroElement, IActualArg {
       public readonly Token token = Token.ErrorToken;
-      public readonly string name = Token.ErrorToken.TokenString;
+      public string Name => token.TokenString;
+      public Section? section = null;
 
       /// <summary>
       /// Used to ensure that multiple spellings of tokens produce the same ID.
@@ -34,23 +35,19 @@ namespace CDL2v1 {
       public readonly static ID ErrorID = new();
       public readonly static ID AnonID = new("Anon");
 
-      public Token Token => token;
-
-      public ID Id => this;
 
       private ID(Token token) {
          Debug.Assert(token.type == TT.ID && token.StringValue != null,"Program constructor: id not TokenType.ID or StringValue is null");
          this.token = token;
-         name = token.TokenString;
       }
-      protected ID(ID id) : this(id.token) { }
+
       private ID() { }
       private ID(string name) : this(new Token(name)) { }
 
       /// <summary>
-      /// Changes the name of an ID. Can be used to change where the spaces are.
+      /// Changes the Name of an ID. Can be used to change where the spaces are.
       /// </summary>
-      /// <param name="newName"></param>
+      /// <param Name="newName"></param>
       public void Rename(string newName) => token.Rename(newName);
 
 
@@ -58,7 +55,7 @@ namespace CDL2v1 {
       public override int GetHashCode() => HashCode.Combine(token);
       public override string ToString() => token.TokenString;
       public string AsIdentifier(string separator="_",string replacement="") { 
-         string parentPrefix = owner is null || owner.Owner is null ? "" : $"{owner.Owner.AsName(replacement)}{separator}";
+         string parentPrefix = section is null || section.Parent is null ? "" : $"{section.Parent.AsName(replacement)}{separator}";
          return $"{parentPrefix}{token.AsIdentifier(replacement)}";
       }
  

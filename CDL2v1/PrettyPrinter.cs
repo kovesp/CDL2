@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Ignore Spelling: CDL
+
+using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -191,41 +193,39 @@ namespace CDL2v1 {
          PrintList(RW.EXT,section.ext);
          PrintList(RW.INV,section.inv);
 
-         int EmitCount(IEnumerable<ID> list,string type) { 
+         int EmitCount(IEnumerable<ICDL2Object> list,string type) { 
             int count = list.Count();
             if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #"); }
             return count;
          }
 
-         if (EmitCount(section.constants,"CONST") > 0) {
+         if (EmitCount(section.Constants,"CONST") > 0) {
             Emit(RW.CONST.Decorate(emitter,SE.ReservedWord)," ");
-            Print((Const)section.Symbols[section.constants.First()]);
-            foreach (ID constId in section.constants.Skip(1)) {
+            Print(section.Constants.First());
+            foreach (Const constant in section.Constants.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
-               Print((Const)section.Symbols[constId]);
+               Print(constant);
             }
             EmitSeparatorWithNL(TT.END);
          }
 
-         if (EmitCount(section.variables,"VAR  ") > 0) {
-            PrintList(RW.VAR,section.variables);
+         if (EmitCount(section.Variables,"VAR  ") > 0) {
+            PrintList(RW.VAR,section.Variables.Select(variable=>variable.id));
          }
 
-         if (EmitCount(section.lists,"LIST ") > 0) {
+         if (EmitCount(section.Lists,"LIST ") > 0) {
             Emit(RW.LIST.Decorate(emitter,SE.ReservedWord)," ");
-            Print((LIST)section.Symbols[section.lists.First()]);
-            foreach (ID listId in section.lists.Skip(1)) {
+            Print(section.Lists.First());
+            foreach (LIST list in section.Lists.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
-               Print((LIST)section.Symbols[listId]);
+               Print(list);
             }
             EmitSeparatorWithNL(TT.END);
          }
 
-         IEnumerable<ID> macros = section.algorithms.Where(r => section.Symbols[r] is Macro);
-         if (EmitCount(macros,"MACRO") > 0) foreach (ID macroId in macros) Print((Macro)section.Symbols[macroId]);
+         if (EmitCount(section.Macros,"MACRO") > 0) foreach (Macro macro in section.Macros) Print(macro);
 
-         IEnumerable<ID> codes = section.algorithms.Where(r => section.Symbols[r] is Procedure);
-         if (EmitCount(codes,"CODE ") > 0) foreach (ID codeId in codes) Print((Procedure)section.Symbols[codeId]);
+         if (EmitCount(section.Procedures,"PROC ") > 0) foreach (Procedure proc in section.Procedures) Print(proc);
 
       });     
 
@@ -236,12 +236,12 @@ namespace CDL2v1 {
       }
 
       private void PrintLude(RW ludeType,Container container) {
-         if (container is Section) {
-            if (container.Ludes[ludeType].Count != 0) {
+         if (container is Section section) {
+            if (section.Ludes[ludeType].Count != 0) {
                Emit(ludeType.Decorate(emitter,SE.ReservedWord)," ");
                // Section Ludes are stored as ids of a generated Procedure item.
-               if (container.Symbols[container.Ludes[ludeType].First()] is Procedure code) { // This should always be the case
-                  Print(code.alternatives.First());
+               if (section.local[section.Ludes[ludeType].First()] is Procedure proc) { // This should always be the case
+                  Print(proc.alternatives.First());
                   EmitSeparatorWithNL(TT.END);
                } else {
                   ReportError($"Internal error: {ludeType} lude is not a Procedure item.");
@@ -311,37 +311,37 @@ namespace CDL2v1 {
 
       public void Print(Call call,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
-         if (call.id.owner != null) {
-            if (call.id.owner.TryGetValue(call.id,out NamedElement? ne) && ne is Algorithm algorithm) {
+         if (call.id.section != null) {
+            if (call.id.section.local.TryGetValue(call.id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
                if (algorithm is Macro) callDecorator |= AlgorithmNameType.Macro;
                if (algorithm.algorithmType == RW.TEST || algorithm.algorithmType == RW.PREDICATE) callDecorator |= AlgorithmNameType.CanFail;
             }
 
-            if (call.id.owner.Owner is Section section) {
-               // This covers local usages
-               if (section.abstr.Contains(call.id)) callDecorator |= AlgorithmNameType.Abstr;
-               if (section.ext.Contains(call.id)) callDecorator |= AlgorithmNameType.Ext;
-               if (section.import.Contains(call.id)) callDecorator |= AlgorithmNameType.Imported;
+            //if (call.id.owner.Owner is Section section) {
+            //   // This covers local usages
+            //   if (section.abstr.Contains(call.id)) callDecorator |= AlgorithmNameType.Abstr;
+            //   if (section.ext.Contains(call.id)) callDecorator |= AlgorithmNameType.Ext;
+            //   if (section.import.Contains(call.id)) callDecorator |= AlgorithmNameType.Imported;
 
-               if (section.inv.Contains(call.id)) {
-                  if (section.Parent is Layer currentLayer) {
-                     if (!TryFindInvocationType(call.id,ref callDecorator,AlgorithmNameType.Ext,currentLayer)) {
-                        if (currentLayer.Parent is Module module) {
-                           int layerIndex = module.Children.IndexOf(currentLayer);
-                           if (layerIndex > 1) {
-                              Layer previousLayer = (Layer)module.Children[layerIndex - 1];
-                              TryFindInvocationType(call.id,ref callDecorator,AlgorithmNameType.Abstr,previousLayer);
-                           }
-                        }
-                     }
-                  }
-               }
-            }
+            //   if (section.inv.Contains(call.id)) {
+            //      if (section.Parent is Layer currentLayer) {
+            //         if (!TryFindInvocationType(call.id,ref callDecorator,AlgorithmNameType.Ext,currentLayer)) {
+            //            if (currentLayer.Parent is Module module) {
+            //               int layerIndex = module.Children.IndexOf(currentLayer);
+            //               if (layerIndex > 1) {
+            //                  Layer previousLayer = (Layer)module.Children[layerIndex - 1];
+            //                  TryFindInvocationType(call.id,ref callDecorator,AlgorithmNameType.Abstr,previousLayer);
+            //               }
+            //            }
+            //         }
+            //      }
+            //   }
+            //}
          } else {
             ReportError($"Internal error: {call.id} has no owner.");
          }
 
-            EmitWithExtraSpace(extraSpace,call.id.token.TokenString.Decorate(emitter,SE.AlgorithmName,callDecorator));
+         EmitWithExtraSpace(extraSpace,call.id.token.TokenString.Decorate(emitter,SE.AlgorithmName,callDecorator));
          foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {
@@ -381,17 +381,19 @@ namespace CDL2v1 {
 
       private void PrintList(RW rw,IEnumerable<ID> ids) {
          string DecoratedID(ID id) {
-            Debug.Assert(id.owner != null,"id.owner is null");
-            if (id.owner.TryGetValue(id,out NamedElement ne)) {
-               return ne switch {
-                  Const c => c.id.Decorate(emitter,SE.Const),
-                  LIST l => l.id.Decorate(emitter,SE.List),
-                  Algorithm a => a.id.Decorate(emitter,SE.InputAffix),
-                  _ => id.token.TokenString,
-               };
+            //if (id.section == null) {
+
+            //} else {
+            //   if (id.owner.TryGetValue(id,out NamedElement obj)) {
+            //      return obj switch {
+            //         Const c => c.id.Decorate(emitter,SE.Const),
+            //         LIST l => l.id.Decorate(emitter,SE.List),
+            //         Algorithm a => a.id.Decorate(emitter,SE.InputAffix),
+            //         _ => id.token.TokenString,
+            //      };
+            //   }
+              return id.token.TokenString;
             }
-            return id.token.TokenString;
-         }
          if (ids.Any()) {
             Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First()));
             foreach (ID id in ids.Skip(1)) {
@@ -401,6 +403,7 @@ namespace CDL2v1 {
             EmitSeparatorWithNL(TT.END);
          }
       }
+
 
       public void Print(Procedure code) {
          PrintProcHead(code);
@@ -514,8 +517,8 @@ namespace CDL2v1 {
       /// Print the Ludes for the container if it can have any at the correct place.
       /// (Why they couldn't position the Ludes in the same place for a PROGRAM as the other items is a mystery).
       /// </summary>
-      /// <param name="unit"></param>
-      /// <param name="action"></param>
+      /// <param Name="unit"></param>
+      /// <param Name="action"></param>
       private void PrintContainer(Container unit,Action action) {
          Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
          Indented(() => action());

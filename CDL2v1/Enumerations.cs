@@ -200,8 +200,8 @@ namespace CDL2v1 {
 
    /// <summary>
    /// Character codes in the Wingdings 3 font.
-   /// ImportExport is placed to the left of the name when imported and to the right when exported. Mutually exclusive.
-   /// Abstr/Ext/AbstrExt is placed to the left of the name when invoked, and to the right when defined.
+   /// ImportExport is placed to the left of the Name when imported and to the right when exported. Mutually exclusive.
+   /// Abstr/Ext/AbstrExt is placed to the left of the Name when invoked, and to the right when defined.
    /// </summary>
    public enum  AnnotationSymbol {
       None = 0,
@@ -219,11 +219,11 @@ namespace CDL2v1 {
       public AS Suffix2 = Suffix2;
 
       /// <summary>
-      /// The string to use as a prefix for a name.
+      /// The string to use as a prefix for a Name.
       /// </summary>
       public string Prefix => (Prefix1 != AS.None ? $"{(char)Prefix1}" : "")+(Prefix2 != AS.None ? $"{(char)Prefix2}" : "");
       /// <summary>
-      /// The string to use as a suffix for a name.
+      /// The string to use as a suffix for a Name.
       /// </summary>
       public string Suffix => (Suffix1 != AS.None ? $"{(char)Suffix1}" : "")+(Suffix2 != AS.None ? $"{(char)Suffix2}" : "");
 

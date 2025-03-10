@@ -1,4 +1,4 @@
-﻿// Ignore Spelling: Transput
+﻿// Ignore Spelling: Transput CDL abstr ext inv ludes lude lwb upb
 
 using System;
 using System.Collections.Generic;
@@ -18,21 +18,6 @@ namespace CDL2v1 {
       public Set() { }
       public Set(IEnumerable<T> collection) : base(collection) { }
    }
-
-   /// <summary>
-   /// Base class for all elements that have names in the syntax tree.
-   /// </summary>
-   /// <param id="id"></param>
-   internal class NamedElement(ID id) {
-      public readonly ID id = id;
-
-      override public string ToString() => $"{ItemTypeShortName} {id.token.TokenString}";
-      public string AsName(string replacement="") => id.AsIdentifier(replacement);
-      protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];
-
-      public Container? Parent;      // null for the Program and Modules.
-   }
-
    // Marker interfaces to allow lists to be composed of permissible elements.
    internal interface IMacroElement { }
    internal interface IConstElement { }
@@ -43,19 +28,38 @@ namespace CDL2v1 {
    internal interface ICDL2Object { }
 
    /// <summary>
+   /// Base class for all elements that have names in the syntax tree.
+   /// </summary>
+   /// <param id="id"></param>
+   internal class NamedElement(ID id) {
+      public readonly ID id = id;
+      public Container? Parent;      // null for the Program and Modules.
+
+      override public string ToString() => $"{ItemTypeShortName} {id.token.TokenString}";
+      public string AsName(string replacement="") => id.AsIdentifier(replacement);
+      protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];      
+   }
+
+
+
+   /// <summary>
    /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
    /// </summary>
    /// <param id="id"></param>
    internal abstract class Container(ID id) : NamedElement(id) {
-      public Container(ID id,Container? parent) : this(id) {
-         this.Parent = parent;
-         this.Parent?.Children.Add(this);
-      }
-
       /// <summary>
       /// The Children of the container. Layers are ordered, hence the list.
       /// </summary>
       public List<Container> Children = [];
+
+      public Container(ID id,Container? parent) : this(id) {
+         Parent = parent;
+         if (Parent != null && (bool)(Parent.Children.Contains(this))) {
+            Logger.ReportError($"{ContainerName} is already a child of {Parent.ContainerName}");
+         } else {
+            this.Parent?.Children.Add(this);
+         }
+      }
 
       // The Ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
       // Section Ludes will be generated as Procedure items and given the id of the lude type (which are not legal as a CDL2 id).
@@ -66,14 +70,14 @@ namespace CDL2v1 {
       };
 
       /// <summary>
-      /// Sets the ParseLude action for the container. The default is to do nothing.
+      /// Sets the LudeParser action for the container. The default is to do nothing.
       /// </summary>
-      public Action<Parser,RW,Container> ParseLude = (parser,ludeType,container) => { };
+      public Action<Parser,RW,Container> LudeParser = (parser,ludeType,container) => { };
 
       /// <summary>
       /// The short id of the container with its type. Used in the ToString method.
       /// </summary>
-      public string ContainerName => $"{Parent?.ContainerName ?? ""} {ItemTypeShortName} {id.token.TokenString}";
+      public string ContainerName => $"{Parent?.ContainerName ?? ""} {ItemTypeShortName} {id.token.TokenString}".Trim();
    }
 
    /// <summary>
@@ -91,7 +95,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="id"></param>
       public Program(ID id) : base(id,null) {
-         ParseLude = Parser.ParseLudeOfIDs;
+         LudeParser = Parser.ParseLudeOfIDs;
          FirstProgram ??= this;
       }
 
@@ -104,11 +108,11 @@ namespace CDL2v1 {
       internal static Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)),out Program? program) ? program : null;
    }
 
-      /// <summary>
-      /// Represents a module in the syntax tree.
-      /// </summary>
-      /// <param id="id"></param>
-      internal class Module : Container {
+   /// <summary>
+   /// Represents a module in the syntax tree.
+   /// </summary>
+   /// <param id="id"></param>
+   internal class Module : Container {
       public readonly Set<ID> imports = [];         // Imports are specified in sections, but are propagated up the module level.
       public readonly Set <ID> exports = [];        // Exports are specified in sections, but are propagated up the module level.
 
@@ -116,7 +120,7 @@ namespace CDL2v1 {
       /// Module Ludes are a list of section IDs.
       /// </summary>
       /// <param id="id"></param>
-      public Module(ID id) : base(id) => ParseLude = Parser.ParseLudeOfIDs;
+      public Module(ID id) : base(id) => LudeParser = Parser.ParseLudeOfIDs;
    }
 
    /// <summary>
@@ -125,7 +129,7 @@ namespace CDL2v1 {
    /// </summary>
    /// <param id="id"></param>
    /// <param id="module"></param>
-   /// <param name="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
+   /// <param Name="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
    internal class Layer(ID id,Module module,Layer? ancestor) : Container(id,module) {
       public readonly Layer? Ancestor = ancestor;
       public readonly Dictionary<ID,Section> ext = [];
@@ -147,7 +151,12 @@ namespace CDL2v1 {
       public readonly Set<ID> export = [];
       public readonly Set<ID> import = [];
 
-      public readonly Dictionary<ID,ICDL2Object> local = []; 
+      public readonly Dictionary<ID,ICDL2Object> local = [];
+      public IEnumerable<Const> Constants => local.Values.OfType<Const>();
+      public IEnumerable<Var> Variables => local.Values.OfType<Var>();
+      public IEnumerable<LIST> Lists => local.Values.OfType<LIST>();
+      public IEnumerable<Macro> Macros => local.Values.OfType<Macro>();
+      public IEnumerable<Procedure> Procedures => local.Values.OfType<Procedure>();
 
       /// <summary>
       /// Sections have Ludes each of which contains the ID of an internally generated CODE FUNCTION or ACTION which consist of a single alternative.
@@ -155,7 +164,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="id"></param>
       /// <param id="layer"></param>
-      public Section(ID id,Layer layer) : base(id,layer) => ParseLude = Parser.ParseLudeOfCalls;
+      public Section(ID id,Layer layer) : base(id,layer) => LudeParser = Parser.ParseLudeOfCalls;
 
       public static Type[] ProvidedElementImplementors;
       static Section() {
@@ -198,6 +207,8 @@ namespace CDL2v1 {
             return ait;
          }
       }
+
+      public string AlgorithmName => $"{algorithmType} {id}";
 
       public bool TryGetAffix(ID id,out Affix affix) => (affix = formals.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
@@ -265,8 +276,8 @@ namespace CDL2v1 {
       }
       private SA? sa = null;
       /// <summary>
-      /// Used to force the re-computation of the name annotations.
-      /// TODO: figure out when to re-compute name annotations.
+      /// Used to force the re-computation of the Name annotations.
+      /// TODO: figure out when to re-compute Name annotations.
       /// </summary>
       public void ResetNameAnnotations() => sa = null;
 
@@ -277,7 +288,7 @@ namespace CDL2v1 {
    /// An imported algorithm is a reference to an algorithm in another module. Thus it has only a header and no body.
    /// </summary>
    internal class ImportedAlgorithm : Algorithm {
-      public ImportedAlgorithm(ID id,List<Affix> formals,Token algType,Section section) : base(id,formals,[],algType,TT.NOBODY,section) => Parent = section;
+      public ImportedAlgorithm(ID id,List<Affix> formals,Token algorithmType,Section section) : base(id,formals,[],algorithmType,TT.NOBODY,section) => Parent = section;
    }
 
    /// <summary>
@@ -309,7 +320,7 @@ namespace CDL2v1 {
    internal class Call(ID id)  {
       public readonly ID id = id;
       public readonly List<IActualArg> args = [];
-      override public string ToString() => $"{id.name}+{string.Join("+",args)}";
+      override public string ToString() => $"{id.Name}+{string.Join("+",args)}";
    }
    /// <summary>
    /// The last element(in an alternative) can be:
@@ -335,7 +346,7 @@ namespace CDL2v1 {
             case LCT.Succeed: return "+";
             case LCT.Fail: return "-";
             case LCT.Abort: return "?";
-            case LCT.Repeat: return $"*{(label is null || label == ID.AnonID ? "" : label.name)}";
+            case LCT.Repeat: return $"*{(label is null || label == ID.AnonID ? "" : label.Name)}";
             case LCT.Group: return group?.ToString() ?? "";
             default: return "ERROR";
          }
@@ -388,7 +399,7 @@ namespace CDL2v1 {
       // override public string ToString() => $"LIST {id.id}({lwb.StringValue}:{upb.StringValue})";
    }
    internal class Var(ID id) : NamedElement(id), IMacroElement, ICDL2Object {
-      override public string ToString() => $"VAR {id.name}";
+      override public string ToString() => $"VAR {id.Name}";
    }
    internal class Const(ID id) : NamedElement(id), IConstElement, IMacroElement, IProvidedElement, ICDL2Object {
       public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
@@ -426,7 +437,7 @@ namespace CDL2v1 {
    internal class Local : NamedElement, IMacroElement {
       internal static readonly Local Default = new(ID.AnonID);
       public Local(ID id) : base(id) { }
-      override public string ToString() => $"-{id.name}";
+      override public string ToString() => $"-{id.Name}";
    }
 
    internal class Undeclared() : NamedElement(ID.AnonID), ICDL2Object {

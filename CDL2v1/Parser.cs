@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Ignore Spelling: CDL
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -38,6 +40,17 @@ namespace CDL2v1 {
             set {
                type = (OT)Enum.Parse(typeof(OT),value.Item1.ToString());
                name = value.Item2;
+               switch (type) {
+                  case OT.PROGRAM:
+                     (parser.currentModule, parser.currentLayer, parser.currentSection) = (null, null, null);
+                     break;
+                  case OT.MODULE:
+                     (parser.currentProgram,parser.currentLayer, parser.currentSection) = (null, null,null);
+                     break;
+                  case OT.LAYER:
+                     parser.currentSection = null;
+                     break;
+               }
             }
          }
 
@@ -83,22 +96,31 @@ namespace CDL2v1 {
          Logger.logger.ErrorAction = null;
       }
 
+      /// <summary>
+      /// Parse a program. 
+      /// PROGRAM program Name.
+      ///   PART module1, module2, ... .
+      ///   PRELUDE id1, id2, ... .
+      ///   ROOT id1, id2, ... .
+      ///   POSTLUDE id1, id2, ... .
+      /// ENDPROG program Name.
+      /// </summary>
+      /// <param Name="programId"></param>
       private void ParseProgram(ID programId) {
-         Log(1,$"Parsing {currentProgram}");
-         currentObject.Object = (RW.PROGRAM, programId);
-         currentProgram = new Program(programId);
          if (Program.Programs.ContainsKey(programId)) {
             ReportError($"Program {programId} already exists");
             return;
          } else {
-            Program.Programs[programId] = currentProgram;
+            currentObject.Object = (RW.PROGRAM, programId);
+            Program.Programs[programId] = currentProgram = new Program(programId);
+            Log(1,$"Parsing {currentProgram}"); 
          }
 
          // Now should see parts
          List<ID> parts = [];
 
          if (tokens.CanConsume(RW.PART)) {
-            ParseIDList(parts,null,null);
+            ParseIDList(RW.PART,parts);
             // TODO: Semantic Analysis to verify that the parts are modules.
          }
          ParseLudes(currentProgram);
@@ -123,14 +145,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="moduleId">The ID (id) of the module.</param>
       private void ParseModule(ID moduleId) {
-         currentObject.Object = (RW.MODULE, moduleId);
-         Log(1,$"Parsing {currentObject}");
-         Module module = new Module(moduleId);
          if (Program.Modules.ContainsKey(moduleId)) {
             ReportError($"Program {moduleId} already exists");
             return;
          } else {
-            Program.Modules[moduleId] = currentModule = module;
+            Program.Modules[moduleId] = currentModule = new Module(moduleId);
+            currentObject.Object = (RW.MODULE, moduleId);
+            Log(1,$"Parsing {currentObject}");
          }
          
          // Now should see layers
@@ -146,13 +167,7 @@ namespace CDL2v1 {
       private void ParseLayer(ID layerId) {
          Debug.Assert(currentModule != null);
          currentObject.Object = (RW.LAYER, layerId);
-         Layer layer =new Layer(layerId,currentModule,currentLayer);
-         if (currentModule.Children.Contains(layer)) {
-            ReportError($"Layer {layerId} already exists in module {currentModule.id}");
-            return;
-         } else {
-            currentModule.Children.Add(currentLayer=layer);
-         }
+         currentLayer= new Layer(layerId,currentModule,currentLayer);
          Log(1,$"Parsing {currentObject}");
 
          // Now should see sections
@@ -169,13 +184,7 @@ namespace CDL2v1 {
       private void ParseSection(ID sectionId) {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
-         Section section = new Section(sectionId,currentLayer);
-         if (currentLayer.Children.Contains(section)) {
-            ReportError($"Section {sectionId} already exists in layer {currentLayer.id}");
-            return;
-         } else {
-            currentLayer.Children.Add(currentSection = section);
-         }
+         currentSection = new Section(sectionId,currentLayer);
          Log(1,$"Parsing {currentObject}");
 
          // Now should see section parts
@@ -510,7 +519,7 @@ namespace CDL2v1 {
          ParseInterfaceList(RW.EXPORT,currentSection.export);
          // Required interfaces
          ParseInterfaceList(RW.INV,currentSection.inv);
-         ParseInterfaceList(RW.IMPORT,currentSection.import,currentModule.imports);
+         ParseInterfaceList(RW.IMPORT,currentSection.import);
       }
 
       /// <summary>
@@ -518,13 +527,11 @@ namespace CDL2v1 {
       /// TODO: Verify that the IDs are unique within BOTH interface lists.
       /// </summary>
       /// <param id="interfaceType"></param>
-      /// <param id="idList1">The section interface list.</param>
-      /// <param id="idList2">The module interface list for imports.</param>
+      /// <param id="idList">The section interface list.</param>
       /// <returns></returns>
-      private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
-         Debug.Assert(currentSection != null);
+      private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList) {
          if (tokens.Consume(interfaceType)) {
-            ParseIDList(idList1,idList2: idList2);
+            ParseIDList(interfaceType,idList);
             return true;
          } else {
             return false;
@@ -532,9 +539,9 @@ namespace CDL2v1 {
       }
 
       private void ParseLudes(Container container) {
-         container.ParseLude(this,RW.PRELUDE,container);
-         container.ParseLude(this,RW.ROOT,container);
-         container.ParseLude(this,RW.POSTLUDE,container);
+         container.LudeParser(this,RW.PRELUDE,container);
+         container.LudeParser(this,RW.ROOT,container);
+         container.LudeParser(this,RW.POSTLUDE,container);
       }
 
       internal static void ParseLudeOfIDs(Parser parser,RW type,Container container) {
@@ -565,7 +572,6 @@ namespace CDL2v1 {
             parser.tokens.CanConsumeEnd();
             Procedure lude = new(type,(Section)container);
             lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
-            container.Symbols[lude.id] = lude;
             container.Ludes[type].Add(lude.id);
          }
       }
@@ -575,7 +581,7 @@ namespace CDL2v1 {
       /// The lists cannot contain duplicates
       /// TODO: Can an imports be in more than one section in a module? Let's assume no.
       /// </summary>
-      /// <param id="idList1"></param>
+      /// <param id="idList"></param>
       /// <param id="idList2"></param>
       /// <param id="processID"></param>
       private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList1,Func<ID,ICDL2Object> processID,Dictionary<ID,ICDL2Object>? idList2 = null) {
@@ -596,14 +602,16 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse plain list of IDs. Interface lists, PARTs and VARs.
       /// </summary>
-      /// <param name="idList1"></param>
-      /// <param name="idList2"></param>
-      private void ParseIDList(ICollection<ID> idList1,ICollection<ID>? idList2 = null) {
+      /// <param Name="idList1"></param>
+      /// <param Name="idList2"></param>
+      private void ParseIDList(RW type,ICollection<ID> idList1) {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            if (idList2 != null && !idList2.Contains(id)) idList2.Add(id);
-            if (!idList1.Contains(id)) idList1.Add(id);
-            // TODO: need error reporting for duplicate entries
+            if (!idList1.Contains(id)) {
+               idList1.Add(id);
+            } else {
+               ReportError($"Duplicate ID {id} in {type}");
+            }
             if (!tokens.CanConsumeSep()) break;
          }
          tokens.CanConsumeEnd();

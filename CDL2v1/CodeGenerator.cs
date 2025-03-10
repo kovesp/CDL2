@@ -45,13 +45,13 @@ namespace CDL2v1 {
       /// <param id="mod"></param>
       private void GenerateLude(RW ludeType,Module mod) {
          foreach (ID secId in mod.Ludes[ludeType]) {
-            foreach (Container layer in mod.Children) {
-               foreach (Container section in layer.Children) {
+            foreach (Layer layer in mod.Children.Cast<Layer>()) {
+               foreach (Section section in layer.Children.Cast<Section>()) {
                   if (section.id == secId) {
                      Debug.Assert(section.Ludes[ludeType].Count == 1,$"CG: {section} referenced in {ludeType} of {mod}. Expected reference to single Procedure, found {section.Ludes[ludeType].Count}");
                      ID procId = section.Ludes[ludeType][0];
-                     Logger.Log($"Generating proc for {procId}");
-                     GenerateProcedureCode((Procedure)section.Symbols[procId]);
+                     Logger.Log($"Generating Procedure for {procId}");
+                     GenerateProcedureCode((Procedure)section.local[procId]);
                   }
                }
             }
@@ -87,11 +87,10 @@ namespace CDL2v1 {
       /// <param id="section"></param>
       private void GenerateSection(Section section) {
          cg.GenerateStart(section);
-         foreach (ID procId in section.algorithms) {
-            Algorithm proc = (Algorithm)section.Symbols[procId];
-            if (proc is Procedure code) {
-               GenerateProcedureCode(code);
-            } else if (proc is Macro macro) {
+         foreach (Algorithm algorithm in section.local.Values.Where(obj=>obj is Algorithm)) {
+            if (algorithm is Procedure proc) {
+               GenerateProcedureCode(proc);
+            } else if (algorithm is Macro macro) {
                GenerateMacroCode(macro);
             }
          }
