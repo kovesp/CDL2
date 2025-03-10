@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Xps;
@@ -52,59 +53,35 @@ namespace CDL2v1 {
          emitter.KeepTogether = keepTogether;
       }
 
+      public static readonly FontWeight Bold = FontWeights.DemiBold;
+      public static readonly FontStyle Italic = FontStyles.Oblique;
+
       public record Decoration (string FG = "White", string BG = "#1E1E1E", DS Style = DS.Normal);
 
       public static Dictionary<SE,Decoration> Decorators = new() {
          { SE.Id                 ,new Decoration() },
-         { SE.Unit               ,new Decoration(FG:"#3177cb",Style:DS.Bold) },
-         { SE.ReservedWord       ,new Decoration(FG:"#3177cb",Style:DS.Bold) },
-         { SE.InputAffix         ,new Decoration(FG:"Gold") },
-         { SE.OutputAffix        ,new Decoration(FG:"Red") },
-         { SE.TransputAffix      ,new Decoration(FG:"DarkRed") },
-         { SE.StringAffix        ,new Decoration(FG:"DarkRed") },
+         { SE.Unit               ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
+         { SE.ReservedWord       ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
+         { SE.InputAffix         ,new Decoration(FG:"#9cdcfe") },
+         { SE.OutputAffix        ,new Decoration(FG:"#51c0fd") },
+         { SE.TransputAffix      ,new Decoration(FG:"#26b1fd") },
+         { SE.StringAffix        ,new Decoration(FG:"#d69d85") },
          { SE.Local              ,new Decoration(FG:"DarkOrange") },
+         { SE.Label              ,new Decoration(FG:"LightGray") },
          { SE.Const              ,new Decoration(FG:"Olive") },
          { SE.Var                ,new Decoration(FG:"OliveDrab") },
          { SE.List               ,new Decoration(FG:"DarkOliveGreen") },
          { SE.Number             ,new Decoration(FG:"#b5cea8") },
          { SE.String             ,new Decoration(FG:"#d69d85") },
-         { SE.Comment            ,new Decoration(FG:"#206739") },
+         { SE.Comment            ,new Decoration(FG:"#57a64a") },
          { SE.Other              ,new Decoration() },                              // Will be used to obtain the overall background
-         { SE.AlgorithmName,new Decoration() },                              // Not used, but required entry
+         { SE.AlgorithmName      ,new Decoration() },                              // Not used, but required entry
        };
 
-      public static Dictionary<AlgorithmNameType,Decoration> InvocationDecorators = new() {
-         { AlgorithmNameType.None                                             ,new Decoration(FG:"DarkGreen") },
-         { AlgorithmNameType.CanFail                                          ,new Decoration(FG:"DarkGreen",Style:DS.Italic) },
-         { AlgorithmNameType.Macro                                            ,new Decoration(FG:"DarkGreen",Style:DS.Underline) },
-
-         //{ AlgorithmNameType.Ext                                              ,new Decoration(FG:"MediumAquamarine") },
-         //{ AlgorithmNameType.Abstr                                            ,new Decoration(FG:"LightGreen") },
-         //{ AlgorithmNameType.Abstr|AlgorithmNameType.Ext                                    ,new Decoration(FG:"LightGreen") },
-         //{ AlgorithmNameType.Imported                                         ,new Decoration(FG:"Blue") },
-         //{ AlgorithmNameType.Imported|AlgorithmNameType.Abstr                               ,new Decoration(FG:"Blue") },
-         //{ AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                       ,new Decoration(FG:"Blue") },
-
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Ext                                  ,new Decoration(FG:"MediumAquamarine",Style:DS.Italic) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Abstr                                ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                        ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Imported                             ,new Decoration(FG:"Blue",            Style:DS.Italic) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Imported|AlgorithmNameType.Abstr                   ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext           ,new Decoration(FG:"LightGreen",      Style:DS.Italic) },
-
-         //{ AlgorithmNameType.Macro|AlgorithmNameType.Ext                                    ,new Decoration(FG:"MediumAquamarine",Style:DS.Underline) },
-         //{ AlgorithmNameType.Macro|AlgorithmNameType.Abstr                                  ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
-         //{ AlgorithmNameType.Macro|AlgorithmNameType.Abstr|AlgorithmNameType.Ext                          ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
-         //{ AlgorithmNameType.Macro|AlgorithmNameType.Imported                               ,new Decoration(FG:"Blue",            Style:DS.Underline) },
-         //{ AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr                     ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
-         //{ AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext             ,new Decoration(FG:"LightGreen",      Style:DS.Underline) },
-
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Ext                        ,new Decoration(FG:"MediumAquamarine",Style:DS.Italic|DS.Underline) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Abstr                      ,new Decoration(FG:"LightGreen",      Style:DS.Italic|DS.Underline) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Abstr|AlgorithmNameType.Ext              ,new Decoration(FG:"LightGreen",      Style:DS.Italic|DS.Underline) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported                   ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr         ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
-         //{ AlgorithmNameType.CanFail|AlgorithmNameType.Macro|AlgorithmNameType.Imported|AlgorithmNameType.Abstr|AlgorithmNameType.Ext ,new Decoration(FG:"Blue",            Style:DS.Italic|DS.Underline) },
+      public static Dictionary<AlgorithmNameType,Decoration> AlgorithmNameDecorators = new() {
+         { AlgorithmNameType.None,   new Decoration(FG:"#dcdcaa") },
+         { AlgorithmNameType.CanFail,new Decoration(FG:"#dcdcaa",Style:DS.Italic) },
+         { AlgorithmNameType.Macro,  new Decoration(FG:"#dcdcaa",Style:DS.Underline) },
        };
 
 
@@ -114,7 +91,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       public static Set<string> UsedColors() {
          Set<string> colors = [];
-         foreach (Decoration decoration in Decorators.Values.Concat(InvocationDecorators.Values)) {
+         foreach (Decoration decoration in Decorators.Values.Concat(AlgorithmNameDecorators.Values)) {
             colors.Add(decoration.FG);
             colors.Add(decoration.BG);
          }
@@ -171,18 +148,20 @@ namespace CDL2v1 {
       };
 
       public void Print(Dictionary<ID,Program> programs,Dictionary<ID,Module> modules) {
+         emitter.BeginUpdate();
          foreach (Program program in programs.Values) Print(program);
          foreach (Module module in modules.Values) Print(module);
+         emitter.EndUpdate();
       }
 
       public void Print(Program program) =>PrintContainer(program,() => {
          PrintList(RW.PART,program.Parts);
          PrintLudes(program);
-      },Newline:true);
+      },Newline: true,updateUI: true);
 
-      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Children.Cast<Layer>()) Print(layer); },Newline:true); 
+      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Children.Cast<Layer>()) Print(layer); },Newline: true,updateUI: true); 
 
-      public void Print(Layer layer)   => PrintContainer(layer,()  => { foreach (Section section in layer.Children.Cast<Section>()) Print(section); });
+      public void Print(Layer layer)   => PrintContainer(layer,() => { foreach (Section section in layer.Children.Cast<Section>()) Print(section); },updateUI: false);
 
       public void Print(Section section) => PrintContainer(section,() => {
          PrintList(RW.EXPORT,section.export);
@@ -191,9 +170,9 @@ namespace CDL2v1 {
          PrintList(RW.EXT,section.ext);
          PrintList(RW.INV,section.inv);
 
-         int EmitCount(IEnumerable<ICDL2Object> list,string type) { 
+         int EmitCount(IEnumerable<ICDL2Object> list,string type) {
             int count = list.Count();
-            if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #"); }
+            if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(emitter,SE.Comment)); }
             return count;
          }
 
@@ -208,7 +187,7 @@ namespace CDL2v1 {
          }
 
          if (EmitCount(section.Variables,"VAR  ") > 0) {
-            PrintList(RW.VAR,section.Variables.Select(variable=>variable.id));
+            PrintList(RW.VAR,section.Variables.Select(variable => variable.id));
          }
 
          if (EmitCount(section.Lists,"LIST ") > 0) {
@@ -225,7 +204,7 @@ namespace CDL2v1 {
 
          if (EmitCount(section.Procedures,"PROC ") > 0) foreach (Procedure proc in section.Procedures) Print(proc);
 
-      });     
+      },updateUI: true);     
 
       private void PrintLudes(Container container) {
          PrintLude(RW.PRELUDE,container);
@@ -507,12 +486,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Name="unit"></param>
       /// <param Name="action"></param>
-      private void PrintContainer(Container unit,Action action,bool Newline = false) {
+      private void PrintContainer(Container unit,Action action,bool Newline = false,bool updateUI = false) {
          Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
          Indented(() => action());
          Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
          if (unit is Module || unit is Section) PrintLudes(unit);
          if (Newline) Emitnl();
+         if (updateUI) emitter.UpdateUI();
       }
 
       /// <summary>

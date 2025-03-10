@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Ignore Spelling: CDL
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Diagnostics;

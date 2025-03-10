@@ -15,6 +15,20 @@ namespace CDL2v1 {
       private Dictionary<string,Brush> colorMap = [];
       private FontFamily? symbolFont;
 
+      private bool isRenderingSuspended = false;
+      private int batchDepth = 0;
+      private readonly List<FormattedTextSegment> textSegmentBuffer = [];
+
+      // Structure to hold formatted text segments for batching
+      private record FormattedTextSegment(
+         string Text,
+         Brush Foreground,
+         Brush Background,
+         FontWeight Weight = default,
+         FontStyle Style = default,
+         TextDecorationCollection? Decorations = null,
+         bool LineBreak = false
+      );
 
       public EmitterWindow() {
          SupportsDecoration = true;
@@ -36,7 +50,8 @@ namespace CDL2v1 {
             window = new Window {
                Title = "Pretty Print Window",
                Width = 900,
-               Height = 1200,
+               Height = (int)(SystemParameters.WorkArea.Height * 0.95),
+               Top = 10,
                Foreground = colorMap["Foreground"],
                Background = colorMap["Background"],
                Content = new Grid {
@@ -157,10 +172,22 @@ namespace CDL2v1 {
                               FontWeight fontWeight = default,FontStyle fontStyle = default,
                               TextDecorationCollection? textDecorations = null,
                               bool lineBreak = false) {
-         // Ensure the operation is performed on the UI thread
+         // Ensure the window exists
          Debug.Assert(window != null,"Window is null");
+
+         if (isRenderingSuspended) {
+            // When rendering is suspended, just add to the buffer
+            textSegmentBuffer.Add(new FormattedTextSegment(
+               text,fg,bg,fontWeight,fontStyle,textDecorations,lineBreak
+            ));
+            return;
+         }
+
+         // Normal (non-buffered) rendering
          window.Dispatcher.Invoke(() => {
-            text = Regex.Replace(text,@"( := | =: | = | : )\s*$",$"{ThinSpace}$1",RegexOptions.IgnorePatternWhitespace);
+            text = Regex.Replace(text,@"( := | =: | = | : )\s*$",$"{ThinSpace}$1",
+                 RegexOptions.IgnorePatternWhitespace);
+
             outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run(text) {
                Foreground = fg,
                Background = bg,
@@ -169,45 +196,95 @@ namespace CDL2v1 {
                FontFamily = new FontFamily("Cascadia Code"),
                TextDecorations = textDecorations
             });
-            //outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run("\x86") {
-            //   Foreground = fg,
-            //   Background = bg,
-            //   FontWeight = fontWeight,
-            //   FontStyle = fontStyle,
-            //   FontFamily = new FontFamily("Wingdings 3"),
-            //   TextDecorations = textDecorations
-            //});
-            if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
-         },isRenderingSuspended ? DispatcherPriority.Background : DispatcherPriority.Normal);
+
+            if (lineBreak)
+               outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
+         },DispatcherPriority.Background);
       }
 
-      public bool isRenderingSuspended = false;
       // Call this before making multiple updates
       public override void BeginUpdate() {
          if (window == null) return;
-         isRenderingSuspended = true;
-         window.Dispatcher.Invoke(() => {
-            // Find the ScrollViewer in the visual tree
-            if (outputTextBlock != null) {
-               ScrollViewer? scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
-               scrollViewer?.SetValue(ScrollViewer.CanContentScrollProperty,false);
-            }
-         });
+
+         batchDepth++;
+         if (batchDepth == 1) {
+            isRenderingSuspended = true;
+            textSegmentBuffer.Clear();
+
+            window.Dispatcher.Invoke(() => {
+               // Pause layout and rendering
+               if (outputTextBlock != null) {
+                  var scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
+                  scrollViewer?.SetValue(ScrollViewer.CanContentScrollProperty,false);
+               }
+            },DispatcherPriority.Send);
+         }
       }
 
       // Call this after completing updates
       public override void EndUpdate() {
          if (window == null) return;
-         isRenderingSuspended = false;
-         window.Dispatcher.Invoke(() => {
-            // Re-enable scrolling and force layout update
-            if (outputTextBlock != null) {
-               ScrollViewer? scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
-               scrollViewer?.SetValue(ScrollViewer.CanContentScrollProperty,true);
-               outputTextBlock.UpdateLayout();
+
+         if (batchDepth > 0) {
+            batchDepth--;
+            if (batchDepth == 0) {
+               isRenderingSuspended = false;
+
+               window.Dispatcher.Invoke(() => {
+                  // Apply all buffered content in one UI update
+                  FlushTextSegmentBuffer();
+
+                  // Re-enable scrolling and update layout
+                  if (outputTextBlock != null) {
+                     var scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
+                     scrollViewer?.SetValue(ScrollViewer.CanContentScrollProperty,true);
+                     outputTextBlock.UpdateLayout();
+                  }
+               },DispatcherPriority.Send);
             }
-         });
+         }
       }
+
+      // For very large documents, add a method to add intermediate UI updates
+      public override void UpdateUI() {
+         if (window == null || !isRenderingSuspended) return;
+         window.Dispatcher.Invoke(() => {
+            FlushTextSegmentBuffer();
+            // Force a layout update
+            outputTextBlock?.UpdateLayout();
+         },DispatcherPriority.Normal);
+      }
+
+      // Method to flush all buffered text segments to the UI
+      private void FlushTextSegmentBuffer() {
+         if (outputTextBlock == null || textSegmentBuffer.Count == 0) return;
+
+         // Apply all text segments in the buffer to the textblock
+         foreach (FormattedTextSegment segment in textSegmentBuffer) {
+            // Apply the regular expression transformation
+            string text = Regex.Replace(segment.Text,
+                @"( := | =: | = | : )\s*$",
+                $"{ThinSpace}$1",
+                RegexOptions.IgnorePatternWhitespace);
+
+            // Add the formatted segment to the TextBlock
+            outputTextBlock.Inlines.Add(new System.Windows.Documents.Run(text) {
+               Foreground = segment.Foreground,
+               Background = segment.Background,
+               FontWeight = segment.Weight != default ? segment.Weight : FontWeights.Normal,
+               FontStyle = segment.Style != default ? segment.Style : FontStyles.Normal,
+               FontFamily = new FontFamily("Cascadia Code"),
+               TextDecorations = segment.Decorations
+            });
+
+            if (segment.LineBreak)
+               outputTextBlock.Inlines.Add(new System.Windows.Documents.LineBreak());
+         }
+
+         // Clear the buffer after applying
+         textSegmentBuffer.Clear();
+      }
+
       // Helper to find parent element of specific type
       private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject => VisualTreeHelper.GetParent(child) switch {
          null => null,

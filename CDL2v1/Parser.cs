@@ -222,7 +222,7 @@ namespace CDL2v1 {
                ReportError($"Algorithm {id} already declared in section {currentSection.id} as {currentSection.local[id].GetType().Name}");
                return;
             }
-            List<Affix> formals = ParseFormals();
+            List<Affix>? formals = ParseFormals();
             if (formals == null) return;
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
@@ -586,7 +586,7 @@ namespace CDL2v1 {
       /// <param id="idList"></param>
       /// <param id="idList2"></param>
       /// <param id="processID"></param>
-      private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList1,Func<ID,ICDL2Object> processID,Dictionary<ID,ICDL2Object>? idList2 = null) {
+      private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList1,Func<ID,ICDL2Object?> processID,Dictionary<ID,ICDL2Object>? idList2 = null) {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
             ICDL2Object? cDL2Object = processID(id);

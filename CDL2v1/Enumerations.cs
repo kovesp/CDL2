@@ -1,4 +1,6 @@
-﻿global using TT  = CDL2v1.TokenType;
+﻿// Ignore Spelling: CDL
+
+global using TT  = CDL2v1.TokenType;
 global using RW  = CDL2v1.ReservedWord;
 global using PD  = CDL2v1.AffixDir;
 global using PT  = CDL2v1.AffixType;
@@ -127,7 +129,7 @@ namespace CDL2v1 {
       Id,                        // Default for ids, unless otherwise specified, e.g., AlgorithmName, ...Affix, Local.
       ReservedWord,              // Default for reserved words, unless otherwise specified, e.g., Unit
       Unit,                      // Units (PROGRAM, MODULE, LAYER, SECTION).
-      AlgorithmName,             // When used it will be overridden by the InvocationDecorators table
+      AlgorithmName,             // When used it will be overridden by the AlgorithmNameDecorators table
       InputAffix,                // Applied to affix ids in both Algorithm definitions and invocations.
       OutputAffix,               // Ditto
       TransputAffix,             // Ditto
@@ -140,6 +142,7 @@ namespace CDL2v1 {
       String,                    // Strings
       Comment,                   // Comments
       Other,                     // Default for other elements.
+      Label,
    }
    /// <summary>
    /// Algorithm Name types.

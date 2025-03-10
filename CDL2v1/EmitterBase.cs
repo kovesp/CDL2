@@ -161,18 +161,22 @@ namespace CDL2v1 {
       public bool WillKeepTogetherNotFitOnCurrentLine() => WillNotFitOnCurrentLine(KeepTogetherBuffer);
 
       // Initialize CurrentLine with the indent if empty.
-      void AddToCurrentLine(string str,bool extraSpace = false) {
+      private void AddToCurrentLine(string str,bool extraSpace = false) {
          if (CurrentLine.Length == 0) CurrentLine = new string(' ',(IndentLevel + extraIndent) * IndentWidth + (extraSpace ? 1 : 0));
          CurrentLine += str;
       }
 
       // Write the current line to the target. Add a newline if requested and return the request.
-      bool WriteNewLine(bool nl) {
+      private bool WriteNewLine(bool nl) {
          if (nl) {
             WriteLine(CurrentLine);
             CurrentLine = "";
          }
          return nl;
       }
+
+      public virtual void BeginUpdate() { }
+      public virtual void EndUpdate() { }
+      public virtual void UpdateUI() { }
    }
 }
