@@ -252,6 +252,7 @@ namespace CDL2v1 {
             }
             Debug.Assert(algorithm != null);
             currentSection.local[id] = algorithm;
+            id.section = currentSection;
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
@@ -282,18 +283,18 @@ namespace CDL2v1 {
          }
       }
       private void ParseProcedureBody(Procedure algorithm) {
-         algorithm.alternatives = ParseAlternatives();
+         algorithm.alternatives = ParseAlternatives(algorithm);
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
-      private List<Alternative> ParseAlternatives() {
+      private List<Alternative> ParseAlternatives(Procedure proc) {
          List<Alternative> alternatives = [];
          do {
-            alternatives.Add(ParseAlternative());
+            alternatives.Add(ParseAlternative(proc));
          } while (tokens.Optional(TT.ALTSEP)) ;
          return alternatives;
       }
 
-      private Alternative ParseAlternative() {
+      private Alternative ParseAlternative(Procedure proc) {
          List<Call> calls = [];
          LastCall? lastCall =null;
          do {
@@ -301,7 +302,7 @@ namespace CDL2v1 {
                // If we have a last call, then we should NOT have see a separator
                ReportError("Unexpected ,");
             } else if (tokens.Optional(out ID id)) {
-               calls.Add(ParseCall(id));
+               calls.Add(ParseCall(id,proc));
             } else if (tokens.Optional(TT.SUCCEED)) {
                lastCall = new LastCall(LCT.Succeed);
             } else if (tokens.Optional(TT.FAIL)) {
@@ -311,7 +312,7 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.REPEAT)) {
                lastCall = tokens.Optional(out id) ? new LastCall(id) : new LastCall(LCT.Repeat);
             } else if (tokens.Optional(TT.GRPOPEN)) {
-               lastCall = ParseGroup();
+               lastCall = ParseGroup(proc);
             } else {
                ReportError("Expected ID, +, -, ?, or *");
             }
@@ -324,18 +325,18 @@ namespace CDL2v1 {
          return new Alternative(calls,lastCall);
       }
 
-      private Call ParseCall(ID id) => ParseCall(this,id);
-      private static Call ParseCall(Parser parser,ID id) {
+      private Call ParseCall(ID id,Procedure proc) => ParseCall(this,id,proc);
+      private static Call ParseCall(Parser parser,ID id,Procedure proc) {
          Debug.Assert(parser.currentSection != null);
-         Call call = new(id);
+         Call call = new(id,proc);
          ParseActualArgs(parser,call);
          return call;
       }
 
-      private LastCall ParseGroup() {
+      private LastCall ParseGroup(Procedure proc) {
          LastCall? lastCall;
          ID label = ParseOptionalLabel();
-         Group group = new(label,ParseAlternatives());
+         Group group = new(label,ParseAlternatives(proc));
          if (!tokens.CanConsume(TT.GRPCLOSE)) ReportError("Expected )");
          lastCall = new LastCall(group);
          return lastCall;
@@ -564,14 +565,15 @@ namespace CDL2v1 {
       internal static void ParseLudeOfCalls(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
             //Debug.Assert(container != null);
+            Section section = (Section)container;
+            Procedure lude = new(type,section);
             List<Call> callList =[];
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               callList.Add(ParseCall(parser,ID.From(id)));
+               callList.Add(ParseCall(parser,ID.From(id),lude));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
-            Section section = (Section)container;
-            Procedure lude = new(type,section);
+
             lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
             section.Ludes[type].Add(lude.id);
             section.local[lude.id] = lude;

@@ -15,6 +15,7 @@ namespace CDL2v1 {
       private TextBlock? outputTextBlock;
       private Dictionary<string,Brush> colorMap = [];
       private FontFamily? symbolFont;
+      private FontFamily? textFont;
 
       private bool isRenderingSuspended = false;
       private int batchDepth = 0;
@@ -43,7 +44,8 @@ namespace CDL2v1 {
             foreach (string color in PrettyPrinter.UsedColors()) {
                colorMap[color] = new BrushConverter().ConvertFromString(color) as Brush ?? Brushes.Black;
             }
-            FontFamily symbolFont = new("Wingdings 3");
+            symbolFont = new("Wingdings 3");
+            textFont   = new("Cascadia Mono");
 
             colorMap["Foreground"] = colorMap[PrettyPrinter.Decorators[SE.Other].FG]; // Use SE.Other background
             colorMap["Background"] = colorMap[PrettyPrinter.Decorators[SE.Other].BG]; // Use SE.Other foreground
@@ -77,11 +79,6 @@ namespace CDL2v1 {
                         }
                }
             };
-
-            Typography.SetStandardLigatures(outputTextBlock,false);
-            Typography.SetDiscretionaryLigatures(outputTextBlock,false);
-            Typography.SetContextualLigatures(outputTextBlock,false);
-            Typography.SetHistoricalLigatures(outputTextBlock,false);
 
             // Set the button click event handler
             ((Button)((Grid)window.Content).Children[1]).Click += (s,e) => window.Close();
@@ -173,7 +170,6 @@ namespace CDL2v1 {
          AppendText("",colorMap["Foreground"],colorMap["Background"],lineBreak: true);
       }
 
-      private const char ThinSpace = '\u2009';
       private void AppendText(string text,Brush fg,Brush bg,
                               FontWeight fontWeight = default,FontStyle fontStyle = default,
                               TextDecorationCollection? textDecorations = null,
@@ -203,7 +199,7 @@ namespace CDL2v1 {
       }
 
       private void AddRun(Run run,bool lineBreak=false) {
-         run.FontFamily = new FontFamily("Cascadia Mono");
+         run.FontFamily = textFont; ;
          outputTextBlock?.Inlines.Add(run);
          if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
       }
@@ -284,6 +280,7 @@ namespace CDL2v1 {
          textSegmentBuffer.Clear();
       }
 
+      private const char ThinSpace = '\u2009';
       private static string FormatAlgorithmBodySeparators(string text) => Regex.Replace(text,
                       @"( := | =: | = | : )\s*$",
                       $"{ThinSpace}$1",

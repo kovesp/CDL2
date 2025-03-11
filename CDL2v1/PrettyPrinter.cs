@@ -325,90 +325,72 @@ namespace CDL2v1 {
       public void Print(Call call,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
          Algorithm? called = null;
-         if (call.id.section != null) {
-            if (call.id.section.local.TryGetValue(call.id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
-               called = algorithm;
-               callDecorator = algorithm.NameType;
-            }
-
-            //if (call.id.owner.Owner is Section section) {
-            //   // This covers local usages
-            //   if (section.abstr.Contains(call.id)) callDecorator |= AlgorithmNameType.Abstr;
-            //   if (section.ext.Contains(call.id)) callDecorator |= AlgorithmNameType.Ext;
-            //   if (section.import.Contains(call.id)) callDecorator |= AlgorithmNameType.Imported;
-
-            //   if (section.inv.Contains(call.id)) {
-            //      if (section.Parent is Layer currentLayer) {
-            //         if (!TryFindInvocationType(call.id,ref callDecorator,AlgorithmNameType.Ext,currentLayer)) {
-            //            if (currentLayer.Parent is Module module) {
-            //               int layerIndex = module.Children.IndexOf(currentLayer);
-            //               if (layerIndex > 1) {
-            //                  Layer previousLayer = (Layer)module.Children[layerIndex - 1];
-            //                  TryFindInvocationType(call.id,ref callDecorator,AlgorithmNameType.Abstr,previousLayer);
-            //               }
-            //            }
-            //         }
-            //      }
-            //   }
-            //}
+         if (call.id.section != null && call.id.section.local.TryGetValue(call.id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
+            called = algorithm;
+            callDecorator = algorithm.NameType;
          } else {
             ReportError($"Internal error: {call.id} has no section. Something wrong with semantic analysis?");
          }
-
          EmitWithExtraSpace(extraSpace,call.id.Decorate(emitter,AlgorithmNameDecorators[callDecorator]));
+
          foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {
                Emit(s.AsDecoratedCDL2String(emitter));
             } else if (arg is ID id) {
-               if (called != null) {
-                  if (called.TryGetAffix(id,out Affix affix)) {
-                     Emit(id.Decorate(emitter,affix.SyntaxElement));
-                  } else if (called.TryGetLocal(id,out Local _)) {
-                     Emit(id.Decorate(emitter,SE.Local));
-                  } else {
-                     if (id.section?.local.TryGetValue(id,out ICDL2Object? obj) == true) {
-                        switch (obj) {
-                           case Local local:
-                              Emit(id.Decorate(emitter,SE.Local));
-                              break;
-                           case Affix affix:
-                              Emit(id.Decorate(emitter,affix.SyntaxElement));
-                              break;
-                           case Const constant:
-                              Emit(id.Decorate(emitter,SE.Const));
-                              break;
-                           default:
-                              Emit(id);
-                              break;
-                        }
-                  } else {
-                     Emit(id);
+               if (call.TryGetAffix(id,out Affix affix)) {
+                  Emit(id.Decorate(emitter,affix.SyntaxElement));
+               } else if (call.TryGetLocal(id,out Local _)) {
+                  Emit(id.Decorate(emitter,SE.Local));
+               } else if (id.section?.local.TryGetValue(id,out ICDL2Object? cdl2obj) == true) {
+                  switch (cdl2obj) {
+                     case Const constant:
+                        Emit(id.Decorate(emitter,SE.Const));
+                        break;
+                     case LIST list:
+                        Emit(id.Decorate(emitter,SE.List));
+                        break;
+                     case Var var:
+                        Emit(id.Decorate(emitter,SE.Var));
+                        break;
+                     default:
+                        Emit(id);
+                        break;
                   }
-
+               } else {
+                  // Should not be possible
+                  Debug.WriteLine($"Internal error: Algorithm {call.id} not found.");
+                  Emit(id);
                }
-               Emit(id);
             }
          }
          // This is safe, because the MaxIndentIncrement limits the extra indent.
          if (!firstInAlternative && emitter.WillKeepTogetherNotFitOnCurrentLine()) emitter.ExtraIndent++;
-
-         static bool TryFindInvocationType(ID id,ref AlgorithmNameType callDecorator,AlgorithmNameType callAttribute,Layer layer) {
-            foreach (Section section in layer.Children.Cast<Section>()) {
-               if (section.import.Contains(id)) {
-                  callDecorator |= AlgorithmNameType.Imported;
-                  return true;
-               } else if ((callAttribute == AlgorithmNameType.Ext ? section.ext : section.abstr).Contains(id)) {
-                  callDecorator |= callAttribute;
-                  return true;
-               }
-            }
-            return false;
-         }
+         //static bool TryFindInvocationType(ID id,ref AlgorithmNameType callDecorator,AlgorithmNameType callAttribute,Layer layer) {
+         //   foreach (Section section in layer.Children.Cast<Section>()) {
+         //      if (section.import.Contains(id)) {
+         //         callDecorator |= AlgorithmNameType.Imported;
+         //         return true;
+         //      } else if ((callAttribute == AlgorithmNameType.Ext ? section.ext : section.abstr).Contains(id)) {
+         //         callDecorator |= callAttribute;
+         //         return true;
+         //      }
+         //   }
+         //   return false;
+         //}
       });
 
       private void PrintList(RW rw,IEnumerable<ID> ids,bool decorate = true) {
-         string DecoratedID(ID id) => decorate ? id.token.Decorate(emitter,id.section?.local?[id].SE ?? SE.Id) : id.token.TokenString;
+         string DecoratedID(ID id) {
+            if (decorate) {
+               if (id.section != null && id.section.local.TryGetValue(id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
+                  return id.Decorate(emitter,AlgorithmNameDecorators[algorithm.NameType]);
+               } else {
+                  return id.Decorate(emitter,SE.Id);
+               }
+            }
+            return id.token.TokenString;
+         }
          if (ids.Any()) {
             Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First()));
             foreach (ID id in ids.Skip(1)) {

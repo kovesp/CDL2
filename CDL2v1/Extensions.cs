@@ -39,7 +39,11 @@ namespace CDL2v1 {
 
       internal static string Decorate(this string str,EmitterBase emitter,SE element,PrettyPrinter.Decoration? decoration=null) {
          if (emitter.SupportsDecoration) {
-            decoration = element == SE.AlgorithmName ? decoration : PrettyPrinter.Decorators[element];
+            if (element != SE.AlgorithmName) {
+               decoration = PrettyPrinter.Decorators[element];
+            } else if (decoration == null) {
+
+            }
             Debug.Assert(decoration != null,$"No decoration for {element}");
             return $"<span fg='{decoration.FG}' bg='{decoration.BG}' style='{decoration.Style}'>{str}</span>";
          } else {
