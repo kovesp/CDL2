@@ -26,6 +26,7 @@ MODULE quicksort.
 
          CONST lwb=0, upb=100.
          LIST data(lwb:upb).
+         VAR unused.
 
          TEST smaller element +>p+>q =: 
             data ".Item(" p ") -lt " data ".Item(" q ")".

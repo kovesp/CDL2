@@ -6,7 +6,7 @@ global using PD  = CDL2v1.AffixDir;
 global using PT  = CDL2v1.AffixType;
 global using LCT = CDL2v1.LastCallType;
 global using SE  = CDL2v1.SyntacticElement;
-global using AIT = CDL2v1.AlgorithmNameType;
+global using ANT = CDL2v1.AlgorithmNameType;
 global using DS  = CDL2v1.DecorationStyle;
 global using AS = CDL2v1.AnnotationSymbol;
 global using SA = CDL2v1.AnnotationSymbols;
@@ -167,6 +167,7 @@ namespace CDL2v1 {
       Inv      = 16,         // Invoked from another section in the current or previous layer. This is not used. Determine whether it was 
       Imported = 32,         // Imported from another module
       Exported = 64,         // Exported from current module. TODO: Not yet implemented
+      HasEffect = 128,       // Action or predicate
 
       AbstrExt = Abstr | Ext,
       AbstrImported = Abstr | Imported,
@@ -176,22 +177,7 @@ namespace CDL2v1 {
       ExtExported = Ext | Exported,
       AbstrExtExported = Abstr | Ext | Exported,
 
-      CanFailExt = CanFail | Ext,
-      CanFailAbstr = CanFail | Abstr,
-      CanFailImported = CanFail | Imported,
-      CanFailAbstrExt = CanFail | Abstr | Ext,
-      CanFailAbstrImported = CanFail | Abstr | Imported,
-      CanFailExtImported = CanFail | Ext | Imported,
-      CanFailAbstrExtImported = CanFail | Abstr | Ext | Imported,
-      CanFailInv = CanFail | Inv,
-      MacroAbstr = Macro | Abstr,
-      MacroExt = Macro | Ext,
-      MacroImported = Macro | Imported,
-      MacroAbstrExt = Macro | Abstr | Ext,
-      MacroAbstrImported = Macro | Abstr | Imported,
-      MacroExtImported = Macro | Ext | Imported,
-      MacroAbstrExtImported = Macro | Abstr | Ext | Imported,
-      MacroInv = Macro | Inv,
+
    }
    [Flags]
    public enum DecorationStyle {

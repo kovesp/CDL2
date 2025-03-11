@@ -29,7 +29,7 @@ namespace CDL2v1 {
       private int LineLength { get; set; }              = DEFAULT_LINE_LENGTH;              // Line length for wrapping        
       private int IndentMultiplier { get; set; }        = DEFAULT_INDENT_MULTIPLIER;        // The indent multiplier
       private int MaxIndentIncrement { get; set; }      = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
-
+   
       private readonly EmitterBase emitter;
 
 
@@ -55,11 +55,13 @@ namespace CDL2v1 {
 
       public static readonly FontWeight Bold = FontWeights.DemiBold;
       public static readonly FontStyle Italic = FontStyles.Oblique;
+      public static TextDecorationCollection? Underline { get; internal set; } = TextDecorations.Underline;
 
       public record Decoration (string FG = "White", string BG = "#1E1E1E", DS Style = DS.Normal);
+      public static readonly Decoration DefaultDecoration = new();
 
       public static Dictionary<SE,Decoration> Decorators = new() {
-         { SE.Id                 ,new Decoration() },
+         { SE.Id                 ,DefaultDecoration },
          { SE.Unit               ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
          { SE.ReservedWord       ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
          { SE.InputAffix         ,new Decoration(FG:"#9cdcfe") },
@@ -74,15 +76,49 @@ namespace CDL2v1 {
          { SE.Number             ,new Decoration(FG:"#b5cea8") },
          { SE.String             ,new Decoration(FG:"#d69d85") },
          { SE.Comment            ,new Decoration(FG:"#57a64a") },
-         { SE.Other              ,new Decoration() },                              // Will be used to obtain the overall background
-         { SE.AlgorithmName      ,new Decoration() },                              // Not used, but required entry
+         { SE.Other              ,DefaultDecoration },                              // Will be used to obtain the overall background
+         { SE.AlgorithmName      ,DefaultDecoration},                              // Not used, but required entry
        };
 
       public static Dictionary<AlgorithmNameType,Decoration> AlgorithmNameDecorators = new() {
-         { AlgorithmNameType.None,   new Decoration(FG:"#dcdcaa") },
-         { AlgorithmNameType.CanFail,new Decoration(FG:"#dcdcaa",Style:DS.Italic) },
-         { AlgorithmNameType.Macro,  new Decoration(FG:"#dcdcaa",Style:DS.Underline) },
+         { AlgorithmNameType.None,new Decoration(FG:"#dcdcaa") },
        };
+
+      static PrettyPrinter() {
+         // Base decorator style for algorithms
+         var baseDecorator = new Decoration(FG: "#dcdcaa");
+
+         // Create decorators for all possible combinations of flags
+         bool[] falseTrue = new[] { false,true };
+         foreach (bool canFail in falseTrue) {
+            foreach (bool isMacro in falseTrue) {
+               foreach (bool hasEffect in falseTrue) {
+                  // Skip the case where all are false - we already have "None" defined
+                  if (!canFail && !isMacro && !hasEffect)
+                     continue;
+
+                  // Calculate combined flags
+                  AlgorithmNameType flags = AlgorithmNameType.None;
+                  if (canFail) flags |= AlgorithmNameType.CanFail;
+                  if (isMacro) flags |= AlgorithmNameType.Macro;
+                  if (hasEffect) flags |= AlgorithmNameType.HasEffect;
+
+                  // Calculate decoration style
+                  DS style = DS.Normal;
+                  if (canFail) style |= DS.Italic;
+                  if (isMacro) style |= DS.Underline;
+                  if (hasEffect) style |= DS.Bold;
+
+                  // Create and add the decorator
+                  AlgorithmNameDecorators[flags] = new Decoration(
+                      FG: baseDecorator.FG,
+                      BG: baseDecorator.BG,
+                      Style: style
+                  );
+               }
+            }
+         }
+      }
 
 
       /// <summary>
@@ -202,7 +238,7 @@ namespace CDL2v1 {
 
          if (EmitCount(section.Macros,"MACRO") > 0) foreach (Macro macro in section.Macros) Print(macro);
 
-         if (EmitCount(section.Procedures,"PROC ") > 0) foreach (Procedure proc in section.Procedures) Print(proc);
+         if (EmitCount(section.NonSymtheticProcedures,"PROC ") > 0) foreach (Procedure proc in section.NonSymtheticProcedures) Print(proc);
 
       },updateUI: true);     
 
@@ -225,7 +261,7 @@ namespace CDL2v1 {
                }
             }
          } else { 
-            PrintList(ludeType,container.Ludes[ludeType]);
+            PrintList(ludeType,container.Ludes[ludeType],decorate:false);
          }
       }
 
@@ -288,10 +324,11 @@ namespace CDL2v1 {
 
       public void Print(Call call,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
+         Algorithm? called = null;
          if (call.id.section != null) {
             if (call.id.section.local.TryGetValue(call.id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
-               if (algorithm is Macro) callDecorator |= AlgorithmNameType.Macro;
-               if (algorithm.algorithmType == RW.TEST || algorithm.algorithmType == RW.PREDICATE) callDecorator |= AlgorithmNameType.CanFail;
+               called = algorithm;
+               callDecorator = algorithm.NameType;
             }
 
             //if (call.id.owner.Owner is Section section) {
@@ -315,16 +352,42 @@ namespace CDL2v1 {
             //   }
             //}
          } else {
-            ReportError($"Internal error: {call.id} has no owner.");
+            ReportError($"Internal error: {call.id} has no section. Something wrong with semantic analysis?");
          }
 
-         EmitWithExtraSpace(extraSpace,call.id.token.TokenString.Decorate(emitter,SE.AlgorithmName,callDecorator));
+         EmitWithExtraSpace(extraSpace,call.id.Decorate(emitter,AlgorithmNameDecorators[callDecorator]));
          foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {
-               Emit("\"",EscapedCDL2(s.value),"\"");
+               Emit(s.AsDecoratedCDL2String(emitter));
             } else if (arg is ID id) {
-               Emit(id.token.TokenString);
+               if (called != null) {
+                  if (called.TryGetAffix(id,out Affix affix)) {
+                     Emit(id.Decorate(emitter,affix.SyntaxElement));
+                  } else if (called.TryGetLocal(id,out Local _)) {
+                     Emit(id.Decorate(emitter,SE.Local));
+                  } else {
+                     if (id.section?.local.TryGetValue(id,out ICDL2Object? obj) == true) {
+                        switch (obj) {
+                           case Local local:
+                              Emit(id.Decorate(emitter,SE.Local));
+                              break;
+                           case Affix affix:
+                              Emit(id.Decorate(emitter,affix.SyntaxElement));
+                              break;
+                           case Const constant:
+                              Emit(id.Decorate(emitter,SE.Const));
+                              break;
+                           default:
+                              Emit(id);
+                              break;
+                        }
+                  } else {
+                     Emit(id);
+                  }
+
+               }
+               Emit(id);
             }
          }
          // This is safe, because the MaxIndentIncrement limits the extra indent.
@@ -344,33 +407,8 @@ namespace CDL2v1 {
          }
       });
 
-      private static string EscapedCDL2(string str) {
-         StringBuilder sb = new();
-         foreach (char c in str) {
-            if (Token.Char2Escape.TryGetValue(c.ToString(),out string? escape)) {
-               sb.Append($"${escape}");
-            } else {
-               sb.Append(c);
-            }
-         }
-         return sb.ToString();
-      }
-
-      private void PrintList(RW rw,IEnumerable<ID> ids) {
-         string DecoratedID(ID id) {
-            //if (id.section == null) {
-
-            //} else {
-            //   if (id.owner.TryGetValue(id,out NamedElement obj)) {
-            //      return obj switch {
-            //         Const c => c.id.Decorate(emitter,SE.Const),
-            //         LIST l => l.id.Decorate(emitter,SE.List),
-            //         Algorithm a => a.id.Decorate(emitter,SE.InputAffix),
-            //         _ => id.token.TokenString,
-            //      };
-            //   }
-              return id.token.TokenString;
-            }
+      private void PrintList(RW rw,IEnumerable<ID> ids,bool decorate = true) {
+         string DecoratedID(ID id) => decorate ? id.token.Decorate(emitter,id.section?.local?[id].SE ?? SE.Id) : id.token.TokenString;
          if (ids.Any()) {
             Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First()));
             foreach (ID id in ids.Skip(1)) {
@@ -381,13 +419,17 @@ namespace CDL2v1 {
          }
       }
 
-
-      public void Print(Procedure code) {
-         PrintProcHead(code);
+      /// <summary>
+      /// Print a procedure unless it is isSynthetic.
+      /// </summary>
+      /// <param name="proc"></param>
+      public void Print(Procedure proc) {
+         Debug.Assert(!proc.isSynthetic,"Synthetic procedures should not be printed");
+         PrintProcHead(proc);
          Indented(() => {
-            Debug.Assert(code.alternatives.Count != 0,"alternatives list is empty");
-            Print(code.alternatives.First());
-            foreach (Alternative alt in code.alternatives.Skip(1)) {
+            Debug.Assert(proc.alternatives.Count != 0,"alternatives list is empty");
+            Print(proc.alternatives.First());
+            foreach (Alternative alt in proc.alternatives.Skip(1)) {
                EmitSeparatorWithNL(TT.ALTSEP);
                Print(alt);
             }
@@ -395,6 +437,10 @@ namespace CDL2v1 {
          });
       }
 
+      /// <summary>
+      /// Print a macro.
+      /// </summary>
+      /// <param name="macro"></param>
       public void Print(Macro macro) {
          PrintProcHead(macro);
          Indented(() => {
@@ -411,7 +457,7 @@ namespace CDL2v1 {
          if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
-               Emit((withNl && s.value.Contains('\n')?"\n":""),("\""+EscapedCDL2(s.value)+"\"").Decorate(emitter,SE.String));
+               Emit((withNl && s.value.Contains('\n')?"\n":""),s.AsDecoratedCDL2String(emitter));
                break;
             case INT n:
                Emit(n.value.Decorate(emitter));
@@ -433,20 +479,22 @@ namespace CDL2v1 {
          }
       }
 
-      private void PrintProcHead(Algorithm code) {
-         Emit(code.algorithmType.Decorate(emitter,SE.ReservedWord)," ",code.id);
-         foreach (Affix affix in code.formals.Cast<Affix>()) {
+      private void PrintProcHead(Algorithm algorithm) {
+
+         Emit(algorithm.algorithmType.Decorate(emitter,SE.ReservedWord)," ",
+            algorithm.id.Decorate(emitter,AlgorithmNameDecorators[algorithm.NameType]));
+         foreach (Affix affix in algorithm.formals.Cast<Affix>()) {
             Emit(affix.affixType == AffixType.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
             if (affix.IsInput) Emit(TT.AFFIXDIR);
             Emit(affix.id.Decorate(emitter,affix.SyntaxElement));
             if (affix.IsOutput) Emit(TT.AFFIXDIR);
          }
-         if (code.locals.Any()) {
-            foreach (Local local in code.locals) {
+         if (algorithm.locals.Any()) {
+            foreach (Local local in algorithm.locals) {
                Emit(" ",TT.LOCALSEP,local.id.Decorate(emitter,SE.Local));
             }
          }
-         Emitnl(code.bodyType);
+         Emitnl(algorithm.bodyType);
       }
 
       public void Print(Const constant) {

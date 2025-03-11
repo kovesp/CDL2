@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Documents;
 
 namespace CDL2v1 {
    internal class EmitterWindow : EmitterBase {
@@ -76,7 +77,12 @@ namespace CDL2v1 {
                         }
                }
             };
-            
+
+            Typography.SetStandardLigatures(outputTextBlock,false);
+            Typography.SetDiscretionaryLigatures(outputTextBlock,false);
+            Typography.SetContextualLigatures(outputTextBlock,false);
+            Typography.SetHistoricalLigatures(outputTextBlock,false);
+
             // Set the button click event handler
             ((Button)((Grid)window.Content).Children[1]).Click += (s,e) => window.Close();
 
@@ -134,7 +140,7 @@ namespace CDL2v1 {
                      fontStyle = PrettyPrinter.Italic;
                      break;
                   case "underline":
-                     textDecorations = TextDecorations.Underline;
+                     textDecorations = PrettyPrinter.Underline;
                      break;
                   case "bold, italic":
                      fontWeight = PrettyPrinter.Bold;
@@ -142,18 +148,18 @@ namespace CDL2v1 {
                      break;
                   case "bold, underline": {
                         fontWeight = PrettyPrinter.Bold;
-                        textDecorations = TextDecorations.Underline;
+                        textDecorations = PrettyPrinter.Underline;
                         break;
                      }
                   case "italic, underline": {
                         fontStyle = PrettyPrinter.Italic;
-                        textDecorations = TextDecorations.Underline;
+                        textDecorations = PrettyPrinter.Underline;
                         break;
                      }
                   case "bold, italic, underline": {
                         fontWeight = PrettyPrinter.Bold;
                         fontStyle = PrettyPrinter.Italic;
-                        textDecorations = TextDecorations.Underline;
+                        textDecorations = PrettyPrinter.Underline;
                         break;
                      }
                }
@@ -185,21 +191,21 @@ namespace CDL2v1 {
 
          // Normal (non-buffered) rendering
          window.Dispatcher.Invoke(() => {
-            text = Regex.Replace(text,@"( := | =: | = | : )\s*$",$"{ThinSpace}$1",
-                 RegexOptions.IgnorePatternWhitespace);
-
-            outputTextBlock?.Inlines.Add(new System.Windows.Documents.Run(text) {
+            AddRun(new(FormatAlgorithmBodySeparators(text)) {
                Foreground = fg,
                Background = bg,
                FontWeight = fontWeight,
                FontStyle = fontStyle,
-               FontFamily = new FontFamily("Cascadia Code"),
                TextDecorations = textDecorations
             });
-
-            if (lineBreak)
-               outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
+            
          },DispatcherPriority.Background);
+      }
+
+      private void AddRun(Run run,bool lineBreak=false) {
+         run.FontFamily = new FontFamily("Cascadia Mono");
+         outputTextBlock?.Inlines.Add(run);
+         if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
       }
 
       // Call this before making multiple updates
@@ -259,21 +265,14 @@ namespace CDL2v1 {
       private void FlushTextSegmentBuffer() {
          if (outputTextBlock == null || textSegmentBuffer.Count == 0) return;
 
-         // Apply all text segments in the buffer to the textblock
+         // Apply all text segments in the buffer to the text block
          foreach (FormattedTextSegment segment in textSegmentBuffer) {
-            // Apply the regular expression transformation
-            string text = Regex.Replace(segment.Text,
-                @"( := | =: | = | : )\s*$",
-                $"{ThinSpace}$1",
-                RegexOptions.IgnorePatternWhitespace);
-
             // Add the formatted segment to the TextBlock
-            outputTextBlock.Inlines.Add(new System.Windows.Documents.Run(text) {
+            AddRun(new Run(FormatAlgorithmBodySeparators(segment.Text)) {
                Foreground = segment.Foreground,
                Background = segment.Background,
                FontWeight = segment.Weight != default ? segment.Weight : FontWeights.Normal,
                FontStyle = segment.Style != default ? segment.Style : FontStyles.Normal,
-               FontFamily = new FontFamily("Cascadia Code"),
                TextDecorations = segment.Decorations
             });
 
@@ -285,6 +284,10 @@ namespace CDL2v1 {
          textSegmentBuffer.Clear();
       }
 
+      private static string FormatAlgorithmBodySeparators(string text) => Regex.Replace(text,
+                      @"( := | =: | = | : )\s*$",
+                      $"{ThinSpace}$1",
+                      RegexOptions.IgnorePatternWhitespace);
       // Helper to find parent element of specific type
       private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject => VisualTreeHelper.GetParent(child) switch {
          null => null,

@@ -410,7 +410,7 @@ namespace CDL2v1 {
       private void ParseList() {
          if (tokens.CanConsume(RW.LIST)) {
             Debug.Assert(currentSection != null);
-            ParseIDDeclarationList(currentSection.local,id => ParseListBody(id),null);
+            ParseIDDeclarationList(currentSection.local,id => ParseListBody(id));
          }
       }
 
@@ -427,7 +427,7 @@ namespace CDL2v1 {
                tokens.CanConsume(TT.LISTBOUNDSEP) &&
                (tokens.CanConsume(TT.ID,out Token upb) || tokens.CanConsume(TT.INT,out upb)) &&
                tokens.CanConsume(TT.LISTBOUNDEND)) {
-            list =  new(id,lwb,upb);
+            list = new(id,lwb,upb);
          } else {
             ReportError($"LIST {id} with has invalid bounds in section {currentSection.id}");
          }
@@ -586,13 +586,15 @@ namespace CDL2v1 {
       /// <param id="idList"></param>
       /// <param id="idList2"></param>
       /// <param id="processID"></param>
-      private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList1,Func<ID,ICDL2Object?> processID,Dictionary<ID,ICDL2Object>? idList2 = null) {
+      private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList,Func<ID,ICDL2Object?> processID) {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
             ICDL2Object? cDL2Object = processID(id);
             if (cDL2Object != null) {
-               if (idList2 != null && !idList2.ContainsKey(id)) idList2[id] = cDL2Object;
-               if (!idList1.ContainsKey(id)) idList1[id] = cDL2Object;
+               if (!idList.ContainsKey(id)) {
+                  idList[id] = cDL2Object;
+                  id.section = currentSection;
+               }
                // TODO: need error reporting for duplicate entries
             }
 
@@ -604,7 +606,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse plain list of IDs. Interface lists, PARTs and VARs.
       /// </summary>
-      /// <param Name="idList1"></param>
+      /// <param Name="idList"></param>
       /// <param Name="idList2"></param>
       private void ParseIDList(RW type,ICollection<ID> idList1) {
          while (tokens.IsNext(TT.ID)) {

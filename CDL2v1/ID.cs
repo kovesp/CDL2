@@ -1,6 +1,4 @@
-﻿// Ignore Spelling: CDL
-
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace CDL2v1 {
    /// <summary>
