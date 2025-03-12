@@ -124,6 +124,8 @@ internal class CDL2 {
          }
          if (MainProgram == null) return;
 
+         ID.Dump();
+
          // Perform semantic checks
          semanticAnalyzer = new SemanticAnalyzer();
          if (Program.Programs.Count >= 1) {

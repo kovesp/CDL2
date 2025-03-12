@@ -83,7 +83,7 @@ namespace CDL2v1 {
       }
       public bool CanConsume(out ID id) {
          if (CanConsume(TT.ID,out Token token)) {
-            id = ID.From(token);
+            id = ID.From(token,typeof(Undeclared));
             return true;
          }
          if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {

@@ -92,7 +92,7 @@ namespace CDL2v1 {
 
          ErrorToken = new Token();
          AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
-         AnonID = ID.From(AnonIDToken);
+         AnonID = ID.From(AnonIDToken,typeof(Undeclared));
          ACTIONToken = new Token(TokenClass.ResWord,"ACTION","",0);
       }
 

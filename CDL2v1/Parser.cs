@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.Intrinsics.X86;
 using System.Text;
@@ -262,7 +263,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.Optional(TT.END)) {
             if (tokens.Optional(TT.ID,out Token idToken)) {
-               ID id = ID.From(idToken);
+               ID id = ID.From(idToken,typeof(Algorithm));
                if (macro.TryGetAffix(id,out Affix? affix)) {
                   macro.elements.Add(affix);
                } else if (macro.TryGetLocal(id,out Local local)) {
@@ -345,7 +346,7 @@ namespace CDL2v1 {
       private ID ParseOptionalLabel() {
          if (tokens.Peek().type == TT.ID && tokens.Peek(1).type == TT.LABELSEP) {
             // Consume the label and the colon
-            ID label = ID.From(tokens.Next());
+            ID label = ID.From(tokens.Next(),typeof(Label));
             tokens.Next();
             return label;
          } else {
@@ -375,7 +376,7 @@ namespace CDL2v1 {
       private Set<Local>? ParseLocals() {
          Set<Local> locals = [];
          while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token token)) {
-            Local local = new(ID.From(token));
+            Local local = new(ID.From(token,typeof(Local)));
             if (locals.Contains(local)) {
                ReportError($"Duplicate local {local}");
                return null;
@@ -415,7 +416,6 @@ namespace CDL2v1 {
          }
       }
 
-      private static readonly List<TT> boundTypes = [TT.ID,TT.INT];
       /// <summary>
       /// Parse the body of a list declaration. Format is list-id(lwb:upb).
       /// <param id="token"></param>
@@ -424,11 +424,11 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          LIST? list = null;
          if (  tokens.Optional(TT.LISTBOUNDSTART) &&
-               tokens.CanConsume(boundTypes,out Token lwb) &&
+               tokens.CanConsume(TT.ID,out Token lwbToken) &&
                tokens.CanConsume(TT.LISTBOUNDSEP) &&
-               (tokens.CanConsume(TT.ID,out Token upb) || tokens.CanConsume(TT.INT,out upb)) &&
+               tokens.CanConsume(TT.ID,out Token upbToken) &&
                tokens.CanConsume(TT.LISTBOUNDEND)) {
-            list = new(id,lwb,upb);
+            list = new(id,ID.From(lwbToken,typeof(Const)),ID.From(upbToken,typeof(Const)));
          } else {
             ReportError($"LIST {id} with has invalid bounds in section {currentSection.id}");
          }
@@ -487,7 +487,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
-               ID id = ID.From(elemId);
+               ID id = ID.From(elemId,typeof(Const));
                if (currentSection.local.ContainsKey(id)) {
                   // The ID is already declared in this section. It can only be a constant or undeclared.
                   // That will be true even if it is invoked or imported.
@@ -548,7 +548,7 @@ namespace CDL2v1 {
       internal static void ParseLudeOfIDs(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
             while (parser.tokens.Optional(TT.ID,out Token  id)) {
-               container.Ludes[type].Add(ID.From(id));
+               container.Ludes[type].Add(ID.From(id,container.GetType()));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
@@ -567,9 +567,10 @@ namespace CDL2v1 {
             //Debug.Assert(container != null);
             Section section = (Section)container;
             Procedure lude = new(type,section);
+
             List<Call> callList =[];
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               callList.Add(ParseCall(parser,ID.From(id),lude));
+               callList.Add(ParseCall(parser,ID.From(id,typeof(Algorithm)),lude));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
@@ -590,7 +591,7 @@ namespace CDL2v1 {
       /// <param id="processID"></param>
       private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList,Func<ID,ICDL2Object?> processID) {
          while (tokens.IsNext(TT.ID)) {
-            ID id = ID.From(tokens.Next());
+            ID id = ID.From(tokens.Next(),typeof(Undeclared));
             ICDL2Object? cDL2Object = processID(id);
             if (cDL2Object != null) {
                if (!idList.ContainsKey(id)) {
@@ -612,7 +613,7 @@ namespace CDL2v1 {
       /// <param Name="idList2"></param>
       private void ParseIDList(RW type,ICollection<ID> idList1) {
          while (tokens.IsNext(TT.ID)) {
-            ID id = ID.From(tokens.Next());
+            ID id = ID.From(tokens.Next(),typeof(Undeclared));
             if (!idList1.Contains(id)) {
                idList1.Add(id);
             } else {

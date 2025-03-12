@@ -191,7 +191,7 @@ namespace CDL2v1 {
       }
 
       public void Print(Program program) =>PrintContainer(program,() => {
-         PrintList(RW.PART,program.Parts);
+         PrintList(RW.PART,program.Parts,decorate:false);
          PrintLudes(program);
       },Newline: true,updateUI: true);
 
@@ -295,7 +295,7 @@ namespace CDL2v1 {
                   Emit(TT.REPEAT);
                   Debug.Assert(alternative.lastCall.label is not null,"alternative.lastCall.label is null");
                   if (alternative.lastCall.label != ID.AnonID) {
-                     Emit(alternative.lastCall.label.token.TokenString);
+                     Emit(alternative.lastCall.label.Name);
                   }
                   break;
                case LastCallType.Group:
@@ -308,7 +308,7 @@ namespace CDL2v1 {
 
       private void Print(Group group) => Indented(() => {
          NlEmit(TT.GRPOPEN);
-         if (group.id != ID.AnonID) Emit(group.id.token.TokenString,TT.LABELSEP);
+         if (group.id != ID.AnonID) Emit(group.id.Name,TT.LABELSEP);
          Print(group.alternatives);
          Emit(TT.GRPCLOSE);
       });
@@ -381,24 +381,31 @@ namespace CDL2v1 {
       });
 
       private void PrintList(RW rw,IEnumerable<ID> ids,bool decorate = true) {
-         string DecoratedID(ID id) {
-            if (decorate) {
-               if (id.section != null && id.section.local.TryGetValue(id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
-                  return id.Decorate(emitter,AlgorithmNameDecorators[algorithm.NameType]);
-               } else {
-                  return id.Decorate(emitter,SE.Id);
-               }
-            }
-            return id.token.TokenString;
-         }
          if (ids.Any()) {
-            Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First()));
+            Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First(),decorate));
             foreach (ID id in ids.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
-               Emit(DecoratedID(id));
+               Emit(DecoratedID(id,decorate));
             }
             EmitSeparatorWithNL(TT.END);
          }
+      }
+
+      /// <summary>
+      /// Print a list of ids. If decorate is true, then decorate the ids.
+      /// </summary>
+      /// <param name="id"></param>
+      /// <param name="decorate"></param>
+      /// <returns></returns>
+      private string DecoratedID(ID id,bool decorate=true) {
+         if (decorate && id.section != null && id.section.local.TryGetValue(id,out ICDL2Object? obj)) {
+            if (obj.SE == SE.AlgorithmName) {
+               return id.Decorate(emitter,AlgorithmNameDecorators[((Algorithm)obj).NameType]);
+            } else {
+               return id.Decorate(emitter,obj.SE);
+            }
+         }
+         return id.Name;
       }
 
       /// <summary>
@@ -448,7 +455,7 @@ namespace CDL2v1 {
                Emit(f.value.Decorate(emitter));
                break;
             case ID id:
-               Emit(id.token.TokenString);
+               Emit(id.Name);
                break;
             case Affix affix:
                Emit(affix.id.Decorate(emitter,affix.SyntaxElement));
@@ -462,7 +469,6 @@ namespace CDL2v1 {
       }
 
       private void PrintProcHead(Algorithm algorithm) {
-
          Emit(algorithm.algorithmType.Decorate(emitter,SE.ReservedWord)," ",
             algorithm.id.Decorate(emitter,AlgorithmNameDecorators[algorithm.NameType]));
          foreach (Affix affix in algorithm.formals.Cast<Affix>()) {
@@ -496,7 +502,7 @@ namespace CDL2v1 {
                   Emit(c.id.Decorate(emitter,SE.Const));
                   break;
                case ID id:
-                  Emit(id.token.TokenString);
+                  Emit(id.Name);
                   break;
                default:
                   throw new NotImplementedException();
@@ -504,10 +510,7 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(LIST list) {
-         //TODO: Look at how to print list bounds.
-         Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,list.lwb?.TokenString??"???",TT.LISTBOUNDSEP,list.upb?.TokenString??"???",TT.LISTBOUNDEND);
-      }
+      public void Print(LIST list) => Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,DecoratedID(list.lwb),TT.LISTBOUNDSEP,DecoratedID(list.upb),TT.LISTBOUNDEND);
 
       /// <summary>
       /// Print the start and end of a container unit, and then the contents.
@@ -517,9 +520,9 @@ namespace CDL2v1 {
       /// <param Name="unit"></param>
       /// <param Name="action"></param>
       private void PrintContainer(Container unit,Action action,bool Newline = false,bool updateUI = false) {
-         Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
+         Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.Name,TT.END);
          Indented(() => action());
-         Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.token.TokenString,TT.END);
+         Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.Name,TT.END);
          if (unit is Module || unit is Section) PrintLudes(unit);
          if (Newline) Emitnl();
          if (updateUI) emitter.UpdateUI();
