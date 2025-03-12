@@ -119,7 +119,7 @@ namespace CDL2v1 {
       Abort, 
       Repeat, 
       Group,
-      None,                   // Use in the alternative generated for section Ludes.
+      None,                   // Use in the alternative generated for container Ludes.
    }
 
    /// <summary>
@@ -130,7 +130,7 @@ namespace CDL2v1 {
       ReservedWord,              // Default for reserved words, unless otherwise specified, e.g., Unit
       Unit,                      // Units (PROGRAM, MODULE, LAYER, SECTION).
       AlgorithmName,             // When used it will be overridden by the AlgorithmNameDecorators table
-      InputAffix,                // Applied to affix ids in both Algorithm definitions and invocations.
+      InputAffix,                // Applied to affixes ids in both Algorithm definitions and invocations.
       OutputAffix,               // Ditto
       TransputAffix,             // Ditto
       StringAffix,               // Ditto
@@ -149,7 +149,7 @@ namespace CDL2v1 {
    /// Use the CanFail flag to select italic.
    /// Use the Macro flag to select underline.
    /// If the algorithm is
-   ///   - defined in the current section select dark green
+   ///   - defined in the current container select dark green
    ///   - invoked from extension select lighter green
    ///   - invoked from abstraction select even lighter green
    ///   - imported from another module select orange
@@ -163,8 +163,8 @@ namespace CDL2v1 {
       CanFail  = 1,          // Test or Predicate: Italic (otherwise Normal)
       Macro    = 2,          // Macro: (underline)
       Abstr    = 4,          // Abstracted from previous layer.
-      Ext      = 8,          // Extended from another section in current layer.
-      Inv      = 16,         // Invoked from another section in the current or previous layer. This is not used. Determine whether it was 
+      Ext      = 8,          // Extended from another container in current layer.
+      Inv      = 16,         // Invoked from another container in the current or previous layer. This is not used. Determine whether it was 
       Imported = 32,         // Imported from another module
       Exported = 64,         // Exported from current module. TODO: Not yet implemented
       HasEffect = 128,       // Action or predicate

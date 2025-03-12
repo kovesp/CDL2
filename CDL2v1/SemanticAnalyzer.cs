@@ -68,26 +68,26 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeImports(Section section) {
-         // IMPORT items must be EXPORT items in some section of known modules. In addtion, there must be a corresponding VAR, LIST, CONST, MACRO or CODE
-         // declaration in this section as follows:
+         // IMPORT items must be EXPORT items in some container of known modules. In addtion, there must be a corresponding VAR, LIST, CONST, MACRO or CODE
+         // declaration in this container as follows:
          //    - VAR, LIST, CONST: just a id
          //    - CDOE, MACRO: just the proc header without the locals with no body.
       }
 
       private void AnalyzeInvs(Section section) {
-         // INV items must be in some section in the current layer declared as EXT or in the current layer's Owner declared as ABSTR.
+         // INV items must be in some container in the current layer declared as EXT or in the current layer's Owner declared as ABSTR.
       }
 
       private static void AnalyzeProvidedInterfaces(Section section,RW kind,Set<ID> set) {
          //foreach (ID id in set) {
-         //   if (section.Symbols.ContainsKey(id)) {
-         //      if (section.Symbols[id] is Undeclared) {
-         //         ReportError(section,$"{kind} {id} is Instance");
-         //      } else if (section.Symbols[id] is not IProvidedElement) {
-         //         ReportError(section,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}}");
+         //   if (container.Symbols.ContainsKey(id)) {
+         //      if (container.Symbols[id] is Undeclared) {
+         //         ReportError(container,$"{kind} {id} is Instance");
+         //      } else if (container.Symbols[id] is not IProvidedElement) {
+         //         ReportError(container,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}}");
          //      }
          //   } else {
-         //      ReportError(section,$"{kind} {id} not found");
+         //      ReportError(container,$"{kind} {id} not found");
          //   }
          //}
       }

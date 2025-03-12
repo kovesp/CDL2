@@ -64,7 +64,7 @@ namespace CDL2v1 {
       public  Program?          currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
       private Module?           currentModule;     // The current module being parsed. Should be the same as currentObject.Module.
       private Layer?            currentLayer;      // The current layer being parsed. Should be the same as currentObject.Layer.
-      private Section?          currentSection;    // The current section being parsed. Should be the same as currentObject.Section.
+      private Section?          currentSection;    // The current container being parsed. Should be the same as currentObject.Section.
       public  CompilationObject currentObject;     // The object being compiled. Used mainly for error reporting.
 
       public Parser() => currentObject = new CompilationObject(this);
@@ -188,7 +188,7 @@ namespace CDL2v1 {
          currentSection = new Section(sectionId,currentLayer);
          Log(1,$"Parsing {currentObject}");
 
-         // Now should see section parts
+         // Now should see container parts
          // Interfaces first
          ParseInterfaces();
 
@@ -220,7 +220,7 @@ namespace CDL2v1 {
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
             if (currentSection.local.ContainsKey(id)) {
-               ReportError($"Algorithm {id} already declared in section {currentSection.id} as {currentSection.local[id].GetType().Name}");
+               ReportError($"Algorithm {id} already declared in container {currentSection.id} as {currentSection.local[id].GetType().Name}");
                return;
             }
             List<Affix>? formals = ParseFormals();
@@ -253,7 +253,7 @@ namespace CDL2v1 {
             }
             Debug.Assert(algorithm != null);
             currentSection.local[id] = algorithm;
-            id.section = currentSection;
+            id.container = currentSection;
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
@@ -284,18 +284,18 @@ namespace CDL2v1 {
          }
       }
       private void ParseProcedureBody(Procedure algorithm) {
-         algorithm.alternatives = ParseAlternatives(algorithm);
+         algorithm.group.alternatives = ParseAlternatives(algorithm,group:null);
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
-      private List<Alternative> ParseAlternatives(Procedure proc) {
+      private List<Alternative> ParseAlternatives(Procedure proc,Group? group) {
          List<Alternative> alternatives = [];
          do {
-            alternatives.Add(ParseAlternative(proc));
+            alternatives.Add(ParseAlternative(proc,group));
          } while (tokens.Optional(TT.ALTSEP)) ;
          return alternatives;
       }
 
-      private Alternative ParseAlternative(Procedure proc) {
+      private Alternative ParseAlternative(Procedure proc,Group? group) {
          List<Call> calls = [];
          LastCall? lastCall =null;
          do {
@@ -311,9 +311,26 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.ABORT)) {
                lastCall = new LastCall(LCT.Abort);
             } else if (tokens.Optional(TT.REPEAT)) {
-               lastCall = tokens.Optional(out id) ? new LastCall(id) : new LastCall(LCT.Repeat);
+               if (tokens.Optional(out ID label)) {
+                  // Go up the group hierarchy to see if the label can be use
+                  Group? g = group;
+                  bool found = false;
+                  while (g != null) {
+                     if (g.id == label) {
+                        found = true;
+                        break;
+                     }
+                     g = g.Parent;
+                  }
+                  if (!found && label != proc.id) { // The label can be the procedure id
+                     ReportError($"Label {label} not found in group hierarchy");
+                  }
+                  lastCall = new LastCall(label);
+               } else {
+                  lastCall = new LastCall(LCT.Repeat);
+               }
             } else if (tokens.Optional(TT.GRPOPEN)) {
-               lastCall = ParseGroup(proc);
+               lastCall = ParseGroup(proc,containingGroup:group);
             } else {
                ReportError("Expected ID, +, -, ?, or *");
             }
@@ -334,20 +351,30 @@ namespace CDL2v1 {
          return call;
       }
 
-      private LastCall ParseGroup(Procedure proc) {
+      private LastCall ParseGroup(Procedure proc,Group? containingGroup) {
          LastCall? lastCall;
-         ID label = ParseOptionalLabel();
-         Group group = new(label,ParseAlternatives(proc));
+         ID label = ParseOptionalLabel(containingGroup);
+         Group group = new(label,[],containingGroup);
+         group.alternatives = ParseAlternatives(proc,group);
          if (!tokens.CanConsume(TT.GRPCLOSE)) ReportError("Expected )");
          lastCall = new LastCall(group);
          return lastCall;
       }
 
-      private ID ParseOptionalLabel() {
+      private ID ParseOptionalLabel(Group? group) {
          if (tokens.Peek().type == TT.ID && tokens.Peek(1).type == TT.LABELSEP) {
             // Consume the label and the colon
             ID label = ID.From(tokens.Next(),typeof(Label));
             tokens.Next();
+            // Go up the group hierarchy to see if the label is already defined.
+            Group? g = group;
+            while (g != null) {
+               if (g.id == label) {
+                  ReportError($"Duplicate label {label}");
+                  return ID.AnonID;
+               }
+               g = g.Parent;
+            }
             return label;
          } else {
             return ID.AnonID;
@@ -430,7 +457,7 @@ namespace CDL2v1 {
                tokens.CanConsume(TT.LISTBOUNDEND)) {
             list = new(id,ID.From(lwbToken,typeof(Const)),ID.From(upbToken,typeof(Const)));
          } else {
-            ReportError($"LIST {id} with has invalid bounds in section {currentSection.id}");
+            ReportError($"LIST {id} with has invalid bounds in container {currentSection.id}");
          }
          return list;
       }
@@ -467,12 +494,12 @@ namespace CDL2v1 {
          Const? c = new(id);
          if (tokens.Optional(TT.EQUALS)) {
             if (currentSection.import.Contains(id)) {
-               LogError($"CONST {id} with definition is imported in section {currentSection.id}");
+               LogError($"CONST {id} with definition is imported in container {currentSection.id}");
             } else {
                ParseConstElements(c);
             }
          } else if (!currentSection.import.Contains(id)) {
-            LogError($"CONST {id} with no definition is not imported in section {currentSection.id}");
+            LogError($"CONST {id} with no definition is not imported in container {currentSection.id}");
             c = null;
          }
          return c;
@@ -489,7 +516,7 @@ namespace CDL2v1 {
             if (tokens.Optional(TT.ID,out Token elemId)) {
                ID id = ID.From(elemId,typeof(Const));
                if (currentSection.local.ContainsKey(id)) {
-                  // The ID is already declared in this section. It can only be a constant or undeclared.
+                  // The ID is already declared in this container. It can only be a constant or undeclared.
                   // That will be true even if it is invoked or imported.
                   Debug.Assert(currentSection.local[id] is Const || currentSection.local[id] is Undeclared);
                   c.elements.Add(id);
@@ -510,7 +537,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse the interfaces of a section.
+      /// Parse the interfaces of a container.
       /// </summary>
       private void ParseInterfaces() {
          Debug.Assert(currentSection != null && currentModule != null);
@@ -528,7 +555,7 @@ namespace CDL2v1 {
       /// TODO: Verify that the IDs are unique within BOTH interface lists.
       /// </summary>
       /// <param id="interfaceType"></param>
-      /// <param id="idList">The section interface list.</param>
+      /// <param id="idList">The container interface list.</param>
       /// <returns></returns>
       private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList) {
          if (tokens.Consume(interfaceType)) {
@@ -556,8 +583,8 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
-      /// It will be stored as a Procedure item in the section's symbols table. The ID will be SectionName_LudeType. 
+      /// Parse a container lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
+      /// It will be stored as a Procedure item in the container's symbols table. The ID will be SectionName_LudeType. 
       /// </summary>
       /// <param id="parser"></param>
       /// <param id="type"></param>
@@ -575,7 +602,7 @@ namespace CDL2v1 {
             }
             parser.tokens.CanConsumeEnd();
 
-            lude.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
+            lude.group.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
             section.Ludes[type].Add(lude.id);
             section.local[lude.id] = lude;
          }
@@ -584,7 +611,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a list of IDs. The list is terminated by a period. The lists are normally sets.
       /// The lists cannot contain duplicates
-      /// TODO: Can an imports be in more than one section in a module? Let's assume no.
+      /// TODO: Can an imports be in more than one container in a module? Let's assume no.
       /// </summary>
       /// <param id="idList"></param>
       /// <param id="idList2"></param>
@@ -596,7 +623,7 @@ namespace CDL2v1 {
             if (cDL2Object != null) {
                if (!idList.ContainsKey(id)) {
                   idList[id] = cDL2Object;
-                  id.section = currentSection;
+                  id.container = currentSection;
                }
                // TODO: need error reporting for duplicate entries
             }

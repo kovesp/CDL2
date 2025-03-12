@@ -80,11 +80,11 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Generate a section. Again, there will likely be no target proc associated with a section itself.
+      /// Generate a container. Again, there will likely be no target proc associated with a container itself.
       /// So generate proc for each routine and for the Ludes.
       /// A lude is just proc with a special id
       /// </summary>
-      /// <param id="section"></param>
+      /// <param id="container"></param>
       private void GenerateSection(Section section) {
          cg.GenerateStart(section);
          foreach (Algorithm algorithm in section.local.Values.Where(obj=>obj is Algorithm)) {
@@ -106,9 +106,9 @@ namespace CDL2v1 {
 
       private void GenerateAlgorithmHeader(Algorithm alg) {
          cg.GenerateAlgorithmHeaderStart(alg);
-         if (alg.formals.Count > 0) {
-            cg.GenerateCode(alg.formals[0]);
-            foreach (Affix formal in alg.formals.Skip(1)) {
+         if (alg.affixes.Count > 0) {
+            cg.GenerateCode(alg.affixes[0]);
+            foreach (Affix formal in alg.affixes.Skip(1)) {
                cg.GenerateParamSeparator();
                cg.GenerateCode(formal);
             }

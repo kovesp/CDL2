@@ -51,7 +51,7 @@ namespace CDL2v1 {
          Glyph2TokenType = new Dictionary<string,TokenType> {
             { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be inlined (the default for = is to inline).
             { ":=", TokenType.INLINECODEBODY },    // Indicates a procedure body that should be inlined.
-            { "+",  TokenType.PLUS },              // Used as affix (argument) separator and as the succeed operator.
+            { "+",  TokenType.PLUS },              // Used as affixes (argument) separator and as the succeed operator.
             { "-",  TokenType.MINUS },             // Used as local variable separator and as the fail operator.
             { "*",  TokenType.STAR },              // Repeat from group start operator and string parameter.
             { "?",  TokenType.ABORT },             // Terminate the program.

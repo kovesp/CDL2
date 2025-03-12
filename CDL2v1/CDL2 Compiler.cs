@@ -7,6 +7,7 @@ using System.CommandLine.Invocation;
 
 using static CDL2v1.Logger;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 internal class CDL2 {
    public static string Version = "1.0.0";
@@ -124,7 +125,7 @@ internal class CDL2 {
          }
          if (MainProgram == null) return;
 
-         ID.Dump();
+         if (DebugVerbosityLevel >= 4) ID.Dump();
 
          // Perform semantic checks
          semanticAnalyzer = new SemanticAnalyzer();
@@ -137,7 +138,7 @@ internal class CDL2 {
             EmitterBase emitter;
             if (PrettyPrint == null) {
                emitter = new EmitterDebug();
-            } else if (PrettyPrint == "w" || PrettyPrint == "Window") {
+            } else if (Regex.IsMatch(PrettyPrint,@"^w(?:indow)$",RegexOptions.IgnoreCase)) {
                emitter = new EmitterWindow();
             } else if (PrettyPrint.IsValidFileName()) {  // Must be placed after check for window
                emitter = new EmitterFile(PrettyPrint);

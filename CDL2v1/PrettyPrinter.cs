@@ -254,7 +254,7 @@ namespace CDL2v1 {
                Emit(ludeType.Decorate(emitter,SE.ReservedWord)," ");
                // Section Ludes are stored as ids of a generated Procedure item.
                if (section.local[section.Ludes[ludeType].First()] is Procedure proc) { // This should always be the case
-                  Print(proc.alternatives.First());
+                  Print(proc.group.alternatives.First());
                   EmitSeparatorWithNL(TT.END);
                } else {
                   ReportError($"Internal error: {ludeType} lude is not a Procedure item.");
@@ -325,11 +325,11 @@ namespace CDL2v1 {
       public void Print(Call call,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
          Algorithm? called = null;
-         if (call.id.section != null && call.id.section.local.TryGetValue(call.id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
+         if (call.id.container != null && ((Section)call.id.container).local.TryGetValue(call.id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
             called = algorithm;
             callDecorator = algorithm.NameType;
          } else {
-            ReportError($"Internal error: {call.id} has no section. Something wrong with semantic analysis?");
+            ReportError($"Internal error: {call.id} has no container. Something wrong with semantic analysis?");
          }
          EmitWithExtraSpace(extraSpace,call.id.Decorate(emitter,AlgorithmNameDecorators[callDecorator]));
 
@@ -342,7 +342,7 @@ namespace CDL2v1 {
                   Emit(id.Decorate(emitter,affix.SyntaxElement));
                } else if (call.TryGetLocal(id,out Local _)) {
                   Emit(id.Decorate(emitter,SE.Local));
-               } else if (id.section?.local.TryGetValue(id,out ICDL2Object? cdl2obj) == true) {
+               } else if ((id.container as Section)?.local.TryGetValue(id,out ICDL2Object? cdl2obj) == true) {
                   switch (cdl2obj) {
                      case Const constant:
                         Emit(id.Decorate(emitter,SE.Const));
@@ -367,11 +367,11 @@ namespace CDL2v1 {
          // This is safe, because the MaxIndentIncrement limits the extra indent.
          if (!firstInAlternative && emitter.WillKeepTogetherNotFitOnCurrentLine()) emitter.ExtraIndent++;
          //static bool TryFindInvocationType(ID id,ref AlgorithmNameType callDecorator,AlgorithmNameType callAttribute,Layer layer) {
-         //   foreach (Section section in layer.Children.Cast<Section>()) {
-         //      if (section.import.Contains(id)) {
+         //   foreach (Section container in layer.Children.Cast<Section>()) {
+         //      if (container.import.Contains(id)) {
          //         callDecorator |= AlgorithmNameType.Imported;
          //         return true;
-         //      } else if ((callAttribute == AlgorithmNameType.Ext ? section.ext : section.abstr).Contains(id)) {
+         //      } else if ((callAttribute == AlgorithmNameType.Ext ? container.ext : container.abstr).Contains(id)) {
          //         callDecorator |= callAttribute;
          //         return true;
          //      }
@@ -398,7 +398,7 @@ namespace CDL2v1 {
       /// <param name="decorate"></param>
       /// <returns></returns>
       private string DecoratedID(ID id,bool decorate=true) {
-         if (decorate && id.section != null && id.section.local.TryGetValue(id,out ICDL2Object? obj)) {
+         if (decorate && id.container != null && (id.container as Section).local.TryGetValue(id,out ICDL2Object? obj)) {
             if (obj.SE == SE.AlgorithmName) {
                return id.Decorate(emitter,AlgorithmNameDecorators[((Algorithm)obj).NameType]);
             } else {
@@ -416,9 +416,9 @@ namespace CDL2v1 {
          Debug.Assert(!proc.isSynthetic,"Synthetic procedures should not be printed");
          PrintProcHead(proc);
          Indented(() => {
-            Debug.Assert(proc.alternatives.Count != 0,"alternatives list is empty");
-            Print(proc.alternatives.First());
-            foreach (Alternative alt in proc.alternatives.Skip(1)) {
+            Debug.Assert(proc.group.alternatives.Count != 0,"alternatives list is empty");
+            Print(proc.group.alternatives.First());
+            foreach (Alternative alt in proc.group.alternatives.Skip(1)) {
                EmitSeparatorWithNL(TT.ALTSEP);
                Print(alt);
             }
@@ -471,7 +471,7 @@ namespace CDL2v1 {
       private void PrintProcHead(Algorithm algorithm) {
          Emit(algorithm.algorithmType.Decorate(emitter,SE.ReservedWord)," ",
             algorithm.id.Decorate(emitter,AlgorithmNameDecorators[algorithm.NameType]));
-         foreach (Affix affix in algorithm.formals.Cast<Affix>()) {
+         foreach (Affix affix in algorithm.affixes.Cast<Affix>()) {
             Emit(affix.affixType == AffixType.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
             if (affix.IsInput) Emit(TT.AFFIXDIR);
             Emit(affix.id.Decorate(emitter,affix.SyntaxElement));

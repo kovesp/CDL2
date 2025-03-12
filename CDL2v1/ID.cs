@@ -9,8 +9,7 @@ namespace CDL2v1 {
    internal class ID : IConstElement, IMacroElement, IActualArg {
       public readonly Token token = Token.ErrorToken;
       public string Name => token.TokenString;
-      public Section? section = null;
-      public string TargetType = "";
+      public Container? container = null;
 
       /// <summary>
       /// Used to ensure that multiple spellings of tokens produce the same ID.
@@ -18,12 +17,15 @@ namespace CDL2v1 {
       private static readonly Dictionary<string,ID> UniqueIDs = [];
 
       public static void Dump() {
+         Debug.WriteLine("ID Dump:\n--------");
          List<ID> sortedIDs = [.. UniqueIDs.Values
-                                     .OrderBy(id => id.TargetType)
-                                     .ThenBy (id => id.Name)];
+                                     .OrderBy(id => id.Name)
+                                     //.ThenBy (id => id.Name)
+                                     ];
          int maxNameLength = sortedIDs.Select(id => id.Name.Length).Max();
-         int maxTypeLength = sortedIDs.Select(id => id.TargetType.Length).Max();
-         foreach (ID id in sortedIDs) Debug.WriteLine(id.ToString(maxNameLength,maxTypeLength));
+         // int maxTypeLength = sortedIDs.Select(id => id.TargetType.Length).Max();
+         foreach (ID id in sortedIDs) Debug.WriteLine(id.ToString(maxNameLength/*,maxTypeLength*/));
+         Debug.WriteLine("--------");
       }
 
       /// <summary>
@@ -38,12 +40,12 @@ namespace CDL2v1 {
       /// <summary>
       /// Used to create the Procedures for Section Ludes.
       /// </summary>
-      /// <param id="section"></param>
+      /// <param id="container"></param>
       /// <param id="ludeType">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>
       /// <returns></returns>
       public static ID From(Section section,RW ludeType) {
          ID id = From(Token.From(section,ludeType),typeof(Algorithm));
-         id.section = section;
+         id.container = section;
          return id;
       }
 
@@ -51,10 +53,9 @@ namespace CDL2v1 {
       public readonly static ID AnonID = new("Anon",typeof(Undeclared));
 
 
-      private ID(Token token,Type targetType) {
+      protected ID(Token token,Type targetType) {
          Debug.Assert(token.type == TT.ID && token.StringValue != null,"Program constructor: id not TokenType.ID or StringValue is null");
          this.token = token;
-         this.TargetType = targetType.Name;
       }
 
       private ID() { }
@@ -69,14 +70,15 @@ namespace CDL2v1 {
 
       public override bool Equals(object? obj) => obj is ID iD && token == iD.token;
       public override int GetHashCode() => HashCode.Combine(token);
-      //public override string ToString() => $"{Name}->{(section==null?"N/A":section.ToString())}";
-      private string ToString(int nameWidth = 0,int typeWidth = 0) {
+      public override string ToString() => Name;
+      private string ToString(int nameWidth = 0/*,int typeWidth = 0*/) {
          string name = nameWidth > 0 ? string.Format("{0,-" + nameWidth + "}",Name) : Name;
-         string type = typeWidth > 0 ? string.Format("{0,-" + typeWidth + "}",TargetType) : TargetType;
-         return nameWidth == 0 ? Name : $"{name}->{(section == null ? type : type+"   "+section.ToString())}";
+         // string type = typeWidth > 0 ? string.Format("{0,-" + typeWidth + "}",TargetType) : TargetType;
+         //return nameWidth == 0 ? Name : $"{name}->{(container == null ? type : type+"   "+container.ToString())}";
+         return nameWidth == 0 ? Name : $"{name}->{(container == null ? "N/A" : container.ToString())}";
       }
       public string AsIdentifier(string separator="_",string replacement="") { 
-         string parentPrefix = section is null || section.Parent is null ? "" : $"{section.Parent.AsName(replacement)}{separator}";
+         string parentPrefix = container is null || container.Parent is null ? "" : $"{container.Parent.AsName(replacement)}{separator}";
          return $"{parentPrefix}{token.AsIdentifier(replacement)}";
       }
  
