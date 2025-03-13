@@ -10,6 +10,29 @@ using static CDL2v1.Logger;
 
 
 namespace CDL2v1 {
+   /// <summary>
+   /// Semantic Analyzer for CDL2.
+   /// - An algorithm has an effect if it modifies the state of the system. This could be a variable, or a list or any other thing that changes
+   ///   things (this can only happen via macros).
+   /// - Modifying affixes is not considered an effect.
+   /// - Algorithms of the type ACTION and PREDICATE must have an effect. This cannot be verified for macros, but is verified for PROCEDUREs
+   /// - An algorithm of the type FUNCTION or TEST cannot have an effect. This cannot be verified for macros, but is verified for PROCEDUREs
+   /// - TESTs and PREDICATEs may fail. The analyzer verifies that PROCEDURES of this kind can indeed fail.
+   /// - If a PREDICATE fails after it has invoked a PREDICATE or ACTION it is said to have a defect. This is not allowed.
+   /// - The output and transput parameters of a TEST and PREDICATE are not modified if the ALGORITHM fails. This is enforced by the target specific code generator.
+   /// - Only ALGORRITHMs and CONSTs may appear in the interface (ABSTR, EXT, INV, IMPORT, EXPORT) lists of sections.
+   /// - For ABSTR, EXT, EXPORT the corresponding declaration must be in the same SECTION.
+   /// - For IMPORT the corresponding stub declaration must be in the same SECTION.
+   /// - For INV a corresponding declaration must NOT be in the same SECTION. It must be either in the EXT list of one of the sections of the same LAYER, or
+   ///   in in the ABSTR list of one of the sections of the LAYER below the current one.
+   /// - For IMPORT, the corresponding declaration must be in the some SECTION in one of the MODULEs listed in the PARTS list of the PROGRAM being compiled
+   ///   It must also be EXPORTed from there.
+   /// 
+   /// 
+   /// 1. Verify that all referenced objects are declared and accessible.
+   /// 2. Verify that there are no duplicate declarations.
+   /// 3. Verify the above rules.
+   /// </summary>
    internal class SemanticAnalyzer {
       internal void Analyze(Program MainProgram) {
          foreach (Program program in Program.Programs.Values) {
@@ -57,7 +80,7 @@ namespace CDL2v1 {
 
 
 
-         foreach (Algorithm algorithm in section.local.Values.Where(obj => obj is Algorithm algorithm)) {
+         foreach (Algorithm algorithm in section.declarations.Values.Where(obj => obj is Algorithm algorithm)) {
             Log(2,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
             if (algorithm is Procedure procedure) {
                AnalyzeCode(procedure);

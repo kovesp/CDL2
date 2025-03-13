@@ -219,17 +219,17 @@ namespace CDL2v1 {
 
          if (EmitCount(section.Lists,"LIST ") > 0) {
             Emit(RW.LIST.Decorate(emitter,SE.ReservedWord)," ");
-            Print(section.Lists.First());
+            Print(section.Lists.First(),section);
             foreach (LIST list in section.Lists.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
-               Print(list);
+               Print(list,section);
             }
             EmitSeparatorWithNL(TT.END);
          }
 
          if (EmitCount(section.Macros,"MACRO") > 0) foreach (Macro macro in section.Macros) Print(macro);
 
-         if (EmitCount(section.NonSymtheticProcedures,"PROC ") > 0) foreach (Procedure proc in section.NonSymtheticProcedures) Print(proc);
+         if (EmitCount(section.NonSyntheticProcedures,"PROC ") > 0) foreach (Procedure proc in section.NonSyntheticProcedures) Print(proc,section);
 
       },updateUI: true);     
 
@@ -244,8 +244,8 @@ namespace CDL2v1 {
             if (section.Ludes[ludeType].Count != 0) {
                Emit(ludeType.Decorate(emitter,SE.ReservedWord)," ");
                // Section Ludes are stored as ids of a generated Procedure item.
-               if (section.local[section.Ludes[ludeType].First()] is Procedure proc) { // This should always be the case
-                  Print(proc.group.alternatives.First());
+               if (section.TryGetLocalDeclaration(section.Ludes[ludeType].First(),out Procedure? proc)) { // This should always be the case
+                  Print(proc!.group.alternatives.First(),section);
                   EmitSeparatorWithNL(TT.END);
                } else {
                   ReportError($"Internal error: {ludeType} lude is not a Procedure item.");
@@ -256,13 +256,13 @@ namespace CDL2v1 {
          }
       }
 
-      private void Print(Alternative alternative,bool extraSpace=false) {
+      private void Print(Alternative alternative,Section section,bool extraSpace=false) {
          emitter.ExtraIndent = 0;
          if (alternative.calls.Count > 0) { 
-            Print(alternative.calls.First(),extraSpace:extraSpace,firstInAlternative:true);
+            Print(alternative.calls.First(),section,extraSpace:extraSpace,firstInAlternative:true);
             foreach (Call call in alternative.calls.Skip(1)) {
                EmitSeparator(TT.CALLSEP);
-               Print(call);
+               Print(call,section);
             }
             if (alternative.lastCall.type != LCT.None) EmitSeparator(TT.CALLSEP);
          }
@@ -271,7 +271,7 @@ namespace CDL2v1 {
             switch (alternative.lastCall.type) {
                case LastCallType.Standard:
                   Debug.Assert(alternative.lastCall.call != null,"alternative.lastCall.call is null");
-                  Print(alternative.lastCall.call,firstInAlternative:alternative.calls.Count==0);
+                  Print(alternative.lastCall.call,section,firstInAlternative:alternative.calls.Count==0);
                   break;
                case LastCallType.Succeed:
                   Emit(TT.SUCCEED);
@@ -291,34 +291,34 @@ namespace CDL2v1 {
                   break;
                case LastCallType.Group:
                   Debug.Assert(alternative.lastCall.group is not null,"alternative.group is null");
-                  Print(alternative.lastCall.group);
+                  Print(alternative.lastCall.group,section);
                   break;
             }
          }
       }
 
-      private void Print(Group group) => Indented(() => {
+      private void Print(Group group,Section section) => Indented(() => {
          NlEmit(TT.GRPOPEN);
          if (group.id != ID.AnonID) Emit(group.id.Name,TT.LABELSEP);
-         Print(group.alternatives);
+         Print(group.alternatives,section);
          Emit(TT.GRPCLOSE);
       });
 
-      private void Print(List<Alternative> alternatives) {
+      private void Print(List<Alternative> alternatives,Section section) {
          Debug.Assert(alternatives.Any(),"alternatives list is empty");
-         Print(alternatives.First());
+         Print(alternatives.First(),section);
          foreach (Alternative alternative in alternatives.Skip(1)) {
             EmitSeparatorWithNL(TT.ALTSEP);
-            Print(alternative,extraSpace:true);
+            Print(alternative,section,extraSpace:true);
          }
       }
 
-      public void Print(Call call,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
+      public void Print(Call call,Section section,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
          Algorithm? called = null;
-         if (call.id.container != null && ((Section)call.id.container).local.TryGetValue(call.id,out ICDL2Object? obj) && obj is Algorithm algorithm) {
+         if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
             called = algorithm;
-            callDecorator = algorithm.NameType;
+            callDecorator = algorithm!.NameType;
          } else {
             ReportError($"Internal error: {call.id} has no container. Something wrong with semantic analysis?");
          }
@@ -333,7 +333,7 @@ namespace CDL2v1 {
                   Emit(id.Decorate(emitter,affix.SyntaxElement));
                } else if (call.TryGetLocal(id,out Local _)) {
                   Emit(id.Decorate(emitter,SE.Local));
-               } else if ((id.container as Section)?.local.TryGetValue(id,out ICDL2Object? cdl2obj) == true) {
+               } else if (section.TryGetDeclaration(id,out ICDL2Object? cdl2obj)) {
                   switch (cdl2obj) {
                      case Const constant:
                         Emit(id.Decorate(emitter,SE.Const));
@@ -371,12 +371,12 @@ namespace CDL2v1 {
          //}
       });
 
-      private void PrintList(RW rw,IEnumerable<ID> ids,bool decorate = true) {
+      private void PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true) {
          if (ids.Any()) {
-            Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First(),decorate));
+            Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First(),section,decorate));
             foreach (ID id in ids.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
-               Emit(DecoratedID(id,decorate));
+               Emit(DecoratedID(id,section,decorate));
             }
             EmitSeparatorWithNL(TT.END);
          }
@@ -388,9 +388,9 @@ namespace CDL2v1 {
       /// <param name="id"></param>
       /// <param name="decorate"></param>
       /// <returns></returns>
-      private string DecoratedID(ID id,bool decorate=true) {
-         if (decorate && id.container != null && (id.container as Section).local.TryGetValue(id,out ICDL2Object? obj)) {
-            if (obj.SE == SE.AlgorithmName) {
+      private string DecoratedID(ID id,Section? section,bool decorate=true) {
+         if (decorate && (section?.TryGetDeclaration(id,out ICDL2Object? obj)??false)) {
+            if (obj!.SE == SE.AlgorithmName) {
                return id.Decorate(emitter,AlgorithmNameDecorators[((Algorithm)obj).NameType]);
             } else {
                return id.Decorate(emitter,obj.SE);
@@ -400,18 +400,18 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Print a procedure unless it is isSynthetic.
+      /// Print a procedure unless it is IsSynthetic.
       /// </summary>
       /// <param name="proc"></param>
-      public void Print(Procedure proc) {
-         Debug.Assert(!proc.isSynthetic,"Synthetic procedures should not be printed");
+      public void Print(Procedure proc,Section section) {
+         Debug.Assert(!proc.IsSynthetic,"Synthetic procedures should not be printed");
          PrintProcHead(proc);
          Indented(() => {
             Debug.Assert(proc.group.alternatives.Count != 0,"alternatives list is empty");
-            Print(proc.group.alternatives.First());
+            Print(proc.group.alternatives.First(),section);
             foreach (Alternative alt in proc.group.alternatives.Skip(1)) {
                EmitSeparatorWithNL(TT.ALTSEP);
-               Print(alt);
+               Print(alt,section);
             }
             EmitSeparatorWithNL(TT.END);
          });
@@ -501,7 +501,8 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(LIST list) => Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,DecoratedID(list.lwb),TT.LISTBOUNDSEP,DecoratedID(list.upb),TT.LISTBOUNDEND);
+      public void Print(LIST list,Section section) 
+         => Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,DecoratedID(list.lwb,section),TT.LISTBOUNDSEP,DecoratedID(list.upb,section),TT.LISTBOUNDEND);
 
       /// <summary>
       /// Print the start and end of a container unit, and then the contents.

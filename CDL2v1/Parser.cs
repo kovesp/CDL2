@@ -219,8 +219,8 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
-            if (currentSection.local.ContainsKey(id)) {
-               ReportError($"Algorithm {id} already declared in container {currentSection.id} as {currentSection.local[id].GetType().Name}");
+            if (currentSection.declarations.ContainsKey(id)) {
+               ReportError($"Algorithm {id} already declared in container {currentSection.id} as {currentSection.declarations[id].GetType().Name}");
                return;
             }
             List<Affix>? formals = ParseFormals();
@@ -252,8 +252,7 @@ namespace CDL2v1 {
                }
             }
             Debug.Assert(algorithm != null);
-            currentSection.local[id] = algorithm;
-            id.container = currentSection;
+            currentSection.declarations[id] = algorithm;
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
@@ -405,7 +404,7 @@ namespace CDL2v1 {
          while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token token)) {
             Local local = new(ID.From(token,typeof(Local)));
             if (locals.Contains(local)) {
-               ReportError($"Duplicate local {local}");
+               ReportError($"Duplicate declarations {local}");
                return null;
             } else {
                locals.Add(local);
@@ -439,7 +438,7 @@ namespace CDL2v1 {
       private void ParseList() {
          if (tokens.CanConsume(RW.LIST)) {
             Debug.Assert(currentSection != null);
-            ParseIDDeclarationList(currentSection.local,id => ParseListBody(id));
+            ParseIDDeclarationList(currentSection.declarations,id => ParseListBody(id));
          }
       }
 
@@ -455,7 +454,7 @@ namespace CDL2v1 {
                tokens.CanConsume(TT.LISTBOUNDSEP) &&
                tokens.CanConsume(TT.ID,out Token upbToken) &&
                tokens.CanConsume(TT.LISTBOUNDEND)) {
-            list = new(id,ID.From(lwbToken,typeof(Const)),ID.From(upbToken,typeof(Const)));
+            list = new(id,currentSection,ID.From(lwbToken,typeof(Const)),ID.From(upbToken,typeof(Const)));
          } else {
             ReportError($"LIST {id} with has invalid bounds in container {currentSection.id}");
          }
@@ -468,7 +467,7 @@ namespace CDL2v1 {
       private void ParseVar() {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.VAR)) {
-            ParseIDDeclarationList(currentSection.local,id => new Var(id));
+            ParseIDDeclarationList(currentSection.declarations,id => new Var(id,currentSection));
          }
       }
 
@@ -479,7 +478,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST)) {
             Debug.Assert(currentSection != null);
-            ParseIDDeclarationList(currentSection.local,id => ParseConstBody(id));
+            ParseIDDeclarationList(currentSection.declarations,id => ParseConstBody(id));
          }
       }
 
@@ -491,18 +490,21 @@ namespace CDL2v1 {
       /// <param id="token">The token of the constant.</param>
       private Const? ParseConstBody(ID id) {
          Debug.Assert(currentSection != null);
-         Const? c = new(id);
          if (tokens.Optional(TT.EQUALS)) {
             if (currentSection.import.Contains(id)) {
                LogError($"CONST {id} with definition is imported in container {currentSection.id}");
+               return null;
             } else {
+               Const c = new(id,currentSection);
                ParseConstElements(c);
+               return c;
             }
          } else if (!currentSection.import.Contains(id)) {
             LogError($"CONST {id} with no definition is not imported in container {currentSection.id}");
-            c = null;
+            return null;
+         } else {
+            return new ImportedConst(id,currentSection);
          }
-         return c;
       }
 
       /// <summary>
@@ -515,13 +517,13 @@ namespace CDL2v1 {
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
                ID id = ID.From(elemId,typeof(Const));
-               if (currentSection.local.ContainsKey(id)) {
+               if (currentSection.declarations.ContainsKey(id)) {
                   // The ID is already declared in this container. It can only be a constant or undeclared.
                   // That will be true even if it is invoked or imported.
-                  Debug.Assert(currentSection.local[id] is Const || currentSection.local[id] is Undeclared);
+                  Debug.Assert(currentSection.declarations[id] is Const || currentSection.declarations[id] is Undeclared);
                   c.elements.Add(id);
                } else if (currentSection.import.Contains(id)) {
-                  currentSection.local[id] = Undeclared.Instance;
+                  currentSection.declarations[id] = Undeclared.Instance;
                   c.elements.Add(id);
                }
             } else if (tokens.Optional(TT.STRING,out Token str)) {
@@ -604,7 +606,7 @@ namespace CDL2v1 {
 
             lude.group.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
             section.Ludes[type].Add(lude.id);
-            section.local[lude.id] = lude;
+            section.declarations[lude.id] = lude;
          }
       }
 
@@ -623,7 +625,6 @@ namespace CDL2v1 {
             if (cDL2Object != null) {
                if (!idList.ContainsKey(id)) {
                   idList[id] = cDL2Object;
-                  id.container = currentSection;
                }
                // TODO: need error reporting for duplicate entries
             }

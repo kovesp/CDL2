@@ -68,21 +68,21 @@ internal interface ICodeGenerator {
 
    public void GenerateStart(Call call);
    public void GenerateEnd(Call call);
-   public void GenerateDeclareLocal(ID local);
+   public void GenerateDeclareLocal(Local local);
 
    /// <summary>
    /// This declares the head of a constant
    /// </summary>
    /// <param name="id"></param>
-   public void GenerateCodeConst(ID id);
-   public void GenerateCodeDeclareVar(ID id);
+   public void GenerateCodeConst(Const c);
+   public void GenerateCodeDeclareVar(Var var);
    /// <summary>
    /// This declares a list. 
    /// </summary>
    /// <param name="id"></param>
    /// <param name="lwb">The name of the constant that contains the lower bound.</param>
    /// <param name="upb">The name of the constant that contains the upper bound.</param>
-   public void GenerateCodeDeclareList(ID id,ID lwb,ID upb);
+   public void GenerateCodeDeclareList(LIST list,Const lwb,Const upb);
 
    void GenerateLudeStart(RW ludeType,Container section);
    void GenerateLudeEnd(RW ludeType,Container section);
@@ -94,24 +94,24 @@ internal interface ICodeGenerator {
    void GenerateMacroElemInt(long value);
    void GenerateMacroElemFloat(double value);
    void GenerateMacroElemString(string value);
-   void GenerateReferenceVar(ID id);
-   void GenerateReferenceList(ID id);
-   void GenerateReferenceConst(ID id);
-   void GenerateReferenceAffix(ID id);
-   void GenerateReferenceLocal(ID id);
-   void GenerateDeclareAffix(ID id,AD direction);
-   void GenerateInitializeAffixOrVar(ID id,AD affixDir,bool isVar = false);
-   void GenerateFinalizeAffixOrVar(ID id,AD affixDir,bool isVar = false);
+   void GenerateReference(Var var);
+   void GenerateReference(LIST list);
+   void GenerateReference(Const constant);
+   void GenerateReference(Affix affix);
+   void GenerateReferenceLocal(Local local);
+   void GenerateDeclareAffix(Affix affix,AD direction);
+   void GenerateInitializer(IFailureProtected var,AD affixDir=AD.transput,bool isVar = false);
+   void GenerateFinalizer(IFailureProtected var,AD affixDir=AD.transput,bool isVar = false);
    void Newline();
    void GenerateMacroBodyStart(Macro macro);
    void GenerateMacroBodyEnd(Macro macro);
    void FinalizationStart(Algorithm algorithm,bool IsNeeded);
    void FinalizationEnd(Algorithm algorithm,bool IsNeeded);
-   void GenerateConstantStart(ID id);
+   void GenerateConstantStart(Const c);
    void GenerateConstElemString(string value);
    void GenerateConstElemFloat(double value);
    void GenerateConstElemInt(long value);
-   void GenerateConstantEnd(ID id);
+   void GenerateConstantEnd(Const c);
    void GenerateDataSectionStart(Func<int> count,string v);
 
    public string FileExtension { get; }

@@ -1,5 +1,9 @@
-﻿using System;
+﻿// Ignore Spelling: Finalizer lwb upb
+
+using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Reflection.Emit;
 using System.Text;
@@ -75,20 +79,31 @@ class BoundedArray {
          PSVarType.Local => "L_",
          _ => throw new NotImplementedException(),
       };
+      private static PSVarType PSVarTypeOf(DeclaredCDL2Object obj) => obj switch {
+         Var => PSVarType.Var,
+         LIST => PSVarType.List,
+         Const => PSVarType.Const,
+         _ => throw new NotImplementedException(),
+      };
 
-      private static string PSVar(ID name,PSVarType type,string prefix = "",string suffix = "") => $"${prefix}{PSVarPrefix(type)}{PSName(name)}{suffix}";
-      private static string PSVar(NamedElement name) => $"${PSName(name)}";
-      private static string PSName(ID name) => name.AsIdentifier();
-      private static string PSName(NamedElement name) => name.AsName();
+      private static string _PSVar(string name,PSVarType type,string prefix = "",string suffix = "") => $"${prefix}{PSVarPrefix(type)}{name}{suffix}";
+      private static string PSVar(DeclaredCDL2Object obj,string prefix = "",string suffix = "") => _PSVar(PSName(obj),PSVarTypeOf(obj),prefix,suffix);
+      private static string PSVar(Affix affix,string prefix = "",string suffix = "") => _PSVar(PSName(affix),PSVarType.Affix,prefix,suffix);
+      private static string PSVar(Local local,string prefix = "",string suffix = "") => _PSVar(PSName(local),PSVarType.Local,prefix,suffix);
+
+      private static string PSName(DeclaredCDL2Object obj) => obj.FQN(camelCase: true);
+      private static string PSName(Affix affix) => affix.id.Name.AsIdentifier(camelCase:true);
+      private static string PSName(Local local) => local.id.Name.AsIdentifier(camelCase: true);
+      //private static string PSName(NamedElement name) => name.AsName();
 
       public void GenerateCode(Const c) {
-         string value = $"{PSVar(c.id,PSVarType.Const)} = ";
+         string value = $"{PSVar(c)} = ";
          foreach (IConstElement e in c.elements) {
             value += e switch {
                STRING s => $"\"{s.value}\"",
                INT n => n.value,
                FLOAT f => f.value,
-               Const ce => PSVar(ce.id,PSVarType.Const),
+               Const ce => PSVar(ce),
                //ID id    => PSVar(id),
                _ => throw new NotImplementedException(),
             };
@@ -101,7 +116,7 @@ class BoundedArray {
       public void GenerateCodeExport(ID id) { }
       public void GenerateCodeImport(ID id) { }
 
-      public void GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.id)} (");
+      public void GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc)} (");
       public void GenerateAlgorithmHeaderEnd(Algorithm proc) {
          emitter.Emitnl(") {");
          emitter.IndentLevel++;
@@ -149,54 +164,64 @@ class BoundedArray {
          foreach (string line in lines.SkipLast(1)) emitter.Emitnl(line);
          emitter.Emit(lines.Last());
       }
-      public void GenerateReferenceVar(ID id) => emitter.Emit(PSVar(id,PSVarType.Var,"_"));
-      public void GenerateReferenceList(ID id) => emitter.Emit(PSVar(id,PSVarType.List));
-      public void GenerateReferenceConst(ID id) => emitter.Emit(PSVar(id,PSVarType.Const));
-      public void GenerateReferenceAffix(ID id) => emitter.Emit(PSVar(id,PSVarType.Affix,"_"));
-      public void GenerateReferenceLocal(ID id) => emitter.Emit(PSVar(id,PSVarType.Local));
-      public void GenerateDeclareLocal(ID local) => emitter.Emit(PSVar(local,PSVarType.Local)," = $null");
-      public void GenerateDeclareAffix(ID affix,AD dir) {
+      public void GenerateReference(Var var) => emitter.Emit(PSVar(var,"_"));
+      public void GenerateReference(LIST list) => emitter.Emit(PSVar(list));
+      public void GenerateReference(Const constant) => emitter.Emit(PSVar(constant));
+      public void GenerateReference(Affix affix) => emitter.Emit(PSVar(affix,"_"));
+      public void GenerateReferenceLocal(Local local) => emitter.Emit(PSVar(local));
+      public void GenerateDeclareLocal(Local local) => emitter.Emit(PSVar(local)," = $null");
+      public void GenerateDeclareAffix(Affix affix,AD dir) {
          switch (dir) {
             case AD.input or AD.NONE:
                // String (given as AD.NONE) affix treated the same as input
-               emitter.Emit(PSVar(affix,PSVarType.Affix,"_"));
+               emitter.Emit(PSVar(affix,"_"));
                break;
             default:
-               emitter.Emit("[ref]",PSVar(affix,PSVarType.Affix));
+               emitter.Emit("[ref]",PSVar(affix));
                break;
          }
       }
-      public void GenerateCodeConst(ID id) => throw new NotImplementedException();
-      public void GenerateCodeDeclareVar(ID id) => emitter.Emitnl(PSVar(id,PSVarType.Var)," = 0");
-      public void GenerateCodeDeclareList(ID id,ID lwb,ID upb) => emitter.Emitnl(PSVar(id,PSVarType.List),$" = [BoundArray]::new({PSVar(lwb,PSVarType.Const)},{PSVar(upb,PSVarType.Const)})");
-      public void GenerateInitializeAffixOrVar(ID id,AD affixDir,bool isVar = false) {
+      public void GenerateCodeConst(Const c) => throw new NotImplementedException();
+      public void GenerateCodeDeclareVar(Var var) => emitter.Emitnl(PSVar(var)," = 0");
+      public void GenerateCodeDeclareList(LIST var,Const lwb,Const upb) => emitter.Emitnl(PSVar(var),$" = [BoundArray]::new({PSVar(lwb)},{PSVar(upb)})");
+      public void GenerateInitializer(IFailureProtected var,AD affixDir = AD.transput,bool isVar = false) {
          PSVarType type = isVar ? PSVarType.Var : PSVarType.Affix;
-         string value = isVar ? "" : ".Value";
          switch (affixDir) {
             case AD.NONE:
                throw new NotImplementedException();
             case AD.input:
                break;
             case AD.output:
-               emitter.Emitnl(PSVar(id,type,"_")," = ",0);
+               if (isVar) {
+                  emitter.Emitnl(PSVar((Var)var,"_")," = 0");
+               } else {
+                  emitter.Emitnl(PSVar((Affix)var,"_")," = 0");
+               }
                break;
             case AD.transput:
-               emitter.Emitnl(PSVar(id,type,"_")," = ",PSVar(id,type,suffix: value));
+               if (isVar) { 
+                  emitter.Emitnl(PSVar((Var)var,"_")," = ",PSVar((Var)var)); 
+               } else {
+                  emitter.Emitnl(PSVar((Affix)var,"_")," = ",PSVar((Affix)var,suffix:".Value"));
+               }
                break;
 
          }
       }
 
-      public void GenerateFinalizeAffixOrVar(ID id,AD affixDir,bool isVar = false) {
+      public void GenerateFinalizer(IFailureProtected var,AD affixDir = AD.transput,bool isVar = false) {
          PSVarType type = isVar ? PSVarType.Var : PSVarType.Affix;
-         string value = isVar ? "" : ".Value";
          switch (affixDir) {
             case AD.NONE:
                throw new NotImplementedException();
             case AD.input:
                break;
             default:
-               emitter.Emitnl(PSVar(id,type,suffix: value)," = ",PSVar(id,type,"_"));
+               if (isVar) {
+                  emitter.Emitnl(PSVar((Var)var)," = ",PSVar((Var)var,"_"));
+               } else {
+                  emitter.Emitnl(PSVar((Affix)var,suffix:".Value")," = ",PSVar((Affix)var,"_"));
+               }
                break;
          }
       }
@@ -228,11 +253,11 @@ class BoundedArray {
          }
       }
 
-      public void GenerateConstantStart(ID id) => emitter.Emit(PSVar(id,PSVarType.Const)," = ");
+      public void GenerateConstantStart(Const c) => emitter.Emit(PSVar(c)," = ");
       public void GenerateConstElemString(string value) => GenerateMacroElemString(value);
       public void GenerateConstElemFloat(double value) => GenerateMacroElemFloat(value);
       public void GenerateConstElemInt(long value) => GenerateMacroElemInt(value);
-      public void GenerateConstantEnd(ID id) => emitter.Emitnl();
+      public void GenerateConstantEnd(Const c) => emitter.Emitnl();
       void ICodeGenerator.GenerateDataSectionStart(Func<int> count,string v) {
          int n = count();
          if (n > 0) emitter.NlEmitnl($"\n##### {n} {v}{(n != 1 ? "s" : "")} #####\n");

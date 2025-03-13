@@ -9,7 +9,7 @@ namespace CDL2v1 {
    internal class ID : IConstElement, IMacroElement, IActualArg {
       public readonly Token token = Token.ErrorToken;
       public string Name => token.TokenString;
-      public Container? container = null;
+      //public Container? container = null;
 
       /// <summary>
       /// Used to ensure that multiple spellings of tokens produce the same ID.
@@ -24,7 +24,7 @@ namespace CDL2v1 {
                                      ];
          int maxNameLength = sortedIDs.Select(id => id.Name.Length).Max();
          // int maxTypeLength = sortedIDs.Select(id => id.TargetType.Length).Max();
-         foreach (ID id in sortedIDs) Debug.WriteLine(id.ToString(maxNameLength/*,maxTypeLength*/));
+         foreach (ID id in sortedIDs) Debug.WriteLine(id.ToString(/*maxNameLength/*,maxTypeLength*/));
          Debug.WriteLine("--------");
       }
 
@@ -45,7 +45,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       public static ID From(Section section,RW ludeType) {
          ID id = From(Token.From(section,ludeType),typeof(Algorithm));
-         id.container = section;
+         //id.container = section;
          return id;
       }
 
@@ -71,16 +71,16 @@ namespace CDL2v1 {
       public override bool Equals(object? obj) => obj is ID iD && token == iD.token;
       public override int GetHashCode() => HashCode.Combine(token);
       public override string ToString() => Name;
-      private string ToString(int nameWidth = 0/*,int typeWidth = 0*/) {
-         string name = nameWidth > 0 ? string.Format("{0,-" + nameWidth + "}",Name) : Name;
-         // string type = typeWidth > 0 ? string.Format("{0,-" + typeWidth + "}",TargetType) : TargetType;
-         //return nameWidth == 0 ? Name : $"{name}->{(container == null ? type : type+"   "+container.ToString())}";
-         return nameWidth == 0 ? Name : $"{name}->{(container == null ? "N/A" : container.ToString())}";
-      }
-      public string AsIdentifier(string separator="_",string replacement="") { 
-         string parentPrefix = container is null || container.Parent is null ? "" : $"{container.Parent.AsName(replacement)}{separator}";
-         return $"{parentPrefix}{token.AsIdentifier(replacement)}";
-      }
+      //private string ToString(int nameWidth = 0/*,int typeWidth = 0*/) {
+      //   string name = nameWidth > 0 ? string.Format("{0,-" + nameWidth + "}",Name) : Name;
+      //   // string type = typeWidth > 0 ? string.Format("{0,-" + typeWidth + "}",TargetType) : TargetType;
+      //   //return nameWidth == 0 ? Name : $"{name}->{(container == null ? type : type+"   "+container.ToString())}";
+      //   return nameWidth == 0 ? Name : $"{name}->{(container == null ? "N/A" : container.ToString())}";
+      //}
+      //public string AsIdentifier(string separator="_",string replacement="") { 
+      //   string parentPrefix = container is null || container.Parent is null ? "" : $"{container.Parent.AsName(replacement)}{separator}";
+      //   return $"{parentPrefix}{token.AsIdentifier(replacement)}";
+      //}
  
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator !=(ID left,ID right) => !(left == right);
