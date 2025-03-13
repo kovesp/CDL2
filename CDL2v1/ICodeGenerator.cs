@@ -68,22 +68,41 @@ internal interface ICodeGenerator {
 
    public void GenerateStart(Call call);
    public void GenerateEnd(Call call);
+   public void GenerateDeclareLocal(ID local);
 
-   public void GenerateCode(IActualArg arg);
-   public void GenerateCode(Affix arg);
-   public void GenerateLocalDeclaration(ID local);
-
-   public void GenerateCode(Const c);
-   public void GenerateCode(Var v);
-   public void GenerateCode(LIST l);
+   /// <summary>
+   /// This declares the head of a constant
+   /// </summary>
+   /// <param name="id"></param>
+   public void GenerateCodeConst(ID id);
+   public void GenerateCodeDeclareVar(ID id);
+   /// <summary>
+   /// This declares a list. 
+   /// </summary>
+   /// <param name="id"></param>
+   /// <param name="lwb">The name of the constant that contains the lower bound.</param>
+   /// <param name="upb">The name of the constant that contains the upper bound.</param>
+   public void GenerateCodeDeclareList(ID id,ID lwb,ID upb);
 
    void GenerateLudeStart(RW ludeType,Container section);
-   void GenerateLudeEend(RW ludeType,Container section);
+   void GenerateLudeEnd(RW ludeType,Container section);
    void GenerateExport(Module module,ID expId);
 
    public void GenerateAlgorithmHeaderStart(Algorithm proc);
    public void GenerateAlgorithmHeaderEnd(Algorithm proc);
    public void GenerateParamSeparator();
+   void GenerateMacroElemInt(long value);
+   void GenerateMacroElemFloat(double value);
+   void GenerateMacroElemString(string value);
+   void GenerateReferenceVar(ID id);
+   void GenerateReferenceList(ID id);
+   void GenerateReferenceConst(ID id);
+   void GenerateReferenceAffix(ID id);
+   void GenerateReferenceLocal(ID id);
+   void GenerateDeclareAffix(ID id,AD direction);
+   void GenerateInitializeAffixOrVar(ID id,AD affixDir,bool isVar = false);
+   void GenerateFinalizeAffixOrVar(ID id,AD affixDir,bool isVar = false);
+   void Newline();
 
    public string FileExtension { get; }
 }

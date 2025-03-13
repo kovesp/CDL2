@@ -62,30 +62,38 @@ class BoundedArray {
       public void GenerateStart(Section section) => EmitUnitStartComment(section);
       public void GenerateEnd(Section section) => EmitUnitEndComment(section);
 
-      private static string PSVar(ID name) => $"${PSName(name)}";
+      enum PSVarType { Var, List, Const, Affix, Local }
+
+      private static string PSVarPrefix(PSVarType type) => type switch {
+         PSVarType.Var => "V_",
+         PSVarType.List => "LL_",
+         PSVarType.Const => "C_",
+         PSVarType.Affix => "A_",
+         PSVarType.Local => "L_",
+         _ => throw new NotImplementedException(),
+      };
+
+      private static string PSVar(ID name,PSVarType type,string prefix = "",string suffix = "") => $"${prefix}{PSVarPrefix(type)}{PSName(name)}{suffix}";
       private static string PSVar(NamedElement name) => $"${PSName(name)}";
       private static string PSName(ID name) => name.AsIdentifier();
       private static string PSName(NamedElement name) => name.AsName();
 
       public void GenerateCode(Const c) {
-         string value = "{PSVar(c)} = ";
+         string value = $"{PSVar(c.id,PSVarType.Const)} = ";
          foreach (IConstElement e in c.elements) {
             value += e switch {
                STRING s => $"\"{s.value}\"",
-               INT n    => n.value,
-               FLOAT f  => f.value,
-               Const ce => PSVar(ce),
-               ID id    => PSVar(id),
-               _        => throw new NotImplementedException(),
+               INT n => n.value,
+               FLOAT f => f.value,
+               Const ce => PSVar(ce.id,PSVarType.Const),
+               //ID id    => PSVar(id),
+               _ => throw new NotImplementedException(),
             };
          }
          emitter.Emitnl(value);
       }
       public void GenerateCode(Var v) => emitter.Emitnl($"{PSVar(v)}");
       public void GenerateCode(LIST l,string lwb,string upb) => emitter.Emitnl($"{PSVar(l)} = New-Object BoundedArray {lwb} {upb}");
-
-      public void GenerateCode(IActualArg arg) => emitter.Emit(arg is STRING s ? s.value : arg is ID i ? PSVar(i) : throw new NotImplementedException());
-      public void GenerateCode(Affix arg) => emitter.Emit($"${arg.id}");
 
       public void GenerateCodeExport(ID id) { }
       public void GenerateCodeImport(ID id) { }
@@ -112,18 +120,79 @@ class BoundedArray {
       public void GenerateStart(Program program,string target) => throw new NotImplementedException();
 
       public void GenerateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
-      public void GenerateLudeEend(RW ludeType,Container section) => throw new NotImplementedException();
+      public void GenerateLudeEnd(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateStart(Macro macro) { }
       public void GenerateEnd(Macro macro) => emitter.NlEmitnl("}");
       public void GenerateCode(LIST l) => throw new NotImplementedException();
       public void GenerateExport(Module module,ID expId) => throw new NotImplementedException();
       public void GenerateLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
-      public void GenerateLudeEend(RW ludeType,Section section) => throw new NotImplementedException();
+      public void GenerateLudeEnd(RW ludeType,Section section) => throw new NotImplementedException();
       public void GenerateParamSeparator() => emitter.Emit(",");
 
 
       private void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName}");
       private void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName}");
-      public void GenerateLocalDeclaration(ID local) => emitter.Emitnl($"   {PSVar(local)} = $null");
+      //public void GenerateLocalDeclaration(ID affix) => emitter.Emitnl($"   {PSVar(affix)} = $null");
+      public void GenerateMacroElemInt(long value) => emitter.Emit(value);
+      public void GenerateMacroElemFloat(double value) => emitter.Emit(value);
+      public void GenerateMacroElemString(string value) {
+         string[] lines = value.Split('\n');
+         foreach (string line in lines.SkipLast(1)) emitter.Emitnl(line);
+         emitter.Emit(lines.Last());
+      }
+      public void GenerateReferenceVar(ID id) => emitter.Emit(PSVar(id,PSVarType.Var,"_"));
+      public void GenerateReferenceList(ID id) => emitter.Emit(PSVar(id,PSVarType.List));
+      public void GenerateReferenceConst(ID id) => emitter.Emit(PSVar(id,PSVarType.Const));
+      public void GenerateReferenceAffix(ID id) => emitter.Emit(PSVar(id,PSVarType.Affix,"_"));
+      public void GenerateReferenceLocal(ID id) => emitter.Emit(PSVar(id,PSVarType.Local));
+      public void GenerateDeclareLocal(ID local) => emitter.Emit(PSVar(local,PSVarType.Local)," = $null");
+      public void GenerateDeclareAffix(ID affix,AD dir) {
+         switch (dir) {
+            case AD.input:
+               emitter.Emit(PSVar(affix,PSVarType.Affix,"_"));
+               break;
+            case AD.NONE:
+               throw new NotImplementedException();
+            default:
+               emitter.Emit("[ref]",PSVar(affix,PSVarType.Affix));
+               break;
+         }
+      }
+      public void GenerateCodeConst(ID id) => throw new NotImplementedException();
+      public void GenerateCodeDeclareVar(ID id) => emitter.Emit(PSVar(id,PSVarType.Var));
+      public void GenerateCodeDeclareList(ID id,ID lwb,ID upb) => emitter.Emitnl(PSVar(id,PSVarType.List),$" = new BoundArray({PSVar(lwb,PSVarType.Const)},{PSVar(upb,PSVarType.Const)})");
+      public void GenerateInitializeAffixOrVar(ID id,AD affixDir,bool isVar = false) {
+         PSVarType type = isVar ? PSVarType.Var : PSVarType.Affix;
+         string value = isVar ? "" : ".Value";
+         switch (affixDir) {
+            case AD.NONE:
+               throw new NotImplementedException();
+            case AD.input:
+               break;
+            case AD.output:
+               emitter.Emitnl(PSVar(id,type,"_")," = ",0);
+               break;
+            case AD.transput:
+               emitter.Emitnl(PSVar(id,type,"_")," = ",PSVar(id,type,suffix: value));
+               break;
+
+         }
+      }
+
+      public void GenerateFinalizeAffixOrVar(ID id,AD affixDir,bool isVar = false) {
+         PSVarType type = isVar ? PSVarType.Var : PSVarType.Affix;
+         string value = isVar ? "" : ".Value";
+         switch (affixDir) {
+            case AD.NONE:
+               throw new NotImplementedException();
+            case AD.input:
+               break;
+            default:
+               emitter.Emitnl(PSVar(id,type,suffix: value)," = ",PSVar(id,type,"_"));
+               break;
+         }
+      }
+
+      void ICodeGenerator.Newline() => emitter.Emitnl();
    }
 }

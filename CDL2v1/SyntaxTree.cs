@@ -14,6 +14,7 @@ using System.Security;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using System.Xml.Linq;
 
 namespace CDL2v1 {
    internal class Set<T> : HashSet<T> {
@@ -240,6 +241,8 @@ namespace CDL2v1 {
       }
       public string AlgorithmName => $"{algorithmType} {id}";
 
+      public bool CanFail => algorithmType == RW.TEST || algorithmType == RW.PREDICATE;
+
       public bool TryGetAffix(ID id,out Affix affix) => (affix = this.affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
 
@@ -310,6 +313,8 @@ namespace CDL2v1 {
       /// TODO: figure out when to re-compute Name annotations.
       /// </summary>
       public void ResetNameAnnotations() => sa = null;
+      public abstract IEnumerable<Var> GetReferencedVariables();
+
 
       override protected string ItemTypeShortName => $"{algorithmType}";
    }
@@ -319,6 +324,7 @@ namespace CDL2v1 {
    /// </summary>
    internal class ImportedAlgorithm : Algorithm {
       public ImportedAlgorithm(ID id,List<Affix> formals,Token algorithmType,Section section) : base(id,formals,[],algorithmType,TT.NOBODY,section) => Parent = section;
+      public override IEnumerable<Var> GetReferencedVariables() => [];
    }
 
    /// <summary>
@@ -334,6 +340,7 @@ namespace CDL2v1 {
       public List<IMacroElement> elements = [];
       public Macro(ID id,List<Affix> formals,Set<Local> locals,Token algType,TT bodyType,Section section)
          : base(id,formals,locals,algType,bodyType,section) { }
+      public override IEnumerable<Var> GetReferencedVariables() => elements.OfType<Var>();
    }
    /// <summary>
    /// Represents a code in the syntax tree.
@@ -351,6 +358,21 @@ namespace CDL2v1 {
          group = new(id,[],null);
       }
       public Procedure(RW ludeType,Section section) : this(ID.From(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section,true) { } // Used for container Ludes which are parameterless actions with no locals.
+      public override IEnumerable<Var> GetReferencedVariables() {
+         Set<Var> variables = [];
+         CollectReferencedVariables(group,variables);
+         return variables;
+      }
+      private void CollectReferencedVariables(Group group,Set<Var> variables) {
+         foreach (Alternative alternative in group.alternatives) {
+            foreach (Call call in alternative.calls) foreach (Var variable in call.args.OfType<Var>()) variables.Add(variable);
+            if (alternative.lastCall.type == LCT.Standard) {
+               foreach (Var variable in alternative.lastCall.call!.args.OfType<Var>()) variables.Add(variable);
+            } else if (alternative.lastCall.type == LCT.Group) {
+               CollectReferencedVariables(alternative.lastCall.group!,variables);
+            }
+         }
+      }
    }
 
    internal class Call(ID id,Procedure proc) {
@@ -454,14 +476,14 @@ namespace CDL2v1 {
 
       override public string ToString() => $"LIST {id}({lwb}:{upb})";
    }
-   internal class Var : NamedElement, IMacroElement, ICDL2Object {
+   internal class Var : NamedElement, IMacroElement, ICDL2Object, IActualArg {
       public SE SE => SE.Var;
 
       public Var(ID id) : base(id) { }
 
       override public string ToString() => $"VAR {id.Name}";
    }
-   internal class Const : NamedElement, IConstElement, IMacroElement, IProvidedElement, ICDL2Object {
+   internal class Const : NamedElement, IConstElement, IMacroElement, IProvidedElement, ICDL2Object, IActualArg {
       public SE SE => SE.Const;
       public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
@@ -474,7 +496,7 @@ namespace CDL2v1 {
    /// Represents a formal argument in an algorithm.
    /// It is just an ID with annotations. An arg is considered to be equal to another arg or ID if the names are the same.
    /// </summary>
-   internal class Affix : NamedElement, IMacroElement {
+   internal class Affix : NamedElement, IMacroElement, IActualArg {
       internal static readonly Affix Default = new (ID.AnonID,AffixDir.NONE,AffixType.std);
       public readonly AffixDir affixDir;
       public readonly AffixType affixType;
@@ -503,10 +525,9 @@ namespace CDL2v1 {
       public static bool operator !=(Affix? left,Affix? right) => !(left == right);
    }
 
-   internal class Local : NamedElement, IMacroElement {
+   internal class Local : NamedElement, IMacroElement, IActualArg {
       internal static readonly Local Default = new(ID.AnonID);
-      public Local(ID id) : base(id) {
-      }
+      public Local(ID id) : base(id) { }
       override public string ToString() => $"-{id.Name}";
    }
 

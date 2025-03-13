@@ -48,15 +48,15 @@ namespace CDL2v1 {
       /// While set to true, all output is buffered until set to false.
       /// This results in keeping all of that on one line.
       /// </summary>
-      public bool KeepTogether {
-         get => KeepTogetherState;
+      public bool AggregateOutput {
+         get => IsAggregatingOutput;
          set {
-            KeepTogetherState = value;
-            if (KeepTogetherState) {
-               KeepTogetherBuffer = "";
+            IsAggregatingOutput = value;
+            if (IsAggregatingOutput) {
+               AggregateBuffer = "";
             } else {
-               WriteWithIndent(nlbefore: false,nlafter: false,honorLineLength: true,extraSpace: false,KeepTogetherBuffer);
-               KeepTogetherBuffer = "";
+               WriteWithIndent(nlbefore: false,nlafter: false,honorLineLength: true,extraSpace: false,AggregateBuffer);
+               AggregateBuffer = "";
             }
          }
       }
@@ -65,8 +65,8 @@ namespace CDL2v1 {
       /// </summary>
       public bool IgnoreLineLength { get; set; } = false;
 
-      private string KeepTogetherBuffer = "";
-      private bool KeepTogetherState = false;
+      private string AggregateBuffer = "";
+      private bool IsAggregatingOutput = false;
 
       /// <summary>
       /// This is the prefix that is added to each line of output.
@@ -76,6 +76,22 @@ namespace CDL2v1 {
 
       public bool SupportsDecoration { get; set; } = false;
       public Regex spanRegex = new(@"<span\s+(fg='(?<fg>[^']*)')?\s+(bg='(?<bg>[^']*)')?\s+(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",RegexOptions.IgnoreCase);
+
+      public void Indented(Action action) {
+         IndentLevel++;
+         action();
+         IndentLevel--;
+      }
+      /// <summary>
+      /// Perform action keeping produced output together on one line.
+      /// </summary>
+      /// <param id="action"></param>
+      public void KeepTogether(Action action) {
+         bool keepTogether = AggregateOutput;
+         AggregateOutput = true;
+         action();
+         AggregateOutput = keepTogether;
+      }
 
       /// <summary>
       /// Override this to close the target.
@@ -138,8 +154,8 @@ namespace CDL2v1 {
       /// <param id="items"></param>
       /// <returns>True if a new line was written.</returns>
       protected bool WriteWithIndent(bool nlbefore,bool nlafter,bool honorLineLength = true,bool extraSpace = false,params object[] items) {
-         if (KeepTogether) {
-            KeepTogetherBuffer += (extraSpace ? " " : "") + string.Join("",items.Select(i => i?.ToString() ?? ""));
+         if (AggregateOutput) {
+            AggregateBuffer += (extraSpace ? " " : "") + string.Join("",items.Select(i => i?.ToString() ?? ""));
             return false;
          } else {
             bool wasNewline = WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
@@ -158,7 +174,7 @@ namespace CDL2v1 {
 
       public bool WillNotFitOnCurrentLine(string s) => GetLengthWithoutDecorations(CurrentLine) + GetLengthWithoutDecorations(s)> LineLength;
       private int GetLengthWithoutDecorations(string str) => spanRegex.Replace(str,match => match.Groups["text"].Value).Length;
-      public bool WillKeepTogetherNotFitOnCurrentLine() => WillNotFitOnCurrentLine(KeepTogetherBuffer);
+      public bool WillKeepTogetherNotFitOnCurrentLine() => WillNotFitOnCurrentLine(AggregateBuffer);
 
       // Initialize CurrentLine with the indent if empty.
       private void AddToCurrentLine(string str,bool extraSpace = false) {

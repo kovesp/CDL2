@@ -37,21 +37,12 @@ namespace CDL2v1 {
       /// Perform action with an increased indent level.
       /// </summary>
       /// <param id="action"></param>
-      void Indented(Action action) {
-         emitter.IndentLevel++;
-         action();
-         emitter.IndentLevel--;
-      }
+      private void Indented(Action action) => emitter.Indented(action);
       /// <summary>
       /// Perform action keeping produced output together on one line.
       /// </summary>
       /// <param id="action"></param>
-      void KeepTogether(Action action) {
-         bool keepTogether = emitter.KeepTogether;
-         emitter.KeepTogether = true;
-         action();
-         emitter.KeepTogether = keepTogether;
-      }
+      private void KeepTogether(Action action) => emitter.KeepTogether(action);
 
       public static readonly FontWeight Bold = FontWeights.DemiBold;
       public static readonly FontStyle Italic = FontStyles.Oblique;

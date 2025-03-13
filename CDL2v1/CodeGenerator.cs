@@ -29,13 +29,11 @@ namespace CDL2v1 {
       /// <param id="emitter"></param>
       public void GenerateCode(Program program,EmitterBase emitter) {
          cg.GenerateStart(program,emitter);  // Generate the overall scaffolding
+         foreach (ID mod in program.Parts) GenerateModuleCode(Program.Modules[mod]);
          foreach (RW ludeType in ludeTypes)
             foreach (Module mod in program.Lude(ludeType).Where(mod => mod.Ludes[ludeType].Count > 0))
                GenerateLude(ludeType,mod);
          cg.GenerateEnd(program);
-         foreach (Module module in program.Children.Cast<Module>()) {
-            GenerateModuleCode(module);
-         }
       }
 
       /// <summary>
@@ -98,28 +96,57 @@ namespace CDL2v1 {
       }
 
       private void GenerateMacroCode(Macro macro) {
+         IEnumerable<Var> variables = macro.GetReferencedVariables();
          cg.GenerateStart(macro);
-         GenerateAlgorithmHeader(macro);
+         GenerateAlgorithmHeader(macro,variables);
+         
+         foreach (IMacroElement elem in macro.elements) {
+            switch (elem) {
+               case INT i: cg.GenerateMacroElemInt(i.value); break;
+               case FLOAT f: cg.GenerateMacroElemFloat(f.value); break;
+               case STRING s: cg.GenerateMacroElemString(s.value); break;
+               //case ID id:    cg.GenerateMacroElemID(id.Name); break;
+               case Var v: cg.GenerateReferenceVar(v.id); break;
+               case LIST l: cg.GenerateReferenceList(l.id); break; // lwb and upb are IDs. Need to find value
+               case Const c: cg.GenerateReferenceConst(c.id); break;       // c.id is the ID of the const. Need to find value
+               case Affix a: cg.GenerateReferenceAffix(a.id); break;
+               case Local lo: cg.GenerateReferenceLocal(lo.id); break;
+               default:
+                  throw new NotImplementedException($"GenerateMacroCode: Unknown element type {elem.GetType()}");
+            }
+         }
+         cg.Newline();
 
+         FinalizeAffixesAndVars(macro,variables);
          cg.GenerateEnd(macro);
       }
 
-      private void GenerateAlgorithmHeader(Algorithm alg) {
+      private void FinalizeAffixesAndVars(Algorithm algorithm,IEnumerable<Var> variables) {
+         foreach (Affix affix in algorithm.affixes) cg.GenerateFinalizeAffixOrVar(affix.id,affix.affixDir);
+         foreach (Var var in variables) cg.GenerateFinalizeAffixOrVar(var.id,AD.transput,isVar: true);
+      }
+
+      private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
          cg.GenerateAlgorithmHeaderStart(alg);
          if (alg.affixes.Count > 0) {
-            cg.GenerateCode(alg.affixes[0]);
-            foreach (Affix formal in alg.affixes.Skip(1)) {
+            cg.GenerateDeclareAffix(alg.affixes[0].id,alg.affixes[0].affixDir);
+            foreach (Affix affix in alg.affixes.Skip(1)) {
                cg.GenerateParamSeparator();
-               cg.GenerateCode(formal);
+               cg.GenerateDeclareAffix(affix.id,affix.affixDir);
             }
          }
          cg.GenerateAlgorithmHeaderEnd(alg);
+         foreach (Affix affix in alg.affixes) cg.GenerateInitializeAffixOrVar(affix.id,affix.affixDir);
+         foreach (Var var in variables) cg.GenerateInitializeAffixOrVar(var.id,AD.transput,isVar: true);
+         foreach (Local local in alg.locals) cg.GenerateDeclareLocal(local.id);
       }
 
       private void GenerateProcedureCode(Procedure proc) {
+         IEnumerable<Var> variables = proc.GetReferencedVariables();
          cg.GenerateStart(proc);
-         GenerateAlgorithmHeader(proc);
-
+         GenerateAlgorithmHeader(proc,variables);
+         // gen code here
+         FinalizeAffixesAndVars(proc,variables);
          cg.GenerateEnd(proc);
       }
    }

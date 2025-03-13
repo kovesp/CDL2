@@ -2,8 +2,8 @@
 
 global using TT  = CDL2v1.TokenType;
 global using RW  = CDL2v1.ReservedWord;
-global using PD  = CDL2v1.AffixDir;
-global using PT  = CDL2v1.AffixType;
+global using AD  = CDL2v1.AffixDir;
+global using AT  = CDL2v1.AffixType;
 global using LCT = CDL2v1.LastCallType;
 global using SE  = CDL2v1.SyntacticElement;
 global using ANT = CDL2v1.AlgorithmNameType;
