@@ -107,6 +107,12 @@ internal interface ICodeGenerator {
    void GenerateMacroBodyEnd(Macro macro);
    void FinalizationStart(Algorithm algorithm,bool IsNeeded);
    void FinalizationEnd(Algorithm algorithm,bool IsNeeded);
+   void GenerateConstantStart(ID id);
+   void GenerateConstElemString(string value);
+   void GenerateConstElemFloat(double value);
+   void GenerateConstElemInt(long value);
+   void GenerateConstantEnd(ID id);
+   void GenerateDataSectionStart(Func<int> count,string v);
 
    public string FileExtension { get; }
 }

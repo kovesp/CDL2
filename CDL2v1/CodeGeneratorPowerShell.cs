@@ -9,6 +9,9 @@ namespace CDL2v1 {
    internal class CodeGeneratorPowerShell : ICodeGenerator {
       EmitterBase emitter = new EmitterSink();
 
+      public CodeGeneratorPowerShell() {
+      }
+
       public string FileExtension => ".ps1";
 
       private static string ProgramHeader => @"
@@ -154,19 +157,18 @@ class BoundedArray {
       public void GenerateDeclareLocal(ID local) => emitter.Emit(PSVar(local,PSVarType.Local)," = $null");
       public void GenerateDeclareAffix(ID affix,AD dir) {
          switch (dir) {
-            case AD.input:
+            case AD.input or AD.NONE:
+               // String (given as AD.NONE) affix treated the same as input
                emitter.Emit(PSVar(affix,PSVarType.Affix,"_"));
                break;
-            case AD.NONE:
-               throw new NotImplementedException();
             default:
                emitter.Emit("[ref]",PSVar(affix,PSVarType.Affix));
                break;
          }
       }
       public void GenerateCodeConst(ID id) => throw new NotImplementedException();
-      public void GenerateCodeDeclareVar(ID id) => emitter.Emit(PSVar(id,PSVarType.Var));
-      public void GenerateCodeDeclareList(ID id,ID lwb,ID upb) => emitter.Emitnl(PSVar(id,PSVarType.List),$" = new BoundArray({PSVar(lwb,PSVarType.Const)},{PSVar(upb,PSVarType.Const)})");
+      public void GenerateCodeDeclareVar(ID id) => emitter.Emitnl(PSVar(id,PSVarType.Var)," = 0");
+      public void GenerateCodeDeclareList(ID id,ID lwb,ID upb) => emitter.Emitnl(PSVar(id,PSVarType.List),$" = [BoundArray]::new({PSVar(lwb,PSVarType.Const)},{PSVar(upb,PSVarType.Const)})");
       public void GenerateInitializeAffixOrVar(ID id,AD affixDir,bool isVar = false) {
          PSVarType type = isVar ? PSVarType.Var : PSVarType.Affix;
          string value = isVar ? "" : ".Value";
@@ -224,6 +226,16 @@ class BoundedArray {
             }
             emitter.Emitnl("return $__b");
          }
+      }
+
+      public void GenerateConstantStart(ID id) => emitter.Emit(PSVar(id,PSVarType.Const)," = ");
+      public void GenerateConstElemString(string value) => GenerateMacroElemString(value);
+      public void GenerateConstElemFloat(double value) => GenerateMacroElemFloat(value);
+      public void GenerateConstElemInt(long value) => GenerateMacroElemInt(value);
+      public void GenerateConstantEnd(ID id) => emitter.Emitnl();
+      void ICodeGenerator.GenerateDataSectionStart(Func<int> count,string v) {
+         int n = count();
+         if (n > 0) emitter.NlEmitnl($"\n##### {n} {v}{(n != 1 ? "s" : "")} #####\n");
       }
    }
 }

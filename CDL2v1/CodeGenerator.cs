@@ -85,14 +85,36 @@ namespace CDL2v1 {
       /// <param id="container"></param>
       private void GenerateSection(Section section) {
          cg.GenerateStart(section);
-         foreach (Algorithm algorithm in section.local.Values.Where(obj=>obj is Algorithm)) {
-            if (algorithm is Procedure proc) {
-               GenerateProcedureCode(proc);
-            } else if (algorithm is Macro macro) {
-               GenerateMacroCode(macro);
+         GenerateObjects(section.Constants,GenerateConstant);
+         GenerateObjects(section.Variables,v=>cg.GenerateCodeDeclareVar(v.id));
+         GenerateObjects(section.Lists,l => cg.GenerateCodeDeclareList(l.id,(section.local[l.lwb] as Const)!.id,(section.local[l.upb] as Const)!.id));
+         GenerateObjects(section.Macros,GenerateMacroCode);
+         GenerateObjects(section.Procedures,GenerateProcedureCode);
+         cg.GenerateEnd(section);
+      }
+
+      private void GenerateObjects<T>(IEnumerable<T> items,Action<T> generate) {
+         cg.GenerateDataSectionStart(items.Count,typeof(T).Name);
+         foreach (T item in items) generate(item);
+      }
+
+      private void GenerateConstant(Const constant) {
+         cg.GenerateConstantStart(constant.id);
+         foreach (IConstElement elem in constant.elements) {
+            switch (elem) {
+               case INT i: cg.GenerateConstElemInt(i.value); break;
+               case FLOAT f: cg.GenerateConstElemFloat(f.value); break;
+               case STRING s: cg.GenerateConstElemString(s.value); break;
+               case ID id:
+                  if (id.container is Section sec && sec.local[id] is Const c) {
+                     cg.GenerateReferenceConst(c.id);
+                  } else {
+                     throw new NotImplementedException($"GenerateSection: Reference to wrong element type ");
+                  }
+                  break;
             }
          }
-         cg.GenerateEnd(section);
+         cg.GenerateConstantEnd(constant.id);
       }
 
       private void GenerateMacroCode(Macro macro) {
@@ -106,10 +128,20 @@ namespace CDL2v1 {
                case INT i: cg.GenerateMacroElemInt(i.value); break;
                case FLOAT f: cg.GenerateMacroElemFloat(f.value); break;
                case STRING s: cg.GenerateMacroElemString(s.value); break;
-               //case ID id:    cg.GenerateMacroElemID(id.Name); break;
-               case Var v: cg.GenerateReferenceVar(v.id); break;
-               case LIST l: cg.GenerateReferenceList(l.id); break; // lwb and upb are IDs. Need to find value
-               case Const c: cg.GenerateReferenceConst(c.id); break;       // c.id is the ID of the const. Need to find value
+               case ID id:
+                  // This should be a reference to a Const, Var or List, so check which one
+                  if (id.container is Section section) {
+                     switch (section.local[id]) {
+                        case Const c: cg.GenerateReferenceConst(c.id); break;
+                        case Var v:   cg.GenerateReferenceVar(v.id); break;
+                        case LIST l:  cg.GenerateReferenceList(l.id); break;
+                        default:
+                           throw new NotImplementedException($"GenerateMacroCode: Reference to wrong element type {section.local[id].GetType().Name}");
+                     }
+                  } else {
+                     throw new NotImplementedException($"GenerateMacroCode: Unresolved reference to {id}");
+                  }
+                  break;
                case Affix a: cg.GenerateReferenceAffix(a.id); break;
                case Local lo: cg.GenerateReferenceLocal(lo.id); break;
                default:

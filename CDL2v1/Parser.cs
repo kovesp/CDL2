@@ -279,7 +279,7 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.FLOAT,out Token f)) {
                macro.elements.Add(new FLOAT(f));
             } else {
-               ReportError("Expected ID, STRING, INT, or FLOAT");
+               ReportError("Expected ID, Affix, Local, STRING, INT, or FLOAT");
             }
          }
       }
