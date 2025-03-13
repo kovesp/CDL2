@@ -99,7 +99,10 @@ class BoundedArray {
       public void GenerateCodeImport(ID id) { }
 
       public void GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc.id)} (");
-      public void GenerateAlgorithmHeaderEnd(Algorithm proc) => emitter.Emitnl(") {");
+      public void GenerateAlgorithmHeaderEnd(Algorithm proc) {
+         emitter.Emitnl(") {");
+         emitter.IndentLevel++;
+      }
 
       public void GenerateStart(Procedure code) { }
       public void GenerateEnd(Procedure code) => emitter.NlEmitnl("}");
@@ -122,7 +125,10 @@ class BoundedArray {
       public void GenerateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateLudeEnd(RW ludeType,Container section) => throw new NotImplementedException();
       public void GenerateStart(Macro macro) { }
-      public void GenerateEnd(Macro macro) => emitter.NlEmitnl("}");
+      public void GenerateEnd(Macro macro) {
+         emitter.IndentLevel--;
+         emitter.NlEmitnl("}");
+      }
       public void GenerateCode(LIST l) => throw new NotImplementedException();
       public void GenerateExport(Module module,ID expId) => throw new NotImplementedException();
       public void GenerateLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
@@ -193,6 +199,31 @@ class BoundedArray {
          }
       }
 
-      void ICodeGenerator.Newline() => emitter.Emitnl();
+      public void Newline() => emitter.Emitnl();
+      public void GenerateMacroBodyStart(Macro macro) {
+         if (macro.CanFail) emitter.Emitnl("$__b = (");
+         emitter.IndentLevel++;
+      }
+      public void GenerateMacroBodyEnd(Macro macro) {
+         emitter.Emitnl();
+         emitter.IndentLevel--;
+         if (macro.CanFail) emitter.Emitnl(")");
+      }
+
+      public void FinalizationStart(Algorithm algorithm,bool IsNeeded) {
+         if (IsNeeded && algorithm.CanFail) {
+            emitter.Emitnl("if ($__b) {");
+            emitter.IndentLevel++;
+         }
+      }
+      public void FinalizationEnd(Algorithm algorithm,bool IsNeeded) {
+         if (algorithm.CanFail) {
+            if (IsNeeded) {
+               emitter.IndentLevel--;
+               emitter.Emitnl("}");
+            }
+            emitter.Emitnl("return $__b");
+         }
+      }
    }
 }

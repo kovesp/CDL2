@@ -13,9 +13,9 @@ MODULE quicksort.
          TEST greater+>a+>b = a " -gt " b.
          TEST less+>a+>b = a " -lt " b.
          TEST less or equal+>a+>b = a " -le " b.
-         FUNCTION add +>a+>b+c> = c "=" a "+" b.
-         FUNCTION halve +>a> = a "/=2".
-         FUNCTION make +a>+>b = a "=" b.
+         FUNCTION add +>a+>b+c> = c " = " a " + " b.
+         FUNCTION halve +>a> = a " /= 2".
+         FUNCTION make +a>+>b = a " = " b.
 
          CONST min random=0, max random=200.
          FUNCTION random+>min+>max+r> =: r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".

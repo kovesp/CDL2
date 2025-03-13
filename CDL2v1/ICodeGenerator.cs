@@ -103,6 +103,10 @@ internal interface ICodeGenerator {
    void GenerateInitializeAffixOrVar(ID id,AD affixDir,bool isVar = false);
    void GenerateFinalizeAffixOrVar(ID id,AD affixDir,bool isVar = false);
    void Newline();
+   void GenerateMacroBodyStart(Macro macro);
+   void GenerateMacroBodyEnd(Macro macro);
+   void FinalizationStart(Algorithm algorithm,bool IsNeeded);
+   void FinalizationEnd(Algorithm algorithm,bool IsNeeded);
 
    public string FileExtension { get; }
 }

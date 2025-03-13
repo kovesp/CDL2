@@ -11,6 +11,7 @@ using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Security;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -242,6 +243,7 @@ namespace CDL2v1 {
       public string AlgorithmName => $"{algorithmType} {id}";
 
       public bool CanFail => algorithmType == RW.TEST || algorithmType == RW.PREDICATE;
+      public Boolean NeedsFinalization => affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any();
 
       public bool TryGetAffix(ID id,out Affix affix) => (affix = this.affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
@@ -514,7 +516,7 @@ namespace CDL2v1 {
       public Boolean IsTransput => affixDir == AffixDir.transput;
       public Boolean IsString => affixType == AffixType.str;
 
-      public SE SyntaxElement => IsString ? SE.StringAffix : IsTransput ? SE.TransputAffix : IsInput ? SE.InputAffix : SE.OutputAffix;
+     public SE SyntaxElement => IsString ? SE.StringAffix : IsTransput ? SE.TransputAffix : IsInput ? SE.InputAffix : SE.OutputAffix;
 
       public override bool Equals(object? obj) => obj is Affix affix && EqualityComparer<ID>.Default.Equals(id,affix.id);
       public override int GetHashCode() => HashCode.Combine(id);

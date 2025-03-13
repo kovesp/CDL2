@@ -99,7 +99,8 @@ namespace CDL2v1 {
          IEnumerable<Var> variables = macro.GetReferencedVariables();
          cg.GenerateStart(macro);
          GenerateAlgorithmHeader(macro,variables);
-         
+
+         cg.GenerateMacroBodyStart(macro);
          foreach (IMacroElement elem in macro.elements) {
             switch (elem) {
                case INT i: cg.GenerateMacroElemInt(i.value); break;
@@ -115,15 +116,20 @@ namespace CDL2v1 {
                   throw new NotImplementedException($"GenerateMacroCode: Unknown element type {elem.GetType()}");
             }
          }
-         cg.Newline();
+         cg.GenerateMacroBodyEnd(macro);
 
          FinalizeAffixesAndVars(macro,variables);
          cg.GenerateEnd(macro);
       }
 
       private void FinalizeAffixesAndVars(Algorithm algorithm,IEnumerable<Var> variables) {
-         foreach (Affix affix in algorithm.affixes) cg.GenerateFinalizeAffixOrVar(affix.id,affix.affixDir);
-         foreach (Var var in variables) cg.GenerateFinalizeAffixOrVar(var.id,AD.transput,isVar: true);
+         bool needed = algorithm.NeedsFinalization;
+         cg.FinalizationStart(algorithm,needed);
+         if (needed) {
+            foreach (Affix affix in algorithm.affixes) cg.GenerateFinalizeAffixOrVar(affix.id,affix.affixDir);
+            foreach (Var var in variables) cg.GenerateFinalizeAffixOrVar(var.id,AD.transput,isVar: true);
+         }
+         cg.FinalizationEnd(algorithm,needed);
       }
 
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
