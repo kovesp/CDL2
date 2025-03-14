@@ -542,11 +542,11 @@ namespace CDL2v1 {
       /// Parse the interfaces of a container.
       /// </summary>
       private void ParseInterfaces() {
-         Debug.Assert(currentSection != null && currentModule != null);
+         Debug.Assert(currentSection != null && currentLayer != null && currentModule != null);
          // Provided interfaces
-         ParseInterfaceList(RW.ABSTR,currentSection.abstr);
-         ParseInterfaceList(RW.EXT,currentSection.ext);
-         ParseInterfaceList(RW.EXPORT,currentSection.export);
+         ParseInterfaceList(RW.ABSTR,currentSection.abstr,currentLayer.abstr);
+         ParseInterfaceList(RW.EXT,currentSection.ext,currentLayer.ext);
+         ParseInterfaceList(RW.EXPORT,currentSection.export,currentModule.exports);
          // Required interfaces
          ParseInterfaceList(RW.INV,currentSection.inv);
          ParseInterfaceList(RW.IMPORT,currentSection.import);
@@ -559,9 +559,9 @@ namespace CDL2v1 {
       /// <param id="interfaceType"></param>
       /// <param id="idList">The container interface list.</param>
       /// <returns></returns>
-      private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList) {
+      private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList,Dictionary<ID,Section>? propagationDictionary = null) {
          if (tokens.Consume(interfaceType)) {
-            ParseIDList(interfaceType,idList);
+            ParseIDList(interfaceType,idList,propagationDictionary);
             return true;
          } else {
             return false;
@@ -639,13 +639,20 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Name="idList"></param>
       /// <param Name="idList2"></param>
-      private void ParseIDList(RW type,ICollection<ID> idList1) {
+      private void ParseIDList(RW type,ICollection<ID> idList,Dictionary<ID,Section>? propagationDictionary=null) {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next(),typeof(Undeclared));
-            if (!idList1.Contains(id)) {
-               idList1.Add(id);
+            if (! idList.Contains(id)) {
+               idList.Add(id);
             } else {
                ReportError($"Duplicate ID {id} in {type}");
+            }
+            if (propagationDictionary != null) {
+               if (! propagationDictionary.ContainsKey(id)) {
+                  propagationDictionary![id] = currentSection!;
+               } else {
+                  ReportError($"Duplicate ID {id} in {type} for parent or propagation dictionary is null");
+               }
             }
             if (!tokens.CanConsumeSep()) break;
          }

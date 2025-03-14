@@ -166,15 +166,15 @@ internal class CDL2 {
       }
    }
 
-   private static ICodeGenerator? CreateCodeGenerator(string target) {
+   private static ICodeGenerator? CreateCodeGenerator(string target,string dataType="Int64") {
       try {
          string className = $"CDL2v1.CodeGenerator{target}";
          Type? type = Type.GetType(className);
          if (type != null && typeof(ICodeGenerator).IsAssignableFrom(type)) {
-            return Activator.CreateInstance(type) as ICodeGenerator;
+            return Activator.CreateInstance(type,dataType) as ICodeGenerator;
          }
       } catch (Exception ex) {
-         Console.WriteLine($"Error creating code generator for target {target}: {ex.Message}");
+         Console.WriteLine($"Error creating code generator for target {target} with Data type {dataType}: {ex.Message}");
       }
       return null;
    }

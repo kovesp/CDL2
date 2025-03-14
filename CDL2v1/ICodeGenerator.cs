@@ -6,9 +6,8 @@
 /// They will be called by the generic code generator to generate specific elements for the target language.
 /// </summary>
 internal interface ICodeGenerator {
-   public void GenerateStart(Program? program,EmitterBase emiter);
-   public void GenerateEnd(Program? program);
-
+   public void GenerateStart(Program program,EmitterBase emitter);
+   public void GenerateEnd(Program program);
    public void GenerateStart(Module module);
    public void GenerateEnd(Module module);
    public void GenerateStart(Layer layer);

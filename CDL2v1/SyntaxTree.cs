@@ -142,8 +142,8 @@ namespace CDL2v1 {
    /// </summary>
    /// <param id="id"></param>
    internal class Module : Container {
-      public readonly Set<ID> imports = [];         // Imports are specified in sections, but are propagated up the module level.
-      public readonly Set<ID> exports = [];        // Exports are specified in sections, but are propagated up the module level.
+      public readonly Set<ID> imports = [];                       // Imports are specified in sections, but are propagated up the module level.
+      public readonly Dictionary<ID,Section> exports = [];        // Exports are specified in sections, but are propagated up the module level.
 
       /// <summary>
       /// Module Ludes are a list of container IDs.
@@ -227,7 +227,7 @@ namespace CDL2v1 {
             if (layer.ext.TryGetValue(id,out Section? declaringSection) && declaringSection.declarations[id] is T extended) {
                declaration = extended;
                return true;
-            } else if (layer.Ancestor!.abstr.TryGetValue(id,out declaringSection) && declaringSection.declarations[id] is T abstracted) {
+            } else if (layer.Ancestor != null && layer.Ancestor.abstr.TryGetValue(id,out declaringSection) && declaringSection.declarations[id] is T abstracted) {
                declaration = abstracted;
                return true;
             }

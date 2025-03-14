@@ -62,7 +62,7 @@ namespace CDL2v1 {
       /// <param id="module"></param>
       private void GenerateModuleCode(Module module) {
          cg.GenerateStart(module);  // Generate the code for each module
-         foreach (ID expId in module.exports) cg.GenerateExport(module,expId);
+         foreach (ID expId in module.exports.Keys) cg.GenerateExport(module,expId);
          foreach (Layer layer in module.Children.Cast<Layer>()) GenerateLayer(layer); 
          cg.GenerateEnd(module);
       }
