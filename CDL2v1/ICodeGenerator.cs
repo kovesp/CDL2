@@ -104,6 +104,8 @@ internal interface ICodeGenerator {
    void Newline();
    void GenerateMacroBodyStart(Macro macro);
    void GenerateMacroBodyEnd(Macro macro);
+   void GenerateProcedureBodyStart(Procedure macro);
+   void GenerateProcedureBodyEnd(Procedure macro);
    void FinalizationStart(Algorithm algorithm,bool IsNeeded);
    void FinalizationEnd(Algorithm algorithm,bool IsNeeded);
    void GenerateConstantStart(Const c);
@@ -112,6 +114,14 @@ internal interface ICodeGenerator {
    void GenerateConstElemInt(long value);
    void GenerateConstantEnd(Const c);
    void GenerateDataSectionStart(Func<int> count,string v);
+   void GenerateActualArgSeparator();
+   void GenerateCallStart(Algorithm called);
+   void GenerateCallEnd(Call call);
+   void GenerateCallArgString(string value);
+   void GenerateCallArgReferenceAffix(Affix a);
+   void GenerateCallArgReferenceLocal(Local lo);
+   void GenerateCallArgReferenceConst(Const c);
+   void GenerateCallArgReferenceVar(Var v);
 
    public string FileExtension { get; }
 }

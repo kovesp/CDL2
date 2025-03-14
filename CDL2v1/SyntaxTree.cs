@@ -429,6 +429,23 @@ namespace CDL2v1 {
    /// <param id="container"></param>
    internal class Procedure : Algorithm {
       public Group group;
+      /// <summary>
+      /// True if the procedure is an Action or Function that has only a single alternative which is a sequence of calls.
+      /// </summary>
+      public bool IsVerySimple => !CanFail && group.alternatives.Count == 1 && group.alternatives[0].lastCall.type == LCT.Standard;
+      /// <summary>
+      /// Can have alternatives, but there are no repeats.
+      /// </summary>
+      public bool IsSimple => !CanFail && HasNoRepeat(group);
+
+      private static bool HasNoRepeat(Group group) {
+         foreach (Alternative alternative in group.alternatives) {
+            if (alternative.lastCall.type == LCT.Repeat) return false;
+            if (alternative.lastCall.type == LCT.Group && !HasNoRepeat(alternative.lastCall.group!)) return false;
+         }
+         return true;
+      }
+
       public Procedure(ID id,List<Affix> formals,Set<Local> locals,Token algType,TT bodyType,Section section,bool synthetic = false)
             : base(id,formals,locals,algType,bodyType,section,synthetic) {
          group = new(id,[],null);

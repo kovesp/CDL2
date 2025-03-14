@@ -141,7 +141,10 @@ class BoundedArray {
       }
 
       public void GenerateStart(Procedure code) { }
-      public void GenerateEnd(Procedure code) => emitter.NlEmitnl("}");
+      public void GenerateEnd(Procedure code) {
+         emitter.IndentLevel--;
+         emitter.NlEmitnl("}");
+      }
 
       public void GenerateEnd(Alternative alternative) => throw new NotImplementedException();
       public void GenerateEnd(Group group) => throw new NotImplementedException();
@@ -187,7 +190,7 @@ class BoundedArray {
       public void GenerateReference(Const constant) => emitter.Emit(PSVar(constant));
       public void GenerateReference(Affix affix) => emitter.Emit(PSVar(affix,"_"));
       public void GenerateReferenceLocal(Local local) => emitter.Emit(PSVar(local));
-      public void GenerateDeclareLocal(Local local) => emitter.Emit(DT,PSVar(local)," = 0");
+      public void GenerateDeclareLocal(Local local) => emitter.Emitnl(DT,PSVar(local)," = 0");
       public void GenerateDeclareAffix(Affix affix,AD dir) {
          switch (dir) {
             case AD.input:
@@ -256,6 +259,14 @@ class BoundedArray {
          if (macro.CanFail) emitter.Emitnl(")");
       }
 
+      public void GenerateProcedureBodyStart(Procedure macro) {
+         emitter.IndentLevel++;
+      }
+      public void GenerateProcedureBodyEnd(Procedure macro) {
+         emitter.Emitnl();
+         emitter.IndentLevel--;
+      }
+
       public void FinalizationStart(Algorithm algorithm,bool IsNeeded) {
          if (IsNeeded && algorithm.CanFail) {
             emitter.Emitnl("if ($__b) {");
@@ -277,9 +288,19 @@ class BoundedArray {
       public void GenerateConstElemFloat(double value) => GenerateMacroElemFloat(value);
       public void GenerateConstElemInt(long value) => GenerateMacroElemInt(value);
       public void GenerateConstantEnd(Const c) => emitter.Emitnl();
-      void ICodeGenerator.GenerateDataSectionStart(Func<int> count,string v) {
+      public void GenerateDataSectionStart(Func<int> count,string v) {
          int n = count();
          if (n > 0) emitter.NlEmitnl($"\n##### {n} {v}{(n != 1 ? "s" : "")} #####\n");
       }
+
+      public void GenerateActualArgSeparator() => emitter.Emit(" ");
+      public void GenerateCallStart(Algorithm called) => emitter.Emit(PSName(called)," ");
+      public void GenerateCallEnd(Call call) { Newline();  }
+
+      public void GenerateCallArgString(string value) => emitter.Emit($"\"{value}\"");
+      public void GenerateCallArgReferenceAffix(Affix a) => emitter.Emit(PSVar(a,"_"));
+      public void GenerateCallArgReferenceLocal(Local lo) => emitter.Emit(PSVar(lo));
+      public void GenerateCallArgReferenceConst(Const c) => emitter.Emit(PSVar(c));
+      public void GenerateCallArgReferenceVar(Var v) => emitter.Emit(PSVar(v));
    }
 }

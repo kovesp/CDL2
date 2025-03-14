@@ -153,7 +153,6 @@ namespace CDL2v1 {
             }
          }
          cg.GenerateMacroBodyEnd(macro);
-
          FinalizeAffixesAndVars(macro,variables);
          cg.GenerateEnd(macro);
       }
@@ -187,9 +186,67 @@ namespace CDL2v1 {
          IEnumerable<Var> variables = proc.GetReferencedVariables();
          cg.GenerateStart(proc);
          GenerateAlgorithmHeader(proc,variables);
-         // gen code here
+         cg.GenerateProcedureBodyStart(proc);
+         GenerateProcedureBody(proc);
+         cg.GenerateProcedureBodyEnd(proc);
          FinalizeAffixesAndVars(proc,variables);
          cg.GenerateEnd(proc);
+      }
+
+      private void GenerateProcedureBody(Procedure proc) {
+         if (proc.IsVerySimple) {
+            // Just a sequence of calls
+            Debug.Assert(proc.group.alternatives.Count == 1,$"GenerateProcedureBody: Expected single alternative, found {proc.group.alternatives.Count}");
+            foreach (Call call in proc.group.alternatives[0].calls) GenerateCall(proc,call);
+            Debug.Assert(proc.group.alternatives[0].lastCall.type == LastCallType.Standard,$"GenerateProcedureBody: Expected last call to be standard, found {proc.group.alternatives[0].lastCall.type}");
+            GenerateCall(proc,proc.group.alternatives[0].lastCall.call!);
+         } else if (proc.IsSimple) {
+         } else {
+
+         }
+      }
+
+      private void GenerateCall(Procedure proc,Call call) {
+         if (proc.Parent is Section section && section.TryGetDeclaration(call.id,out Algorithm? called)) {
+            cg.GenerateCallStart(called!);
+            if (call.args.Count > 0) {
+               GenerateActualArg(proc,call.args.First());
+               foreach (var arg in call.args) {
+                  cg.GenerateActualArgSeparator();
+                  GenerateActualArg(proc,arg);
+               }
+            }
+            cg.GenerateCallEnd(call);
+         } else {
+            throw new NotImplementedException($"GenerateCall: Unresolved reference to {call.id}");
+         }
+      }
+
+      private void GenerateActualArg(Procedure proc,IActualArg arg) {
+         switch (arg) {
+            case STRING s: cg.GenerateCallArgString(s.value); break;
+            case ID id: // May be a reference to a const, or var.
+               if (proc.TryGetAffix(id,out Affix affix)) {
+                  cg.GenerateCallArgReferenceAffix(affix);
+               } else if (proc.TryGetLocal(id,out Local local)) {
+                  cg.GenerateCallArgReferenceLocal(local);
+               } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out ICDL2DataObject? dataRef)) {
+                  if (dataRef is Const c) {
+                     cg.GenerateCallArgReferenceConst(c);
+                  } else if (dataRef is Var v) {
+                     cg.GenerateCallArgReferenceVar(v);
+                  } else {
+                     throw new NotImplementedException($"GenerateCall: Reference to wrong element type {dataRef}");
+                  }
+               } else {
+                  throw new NotImplementedException($"GenerateCall: Unresolved reference to {id}");
+               }
+               break;
+            case Affix a:  cg.GenerateCallArgReferenceAffix(a); break;
+            case Local lo: cg.GenerateCallArgReferenceLocal(lo); break;
+            default:
+               throw new NotImplementedException($"GenerateCall: Unknown argument type {arg.GetType()}");
+         }
       }
    }
 }
