@@ -87,7 +87,7 @@ namespace CDL2v1 {
          // Allows annotation symbols to precede and follow the ID; these are removed.
          IdRE = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*");
          StringRE = new Regex(@"^"".*?(?:$"".*?)*""");
-         CommentRE = new Regex(@"^(?m:#(.*)?(?:#|$))");
+         CommentRE = new Regex(@"^(?m:#(.*?)?(?:#|$))");
          IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?\d+)");
          FloatRE = new Regex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?");
          // Must match all occurrences anywhere in a string

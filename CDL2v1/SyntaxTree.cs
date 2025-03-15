@@ -271,9 +271,10 @@ namespace CDL2v1 {
       /// </summary>
       public readonly bool IsSynthetic;
 
-      public DeclaredCDL2Object(ID id,Section section,bool synthetic = false) : base(id) {
+      public DeclaredCDL2Object(ID id,Section section,string? comments,bool synthetic = false) : base(id) {
          Parent = section;
          IsSynthetic = synthetic;
+         Comments = comments;
       }
 
       /// <summary>
@@ -301,12 +302,12 @@ namespace CDL2v1 {
       public readonly Set<Local> locals;           // The declarations variables of this algorithm.
 
       public SE SE => SE.AlgorithmName;
-      public Algorithm(ID id,List<Affix> formals,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,section,synthetic) {
+      public Algorithm(ID id,List<Affix> formals,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
+            : base(id,section,algorithmType.Comments,synthetic) {
          this.affixes = formals;
          this.locals = locals;
          this.algorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
-         this.bodyType = bodyType;
-         this.Comments = algorithmType.Comments;
+         this.bodyType = bodyType;;
       }
 
       public AlgorithmNameType NameType {
@@ -576,7 +577,7 @@ namespace CDL2v1 {
       public readonly ID lwb;
       public readonly ID upb;
 
-      public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section) {
+      public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section,null) {
          this.lwb = lwb;
          this.upb = upb;
       }
@@ -585,10 +586,8 @@ namespace CDL2v1 {
 
       override public string ToString() => $"LIST {id}({lwb}:{upb})";
    }
-   internal class Var : DeclaredCDL2Object, IFailureProtected, IMacroElement, ILocalCDL2DataObject, IActualArg {
+   internal class Var(ID id,Section section) : DeclaredCDL2Object(id,section,null), IFailureProtected, IMacroElement, ILocalCDL2DataObject, IActualArg {
       public SE SE => SE.Var;
-
-      public Var(ID id,Section section) : base(id,section) { }
 
       override public string ToString() => $"VAR {id.Name}";
    }
@@ -596,8 +595,7 @@ namespace CDL2v1 {
       public SE SE => SE.Const;
       public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
-      public Const(ID id,Section section) : base(id,section) {
-      }
+      public Const(ID id,Section section) : base(id,section,null) { }
       // override public string ToString() => $"CONST {id.id}={string.Join("",elements)}";
    }
 

@@ -215,12 +215,26 @@ namespace CDL2v1 {
          }
 
          if (EmitCount(section.Variables,"VAR  ") > 0) {
-            PrintList(RW.VAR,section.Variables.Select(variable => variable.id));
+            Emit(RW.VAR.Decorate(emitter,SE.ReservedWord)," ");
+            Print(section.Variables.First());
+            foreach (Var var in section.Variables.Skip(1)) {
+               EmitSeparator(TT.LISTSEP);
+               Print(var);
+            }
+            EmitSeparatorWithNL(TT.END);
          }
 
          if (EmitCount(section.Lists,"LIST ") > 0) {
             Emit(RW.LIST.Decorate(emitter,SE.ReservedWord)," ");
-            Print(section.Lists.First(),section);
+            LIST first = section.Lists.First();
+            if (first.Comments != null) {
+               emitter.Indented(() => {
+                  NlEmitnl(first.Comments.Decorate(emitter,SE.Comment));
+                  Print(first,section);
+               });
+            } else { 
+               Print(first,section);
+            }
             foreach (LIST list in section.Lists.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
                Print(list,section);
@@ -461,6 +475,7 @@ namespace CDL2v1 {
       }
 
       private void PrintProcHead(Algorithm algorithm) {
+         PrintComment(algorithm);
          Emit(algorithm.algorithmType.Decorate(emitter,SE.ReservedWord)," ",
             algorithm.id.Decorate(emitter,AlgorithmNameDecorators[algorithm.NameType]));
          foreach (Affix affix in algorithm.affixes.Cast<Affix>()) {
@@ -478,7 +493,8 @@ namespace CDL2v1 {
       }
 
       public void Print(Const constant) {
-         Emit(constant.id.Decorate(emitter,SE.Const),TT.EQUALS);
+         PrintIDComment(constant,SE.Const);
+         Emit(TT.EQUALS);
          foreach (IConstElement element in constant.elements) {
             switch (element) {
                case STRING s:
@@ -502,24 +518,47 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(LIST list,Section section) 
+      public void Print(Var var) => PrintIDComment(var,SE.Var);
+
+      private void PrintIDComment(DeclaredCDL2Object obj,SE type) {
+         if (obj.Comments != null) {
+            emitter.Indented(
+               () => {
+                  NlEmitnl(obj.Comments.Decorate(emitter,SE.Comment));
+                  Emit(obj.id.Decorate(emitter,type));
+               }
+            );
+         } else {
+            Emit(obj.id.Decorate(emitter,type));
+         }
+      }
+
+      public void Print(LIST list,Section section)
          => Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,DecoratedID(list.lwb,section),TT.LISTBOUNDSEP,DecoratedID(list.upb,section),TT.LISTBOUNDEND);
 
       /// <summary>
-      /// Print the start and end of a container unit, and then the contents.
+      /// Print the start and end of a container element, and then the contents.
       /// Print the Ludes for the container if it can have any at the correct place.
       /// (Why they couldn't position the Ludes in the same place for a PROGRAM as the other items is a mystery).
       /// </summary>
-      /// <param Name="unit"></param>
+      /// <param Name="element"></param>
       /// <param Name="action"></param>
       private void PrintContainer(Container unit,Action action,bool Newline = false,bool updateUI = false) {
-         if (unit.Comments != null) Emitnl(unit.Comments.Decorate(emitter,SE.Comment));
+         PrintComment(unit);
          Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.Decorate(emitter,SE.Id),TT.END);
          Indented(() => action());
          Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.Name,TT.END);
          if (unit is Module || unit is Section) PrintLudes(unit);
          if (Newline) Emitnl();
          if (updateUI) emitter.UpdateUI();
+      }
+
+      /// <summary>
+      /// Print the comments for the element.
+      /// </summary>
+      /// <param name="element"></param>
+      private void PrintComment(NamedElement element) {
+         if (element.Comments != null) Emitnl(element.Comments.Decorate(emitter,SE.Comment));
       }
 
       /// <summary>

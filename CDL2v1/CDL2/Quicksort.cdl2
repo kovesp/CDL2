@@ -48,7 +48,7 @@ MODULE quicksort.
             "Write-Host " data.
          ACTION dump data*msg:
             show msg no newline+msg, dump list.
-
+         # The range of random numbers. #
          CONST min random=0, max random=200.
          # Fill the array with random integers. #
          ACTION initialize data -i -r:
