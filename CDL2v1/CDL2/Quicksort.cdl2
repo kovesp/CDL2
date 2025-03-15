@@ -24,8 +24,13 @@ MODULE quicksort.
          ABSTR lwb, upb, smaller element, swap element, get element, set element, dump data.
          INV make, less or equal, random, incr, show msg no newline.
 
+         # The lower and upper bounds of the array. #
          CONST lwb=0, upb=100.
+
+         # The array to be sorted. #
          LIST data(lwb:upb).
+
+         # Here for test purposes only. #
          VAR unused.
 
          TEST smaller element +>p+>q =: 
@@ -66,7 +71,8 @@ MODULE quicksort.
          ACTION quicksort +>from +>to -p -q:
             less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
             +.
-
+         # Split the array into two parts. #
+         # The first part contains elements less than or equal to the pivot. #
          ACTION split+>i+>j+p>+q> - m:
             make + p + i, make + q + j, add + i + j + m, halve + m,
             (again: move p up + j + p + m, move q down + i + q + m,

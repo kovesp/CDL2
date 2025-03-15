@@ -32,6 +32,9 @@ namespace CDL2v1 {
 
       public static readonly Dictionary<string,Token> IDTokens = [];
 
+      // Reserved words that can have comments attached.
+      private static readonly Set<RW> CommentableReservedWords = [];
+
       private static readonly Regex GlyphRE;
       private static readonly Regex ReservedWordRE;
       private static readonly Regex StringEscapeRE;
@@ -49,8 +52,8 @@ namespace CDL2v1 {
       static Token() {
          // Place multi-character glyphs first to ensure they match before any single character contained in them.
          Glyph2TokenType = new Dictionary<string,TokenType> {
-            { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be inlined (the default for = is to inline).
-            { ":=", TokenType.INLINECODEBODY },    // Indicates a procedure body that should be inlined.
+            { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be in-lined (the default for = is to inline).
+            { ":=", TokenType.INLINECODEBODY },    // Indicates a procedure body that should be in-lined.
             { "+",  TokenType.PLUS },              // Used as affixes (argument) separator and as the succeed operator.
             { "-",  TokenType.MINUS },             // Used as declarations variable separator and as the fail operator.
             { "*",  TokenType.STAR },              // Repeat from group start operator and string parameter.
@@ -61,7 +64,7 @@ namespace CDL2v1 {
             { "(",  TokenType.GRPOPEN },           // Starts a group and a LIST bound.
             { ")",  TokenType.GRPCLOSE },          // Ends a group and a LIST bound.
             { ":",  TokenType.COLON },             // Algorithm that is a procedure. But also used in LIST bounds and to place labels, e.g., ACTION proc: init,(main: is not done, (try first, first; try next, next, *main); quit.
-            { "=",  TokenType.EQUALS },            // Algorithm that is a macro and normally inlined. Also used to define constants.
+            { "=",  TokenType.EQUALS },            // Algorithm that is a macro and normally in-lined. Also used to define constants.
             { ".",  TokenType.END },               // Ends all sentences.
             { "#",  TokenType.COMMENT },           // Starts and ends a comment.
          };
@@ -94,6 +97,11 @@ namespace CDL2v1 {
          AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
          AnonID = ID.From(AnonIDToken,typeof(Undeclared));
          ACTIONToken = new Token(TokenClass.ResWord,"ACTION","",0);
+
+         CommentableReservedWords = [  RW.PROGRAM, RW.MODULE, RW.LAYER, RW.SECTION,
+                                       RW.ACTION, RW.FUNCTION, RW.PREDICATE, RW.TEST,
+                                       RW.CONST, RW.LIST, RW.VAR
+                                    ];
       }
 
       public static string ToGlyph(TokenType tt) => Token.TokenType2Glyph.TryGetValue(tt,out string? glyph) ? glyph ?? "" : "";
@@ -116,6 +124,7 @@ namespace CDL2v1 {
       public string? StringValue { get; private set; }
       readonly public long? intValue;
       readonly public double? floatValue;
+      readonly public string Comments;  // Only for certain reserved words
 
       private enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float, Error };
 
@@ -147,9 +156,19 @@ namespace CDL2v1 {
             case TokenClass.ResWord:
                type = TokenType.RESWORD;
                reservedWordValue = Enum.Parse<ReservedWord>(text);
+               // Attach comments encountered before reserved words that can have comments.
+               if (CommentableReservedWords.Contains(reservedWordValue.Value) && collectedComments.Count > 0) {
+                  int width = collectedComments.Select(c => c.Trim().Length).Max();
+                  StringBuilder sb = new();
+                  foreach (string comment in collectedComments) sb.AppendLine(string.Format("# {0} #",comment.Trim().PadRight(width)));
+                  Comments = sb.ToString();
+               }
+               ClearComments();
                break;
             case TokenClass.Glyph:
                type = Glyph2TokenType[text];
+               // Discard comments that cannot be attached to reserved words specified as commentable.
+               if (type == TokenType.END) ClearComments();
                break;
             case TokenClass.Int:
                type = TokenType.INT;
@@ -188,7 +207,8 @@ namespace CDL2v1 {
             return false;
          }
       }
-
+      private static readonly List<string> collectedComments = [];
+      public static void ClearComments() => collectedComments.Clear();
       /// <summary>
       /// Scan the next token and return it token. Remove the consumed characters from input.
       /// Comments are also returned as tokens.
@@ -201,28 +221,36 @@ namespace CDL2v1 {
       /// <param id="lineNumber">The line number of the token.</param>
       /// <returns>true if the staring started with a valid token.</returns>
       public static bool TryCreateToken(ref string input,out Token token,string fileName,ref int lineNumber) {
-         input = input.TrimStart();
-         token = ErrorToken;
+         while (true) {
+            input = input.TrimStart();
+            token = ErrorToken; 
+            if (string.IsNullOrEmpty(input)) return false;
 
-         if (string.IsNullOrEmpty(input)) return false;
-         if (HandleMatch(CommentRE,TokenClass.Comment,ref input,out token,fileName,lineNumber)) return true;
-         if (HandleMatch(StringRE,TokenClass.String,ref input,out token,fileName,lineNumber)) return true;
-         if (HandleMatch(ReservedWordRE,TokenClass.ResWord,ref input,out token,fileName,lineNumber)) return true;
-         if (HandleMatch(IdRE,TokenClass.ID,ref input,out token,fileName,lineNumber)) {
-            Debug.Assert(token.StringValue != null,"ID token has no string value");
-            // Guarantee that all IDs with the same string value (i.e., ignoring spaces) are the same.
-            if (IDTokens.TryGetValue(token.StringValue,out Token? idToken)) {
-               token = idToken;
-            } else {
-               IDTokens[token.StringValue] = token;
+            // Collect comments into a list
+            Match match = CommentRE.Match(input);
+            if (match.Success) {
+               input = input[match.Length..].TrimStart();
+               collectedComments.Add(match.Groups[^1].Value);
+               continue;
             }
-            return true;
-         }
-         if (HandleMatch(IntRE,TokenClass.Int,ref input,out token,fileName,lineNumber)) return true;
-         if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token,fileName,lineNumber)) return true;
-         if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token,fileName,lineNumber)) return true; // Must be placed after Int & Float as they may start with + or -
 
-         return false;
+            if (HandleMatch(StringRE,TokenClass.String,ref input,out token,fileName,lineNumber)) return true;
+            if (HandleMatch(ReservedWordRE,TokenClass.ResWord,ref input,out token,fileName,lineNumber)) return true;
+            if (HandleMatch(IdRE,TokenClass.ID,ref input,out token,fileName,lineNumber)) {
+               Debug.Assert(token.StringValue != null,"ID token has no string value");
+               // Guarantee that all IDs with the same string value (i.e., ignoring spaces) are the same.
+               if (IDTokens.TryGetValue(token.StringValue,out Token? idToken)) {
+                  token = idToken;
+               } else {
+                  IDTokens[token.StringValue] = token;
+               }
+               return true;
+            }
+            if (HandleMatch(IntRE,TokenClass.Int,ref input,out token,fileName,lineNumber)) return true;
+            if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token,fileName,lineNumber)) return true;
+            if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token,fileName,lineNumber)) return true; // Must be placed after Int & Float as they may start with + or -
+            return false;
+         }
       }
 
       /// <summary>
@@ -236,9 +264,9 @@ namespace CDL2v1 {
          StringValue = newName.Replace(" ","");
       }
 
-      // TODO: Remove this when line number passed in TryCreateToken
+      
       public static bool TryCreateToken(ref string input,out Token token) {
-         int lineNumber = 0;
+         int lineNumber = 0; // TODO: Remove this when line number passed in TryCreateToken
          return TryCreateToken(ref input,out token,"",ref lineNumber);
       }
 

@@ -44,20 +44,21 @@ namespace CDL2v1 {
       /// <param id="action"></param>
       private void KeepTogether(Action action) => emitter.KeepTogether(action);
 
-      public static readonly FontWeight Bold = FontWeights.DemiBold;
+      public static readonly FontWeight Bold = FontWeights.Bold;
       public static readonly FontStyle Italic = FontStyles.Oblique;
       public static TextDecorationCollection? Underline { get; internal set; } = TextDecorations.Underline;
 
       public record Decoration (string FG = "White", string BG = "#1E1E1E", DS Style = DS.Normal);
       public static readonly Decoration DefaultDecoration = new();
 
+      private static string AffixColor = "#9cdcfe"; 
       public static Dictionary<SE,Decoration> Decorators = new() {
          { SE.Id                 ,DefaultDecoration },
          { SE.Unit               ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
          { SE.ReservedWord       ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
-         { SE.InputAffix         ,new Decoration(FG:"#9cdcfe") },
-         { SE.OutputAffix        ,new Decoration(FG:"#51c0fd") },
-         { SE.TransputAffix      ,new Decoration(FG:"#26b1fd") },
+         { SE.InputAffix         ,new Decoration(FG:AffixColor) },
+         { SE.OutputAffix        ,new Decoration(FG:AffixColor.IntensifyColor(1.25)) }, // #51c0fd
+         { SE.TransputAffix      ,new Decoration(FG:AffixColor.IntensifyColor(1.50)) }, // #26b1fd
          { SE.StringAffix        ,new Decoration(FG:"#d69d85") },
          { SE.Local              ,new Decoration(FG:"DarkOrange") },
          { SE.Label              ,new Decoration(FG:"LightGray") },
@@ -67,7 +68,7 @@ namespace CDL2v1 {
          { SE.Number             ,new Decoration(FG:"#b5cea8") },
          { SE.String             ,new Decoration(FG:"#d69d85") },
          { SE.Comment            ,new Decoration(FG:"#57a64a") },
-         { SE.Other              ,DefaultDecoration },                              // Will be used to obtain the overall background
+         { SE.Other              ,DefaultDecoration },                             // Will be used to obtain the overall background
          { SE.AlgorithmName      ,DefaultDecoration},                              // Not used, but required entry
        };
 
@@ -181,7 +182,7 @@ namespace CDL2v1 {
          emitter.EndUpdate();
       }
 
-      public void Print(Program program) =>PrintContainer(program,() => {
+      public void Print(Program program) => PrintContainer(program,() => {
          PrintList(RW.PART,program.Parts,decorate:false);
          PrintLudes(program);
       },Newline: true,updateUI: true);
@@ -512,7 +513,8 @@ namespace CDL2v1 {
       /// <param Name="unit"></param>
       /// <param Name="action"></param>
       private void PrintContainer(Container unit,Action action,bool Newline = false,bool updateUI = false) {
-         Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.Name,TT.END);
+         if (unit.Comments != null) Emitnl(unit.Comments.Decorate(emitter,SE.Comment));
+         Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.Decorate(emitter,SE.Id),TT.END);
          Indented(() => action());
          Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.Name,TT.END);
          if (unit is Module || unit is Section) PrintLudes(unit);

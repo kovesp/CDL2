@@ -1,5 +1,7 @@
 ﻿// Ignore Spelling: CDL
 
+using Microsoft.VisualBasic;
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,6 +29,14 @@ namespace CDL2v1 {
    ///   in in the ABSTR list of one of the sections of the LAYER below the current one.
    /// - For IMPORT, the corresponding declaration must be in the some SECTION in one of the MODULEs listed in the PARTS list of the PROGRAM being compiled
    ///   It must also be EXPORTed from there.
+   /// - For each Algorithm call f verify that for each argument x of the call corresponding to affix a of f
+   ///   - If a is input (i.e., >a), then x is a CONST, VAR, an input or transput affix of the procedure containing the call or 
+   ///     a local or output affix that has already received a value (i.e., was the actual arg of a previous output affix).
+   ///   - If a is output (i.e., a>), then x is a VAR, a local or an affix of the procedure containing the call.
+   ///   - If a is transput (i.e., >a>), then apply the criteria for a being input, but disallow CONSTs
+   ///   - Produce a warning for any case where a VAR or an affix is passed to an output affix, and then passed to another output affix without being
+   ///     passed to input or transput affix.
+   ///   - If a is a string (i.e., *a), then x is a string ("...") or a string affix of the containing procedure.
    /// 
    /// 
    /// 1. Verify that all referenced objects are declared and accessible.
@@ -83,7 +93,7 @@ namespace CDL2v1 {
          foreach (Algorithm algorithm in section.declarations.Values.Where(obj => obj is Algorithm algorithm)) {
             Log(2,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
             if (algorithm is Procedure procedure) {
-               AnalyzeCode(procedure);
+               AnalyzeProcedure(procedure,section);
             } else if (algorithm is Macro macro) {
                AnalyzeMacro(macro);
             }
@@ -119,7 +129,59 @@ namespace CDL2v1 {
 
       private void AnalyzeMacro(Macro macro) {
       }
-      private void AnalyzeCode(Procedure code) {
+      private void AnalyzeProcedure(Procedure proc,Section section) {
+         bool hasEffect = AnalyzeEffect(proc.group,section);
+         if (proc.HasEffect && !hasEffect) {
+            ReportError(section,$"Procedure {proc.AlgorithmName} must have an effect");
+         } else if (!proc.HasEffect && hasEffect) {
+            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect");
+         }
+
+      }
+
+      /// <summary>
+      /// Analyze the effect of a group of alternatives.
+      /// If any call in any alternative has an effect then the group has an effect.
+      /// </summary>
+      /// <param name="group"></param>
+      /// <param name="section"></param>
+      /// <returns></returns>
+      private bool AnalyzeEffect(Group group,Section section) {
+         bool effect = false;
+         foreach (Alternative alt in group.alternatives) effect |= AnalyzeEffect(alt,section);
+         return effect;
+      }
+
+      /// <summary>
+      /// Analyze the effect of an alternative.
+      /// If any call in the alternative, or its ending group if any has an effect then the alternative has an effect.
+      /// </summary>
+      /// <param name="alt"></param>
+      /// <param name="section"></param>
+      /// <returns></returns>
+      /// <exception cref="Exception"></exception>
+      private bool AnalyzeEffect(Alternative alt,Section section) {
+         foreach (Call call in alt.calls) {
+            if (CheckCall(call,section)) return true;
+         }
+         if (alt.lastCall.type == LastCallType.Standard) {
+            return CheckCall(alt.lastCall.call!,section);
+         } else if (alt.lastCall.type == LastCallType.Group) {
+            return AnalyzeEffect(alt.lastCall.group!,section);
+         } else {
+            return false;
+         }
+
+         /// <summary>
+         /// A call has an effect if the algorithm it invokes has an effect.
+         /// </summary>
+         static bool CheckCall(Call call,Section section) {
+            if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
+               return algorithm!.HasEffect;
+            } else {
+               throw new Exception("Algorithm not found");
+            }
+         }
       }
    }
 }

@@ -185,6 +185,8 @@ namespace CDL2v1 {
       Bold        = 1,
       Italic      = 2,
       Underline   = 4,
+      Intense     = 8,
+      Dimmed      = 16,
    }
 
    /// <summary>

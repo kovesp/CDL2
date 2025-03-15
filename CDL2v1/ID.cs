@@ -9,7 +9,6 @@ namespace CDL2v1 {
    internal class ID : IConstElement, IMacroElement, IActualArg {
       public readonly Token token = Token.ErrorToken;
       public string Name => token.TokenString;
-      //public Container? container = null;
 
       /// <summary>
       /// Used to ensure that multiple spellings of tokens produce the same ID.

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Windows.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Documents;
 
@@ -45,7 +46,7 @@ namespace CDL2v1 {
                colorMap[color] = new BrushConverter().ConvertFromString(color) as Brush ?? Brushes.Black;
             }
             symbolFont = new("Wingdings 3");
-            textFont   = new("Cascadia Mono");
+            textFont = new("Cascadia Mono");
 
             colorMap["Foreground"] = colorMap[PrettyPrinter.Decorators[SE.Other].FG]; // Use SE.Other background
             colorMap["Background"] = colorMap[PrettyPrinter.Decorators[SE.Other].BG]; // Use SE.Other foreground
@@ -70,21 +71,45 @@ namespace CDL2v1 {
                                     Margin = new Thickness(10),
                                 }
                             },
-                            new Button {
-                                Content = "Close",
-                                Margin = new Thickness(10),
+                            new StackPanel {
+                                Orientation = Orientation.Horizontal,
                                 HorizontalAlignment = HorizontalAlignment.Right,
-                                VerticalAlignment = VerticalAlignment.Bottom
+                                VerticalAlignment = VerticalAlignment.Bottom,
+                                Margin = new Thickness(10),
+                                Children = {
+                                    new Button {
+                                        Content = "+",
+                                        Width = 30,
+                                        Height = 30,
+                                        Margin = new Thickness(5)
+                                    },
+                                    new Button {
+                                        Content = "-",
+                                        Width = 30,
+                                        Height = 30,
+                                        Margin = new Thickness(5)
+                                    },
+                                    new Button {
+                                        Content = "Close",
+                                        Margin = new Thickness(5)
+                                    }
+                                }
                             }
                         }
                }
             };
 
-            // Set the button click event handler
-            ((Button)((Grid)window.Content).Children[1]).Click += (s,e) => window.Close();
+            // Set the button click event handlers
+            var buttonPanel = (StackPanel)((Grid)window.Content).Children[1];
+            ((Button)buttonPanel.Children[0]).Click += (s,e) => ZoomIn();
+            ((Button)buttonPanel.Children[1]).Click += (s,e) => ZoomOut();
+            ((Button)buttonPanel.Children[2]).Click += (s,e) => window.Close();
 
             // Handle the window closed event to exit the application
             window.Closed += (s,e) => app.Shutdown();
+
+            // Add mouse wheel event handler for zooming
+            window.PreviewMouseWheel += Window_PreviewMouseWheel;
 
             // Show the window and start the dispatcher
             app.Run(window);
@@ -95,6 +120,17 @@ namespace CDL2v1 {
          // Wait for the window to stabilize
          while (window == null) Thread.Sleep(100);
          while (outputTextBlock == null) Thread.Sleep(100);
+      }
+
+      private void Window_PreviewMouseWheel(object sender,MouseWheelEventArgs e) {
+         if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) {
+            if (e.Delta > 0) {
+               ZoomIn(10);
+            } else {
+               ZoomOut(10);
+            }
+            e.Handled = true;
+         }
       }
 
       public override void Close() {
@@ -194,11 +230,11 @@ namespace CDL2v1 {
                FontStyle = fontStyle,
                TextDecorations = textDecorations
             });
-            
+
          },DispatcherPriority.Background);
       }
 
-      private void AddRun(Run run,bool lineBreak=false) {
+      private void AddRun(Run run,bool lineBreak = false) {
          run.FontFamily = textFont; ;
          outputTextBlock?.Inlines.Add(run);
          if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
@@ -291,6 +327,19 @@ namespace CDL2v1 {
          T parent => parent,
          var parentObject => FindVisualParent<T>(parentObject),
       };
+
+      // Zoom in by increasing the font size by 20%
+      private void ZoomIn(int pct=20) {
+         if (outputTextBlock != null) {
+            outputTextBlock.FontSize *= (100 + pct) / 100.0;
+         }
+      }
+
+      // Zoom out by decreasing the font size by 20%
+      private void ZoomOut(int pct = 20) {
+         if (outputTextBlock != null) {
+            outputTextBlock.FontSize /= (100 + pct) / 100.0;
+         }
+      }
    }
 }
-

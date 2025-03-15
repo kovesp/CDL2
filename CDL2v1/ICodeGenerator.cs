@@ -123,5 +123,7 @@ internal interface ICodeGenerator {
    void GenerateCallArgReferenceConst(Const c);
    void GenerateCallArgReferenceVar(Var v);
 
+   void GenerateComment(string comment);
+
    public string FileExtension { get; }
 }

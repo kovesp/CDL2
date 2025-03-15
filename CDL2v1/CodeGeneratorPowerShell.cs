@@ -69,6 +69,10 @@ class BoundedArray {
 
       static CodeGeneratorPowerShell() => ProgramHeader = ProgramHeaderPattern.Replace("{","{{").Replace("}","}}").Replace("<%","{").Replace("%>","}");
 
+      public void GenerateComment(string comment) {
+         foreach (string line in comment.Split('\n')) emitter.Emitnl("# ",line);
+      }
+
       public void GenerateStart(Program program,EmitterBase emitter) {
          this.emitter = emitter;
          emitter.Emitnl(string.Format(ProgramHeader,CDL2.Version,program.id.Name,DateTime.Now,DataType));

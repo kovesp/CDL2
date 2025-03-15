@@ -196,13 +196,15 @@ namespace CDL2v1 {
       private void GenerateProcedureBody(Procedure proc) {
          if (proc.IsVerySimple) {
             // Just a sequence of calls
+            cg.GenerateComment("Very simple body");
             Debug.Assert(proc.group.alternatives.Count == 1,$"GenerateProcedureBody: Expected single alternative, found {proc.group.alternatives.Count}");
             foreach (Call call in proc.group.alternatives[0].calls) GenerateCall(proc,call);
             Debug.Assert(proc.group.alternatives[0].lastCall.type == LastCallType.Standard,$"GenerateProcedureBody: Expected last call to be standard, found {proc.group.alternatives[0].lastCall.type}");
             GenerateCall(proc,proc.group.alternatives[0].lastCall.call!);
          } else if (proc.IsSimple) {
+            cg.GenerateComment("Simple body");
          } else {
-
+            cg.GenerateComment("General body");
          }
       }
 
@@ -211,7 +213,7 @@ namespace CDL2v1 {
             cg.GenerateCallStart(called!);
             if (call.args.Count > 0) {
                GenerateActualArg(proc,call.args.First());
-               foreach (var arg in call.args) {
+               foreach (var arg in call.args.Skip(1)) {
                   cg.GenerateActualArgSeparator();
                   GenerateActualArg(proc,arg);
                }

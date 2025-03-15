@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.CommandLine.Parsing;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
@@ -65,9 +66,8 @@ namespace CDL2v1 {
 
       override public string ToString() => $"{ItemTypeShortName} {id.Name}";
       protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];
+      public string? Comments;
    }
-
-
 
    /// <summary>
    /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
@@ -78,9 +78,9 @@ namespace CDL2v1 {
       /// </summary>
       public List<Container> Children = [];
       /// <param id="id"></param>
-      public Container(ID id) : base(id) { }
+      public Container(ID id,string? comments) : base(id) { Comments = comments;  }
 
-      public Container(ID id,Container? parent) : this(id) {
+      public Container(ID id,Container? parent,TokenList? tokens = null,string? comments=null) : this(id,comments) { 
          Parent = parent;
          if (Parent != null && (bool)(Parent.Children.Contains(this))) {
             Logger.ReportError($"{ContainerName} is already a child of {Parent.ContainerName}");
@@ -123,7 +123,7 @@ namespace CDL2v1 {
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param id="id"></param>
-      public Program(ID id) : base(id,null) {
+      public Program(ID id,TokenList? tokens,string? comments) : base(id,null,tokens,comments) {
          LudeParser = Parser.ParseLudeOfIDs;
          FirstProgram ??= this;
       }
@@ -149,7 +149,10 @@ namespace CDL2v1 {
       /// Module Ludes are a list of container IDs.
       /// </summary>
       /// <param id="id"></param>
-      public Module(ID id) : base(id) => LudeParser = Parser.ParseLudeOfIDs;
+      public Module(ID id,TokenList? tokens,string? comments) : base(id,null,tokens,comments) {
+         LudeParser = Parser.ParseLudeOfIDs;
+         Comments = comments;
+      }
    }
 
    /// <summary>
@@ -159,10 +162,11 @@ namespace CDL2v1 {
    /// <param id="id"></param>
    /// <param id="module"></param>
    /// <param Name="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
-   internal class Layer(ID id,Module module,Layer? ancestor) : Container(id,module) {
+   internal class Layer(ID id,Module module,Layer? ancestor,TokenList? tokens=null,string? comments = null) : Container(id,module,tokens,comments) {
       public readonly Layer? Ancestor = ancestor;
       public readonly Dictionary<ID,Section> ext = [];
       public readonly Dictionary<ID,Section> abstr = [];
+
    }
 
    /// <summary>
@@ -184,6 +188,10 @@ namespace CDL2v1 {
       /// Hold the declarations of the section. The key is the ID of the declaration.
       /// </summary>
       public readonly Dictionary<ID,ICDL2Object> declarations = [];
+      /// <summary>
+      /// Acts a cache for <see cref="TryGetDeclaration{T}(ID,out T)"/>."/>
+      /// </summary>
+      public readonly Dictionary<ID,ICDL2Object> resolvedDeclarations = [];
       public IEnumerable<Const> Constants => declarations.Values.OfType<Const>();
       public IEnumerable<Var> Variables => declarations.Values.OfType<Var>();
       public IEnumerable<LIST> Lists => declarations.Values.OfType<LIST>();
@@ -201,7 +209,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="id"></param>
       /// <param id="layer"></param>
-      public Section(ID id,Layer layer) : base(id,layer) => LudeParser = Parser.ParseLudeOfCalls;
+      public Section(ID id,Layer layer,TokenList? tokens=null,string? comments = null) : base(id,layer,tokens,comments) => LudeParser = Parser.ParseLudeOfCalls;
 
       public static Type[] ProvidedElementImplementors;
       static Section() {
@@ -218,17 +226,23 @@ namespace CDL2v1 {
       /// <returns>The declaration if found. </returns>
       /// 
       public bool TryGetDeclaration<T>(ID id,out T? declaration) where T : ICDL2Object {
-         if (TryGetLocalDeclaration(id,out ILocalCDL2Object? obj) && obj is T local) {
+         if (resolvedDeclarations.TryGetValue(id,out ICDL2Object? cached) && cached is T resolved) {
+            declaration = resolved;
+            return true; // Found in the cache
+         } else if (TryGetLocalDeclaration(id,out ILocalCDL2Object? obj) && obj is T local) {
             declaration = local;
+            resolvedDeclarations[id] = local; // Cache the result to avoid checking in both declaration and resolvedDeclaration.
             return true; // Found locally
          } else if (inv.Contains(id)) {
             Debug.Assert(Parent != null && Parent is Layer,$"Parent of {this} is null or not a Layer");
             Layer layer = (Layer)Parent;
             if (layer.ext.TryGetValue(id,out Section? declaringSection) && declaringSection.declarations[id] is T extended) {
                declaration = extended;
+               resolvedDeclarations[id] = extended;
                return true;
             } else if (layer.Ancestor != null && layer.Ancestor.abstr.TryGetValue(id,out declaringSection) && declaringSection.declarations[id] is T abstracted) {
                declaration = abstracted;
+               resolvedDeclarations[id] = abstracted;
                return true;
             }
          }
@@ -287,11 +301,12 @@ namespace CDL2v1 {
       public readonly Set<Local> locals;           // The declarations variables of this algorithm.
 
       public SE SE => SE.AlgorithmName;
-      public Algorithm(ID id,List<Affix> formals,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,section) {
+      public Algorithm(ID id,List<Affix> formals,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,section,synthetic) {
          this.affixes = formals;
          this.locals = locals;
          this.algorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
          this.bodyType = bodyType;
+         this.Comments = algorithmType.Comments;
       }
 
       public AlgorithmNameType NameType {
@@ -317,6 +332,7 @@ namespace CDL2v1 {
       public string AlgorithmName => $"{algorithmType} {id}";
 
       public bool CanFail => algorithmType == RW.TEST || algorithmType == RW.PREDICATE;
+      public bool HasEffect => algorithmType == RW.PREDICATE || algorithmType == RW.ACTION;
       public Boolean NeedsFinalization => affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any();
 
       public bool TryGetAffix(ID id,out Affix affix) => (affix = this.affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
