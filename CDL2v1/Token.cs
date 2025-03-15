@@ -22,8 +22,8 @@ namespace CDL2v1 {
       // The aliases are meant to be used in the parser to make the code more readable.
 
       
-      public static readonly ReservedWord[] UnitStarters = { ReservedWord.MODULE,ReservedWord.LAYER,ReservedWord.SECTION,ReservedWord.PROGRAM };
-      public static readonly ReservedWord[] UnitEnders = { ReservedWord.ENDMOD,ReservedWord.ENDLAY,ReservedWord.ENDSEC,ReservedWord.ENDPROG };
+      public static readonly ReservedWord[] UnitStarters = [ReservedWord.MODULE,ReservedWord.LAYER,ReservedWord.SECTION,ReservedWord.PROGRAM];
+      public static readonly ReservedWord[] UnitEnders = [ReservedWord.ENDMOD,ReservedWord.ENDLAY,ReservedWord.ENDSEC,ReservedWord.ENDPROG];
 
       public static readonly Dictionary<string,TokenType> Glyph2TokenType;
       public static readonly Dictionary<TokenType,string> TokenType2Glyph;
@@ -82,16 +82,16 @@ namespace CDL2v1 {
 
 
          // Must match at the beginning of the input
-         GlyphRE = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})");
-         ReservedWordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})");
+         GlyphRE = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})",RegexOptions.Compiled);
+         ReservedWordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})",RegexOptions.Compiled);
          // Allows annotation symbols to precede and follow the ID; these are removed.
-         IdRE = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*");
-         StringRE = new Regex(@"^"".*?(?:$"".*?)*""");
-         CommentRE = new Regex(@"^(?m:#(.*?)?(?:#|$))");
-         IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?\d+)");
-         FloatRE = new Regex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?");
+         IdRE = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*",RegexOptions.Compiled);
+         StringRE = new Regex(@"^"".*?(?:$"".*?)*""",RegexOptions.Compiled);
+         CommentRE = new Regex(@"^(?m:#(.*?)?(?:#|$))",RegexOptions.Compiled);
+         IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?\d+)",RegexOptions.Compiled);
+         FloatRE = new Regex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled);
          // Must match all occurrences anywhere in a string
-         StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys)}])");
+         StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys)}])",RegexOptions.Compiled);
 
          ErrorToken = new Token();
          AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
@@ -124,7 +124,7 @@ namespace CDL2v1 {
       public string? StringValue { get; private set; }
       readonly public long? intValue;
       readonly public double? floatValue;
-      readonly public string Comments;  // Only for certain reserved words
+      readonly public string? Comments;  // Only for certain reserved words
 
       private enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float, Error };
 
@@ -280,7 +280,7 @@ namespace CDL2v1 {
             TT.FLOAT   => $"FLOAT<{floatValue?.ToString() ?? "0.0"}>",
             TT.ID      => $"ID<{StringValue ?? string.Empty}>",
             TT.ERROR   => "ERROR",
-            _          => TokenType2Glyph.ContainsKey(type) ? TokenType2Glyph[type] : type.ToString(),
+            _          => TokenType2Glyph.TryGetValue(type,out string? value) ? value : type.ToString(),
          };
       }
 
@@ -302,7 +302,7 @@ namespace CDL2v1 {
       /// <returns>The normalized id.</returns>
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
       internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
-         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier()}";
+         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier(camelCase:camelCase)}";
       internal static Token From(Container container,RW rw) => new(TokenClass.ID,$"{container.id.Name}_{rw}","",0);
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);

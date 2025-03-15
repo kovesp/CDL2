@@ -116,7 +116,7 @@ internal interface ICodeGenerator {
    void GenerateDataSectionStart(Func<int> count,string v);
    void GenerateActualArgSeparator();
    void GenerateCallStart(Algorithm called);
-   void GenerateCallEnd(Call call);
+   void GenerateCallEnd(Algorithm call);
    void GenerateCallArgString(string value);
    void GenerateCallArgReferenceAffix(Affix a);
    void GenerateCallArgReferenceLocal(Local lo);

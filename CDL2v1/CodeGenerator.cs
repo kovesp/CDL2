@@ -113,7 +113,7 @@ namespace CDL2v1 {
                case STRING s: cg.GenerateConstElemString(s.value); break;
                case ID id:
                   if (section.TryGetDeclaration(id,out Const? c)) {
-                     cg.GenerateReference(c);
+                     cg.GenerateReference(c!);
                   } else {
                      throw new NotImplementedException($"GenerateSection: Reference to wrong element type ");
                   }
@@ -137,7 +137,7 @@ namespace CDL2v1 {
                case ID id:
                   // This should be a reference to a Const, Var or List, so check which one
                   if (section.TryGetDeclaration(id,out Const? c)) {
-                     cg.GenerateReference(c);
+                     cg.GenerateReference(c!);
                   } else if (section.TryGetLocalDeclaration(id,out ILocalCDL2DataObject? v)) {
                      if (v is Var var) cg.GenerateReference(var);
                      else if (v is LIST list) cg.GenerateReference(list);
@@ -153,11 +153,11 @@ namespace CDL2v1 {
             }
          }
          cg.GenerateMacroBodyEnd(macro);
-         FinalizeAffixesAndVars(macro,variables);
+         FinalizeAffixesAndVariables(macro,variables);
          cg.GenerateEnd(macro);
       }
 
-      private void FinalizeAffixesAndVars(Algorithm algorithm,IEnumerable<Var> variables) {
+      private void FinalizeAffixesAndVariables(Algorithm algorithm,IEnumerable<Var> variables) {
          bool needed = algorithm.NeedsFinalization;
          cg.FinalizationStart(algorithm,needed);
          if (needed) {
@@ -189,20 +189,22 @@ namespace CDL2v1 {
          cg.GenerateProcedureBodyStart(proc);
          GenerateProcedureBody(proc);
          cg.GenerateProcedureBodyEnd(proc);
-         FinalizeAffixesAndVars(proc,variables);
+         FinalizeAffixesAndVariables(proc,variables);
          cg.GenerateEnd(proc);
       }
 
       private void GenerateProcedureBody(Procedure proc) {
          if (proc.IsVerySimple) {
-            // Just a sequence of calls
+            // Just a sequence of calls none of which can fail.
             cg.GenerateComment("Very simple body");
             Debug.Assert(proc.group.alternatives.Count == 1,$"GenerateProcedureBody: Expected single alternative, found {proc.group.alternatives.Count}");
             foreach (Call call in proc.group.alternatives[0].calls) GenerateCall(proc,call);
-            Debug.Assert(proc.group.alternatives[0].lastCall.type == LastCallType.Standard,$"GenerateProcedureBody: Expected last call to be standard, found {proc.group.alternatives[0].lastCall.type}");
-            GenerateCall(proc,proc.group.alternatives[0].lastCall.call!);
+            if (proc.group.alternatives[0].lastCall.type == LCT.Standard) GenerateCall(proc,proc.group.alternatives[0].lastCall.call!);
          } else if (proc.IsSimple) {
             cg.GenerateComment("Simple body");
+            foreach (Alternative alt in proc.group.alternatives) {
+               foreach (Call call in alt.calls) GenerateCall(proc,call);
+            }
          } else {
             cg.GenerateComment("General body");
          }
@@ -213,12 +215,12 @@ namespace CDL2v1 {
             cg.GenerateCallStart(called!);
             if (call.args.Count > 0) {
                GenerateActualArg(proc,call.args.First());
-               foreach (var arg in call.args.Skip(1)) {
+               foreach (IActualArg? arg in call.args.Skip(1)) {
                   cg.GenerateActualArgSeparator();
                   GenerateActualArg(proc,arg);
                }
             }
-            cg.GenerateCallEnd(call);
+            cg.GenerateCallEnd(called!);
          } else {
             throw new NotImplementedException($"GenerateCall: Unresolved reference to {call.id}");
          }

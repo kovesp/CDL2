@@ -298,8 +298,14 @@ class BoundedArray {
       }
 
       public void GenerateActualArgSeparator() => emitter.Emit(" ");
-      public void GenerateCallStart(Algorithm called) => emitter.Emit(PSName(called)," ");
-      public void GenerateCallEnd(Call call) { Newline();  }
+      public void GenerateCallStart(Algorithm called) {
+         if (called.CanFail) emitter.Emit("if (");
+         emitter.Emit(PSName(called)," ");
+      }
+      public void GenerateCallEnd(Algorithm call) {
+         if (call.CanFail) emitter.Emit(") {");
+         Newline(); 
+      }
 
       public void GenerateCallArgString(string value) => emitter.Emit($"\"{value}\"");
       public void GenerateCallArgReferenceAffix(Affix a) => emitter.Emit(PSVar(a,"_"));

@@ -11,8 +11,8 @@ namespace CDL2v1 {
 #if !EXCLUDE_OBSOLETE
    [Obsolete("The SymbolTable class is deprecated. Elements are recorded in standard Dictionaries or set.",true)]
    internal class SymbolTable {
-      public Container? Owner;   // The Container that owns this symbol table.
-      private Dictionary<ID,NamedElement> table = [];
+      public Container? Owner = null;   // The Container that owns this symbol table.
+      private readonly Dictionary<ID,NamedElement> table = [];
 
       public NamedElement this[ID id] {
          get => table[id];
@@ -31,7 +31,7 @@ namespace CDL2v1 {
 
       public bool ContainsKey(ID id) => table.ContainsKey(id);
 
-      public Set<T> AsSet<T>() where T : NamedElement => new(table.Values.OfType<T>());
+      public Set<T> AsSet<T>() where T : NamedElement => [.. table.Values.OfType<T>()];
 
       /// <summary>
       /// Check if the symbol table contains the given ID. If not, add an Undeclared to the symbol table.

@@ -24,16 +24,14 @@ namespace CDL2v1 {
          }
       }
 
-      public static IEnumerable<Type> GetImplementorsOfInterface<TInterface>() {
-         return Assembly.GetExecutingAssembly().GetTypes()
+      public static IEnumerable<Type> GetImplementorsOfInterface<TInterface>() => Assembly.GetExecutingAssembly().GetTypes()
              .Where(type => typeof(TInterface).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract);
-      }
 
       public static string AsIdentifier(this string str,string prefix = "",string replacement = "",bool camelCase = false) {
          if (prefix != "") prefix += "_";
-         str = Regex.Replace(str,@"[^\p{L}\d\s]+","_").Trim();
+         str = Regex.Replace(str,@"[^\p{L}\d\s]+","_",RegexOptions.Compiled).Trim();
          if (camelCase) {
-            return prefix.ToLower() + str.Split(" ").Select((word,i) => i == 0 ? word.ToLower() : char.ToUpper(word[0]) + word.Substring(1).ToLower()).Aggregate((a,b) => a + b);
+            return prefix.ToLower() + str.Split(" ").Select((word,i) => i == 0 ? word.ToLower() : char.ToUpper(word[0]) + word[1..].ToLower()).Aggregate((a,b) => a + b);
          } else {
             return prefix.ToLower() + str.ToLower().Replace(" ",replacement);
          }
@@ -86,7 +84,8 @@ namespace CDL2v1 {
             } else if (decoration == null) {
             }
             Debug.Assert(decoration != null,$"No decoration for {element}");
-            return string.Join("\n",Regex.Split(str,@"\r\n|\r|\n").Select(str => $"<span fg='{decoration.FG}' bg='{decoration.BG}' style='{decoration.Style}'>{str}</span>"));
+            return string.Join("\n",Regex.Split(str,@"\r\n|\r|\n",RegexOptions.Compiled)
+                           .Select(str => $"<span fg='{decoration.FG}' bg='{decoration.BG}' style='{decoration.Style}'>{str}</span>"));
          } else {
             return str;
          }

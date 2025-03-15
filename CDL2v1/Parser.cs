@@ -113,7 +113,7 @@ namespace CDL2v1 {
             return;
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
-            Program.Programs[programId] = currentProgram = new Program(programId,tokens,comments);
+            Program.Programs[programId] = currentProgram = new Program(programId,comments);
             Log(1,$"Parsing {currentProgram}"); 
          }
 
@@ -147,7 +147,7 @@ namespace CDL2v1 {
             ReportError($"Program {moduleId} already exists");
             return;
          } else {
-            Program.Modules[moduleId] = currentModule = new Module(moduleId,tokens,comments);
+            Program.Modules[moduleId] = currentModule = new Module(moduleId,comments);
             currentObject.Object = (RW.MODULE, moduleId);
             Log(1,$"Parsing {currentObject}");
          }
@@ -165,7 +165,7 @@ namespace CDL2v1 {
       private void ParseLayer(ID layerId,string? comments) {
          Debug.Assert(currentModule != null);
          currentObject.Object = (RW.LAYER, layerId);
-         currentLayer= new Layer(layerId,currentModule,currentLayer,tokens,comments);
+         currentLayer= new Layer(layerId,currentModule,currentLayer,comments);
          Log(1,$"Parsing {currentObject}");
 
          // Now should see sections
@@ -182,7 +182,7 @@ namespace CDL2v1 {
       private void ParseSection(ID sectionId,string? comments) {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
-         currentSection = new Section(sectionId,currentLayer,tokens,comments);
+         currentSection = new Section(sectionId,currentLayer,comments);
          Log(1,$"Parsing {currentObject}");
 
          // Now should see container parts
@@ -216,8 +216,8 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
-            if (currentSection.declarations.ContainsKey(id)) {
-               ReportError($"Algorithm {id} already declared in container {currentSection.id} as {currentSection.declarations[id].GetType().Name}");
+            if (currentSection.declarations.TryGetValue(id,out ICDL2Object? value)) {
+               ReportError($"Algorithm {id} already declared in container {currentSection.id} as {value.GetType().Name}");
                return;
             }
             List<Affix>? formals = ParseAffixes();
@@ -400,11 +400,9 @@ namespace CDL2v1 {
          Set<Local> locals = [];
          while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token token)) {
             Local local = new(ID.From(token,typeof(Local)));
-            if (locals.Contains(local)) {
+            if (!locals.Add(local)) {
                ReportError($"Duplicate declarations {local}");
                return null;
-            } else {
-               locals.Add(local);
             }
          }
          return locals;
@@ -514,10 +512,10 @@ namespace CDL2v1 {
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
                ID id = ID.From(elemId,typeof(Const));
-               if (currentSection.declarations.ContainsKey(id)) {
+               if (currentSection.declarations.TryGetValue(id,out ICDL2Object? value)) {
                   // The ID is already declared in this container. It can only be a constant or undeclared.
                   // That will be true even if it is invoked or imported.
-                  Debug.Assert(currentSection.declarations[id] is Const || currentSection.declarations[id] is Undeclared);
+                  Debug.Assert(value is Const || value is Undeclared);
                   c.elements.Add(id);
                } else if (currentSection.import.Contains(id)) {
                   currentSection.declarations[id] = Undeclared.Instance;

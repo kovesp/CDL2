@@ -75,7 +75,8 @@ namespace CDL2v1 {
       public string LinePrefix { get; set; } = "";
 
       public bool SupportsDecoration { get; set; } = false;
-      public Regex spanRegex = new(@"<span\s+(fg='(?<fg>[^']*)')?\s+(bg='(?<bg>[^']*)')?\s+(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",RegexOptions.IgnoreCase);
+      public Regex spanRegex = new(@"<span\s+(fg='(?<fg>[^']*)')?\s+(bg='(?<bg>[^']*)')?\s+(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",
+                                 RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
       public void Indented(Action action) {
          IndentLevel++;
@@ -99,7 +100,7 @@ namespace CDL2v1 {
       public virtual void Close() { }
 
       /// <summary>
-      /// Write the item to the target. Must be supplied by concrete sublcasses.
+      /// Write the item to the target. Must be supplied by concrete subclasses.
       /// </summary>
       /// <param id="item"></param>
       protected abstract void WriteLine(string item);
@@ -123,14 +124,14 @@ namespace CDL2v1 {
       public bool Emitnl(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: true,honorLineLength: true,extraSpace: false,code);
 
       /// <summary>
-      /// Like <see cref="Emit(int, object[])"/> with a new line added at the begining.
+      /// Like <see cref="Emit(int, object[])"/> with a new line added at the beginning.
       /// </summary>
       /// <param id="indentLevel"></param>
       /// <param id="code"></param>
       /// <returns>True if a new line was written.</returns>
       public bool NlEmit(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: false,honorLineLength: true,extraSpace: false,code);
       /// <summary>
-      /// Like <see cref="Emit(int, object[])"/> with a new line added at the begining and end.
+      /// Like <see cref="Emit(int, object[])"/> with a new line added at the beginning and end.
       /// </summary>
       /// <param id="indentLevel"></param>
       /// <param id="code"></param>
@@ -160,7 +161,7 @@ namespace CDL2v1 {
          } else {
             bool wasNewline = WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
             // Split the items into lines.
-            string[] lines = Regex.Split(string.Join("",items.Select(i => i?.ToString() ?? "")),@"\r\n|\r|\n");
+            string[] lines = Regex.Split(string.Join("",items.Select(i => i?.ToString() ?? "")),@"\r\n|\r|\n",RegexOptions.Compiled);
             // Write the previous line if it would be too long with the first new item AND if line length is being honoured.
             if (!IgnoreLineLength && honorLineLength && WillNotFitOnCurrentLine(lines[0])) wasNewline = wasNewline || WriteNewLine(true);
             AddToCurrentLine(lines[0],extraSpace);

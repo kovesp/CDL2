@@ -51,7 +51,7 @@ namespace CDL2v1 {
       public record Decoration (string FG = "White", string BG = "#1E1E1E", DS Style = DS.Normal);
       public static readonly Decoration DefaultDecoration = new();
 
-      private static string AffixColor = "#9cdcfe"; 
+      private static readonly string AffixColor = "#9cdcfe"; 
       public static Dictionary<SE,Decoration> Decorators = new() {
          { SE.Id                 ,DefaultDecoration },
          { SE.Unit               ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
@@ -81,7 +81,7 @@ namespace CDL2v1 {
          var baseDecorator = new Decoration(FG: "#dcdcaa");
 
          // Create decorators for all possible combinations of flags
-         bool[] falseTrue = new[] { false,true };
+         bool[] falseTrue = [false,true];
          foreach (bool canFail in falseTrue) {
             foreach (bool isMacro in falseTrue) {
                foreach (bool hasEffect in falseTrue) {
@@ -320,7 +320,7 @@ namespace CDL2v1 {
       });
 
       private void Print(List<Alternative> alternatives,Section section) {
-         Debug.Assert(alternatives.Any(),"alternatives list is empty");
+         Debug.Assert(alternatives.Count != 0,"alternatives list is empty");
          Print(alternatives.First(),section);
          foreach (Alternative alternative in alternatives.Skip(1)) {
             EmitSeparatorWithNL(TT.ALTSEP);
@@ -440,15 +440,15 @@ namespace CDL2v1 {
          PrintProcHead(macro);
          Indented(() => {
             Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
-            PrintMacroElement(macro,macro.elements.First(),withNl: false);
+            PrintMacroElement(macro.elements.First(),withNl: false);
             foreach (IMacroElement elem in macro.elements.Skip(1)) {
-               PrintMacroElement(macro,elem,withSpace: true);
+               PrintMacroElement(elem,withSpace: true);
             }
             EmitSeparatorWithNL(TT.END);
          });
       }
 
-      private void PrintMacroElement(Macro macro,IMacroElement elem,bool withSpace = false,bool withNl = true) {
+      private void PrintMacroElement(IMacroElement elem,bool withSpace = false,bool withNl = true) {
          if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
@@ -566,7 +566,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="items"></param>
       /// <returns></returns>
-      private static string[] TranslateTokens(params object[] items) => items.Select(item => TranslateToken(item)).ToArray();
+      private static string[] TranslateTokens(params object[] items) => [.. items.Select(item => TranslateToken(item))];
       private static string TranslateToken(object item) => item is TT tt ? Token.ToGlyph(tt) : item.ToString() ?? "";
 
       /// <summary>

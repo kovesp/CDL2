@@ -14,7 +14,7 @@ namespace CDL2v1 {
    internal class EmitterWindow : EmitterBase {
       private Window? window;
       private TextBlock? outputTextBlock;
-      private Dictionary<string,Brush> colorMap = [];
+      private readonly Dictionary<string,Brush> colorMap = [];
       private FontFamily? symbolFont;
       private FontFamily? textFont;
 
@@ -252,7 +252,7 @@ namespace CDL2v1 {
             window.Dispatcher.Invoke(() => {
                // Pause layout and rendering
                if (outputTextBlock != null) {
-                  var scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
+                  ScrollViewer? scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
                   scrollViewer?.SetValue(ScrollViewer.CanContentScrollProperty,false);
                }
             },DispatcherPriority.Send);
@@ -274,7 +274,7 @@ namespace CDL2v1 {
 
                   // Re-enable scrolling and update layout
                   if (outputTextBlock != null) {
-                     var scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
+                     ScrollViewer? scrollViewer = FindVisualParent<ScrollViewer>(outputTextBlock);
                      scrollViewer?.SetValue(ScrollViewer.CanContentScrollProperty,true);
                      outputTextBlock.UpdateLayout();
                   }
@@ -320,7 +320,7 @@ namespace CDL2v1 {
       private static string FormatAlgorithmBodySeparators(string text) => Regex.Replace(text,
                       @"( := | =: | = | : )\s*$",
                       $"{ThinSpace}$1",
-                      RegexOptions.IgnorePatternWhitespace);
+                      RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
       // Helper to find parent element of specific type
       private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject => VisualTreeHelper.GetParent(child) switch {
          null => null,
