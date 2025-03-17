@@ -115,15 +115,21 @@ internal interface ICodeGenerator {
    void GenerateConstantEnd(Const c);
    void GenerateDataSectionStart(Func<int> count,string v);
    void GenerateActualArgSeparator();
-   void GenerateCallStart(Algorithm called);
-   void GenerateCallEnd(Algorithm call);
+   void GenerateCallStart(Algorithm called,Procedure proc,bool firstCall=false);
+   void GenerateCallEnd(Algorithm call,Procedure proc,bool firstCall=false);
    void GenerateCallArgString(string value);
-   void GenerateCallArgReferenceAffix(Affix a);
-   void GenerateCallArgReferenceLocal(Local lo);
-   void GenerateCallArgReferenceConst(Const c);
-   void GenerateCallArgReferenceVar(Var v);
+   void GenerateCallArgReferenceAffix(Affix calledAffix,Affix a);
+   void GenerateCallArgReferenceLocal(Affix calledAffix,Local lo);
+   void GenerateCallArgReferenceConst(Affix calledAffix,Const c);
+   void GenerateCallArgReferenceVar(Affix calledAffix,Var v);
 
    void GenerateComment(string comment);
+   void GenerateAlternativeStart(Procedure proc,Group group,int i);
+   void GenerateAlternativeEnd(Procedure proc,Group group,int i);
+   void GenerateRepeat(Procedure proc,Group group);
+   void GenerateFail(Procedure proc,Group group);
+   void GenerateSucceed(Procedure proc,Group group);
+   void GenerateAbort(Procedure proc,Group group);
 
    public string FileExtension { get; }
 }

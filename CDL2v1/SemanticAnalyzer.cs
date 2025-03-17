@@ -30,13 +30,13 @@ namespace CDL2v1 {
    /// - For IMPORT, the corresponding declaration must be in the some SECTION in one of the MODULEs listed in the PARTS list of the PROGRAM being compiled
    ///   It must also be EXPORTed from there.
    /// - For each Algorithm call f verify that for each argument x of the call corresponding to affix a of f
-   ///   - If a is input (i.e., >a), then x is a CONST, VAR, an input or transput affix of the procedure containing the call or 
+   ///   - If a is input (i.e., >a), then x is a CONST, VAR, an input or transput affix of the ContainingProc containing the call or 
    ///     a local or output affix that has already received a value (i.e., was the actual arg of a previous output affix).
-   ///   - If a is output (i.e., a>), then x is a VAR, a local or an affix of the procedure containing the call.
+   ///   - If a is output (i.e., a>), then x is a VAR, a local or an affix of the ContainingProc containing the call.
    ///   - If a is transput (i.e., >a>), then apply the criteria for a being input, but disallow CONSTs
    ///   - Produce a warning for any case where a VAR or an affix is passed to an output affix, and then passed to another output affix without being
    ///     passed to input or transput affix.
-   ///   - If a is a string (i.e., *a), then x is a string ("...") or a string affix of the containing procedure.
+   ///   - If a is a string (i.e., *a), then x is a string ("...") or a string affix of the containing ContainingProc.
    /// 
    /// 
    /// 1. Verify that all referenced objects are declared and accessible.

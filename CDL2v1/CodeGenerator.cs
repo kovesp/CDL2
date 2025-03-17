@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Security.Principal;
 using System.Text;
-using System.Threading.Tasks;
+
 
 
 namespace CDL2v1 {
@@ -49,6 +49,7 @@ namespace CDL2v1 {
                      Debug.Assert(section.Ludes[ludeType].Count == 1,$"CG: {section} referenced in {ludeType} of {mod}. Expected reference to single Procedure, found {section.Ludes[ludeType].Count}");
                      ID procId = section.Ludes[ludeType][0];
                      Logger.Log($"Generating Procedure for {procId}");
+                     
                      GenerateProcedureCode((Procedure)section.declarations[procId]);
                   }
                }
@@ -95,7 +96,7 @@ namespace CDL2v1 {
             }
          });
          GenerateObjects(section.Macros,m=>GenerateMacroCode(section,m));
-         GenerateObjects(section.Procedures,GenerateProcedureCode);
+         GenerateObjects(section.NonSyntheticProcedures,GenerateProcedureCode);
          cg.GenerateEnd(section);
       }
 
@@ -168,6 +169,7 @@ namespace CDL2v1 {
       }
 
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
+         cg.GenerateComment(alg.ToString());
          cg.GenerateAlgorithmHeaderStart(alg);
          if (alg.affixes.Count > 0) {
             cg.GenerateDeclareAffix(alg.affixes[0],alg.affixes[0].affixDir);
@@ -201,44 +203,69 @@ namespace CDL2v1 {
             foreach (Call call in proc.group.alternatives[0].calls) GenerateCall(proc,call);
             if (proc.group.alternatives[0].lastCall.type == LCT.Standard) GenerateCall(proc,proc.group.alternatives[0].lastCall.call!);
          } else if (proc.IsSimple) {
+            // A sequence of alternatives, no groups or repeats.
             cg.GenerateComment("Simple body");
-            foreach (Alternative alt in proc.group.alternatives) {
-               foreach (Call call in alt.calls) GenerateCall(proc,call);
+           
+            for (int i = 0; i < proc.group.alternatives.Count ; i++) {
+               GenerateAlternative(proc,proc.group,i);
             }
          } else {
             cg.GenerateComment("General body");
          }
       }
 
-      private void GenerateCall(Procedure proc,Call call) {
-         if (proc.Parent is Section section && section.TryGetDeclaration(call.id,out Algorithm? called)) {
-            cg.GenerateCallStart(called!);
-            if (call.args.Count > 0) {
-               GenerateActualArg(proc,call.args.First());
-               foreach (IActualArg? arg in call.args.Skip(1)) {
-                  cg.GenerateActualArgSeparator();
-                  GenerateActualArg(proc,arg);
-               }
-            }
-            cg.GenerateCallEnd(called!);
-         } else {
-            throw new NotImplementedException($"GenerateCall: Unresolved reference to {call.id}");
+      private void GenerateAlternative(Procedure proc,Group group,int i) {
+         cg.GenerateAlternativeStart(proc,group,i);
+         bool canFail = false;
+         foreach (Call call in group.alternatives[i].calls) {            
+            GenerateCall(proc,call,canFail);
+            canFail = canFail || call.CanFail;
          }
+         switch (group.alternatives[i].lastCall.type) {
+            case LCT.Standard: GenerateCall(proc,group.alternatives[i].lastCall.call!,canFail); break;
+            case LCT.Fail: cg.GenerateFail(proc,group); break;
+            case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
+            case LCT.Abort: cg.GenerateAbort(proc,group); break;
+            case LCT.Repeat: cg.GenerateRepeat(proc,group); break;
+            case LCT.Group: GenerateGroup(proc,group.alternatives[i].lastCall.group!); break;
+            case LCT.None: break; // Use in the alternative generated for section Ludes.
+            default:
+               throw new NotImplementedException($"GenerateAlternative: Unknown last call type {group.alternatives[i].lastCall.type}");
+         }
+         cg.GenerateAlternativeEnd(proc,group,i);
       }
 
-      private void GenerateActualArg(Procedure proc,IActualArg arg) {
+      private void GenerateGroup(Procedure proc,Group group) => throw new NotImplementedException();
+
+      private void GenerateCall(Procedure proc,Call call,bool canFail = false) {
+         cg.GenerateCallStart(call.Called,proc,canFail);
+         if (call.args.Count > 0) {
+            GenerateActualArg(proc,call.Called.affixes[0],call.args[0]);
+            for (int i = 1 ; i < call.args.Count ; i++) {
+               cg.GenerateActualArgSeparator();
+               GenerateActualArg(proc,call.Called.affixes[i],call.args[i]);
+            }
+         }
+         cg.GenerateCallEnd(call.Called,proc,canFail);
+      }
+
+      private void GenerateActualArg(Procedure proc,Affix calledAffix,IActualArg arg) {
          switch (arg) {
-            case STRING s: cg.GenerateCallArgString(s.value); break;
-            case ID id: // May be a reference to a const, or var.
-               if (proc.TryGetAffix(id,out Affix affix)) {
-                  cg.GenerateCallArgReferenceAffix(affix);
+            case STRING s:
+               Debug.Assert(calledAffix.affixType == AT.str,$"GenerateCall: String argument for non-string affix {calledAffix}");
+               cg.GenerateCallArgString(s.value);
+               break;
+            case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
+               if (proc.TryGetAffix(id,out Affix procAffix)) {
+                  cg.GenerateCallArgReferenceAffix(calledAffix,procAffix);
                } else if (proc.TryGetLocal(id,out Local local)) {
-                  cg.GenerateCallArgReferenceLocal(local);
+                  cg.GenerateCallArgReferenceLocal(calledAffix,local);
                } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out ICDL2DataObject? dataRef)) {
                   if (dataRef is Const c) {
-                     cg.GenerateCallArgReferenceConst(c);
+                     Debug.Assert(!calledAffix.IsOutput,$"GenerateCall: Const argument for output affix {calledAffix}");
+                     cg.GenerateCallArgReferenceConst(calledAffix,c);
                   } else if (dataRef is Var v) {
-                     cg.GenerateCallArgReferenceVar(v);
+                     cg.GenerateCallArgReferenceVar(calledAffix,v);
                   } else {
                      throw new NotImplementedException($"GenerateCall: Reference to wrong element type {dataRef}");
                   }
@@ -246,8 +273,8 @@ namespace CDL2v1 {
                   throw new NotImplementedException($"GenerateCall: Unresolved reference to {id}");
                }
                break;
-            case Affix a:  cg.GenerateCallArgReferenceAffix(a); break;
-            case Local lo: cg.GenerateCallArgReferenceLocal(lo); break;
+            case Affix a:  cg.GenerateCallArgReferenceAffix(calledAffix,a); break;
+            case Local lo: cg.GenerateCallArgReferenceLocal(calledAffix,lo); break;
             default:
                throw new NotImplementedException($"GenerateCall: Unknown argument type {arg.GetType()}");
          }

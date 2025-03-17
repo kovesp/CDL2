@@ -190,7 +190,7 @@ namespace CDL2v1 {
          ParseInterfaces();
 
          // Now could see algorithms, lists, variables, constants in any order.
-         // Parse each type and return its ID.
+         // Parse each LudeType and return its ID.
          while (!tokens.IsNext(RW.ENDSEC)) {
             if (tokens.IsNext(AlgTypes)) {
                ParseAlgorithm();
@@ -215,6 +215,7 @@ namespace CDL2v1 {
       private void ParseAlgorithm() {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
+            Logger.Log(3,$"Parsing {algType} {id}");
             currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
             if (currentSection.declarations.TryGetValue(id,out ICDL2Object? value)) {
                ReportError($"Algorithm {id} already declared in container {currentSection.id} as {value.GetType().Name}");
@@ -259,7 +260,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.Optional(TT.END)) {
             if (tokens.Optional(TT.ID,out Token idToken)) {
-               ID id = ID.From(idToken,typeof(Algorithm));
+               ID id = ID.From(idToken);
                if (macro.TryGetAffix(id,out Affix? affix)) {
                   macro.elements.Add(affix);
                } else if (macro.TryGetLocal(id,out Local local)) {
@@ -318,7 +319,7 @@ namespace CDL2v1 {
                      }
                      g = g.Parent;
                   }
-                  if (!found && label != proc.id) { // The label can be the procedure id
+                  if (!found && label != proc.id) { // The label can be the ContainingProc id
                      ReportError($"Label {label} not found in group hierarchy");
                   }
                   lastCall = new LastCall(label);
@@ -340,9 +341,9 @@ namespace CDL2v1 {
       }
 
       private Call ParseCall(ID id,Procedure proc) => ParseCall(this,id,proc);
-      private static Call ParseCall(Parser parser,ID id,Procedure proc) {
+      private static Call ParseCall(Parser parser,ID id,Procedure containingProc) {
          Debug.Assert(parser.currentSection != null);
-         Call call = new(id,proc);
+         Call call = new(id,containingProc);
          ParseActualArgs(parser,call);
          return call;
       }
@@ -360,7 +361,7 @@ namespace CDL2v1 {
       private ID ParseOptionalLabel(Group? group) {
          if (tokens.Peek().type == TT.ID && tokens.Peek(1).type == TT.LABELSEP) {
             // Consume the label and the colon
-            ID label = ID.From(tokens.Next(),typeof(Label));
+            ID label = ID.From(tokens.Next());
             tokens.Next();
             // Go up the group hierarchy to see if the label is already defined.
             Group? g = group;
@@ -399,7 +400,7 @@ namespace CDL2v1 {
       private Set<Local>? ParseLocals() {
          Set<Local> locals = [];
          while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token token)) {
-            Local local = new(ID.From(token,typeof(Local)));
+            Local local = new(ID.From(token));
             if (!locals.Add(local)) {
                ReportError($"Duplicate declarations {local}");
                return null;
@@ -449,7 +450,7 @@ namespace CDL2v1 {
                tokens.CanConsume(TT.LISTBOUNDSEP) &&
                tokens.CanConsume(TT.ID,out Token upbToken) &&
                tokens.CanConsume(TT.LISTBOUNDEND)) {
-            list = new(id,currentSection,ID.From(lwbToken,typeof(Const)),ID.From(upbToken,typeof(Const)));
+            list = new(id,currentSection,ID.From(lwbToken),ID.From(upbToken));
          } else {
             ReportError($"LIST {id} with has invalid bounds in container {currentSection.id}");
          }
@@ -511,7 +512,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
-               ID id = ID.From(elemId,typeof(Const));
+               ID id = ID.From(elemId);
                if (currentSection.declarations.TryGetValue(id,out ICDL2Object? value)) {
                   // The ID is already declared in this container. It can only be a constant or undeclared.
                   // That will be true even if it is invoked or imported.
@@ -572,7 +573,7 @@ namespace CDL2v1 {
       internal static void ParseLudeOfIDs(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
             while (parser.tokens.Optional(TT.ID,out Token  id)) {
-               container.Ludes[type].Add(ID.From(id,container.GetType()));
+               container.Ludes[type].Add(ID.From(id));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
@@ -580,27 +581,28 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse a container lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
-      /// It will be stored as a Procedure item in the container's symbols table. The ID will be SectionName_LudeType. 
+      /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
+      /// It will be stored as a Procedure. The ID will be SectionName_LudeType. 
       /// </summary>
       /// <param id="parser"></param>
-      /// <param id="type"></param>
+      /// <param id="LudeType"></param>
       /// <param id="container"></param>
-      internal static void ParseLudeOfCalls(Parser parser,RW type,Container container) {
-         if (parser.tokens.Optional(type)) {
+      internal static void ParseLudeOfCalls(Parser parser,RW ludeType,Container container) {
+         if (parser.tokens.Optional(ludeType)) {
             //Debug.Assert(container != null);
             Section section = (Section)container;
-            Procedure lude = new(type,section);
+            Procedure lude = new(ludeType,section);
 
             List<Call> callList =[];
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               callList.Add(ParseCall(parser,ID.From(id,typeof(Algorithm)),lude));
+               callList.Add(ParseCall(parser,ID.From(id),lude));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
 
+            lude.algorithmType = callList.All(call=>call.AlwaysSucceeds) ? RW.FUNCTION : RW.ACTION;
             lude.group.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
-            section.Ludes[type].Add(lude.id);
+            section.Ludes[ludeType].Add(lude.id);
             section.declarations[lude.id] = lude;
          }
       }
@@ -616,7 +618,7 @@ namespace CDL2v1 {
       private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList,string comments,Func<ID,ICDL2Object?> processID) {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
-            ID id = ID.From(tokens.Next(),typeof(Undeclared));
+            ID id = ID.From(tokens.Next());
             ICDL2Object? CDL2Object = processID(id);            
             if (CDL2Object != null) {
                if (!idList.ContainsKey(id)) {
@@ -639,7 +641,7 @@ namespace CDL2v1 {
       /// <param Name="idList2"></param>
       private void ParseIDList(RW type,ICollection<ID> idList,Dictionary<ID,Section>? propagationDictionary=null) {
          while (tokens.IsNext(TT.ID)) {
-            ID id = ID.From(tokens.Next(),typeof(Undeclared));
+            ID id = ID.From(tokens.Next());
             if (! idList.Contains(id)) {
                idList.Add(id);
             } else {

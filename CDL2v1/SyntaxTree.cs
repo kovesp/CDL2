@@ -134,7 +134,7 @@ namespace CDL2v1 {
       /// <param id="ludeType"></param>
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
       public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => Program.Modules[id]);
-      internal static Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName),typeof(Program)),out Program? program) ? program : null;
+      internal static Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)),out Program? program) ? program : null;
    }
 
    /// <summary>
@@ -281,11 +281,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="separator"></param>
       /// <returns></returns>
-      public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false) {
+      public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
          string sectionName = Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
          string layerName = Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
          string moduleName = Parent!.Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string objectName = id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string objectName = id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
          return $"{moduleName}{separator}{layerName}{separator}{sectionName}{separator}{objectName}";
       }
    }
@@ -294,7 +294,7 @@ namespace CDL2v1 {
    /// </summary>
    internal abstract class Algorithm : DeclaredCDL2Object, IProvidedElement, ILocalCDL2Object, IScope {
       // public readonly Section container = container;
-      public readonly RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
+      public          RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
       public readonly TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
       public readonly List<Affix> affixes;         // The affixes of this algorithm. A List because they are ordered.       
       public readonly Set<Local> locals;           // The declarations variables of this algorithm.
@@ -339,6 +339,14 @@ namespace CDL2v1 {
 
       public bool TryGetAffix(ID id,out Affix affix) => (affix = this.affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
+
+      public override string ToString() {
+         StringBuilder buffer = new();
+         buffer.Append($"{ItemTypeShortName} {id.Name}");
+         foreach (Affix affix in affixes) buffer.Append(affix);
+         foreach (Local local in locals) buffer.Append(local);
+         return buffer.ToString();
+      }
 
       /// <summary>
       /// Get the annotation symbols for the ID of this algorithm. Computed on first use.
@@ -447,7 +455,7 @@ namespace CDL2v1 {
          : Algorithm(id,formals,locals,algorithmType,bodyType,section,synthetic) {
       public Group group = new(id,[],null);
       /// <summary>
-      /// True if the procedure is an Action or Function that has only a single alternative which is a sequence of calls none of which can fail.
+      /// True if the ContainingProc is an Action or Function that has only a single alternative which is a sequence of calls none of which can fail.
       /// </summary>
       public bool IsVerySimple {
          get {
@@ -456,9 +464,8 @@ namespace CDL2v1 {
                if (AlwaysSucceeds && group.alternatives.Count == 1) {
                   List<Call> calls = group.alternatives[0].calls;
                   LastCall lastCall = group.alternatives[0].lastCall;
-                  if ((lastCall.type == LCT.Standard || lastCall.type == LCT.Succeed)
-                        && calls.All(call => call.TryGetCalled(out Algorithm? called1) && ! called1!.AlwaysSucceeds)) { 
-                     isVerySimple.value = lastCall.type == LCT.Succeed || lastCall.TryGetCalled(out Algorithm? called2) && called2!.AlwaysSucceeds;
+                  if ((lastCall.type == LCT.Standard || lastCall.type == LCT.Succeed) && calls.All(call => (bool)call.AlwaysSucceeds)) {
+                     isVerySimple.value = lastCall.type == LCT.Succeed || (bool)lastCall.call.AlwaysSucceeds;
                   }
                }
             }
@@ -467,19 +474,32 @@ namespace CDL2v1 {
       }
       private (bool notset, bool value) isVerySimple = (true, false);
       /// <summary>
-      /// Can have alternatives, but there are no repeats.
+      /// Can have alternatives, but there are mo groups except for the primary one.
+      /// It can also fail.
       /// </summary>
-      public bool IsSimple => !CanFail && HasNoRepeat(group);
+      public bool IsSimple => HasNoGroups && HasNoRepeat;
 
-      private static bool HasNoRepeat(Group group) {
+      public bool HasNoRepeat => HasNoRepeats(group);
+      private static bool HasNoRepeats(Group group) {
          foreach (Alternative alternative in group.alternatives) {
             if (alternative.lastCall.type == LCT.Repeat) return false;
-            if (alternative.lastCall.type == LCT.Group && !HasNoRepeat(alternative.lastCall.group!)) return false;
+            if (alternative.lastCall.type == LCT.Group && !HasNoRepeats(alternative.lastCall.group!)) return false;
          }
          return true;
       }
+      /// <summary>
+      /// None of the alternatives in the primary group ends with a group.
+      /// </summary>
+      public bool HasNoGroups {
+         get {
+            foreach (Alternative alternative in group.alternatives) {
+               if (alternative.lastCall.type == LCT.Group) return false;
+            }
+            return true;
+         }
+      }
 
-      public Procedure(RW ludeType,Section section) : this(ID.From(section,ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section,true) { } // Used for container Ludes which are parameterless actions with no locals.
+      public Procedure(RW ludeType,Section section) : this(ID.From(ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section,true) { } // Used for container Ludes which are parameterless actions with no locals.
       public override IEnumerable<Var> GetReferencedVariables() {
          Set<Var> variables = [];
          CollectReferencedVariables(group,variables);
@@ -497,21 +517,29 @@ namespace CDL2v1 {
       }
    }
 
-   internal class Call(ID id,Procedure proc) {
+   internal class Call(ID id,Procedure containingProc) {
       public readonly ID id = id;
       public readonly List<IActualArg> args = [];
-      public readonly Procedure procedure = proc;
+      public readonly Procedure ContainingProc = containingProc;
       override public string ToString() => $"{id.Name}+{string.Join("+",args)}";
-      internal bool TryGetAffix(ID id,out Affix affix) => procedure.TryGetAffix(id,out affix);
-      internal bool TryGetLocal(ID id,out Local local) => procedure.TryGetLocal(id,out local);
+      internal bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
+      internal bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
+      private Algorithm? called = null;
+      internal Algorithm Called {
+         get {
+            if (called == null && TryGetCalled(out Algorithm? calledByMe)) called = calledByMe;
+            Debug.Assert(called != null,$"{this} was unable to resolve the called algorithm");
+            return called;
+         }
+      }
       internal bool TryGetCalled(out Algorithm? called) {
-         Debug.Assert(procedure != null,$"{this} has null procedure or its Parent is not a Section ");
-         if (procedure.section.TryGetDeclaration(id,out called)) return true;
+         Debug.Assert(ContainingProc != null,$"{this} has null ContainingProc or its Parent is not a Section ");
+         if (ContainingProc.section.TryGetDeclaration(id,out called)) return true;
          called = null;
          return false;
       }
-      public bool CanFail => procedure.CanFail;
-      public bool AlwaysSucceeds => procedure.AlwaysSucceeds;
+      public bool CanFail => Called.CanFail;
+      public bool AlwaysSucceeds => Called.AlwaysSucceeds;
    }
    /// <summary>
    /// The last element(in an alternative) can be:
@@ -533,7 +561,7 @@ namespace CDL2v1 {
       public LastCall(ID? label) : this(LCT.Repeat) => this.label = label;
 
       internal bool TryGetCalled(out Algorithm? called) {
-         if (type == LCT.Standard && call!.procedure.section.TryGetDeclaration(call.id,out called)) return true;
+         if (type == LCT.Standard && call!.ContainingProc.section.TryGetDeclaration(call.id,out called)) return true;
          called = null;
          return false;
       }

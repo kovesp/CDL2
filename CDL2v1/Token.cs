@@ -53,7 +53,7 @@ namespace CDL2v1 {
          // Place multi-character glyphs first to ensure they match before any single character contained in them.
          Glyph2TokenType = new Dictionary<string,TokenType> {
             { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be in-lined (the default for = is to inline).
-            { ":=", TokenType.INLINECODEBODY },    // Indicates a procedure body that should be in-lined.
+            { ":=", TokenType.INLINECODEBODY },    // Indicates a ContainingProc body that should be in-lined.
             { "+",  TokenType.PLUS },              // Used as affixes (argument) separator and as the succeed operator.
             { "-",  TokenType.MINUS },             // Used as declarations variable separator and as the fail operator.
             { "*",  TokenType.STAR },              // Repeat from group start operator and string parameter.
@@ -63,7 +63,7 @@ namespace CDL2v1 {
             { ";",  TokenType.ALTSEP },            // Separates alternatives.
             { "(",  TokenType.GRPOPEN },           // Starts a group and a LIST bound.
             { ")",  TokenType.GRPCLOSE },          // Ends a group and a LIST bound.
-            { ":",  TokenType.COLON },             // Algorithm that is a procedure. But also used in LIST bounds and to place labels, e.g., ACTION proc: init,(main: is not done, (try first, first; try next, next, *main); quit.
+            { ":",  TokenType.COLON },             // Algorithm that is a ContainingProc. But also used in LIST bounds and to place labels, e.g., ACTION proc: init,(main: is not done, (try first, first; try next, next, *main); quit.
             { "=",  TokenType.EQUALS },            // Algorithm that is a macro and normally in-lined. Also used to define constants.
             { ".",  TokenType.END },               // Ends all sentences.
             { "#",  TokenType.COMMENT },           // Starts and ends a comment.
@@ -95,7 +95,7 @@ namespace CDL2v1 {
 
          ErrorToken = new Token();
          AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
-         AnonID = ID.From(AnonIDToken,typeof(Undeclared));
+         AnonID = ID.From(AnonIDToken);
          ACTIONToken = new Token(TokenClass.ResWord,"ACTION","",0);
 
          CommentableReservedWords = [  RW.PROGRAM, RW.MODULE, RW.LAYER, RW.SECTION,
@@ -303,7 +303,7 @@ namespace CDL2v1 {
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
       internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
          => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier(camelCase:camelCase)}";
-      internal static Token From(Container container,RW rw) => new(TokenClass.ID,$"{container.id.Name}_{rw}","",0);
+      internal static Token From(RW rw) => new(TokenClass.ID,rw.ToString(),"",0);
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);
    }

@@ -10,12 +10,28 @@ MODULE quicksort.
 
          FUNCTION incr+>a> = a "++".
          FUNCTION decr+>a> = a "--".
-         TEST greater+>a+>b = a " -gt " b.
-         TEST less+>a+>b = a " -lt " b.
-         TEST less or equal+>a+>b = a " -le " b.
+         TEST greater+>a+>b : gt+a+b.
+         TEST less+>a+>b : lt+a+b.
+         TEST less or equal+>a+>b : le+a+b.
          FUNCTION add +>a+>b+c> = c " = " a " + " b.
          FUNCTION halve +>a> = a " /= 2".
          FUNCTION make +a>+>b = a " = " b.
+
+         CONST ten=10.
+         VAR var.
+         TEST test+>a+>b>+c>:
+            less+a+b, make+c+a;
+            eq+a+b, add+a+ten+c;
+            add+b+ten+var, incr+b, make+c+b.
+
+
+         TEST lt+>a+>b = a " -lt " b.
+         TEST eq+>a+>b = a " -eq " b.
+         TEST gt+>a+>b = a " -gt " b.
+
+         TEST ne+>a+>b : eq+a+b,- ; +.
+         TEST ge+>a+>b : eq+a+b ; gt+a+b.
+         TEST le+>a+>b : eq+a+b ; lt+a+b. 
 
          CONST min random=0, max random=200.
          FUNCTION random+>min+>max+r> =: r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".

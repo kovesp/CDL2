@@ -32,9 +32,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="token"></param>
       /// <returns></returns>
-      public static ID From(Token token,Type targetType) {
+      public static ID From(Token token) {
          Debug.Assert(token.type == TT.ID && token.StringValue != null,"CreateID: Token is not an ID type or StringValue is null");
-         return UniqueIDs.TryGetValue(token.StringValue,out ID? id) ? id : UniqueIDs[token.StringValue] = new ID(token,targetType);
+         return UniqueIDs.TryGetValue(token.StringValue,out ID? id) ? id : UniqueIDs[token.StringValue] = new ID(token);
       }
       /// <summary>
       /// Used to create the Procedures for Section Ludes.
@@ -42,23 +42,22 @@ namespace CDL2v1 {
       /// <param id="container"></param>
       /// <param id="ludeType">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>
       /// <returns></returns>
-      public static ID From(Section section,RW ludeType) {
-         ID id = From(Token.From(section,ludeType),typeof(Algorithm));
-         //id.container = section;
+      public static ID From(RW ludeType) {
+         ID id = From(Token.From(ludeType));
          return id;
       }
 
       public readonly static ID ErrorID = new();
-      public readonly static ID AnonID = new("Anon",typeof(Undeclared));
+      public readonly static ID AnonID = new("Anon");
 
 
-      protected ID(Token token,Type targetType) {
+      protected ID(Token token) {
          Debug.Assert(token.type == TT.ID && token.StringValue != null,"Program constructor: id not TokenType.ID or StringValue is null");
          this.token = token;
       }
 
       private ID() { }
-      private ID(string name,Type targetType) : this(new Token(name),targetType) { }
+      private ID(string name) : this(new Token(name)) { }
 
       /// <summary>
       /// Changes the Name of an ID. Can be used to change where the spaces are.

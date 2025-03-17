@@ -27,7 +27,8 @@ namespace CDL2v1 {
       public static IEnumerable<Type> GetImplementorsOfInterface<TInterface>() => Assembly.GetExecutingAssembly().GetTypes()
              .Where(type => typeof(TInterface).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract);
 
-      public static string AsIdentifier(this string str,string prefix = "",string replacement = "",bool camelCase = false) {
+      public static string AsIdentifier(this string str,string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
+         if (literalObjectName) return str.Replace(" ","");
          if (prefix != "") prefix += "_";
          str = Regex.Replace(str,@"[^\p{L}\d\s]+","_",RegexOptions.Compiled).Trim();
          if (camelCase) {

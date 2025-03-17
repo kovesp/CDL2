@@ -415,7 +415,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Print a procedure unless it is IsSynthetic.
+      /// Print a ContainingProc unless it is IsSynthetic.
       /// </summary>
       /// <param name="proc"></param>
       public void Print(Procedure proc,Section section) {
