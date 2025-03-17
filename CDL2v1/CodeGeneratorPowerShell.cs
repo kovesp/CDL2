@@ -328,10 +328,12 @@ class BoundedArray {
          bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
          if (proc.NeedsFinalization && notLastAlternativeOfProc) {
             emitter.Emitnl("if ($__b) { break }");
-         } else {
-            if (notLastAlternativeOfProc) emitter.Emitnl("if ($__b) { return $__b }");
+         } else if (notLastAlternativeOfProc) { 
+            emitter.Emitnl("if ($__b) { return $__b }");
+         } else if (proc.NeedsFinalization && !group.alternatives[i].CanFail) {
+            emitter.Emitnl("$__b = $true");
          }
-         emitter.IndentLevel--;
+            emitter.IndentLevel--;
       }
       void ICodeGenerator.GenerateRepeat(Procedure proc,Group group) => throw new NotImplementedException();
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {

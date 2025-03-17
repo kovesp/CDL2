@@ -128,6 +128,16 @@ namespace CDL2v1 {
          FirstProgram ??= this;
       }
 
+      public static long labelCounter = 0;
+      /// <summary>
+      /// Labels of the form Group0000000001, Group0000000002, etc.
+      /// </summary>
+      /// <remarks>The underlying labelCounter is public so its value can be saved into and restored from a DB to support CDL2 Lab like behaviour.</remarks>
+      /// TODO: Implement the saving and restoring of the labelCounter.
+      /// <returns>The next group label ID.</returns>
+      public static ID NextGroupLabel => ID.From(new Token($"Group{labelCounter++:D10}"));
+      
+
       /// <summary>
       /// Get the modules that have the given lude type.
       /// </summary>
@@ -416,8 +426,6 @@ namespace CDL2v1 {
       /// </summary>
       //public void ResetNameAnnotations() => sa = null;
       public abstract IEnumerable<Var> GetReferencedVariables();
-
-
       override protected string ItemTypeShortName => $"{algorithmType}";
    }
 
@@ -579,6 +587,8 @@ namespace CDL2v1 {
    internal class Alternative(List<Call> calls,LastCall lastCall) {
       public readonly List<Call> calls = calls;
       public readonly LastCall lastCall = lastCall;
+
+      public bool CanFail => calls.Any(call => call.CanFail) || (lastCall.type == LCT.Standard && lastCall.call!.CanFail);
    }
    // Note that the id in this case is the label.
    internal class Group(ID label,List<Alternative> alternatives,Group? parent) : NamedElement(label) {

@@ -280,8 +280,8 @@ namespace CDL2v1 {
             }
          }
       }
-      private void ParseProcedureBody(Procedure algorithm) {
-         algorithm.group.alternatives = ParseAlternatives(algorithm,group:null);
+      private void ParseProcedureBody(Procedure proc) {
+         proc.group.alternatives = ParseAlternatives(proc,group:null);
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
       private List<Alternative> ParseAlternatives(Procedure proc,Group? group) {
@@ -374,7 +374,7 @@ namespace CDL2v1 {
             }
             return label;
          } else {
-            return ID.AnonID;
+            return Program.NextGroupLabel;
          }
       }
 
