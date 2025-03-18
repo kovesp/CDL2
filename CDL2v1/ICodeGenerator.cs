@@ -126,10 +126,12 @@ internal interface ICodeGenerator {
    void GenerateComment(string comment);
    void GenerateAlternativeStart(Procedure proc,Group group,int i);
    void GenerateAlternativeEnd(Procedure proc,Group group,int i);
-   void GenerateRepeat(Procedure proc,Group group);
+   void GenerateRepeat(Procedure proc,Group group,ID label);
    void GenerateFail(Procedure proc,Group group);
    void GenerateSucceed(Procedure proc,Group group);
    void GenerateAbort(Procedure proc,Group group);
+   void GenerateGroupStart(Procedure proc,Group group);
+   void GenerateGroupEnd(Procedure proc,Group group);
 
    public string FileExtension { get; }
 }

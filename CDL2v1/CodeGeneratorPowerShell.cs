@@ -329,20 +329,36 @@ class BoundedArray {
          bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
          if (proc.NeedsFinalization && notLastAlternativeOfProc) {
             emitter.Emitnl("if ($__b) { break }");
-         } else if (notLastAlternativeOfProc) { 
-            emitter.Emitnl("if ($__b) { return $__b }");
+         } else if (notLastAlternativeOfProc && group.alternatives[i].lastCall.type != LCT.Repeat) { 
+            emitter.Emitnl("if ($__b) { ",proc.CanFail ? "return $__b }" : "return }");
          } else if (proc.NeedsFinalization && !group.alternatives[i].CanFail) {
             emitter.Emitnl("$__b = $true");
          }
             emitter.IndentLevel--;
       }
-      void ICodeGenerator.GenerateRepeat(Procedure proc,Group group) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label) {
+         // TODO: Needs more work to ensure labels are unique within a proc
+         if (label == ID.AnonID) {
+            emitter.Emitnl("if ($__b) { continue }");
+         } else {
+            emitter.Emitnl("if ($__b) { continue ",label.InternalName," }");
+         }
+      }
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (! proc.IsVerySimple) {
-            emitter.Emitnl("return $false");
+            emitter.Emitnl(proc.CanFail ? "return $false" : "return");
          }
       }
       void ICodeGenerator.GenerateSucceed(Procedure proc,Group group) { }
       void ICodeGenerator.GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit 1");
+      void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
+         if (!group.IsSynthetic) emitter.Emit(":",group.id.InternalName," ");
+         emitter.Emitnl("do {");
+         emitter.IndentLevel++;
+      }
+      void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
+         emitter.IndentLevel--;
+         emitter.Emitnl("} while ($true)");
+      }
    }
 }

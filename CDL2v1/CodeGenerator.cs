@@ -212,6 +212,10 @@ namespace CDL2v1 {
             }
          } else {
             cg.GenerateComment("General body");
+
+            for (int i = 0 ; i < proc.group.alternatives.Count ; i++) {
+               GenerateAlternative(proc,proc.group,i);
+            }
          }
       }
 
@@ -227,7 +231,7 @@ namespace CDL2v1 {
             case LCT.Fail: cg.GenerateFail(proc,group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
             case LCT.Abort: cg.GenerateAbort(proc,group); break;
-            case LCT.Repeat: cg.GenerateRepeat(proc,group); break;
+            case LCT.Repeat: cg.GenerateRepeat(proc,group,group.alternatives[i].lastCall.label); break;
             case LCT.Group: GenerateGroup(proc,group.alternatives[i].lastCall.group!); break;
             case LCT.None: break; // Use in the alternative generated for section Ludes.
             default:
@@ -236,7 +240,13 @@ namespace CDL2v1 {
          cg.GenerateAlternativeEnd(proc,group,i);
       }
 
-      private void GenerateGroup(Procedure proc,Group group) => throw new NotImplementedException();
+      private void GenerateGroup(Procedure proc,Group group) {
+         cg.GenerateGroupStart(proc,group);
+         for (int i = 0 ; i < group.alternatives.Count ; i++) {
+            GenerateAlternative(proc,group,i);
+         }
+         cg.GenerateGroupEnd(proc,group);
+      }
 
       private void GenerateCall(Procedure proc,Call call,bool canFail = false) {
          cg.GenerateCallStart(call.Called,proc,canFail);
