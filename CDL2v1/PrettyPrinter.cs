@@ -21,6 +21,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Formatted printing of the parse tree.
    /// </summary>
+   [Serializable]
    internal class PrettyPrinter {
       private const int DEFAULT_LINE_LENGTH          = 100;
       private const int DEFAULT_INDENT_MULTIPLIER    = 3;
@@ -314,7 +315,7 @@ namespace CDL2v1 {
 
       private void Print(Group group,Section section) => Indented(() => {
          NlEmit(TT.GRPOPEN);
-         if (group.id != ID.AnonID) Emit(group.id.Name,TT.LABELSEP);
+         if (! group.IsSynthetic) Emit(group.id.Name,TT.LABELSEP);
          Print(group.alternatives,section);
          Emit(TT.GRPCLOSE);
       });

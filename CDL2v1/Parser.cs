@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 using static CDL2v1.Logger;
 
 namespace CDL2v1 {
-   internal class Parser {
+   public class Parser {
       /// <summary>
       /// The object being compiled. Used mainly for error reporting.
       /// </summary>
@@ -108,12 +108,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Name="programId"></param>
       private void ParseProgram(ID programId,string? comments) {
-         if (Program.Programs.ContainsKey(programId)) {
+         if (Database.Instance.Programs.ContainsKey(programId)) {
             ReportError($"Program {programId} already exists");
             return;
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
-            Program.Programs[programId] = currentProgram = new Program(programId,comments);
+            Database.Instance.Programs[programId] = currentProgram = new Program(programId,comments);
             Log(1,$"Parsing {currentProgram}"); 
          }
 
@@ -143,11 +143,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="moduleId">The ID (id) of the module.</param>
       private void ParseModule(ID moduleId,string? comments) {
-         if (Program.Modules.ContainsKey(moduleId)) {
+         if (Database.Instance.Modules.ContainsKey(moduleId)) {
             ReportError($"Program {moduleId} already exists");
             return;
          } else {
-            Program.Modules[moduleId] = currentModule = new Module(moduleId,comments);
+            Database.Instance.Modules[moduleId] = currentModule = new Module(moduleId,comments);
             currentObject.Object = (RW.MODULE, moduleId);
             Log(1,$"Parsing {currentObject}");
          }
@@ -350,15 +350,15 @@ namespace CDL2v1 {
 
       private LastCall ParseGroup(Procedure proc,Group? containingGroup) {
          LastCall? lastCall;
-         ID label = ParseOptionalLabel(containingGroup);
-         Group group = new(label,[],containingGroup);
+         ID? label = ParseOptionalLabel(containingGroup);
+         Group group = new(label,[],containingGroup,synthetic:label is null);
          group.alternatives = ParseAlternatives(proc,group);
          if (!tokens.CanConsume(TT.GRPCLOSE)) ReportError("Expected )");
          lastCall = new LastCall(group);
          return lastCall;
       }
 
-      private ID ParseOptionalLabel(Group? group) {
+      private ID? ParseOptionalLabel(Group? group) {
          if (tokens.Peek().type == TT.ID && tokens.Peek(1).type == TT.LABELSEP) {
             // Consume the label and the colon
             ID label = ID.From(tokens.Next());
@@ -374,7 +374,7 @@ namespace CDL2v1 {
             }
             return label;
          } else {
-            return Program.NextGroupLabel;
+            return null;
          }
       }
 
@@ -581,7 +581,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
+      /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other serializationOptions for the last call) terminated by a period.
       /// It will be stored as a Procedure. The ID will be SectionName_LudeType. 
       /// </summary>
       /// <param id="parser"></param>
@@ -600,7 +600,7 @@ namespace CDL2v1 {
             }
             parser.tokens.CanConsumeEnd();
 
-            lude.algorithmType = callList.All(call=>call.AlwaysSucceeds) ? RW.FUNCTION : RW.ACTION;
+            lude.algorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
             lude.group.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
             section.Ludes[ludeType].Add(lude.id);
             section.declarations[lude.id] = lude;

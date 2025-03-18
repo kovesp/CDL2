@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
+   [Serializable]
    internal class CodeGeneratorPowerShell : ICodeGenerator {
       EmitterBase emitter = new EmitterSink();
 
@@ -108,10 +109,10 @@ class BoundedArray {
          _ => throw new NotImplementedException(),
       };
 
-      private static string _PSVar(string name,PSVarType type,string prefix = "",string suffix = "") => $"${prefix}{PSVarPrefix(type)}{name}{suffix}";
-      private static string PSVar(DeclaredCDL2Object obj,string prefix = "",string suffix = "") => _PSVar(PSName(obj),PSVarTypeOf(obj),prefix,suffix);
-      private static string PSVar(Affix affix,string prefix = "",string suffix = "") => _PSVar(PSName(affix),PSVarType.Affix,prefix,suffix);
-      private static string PSVar(Local local,string prefix = "",string suffix = "") => _PSVar(PSName(local),PSVarType.Local,prefix,suffix);
+      private static string _PSVar(string name,PSVarType type,string prefix = "",string suffix = "",bool isRef = false) => $"{(isRef?"[ref]":"")}${prefix}{PSVarPrefix(type)}{name}{suffix}";
+      private static string PSVar(DeclaredCDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => _PSVar(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
+      private static string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => _PSVar(PSName(affix),PSVarType.Affix,prefix,suffix,isRef);
+      private static string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => _PSVar(PSName(local),PSVarType.Local,prefix,suffix,isRef);
 
       private static string PSName(DeclaredCDL2Object obj) => obj.FQN(camelCase: true,literalObjectName:obj.IsSynthetic);
       private static string PSName(Affix affix) => affix.id.Name.AsIdentifier(camelCase:true);
@@ -316,10 +317,10 @@ class BoundedArray {
 
       private string AffixRef(Affix calledAffix,string prefix = "") => (calledAffix.IsOutput ? "[ref]" : "") + prefix;
       public void GenerateCallArgString(string value) => emitter.Emit($"\"{value}\"");
-      public void GenerateCallArgReferenceAffix(Affix calledAffix,Affix a) => emitter.Emit(PSVar(a,AffixRef(calledAffix,"_")));
-      public void GenerateCallArgReferenceLocal(Affix calledAffix,Local lo) => emitter.Emit(PSVar(lo,AffixRef(calledAffix)));
+      public void GenerateCallArgReferenceAffix(Affix calledAffix,Affix a) => emitter.Emit(PSVar(a,"_",isRef:calledAffix.IsOutput));
+      public void GenerateCallArgReferenceLocal(Affix calledAffix,Local lo) => emitter.Emit(PSVar(lo,isRef: calledAffix.IsOutput));
       public void GenerateCallArgReferenceConst(Affix calledAffix,Const c) => emitter.Emit(PSVar(c));
-      public void GenerateCallArgReferenceVar(Affix calledAffix,Var v) => emitter.Emit(PSVar(v,AffixRef(calledAffix,"_")));
+      public void GenerateCallArgReferenceVar(Affix calledAffix,Var v) => emitter.Emit(PSVar(v,"_",isRef: calledAffix.IsOutput));
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) {
          GenerateComment($"Alternative {i+1}");
          emitter.IndentLevel++;

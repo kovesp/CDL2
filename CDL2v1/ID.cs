@@ -1,23 +1,24 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CDL2v1 {
    /// <summary>
    /// Represents a reference to a named syntactic element, Arg or Local in the syntax tree.
    /// It contains the token it was created from.
    /// </summary>
-   internal class ID : IConstElement, IMacroElement, IActualArg {
-      public readonly Token token = Token.ErrorToken;
-      public string Name => token.TokenString;
-
-      /// <summary>
-      /// Used to ensure that multiple spellings of tokens produce the same ID.
-      /// </summary>
-      private static readonly Dictionary<string,ID> UniqueIDs = [];
+   [Serializable]
+   [JsonConverter(typeof(IDJsonConverter))]
+   public class ID : IConstElement, IMacroElement, IActualArg {
+      [JsonInclude]
+      public string InternalName = string.Empty;
+      [JsonInclude]
+      public string Name = string.Empty;
 
       public static void Dump() {
          Debug.WriteLine("ID Dump:\n--------");
-         List<ID> sortedIDs = [.. UniqueIDs.Values
+         List<ID> sortedIDs = [.. Database.Instance.UniqueIDs.Values
                                      .OrderBy(id => id.Name)
                                      //.ThenBy (id => id.Name)
                                      ];
@@ -34,54 +35,86 @@ namespace CDL2v1 {
       /// <returns></returns>
       public static ID From(Token token) {
          Debug.Assert(token.type == TT.ID && token.StringValue != null,"CreateID: Token is not an ID type or StringValue is null");
-         return UniqueIDs.TryGetValue(token.StringValue,out ID? id) ? id : UniqueIDs[token.StringValue] = new ID(token);
+         if (Database.Instance.UniqueIDs.TryGetValue(token.StringValue,out ID? id)) {
+            return id;
+         } else {
+            return Database.Instance.UniqueIDs[token.StringValue] = new ID(name:token.TokenString);
+         }
       }
+      public static ID From(string name) => new(name);
       /// <summary>
       /// Used to create the Procedures for Section Ludes.
       /// </summary>
       /// <param id="container"></param>
       /// <param id="ludeType">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>
       /// <returns></returns>
-      public static ID From(RW ludeType) {
-         ID id = From(Token.From(ludeType));
-         return id;
-      }
+      public static ID From(RW ludeType) => From(ludeType.ToString());
 
-      public readonly static ID ErrorID = new();
+      public readonly static ID ErrorID = new("ERROR");
       public readonly static ID AnonID = new("Anon");
 
-
-      protected ID(Token token) {
-         Debug.Assert(token.type == TT.ID && token.StringValue != null,"Program constructor: id not TokenType.ID or StringValue is null");
-         this.token = token;
+      //[JsonConstructor]
+      public ID() { }
+      public ID(string name) {
+         Name = name;
+         InternalName = name.Trim().Replace(" ","");
       }
 
-      private ID() { }
-      private ID(string name) : this(new Token(name)) { }
-
       /// <summary>
-      /// Changes the Name of an ID. Can be used to change where the spaces are.
+      /// Renames an ID.
+      /// This allows changing the Name of an ID without changing the ID itself, in particular where spaces are in the id.
       /// </summary>
       /// <param Name="newName"></param>
-      public void Rename(string newName) => token.Rename(newName);
+      public void Rename(string newName) {
+         Name = newName;
+         InternalName = newName.Trim().Replace(" ","");
+      }
 
-
-      public override bool Equals(object? obj) => obj is ID iD && token == iD.token;
-      public override int GetHashCode() => HashCode.Combine(token);
+      public override bool Equals(object? obj) => obj is ID id && Name == id.Name && InternalName == id.InternalName;
+      public override int GetHashCode() => HashCode.Combine(InternalName,Name);
       public override string ToString() => Name;
-      //private string ToString(int nameWidth = 0/*,int typeWidth = 0*/) {
-      //   string name = nameWidth > 0 ? string.Format("{0,-" + nameWidth + "}",Name) : Name;
-      //   // string type = typeWidth > 0 ? string.Format("{0,-" + typeWidth + "}",TargetType) : TargetType;
-      //   //return nameWidth == 0 ? Name : $"{name}->{(container == null ? type : type+"   "+container.ToString())}";
-      //   return nameWidth == 0 ? Name : $"{name}->{(container == null ? "N/A" : container.ToString())}";
-      //}
-      //public string AsIdentifier(string separator="_",string replacement="") { 
-      //   string parentPrefix = container is null || container.Parent is null ? "" : $"{container.Parent.AsName(replacement)}{separator}";
-      //   return $"{parentPrefix}{token.AsIdentifier(replacement)}";
-      //}
  
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator !=(ID left,ID right) => !(left == right);
+   }
+
+   public class IDJsonConverter : JsonConverter<ID> {
+      public override ID Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
+         if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException();
+
+         string internalName = string.Empty;
+         string name = string.Empty;
+
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndObject) {
+               return new ID(name) { /*InternalName = internalName */ };
+            }
+
+            if (reader.TokenType == JsonTokenType.PropertyName) {
+               string propertyName = reader.GetString();
+               reader.Read();
+
+               switch (propertyName) {
+                  case nameof(ID.InternalName):
+                     internalName = reader.GetString();
+                     break;
+                  case nameof(ID.Name):
+                     name = reader.GetString();
+                     break;
+               }
+            }
+         }
+
+         throw new JsonException();
+      }
+
+      public override void Write(Utf8JsonWriter writer,ID value,JsonSerializerOptions options) {
+         writer.WriteStartObject();
+         //writer.WriteString(nameof(ID.InternalName),value.InternalName);
+         writer.WriteString(nameof(ID.Name),value.Name);
+         writer.WriteEndObject();
+      }
    }
 
 }

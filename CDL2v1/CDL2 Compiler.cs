@@ -9,13 +9,14 @@ using static CDL2v1.Logger;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
+[Serializable]
 internal class CDL2 {
    public static string Version = "1.0.0";
 
    public static CDL2 Compiler;
 
    public int VerbosityLevel { get; set; }
-   public bool LineNumbers { get; set; }
+   public bool SaveDB { get; set; }
    public string Target { get; set; } = "";
    public int DebugVerbosityLevel { get; internal set; }
    public bool ParseOnly { get; internal set; }
@@ -29,7 +30,7 @@ internal class CDL2 {
    private static void Main(string[] args) {
       Console.WriteLine($"CDL2 Compiler v{Version}");
 
-      // Define the root command with options
+      // Define the root command with serializationOptions
       var rootCommand = new RootCommand {
             new Option<string[]>(
                 "--sources",
@@ -51,9 +52,9 @@ internal class CDL2 {
                 getDefaultValue: () => "",
                 description: "Make program the one for which code is generated. The default is the first or only program that has beean read."),
             new Option<bool>(
-                "--line-numbers",
+                "--save",
                 getDefaultValue: () => false,
-                description: "Add line numbers to the token stream."),
+                description: "Save the parsed code to a file using JSON"),
             new Option<bool>(
                 "--parse-only",
                 getDefaultValue: () => false,
@@ -67,10 +68,11 @@ internal class CDL2 {
       rootCommand.Description = "CDL2 Compiler";
 
       // Set the handler for the root command
-      rootCommand.SetHandler((string[] sources,int verbosity,int debugVerbosity,string target,string programName,bool lineNumbers,bool parseOnly,string? prettyPrint) => {
+      rootCommand.SetHandler((string[] sources,int verbosity,int debugVerbosity,string target,string programName,
+            bool SaveDB,bool parseOnly,string? prettyPrint) => {
          Compiler.VerbosityLevel = verbosity;
          Compiler.DebugVerbosityLevel = debugVerbosity;
-         Compiler.LineNumbers = lineNumbers;
+         Compiler.SaveDB = SaveDB;
          Compiler.Target = target;
          Compiler.ProgramName = programName;
          Compiler.ParseOnly = parseOnly;
@@ -96,7 +98,7 @@ internal class CDL2 {
 
    public void CompileSources(string[] args) {
       Debug.WriteLine( $"Options: --sources {args} --verbose {VerbosityLevel} --debug-log {DebugVerbosityLevel} "+
-                                 "--target {Target} --program {ProgramName} --line-numbers {LineNumbers} --parse-only {ParseOnly} --pretty-print {PrettyPrint}");
+                                 "--target {Target} --program {ProgramName} --line-numbers {SaveDB} --parse-only {ParseOnly} --pretty-print {PrettyPrint}");
       if (args.Length > 0) {
          Parser = new Parser();
          foreach (string arg in args) {
@@ -110,13 +112,13 @@ internal class CDL2 {
          }
 
          Program? MainProgram = null;
-         if (ProgramName == "" && Program.FirstProgram != null) {
-            MainProgram = Program.FirstProgram;
+         if (ProgramName == "" && Database.Instance.FirstProgram != null) {
+            MainProgram = Database.Instance.FirstProgram;
          } else if (ProgramName != null && ProgramName != "") {
-            MainProgram = Program.FindProgramByName(ProgramName);
+            MainProgram = Database.Instance.FindProgramByName(ProgramName);
             if (MainProgram is null) {
-               if (Program.FirstProgram != null) {
-                  MainProgram = Program.FirstProgram;
+               if (Database.Instance.FirstProgram != null) {
+                  MainProgram = Database.Instance.FirstProgram;
                   ReportError($"Program {ProgramName} not found, using {MainProgram.id} instead.");
                } else {
                   ReportError("No program found");
@@ -129,12 +131,14 @@ internal class CDL2 {
 
          // Perform semantic checks
          semanticAnalyzer = new SemanticAnalyzer();
-         if (Program.Programs.Count >= 1) {
+         if (Database.Instance.Programs.Count >= 1) {
             // TODO: If errors are found, null out the program object.
             semanticAnalyzer.Analyze(MainProgram);
          }
 
-         if (PrettyPrint != "" && (Program.Programs.Count > 0 || Program.Modules.Count > 0)) {
+         if (SaveDB) Database.Save("CDL2v1");
+
+         if (PrettyPrint != "" && (Database.Instance.Programs.Count > 0 || Database.Instance.Modules.Count > 0)) {
             EmitterBase emitter;
             if (PrettyPrint == null) {
                emitter = new EmitterDebug();
@@ -145,7 +149,7 @@ internal class CDL2 {
             } else {
                emitter = new EmitterDebug();
             }
-            new PrettyPrinter(emitter).Print(Program.Programs,Program.Modules);
+            new PrettyPrinter(emitter).Print(Database.Instance.Programs,Database.Instance.Modules);
             emitter.Close();
          }
 

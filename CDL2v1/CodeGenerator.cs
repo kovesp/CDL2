@@ -14,6 +14,7 @@ namespace CDL2v1 {
    /// 
    /// </summary>
    /// <param id="cg"></param>
+   [Serializable]
    internal class CodeGenerator(ICodeGenerator cg) {
       private readonly ICodeGenerator cg = cg;
       //private EmitterBase emitter = new EmitterSink();
@@ -29,7 +30,7 @@ namespace CDL2v1 {
       /// <param id="emitter"></param>
       public void GenerateCode(Program program,EmitterBase emitter) {
          cg.GenerateStart(program,emitter);  // Generate the overall scaffolding
-         foreach (ID mod in program.Parts) GenerateModuleCode(Program.Modules[mod]);
+         foreach (ID mod in program.Parts) GenerateModuleCode(Database.Instance.Modules[mod]);
          foreach (RW ludeType in ludeTypes)
             foreach (Module mod in program.Lude(ludeType).Where(mod => mod.Ludes[ludeType].Count > 0))
                GenerateLude(ludeType,mod);

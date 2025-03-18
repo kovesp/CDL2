@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -18,7 +19,7 @@ namespace CDL2v1 {
    ///   
    /// Tokens must be constructed using <see cref="TryCreateToken(ref string, out Token)"/>.
    /// </summary>
-   internal class Token {
+   public class Token {
       // The aliases are meant to be used in the parser to make the code more readable.
 
       
@@ -45,8 +46,6 @@ namespace CDL2v1 {
       private static readonly Regex FloatRE;
 
       public static readonly Token ErrorToken;
-      public static readonly ID AnonID;
-      public static readonly Token AnonIDToken;
       public static readonly Token ACTIONToken;
 
       static Token() {
@@ -94,9 +93,7 @@ namespace CDL2v1 {
          StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys)}])",RegexOptions.Compiled);
 
          ErrorToken = new Token();
-         AnonIDToken = new Token(TokenClass.ID,"Anon","",0);
-         AnonID = ID.From(AnonIDToken);
-         ACTIONToken = new Token(TokenClass.ResWord,"ACTION","",0);
+         ACTIONToken = new Token(TokenClass.ResWord,"ACTION");
 
          CommentableReservedWords = [  RW.PROGRAM, RW.MODULE, RW.LAYER, RW.SECTION,
                                        RW.ACTION, RW.FUNCTION, RW.PREDICATE, RW.TEST,
@@ -106,7 +103,8 @@ namespace CDL2v1 {
 
       public static string ToGlyph(TokenType tt) => Token.TokenType2Glyph.TryGetValue(tt,out string? glyph) ? glyph ?? "" : "";
 
-      readonly public TokenType type;
+      [JsonInclude]
+      public readonly TokenType type;
       // Depending on the type, one of the following may be populated:
       //    RESWORD: reservedWordValue is the enum of the reserved word
       //    ID:      StringValue is the identifier id
@@ -115,30 +113,33 @@ namespace CDL2v1 {
       //    FLOAT:   floatValue is the double
       //    COMMENT: StringValue is the comment
 
+      [JsonInclude]
       public string TokenString { get; private set; } = "";
-      readonly public int lineNumber = 0;
-      readonly public int columnNumber = 0;
-      readonly public string fileName = "";
 
-      readonly public ReservedWord? reservedWordValue;
+      [JsonInclude]
+      public readonly ReservedWord? reservedWordValue;
+      [JsonInclude]
       public string? StringValue { get; private set; }
-      readonly public long? intValue;
-      readonly public double? floatValue;
-      readonly public string? Comments;  // Only for certain reserved words
+      [JsonInclude]
+      public readonly long? intValue;
+      [JsonInclude]
+      public readonly double? floatValue;
+      // [JsonInclude]
+      public readonly string? Comments;  // Only for certain reserved words and used only during parsing.
 
-      private enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float, Error };
+      public enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float, Error };
 
-      private Token() : this(TokenClass.Error,"ERROR","",0) { }
-      public Token(string text) : this(TokenClass.ID,text,"",0) { }
-      public Token(RW rw) : this(TokenClass.ResWord,rw.ToString(),"",0) { }
+      [JsonConstructor]
+      public Token() : this(TokenClass.Error,"ERROR") { }
+      public Token(string text) : this(TokenClass.ID,text) { }
+      public Token(RW rw) : this(TokenClass.ResWord,rw.ToString()) { }
 
-      private Token(TokenClass cls,string text,string fileName,int lineNumber) {
+      private Token(TokenClass cls,string text) {
          TokenString = text;
-         this.fileName = fileName;
-         this.lineNumber = lineNumber;
          switch (cls) {
             case TokenClass.Error:
                type = TokenType.ERROR;
+               StringValue = text.Trim().Replace(" ","");
                break;
             case TokenClass.Comment:
                type = TokenType.COMMENT;
@@ -196,11 +197,11 @@ namespace CDL2v1 {
       /// <param id="token">The token that was found. If none, it will be ErrorToken.</param>
       /// <returns>True if a token was found.</returns>
       /// <param id="fileName"></param><param id="lineNumber"></param>
-      private static bool HandleMatch(Regex regex,TokenClass tokenClass,ref string input,out Token token,string fileName,int lineNumber) {
+      private static bool HandleMatch(Regex regex,TokenClass tokenClass,ref string input,out Token token) {
          Match match = regex.Match(input);
          if (match.Success) {
             input = input[match.Length..].TrimStart();
-            token = new Token(tokenClass,match.Groups[^1].Value,fileName,lineNumber);
+            token = new Token(tokenClass,match.Groups[^1].Value);
             return true;
          } else {
             token = ErrorToken;
@@ -234,9 +235,9 @@ namespace CDL2v1 {
                continue;
             }
 
-            if (HandleMatch(StringRE,TokenClass.String,ref input,out token,fileName,lineNumber)) return true;
-            if (HandleMatch(ReservedWordRE,TokenClass.ResWord,ref input,out token,fileName,lineNumber)) return true;
-            if (HandleMatch(IdRE,TokenClass.ID,ref input,out token,fileName,lineNumber)) {
+            if (HandleMatch(StringRE,TokenClass.String,ref input,out token)) return true;
+            if (HandleMatch(ReservedWordRE,TokenClass.ResWord,ref input,out token)) return true;
+            if (HandleMatch(IdRE,TokenClass.ID,ref input,out token)) {
                Debug.Assert(token.StringValue != null,"ID token has no string value");
                // Guarantee that all IDs with the same string value (i.e., ignoring spaces) are the same.
                if (IDTokens.TryGetValue(token.StringValue,out Token? idToken)) {
@@ -246,25 +247,13 @@ namespace CDL2v1 {
                }
                return true;
             }
-            if (HandleMatch(IntRE,TokenClass.Int,ref input,out token,fileName,lineNumber)) return true;
-            if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token,fileName,lineNumber)) return true;
-            if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token,fileName,lineNumber)) return true; // Must be placed after Int & Float as they may start with + or -
+            if (HandleMatch(IntRE,TokenClass.Int,ref input,out token)) return true;
+            if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token)) return true;
+            if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token)) return true; // Must be placed after Int & Float as they may start with + or -
             return false;
          }
       }
 
-      /// <summary>
-      /// Renames a token and by implications the ID it represents.
-      /// This allows changing the Name of an ID without changing the ID itself, in particular where spaces are in the id.
-      /// </summary>
-      /// <param Name="newName"></param>
-      public void Rename(string newName) {
-         Debug.Assert(type == TT.ID,"Rename called on non-ID token");
-         TokenString = newName;
-         StringValue = newName.Replace(" ","");
-      }
-
-      
       public static bool TryCreateToken(ref string input,out Token token) {
          int lineNumber = 0; // TODO: Remove this when line number passed in TryCreateToken
          return TryCreateToken(ref input,out token,"",ref lineNumber);
@@ -303,7 +292,7 @@ namespace CDL2v1 {
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
       internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
          => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier(camelCase:camelCase)}";
-      internal static Token From(RW rw) => new(TokenClass.ID,rw.ToString(),"",0);
+      internal static Token From(RW rw) => new(TokenClass.ID,rw.ToString());
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);
    }

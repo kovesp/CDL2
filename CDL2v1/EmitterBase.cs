@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   internal abstract class EmitterBase {
+   public abstract class EmitterBase {
       public virtual string Target { get; set; } = "";
       /// <summary>
       /// The number of spaces to use for each level of indentation.

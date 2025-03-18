@@ -10,6 +10,7 @@ namespace CDL2v1 {
    /// </summary>
 #if !EXCLUDE_OBSOLETE
    [Obsolete("The SymbolTable class is deprecated. Elements are recorded in standard Dictionaries or set.",true)]
+   [Serializable]
    internal class SymbolTable {
       public Container? Owner = null;   // The Container that owns this symbol table.
       private readonly Dictionary<ID,NamedElement> table = [];

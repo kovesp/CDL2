@@ -9,6 +9,11 @@
       "commandName": "Project",
       "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--pretty-print window --parse-only",
       "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
+    },
+    "Database Save": {
+      "commandName": "Project",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--parse-only --save",
+      "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
     }
   }
 }

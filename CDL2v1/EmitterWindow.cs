@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Documents;
 
 namespace CDL2v1 {
+   [Serializable]
    internal class EmitterWindow : EmitterBase {
       private Window? window;
       private TextBlock? outputTextBlock;

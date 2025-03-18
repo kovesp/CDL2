@@ -8,12 +8,13 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-  internal class TokenList(TokenList.Options options = TokenList.Options.None) {
+  [Serializable]
+  public class TokenList(TokenList.Options options = TokenList.Options.None) {
       [Flags]
       public enum Options {
          None = 0,
          ThrowOnUnexpectedToken = 1,
-         // Add more options as needed
+         // Add more serializationOptions as needed
       }
       
       public readonly List<Token> tokens = [];

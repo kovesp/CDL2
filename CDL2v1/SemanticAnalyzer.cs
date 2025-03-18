@@ -3,6 +3,7 @@
 using Microsoft.VisualBasic;
 
 using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -43,15 +44,16 @@ namespace CDL2v1 {
    /// 2. Verify that there are no duplicate declarations.
    /// 3. Verify the above rules.
    /// </summary>
+   [Serializable]
    internal class SemanticAnalyzer {
       internal void Analyze(Program MainProgram) {
-         foreach (Program program in Program.Programs.Values) {
+         foreach (Program program in Database.Instance.Programs.Values) {
             AnalyzeProgram(program);
          }
 
          AnalyzeMainProgram(MainProgram);
 
-         foreach (Module module in Program.Modules.Values) {
+         foreach (Module module in Database.Instance.Modules.Values) {
             AnalyzeModule(module);
          }
       }
@@ -132,11 +134,17 @@ namespace CDL2v1 {
       private void AnalyzeProcedure(Procedure proc,Section section) {
          bool hasEffect = AnalyzeEffect(proc.group,section);
          if (proc.HasEffect && !hasEffect) {
-            ReportError(section,$"Procedure {proc.AlgorithmName} must have an effect");
+            ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.algorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
          } else if (!proc.HasEffect && hasEffect) {
-            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect");
+            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.algorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
+         bool canFail = AnalyzeCanFail(proc.group,section);
+         if (proc.CanFail && !canFail) {
+            ReportError(section,$"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType==RW.TEST?RW.FUNCTION:RW.ACTION)}?");
+         } else if (!proc.CanFail && canFail) {
+            ReportError(section,$"Procedure {proc.AlgorithmName} can fail. Should be {(proc.algorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
+         }
       }
 
       /// <summary>
@@ -151,6 +159,14 @@ namespace CDL2v1 {
          foreach (Alternative alt in group.alternatives) effect |= AnalyzeEffect(alt,section);
          return effect;
       }
+      private bool AnalyzeCanFail(Group group,Section section) {
+         foreach (Alternative alternative in group.alternatives) {
+            if (alternative.lastCall.type == LCT.Fail) return true;
+            if (alternative.lastCall.type == LCT.Group && AnalyzeCanFail(alternative.lastCall.group!,section)) return true;
+         }
+         LastCall lc = group.alternatives.Last().lastCall;
+         return lc.type == LCT.Standard && lc.call!.CanFail;   // Group and Fail already handled above.
+      }
 
       /// <summary>
       /// Analyze the effect of an alternative.
@@ -162,26 +178,25 @@ namespace CDL2v1 {
       /// <exception cref="Exception"></exception>
       private bool AnalyzeEffect(Alternative alt,Section section) {
          foreach (Call call in alt.calls) {
-            if (CheckCall(call,section)) return true;
+            if (CheckCallEffect(call,section)) return true;
          }
          if (alt.lastCall.type == LastCallType.Standard) {
-            return CheckCall(alt.lastCall.call!,section);
+            return CheckCallEffect(alt.lastCall.call!,section);
          } else if (alt.lastCall.type == LastCallType.Group) {
             return AnalyzeEffect(alt.lastCall.group!,section);
          } else {
             return false;
          }
-
-         /// <summary>
-         /// A call has an effect if the algorithm it invokes has an effect.
-         /// </summary>
-         static bool CheckCall(Call call,Section section) {
-            if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
-               return algorithm!.HasEffect;
-            } else {
-               throw new Exception("Algorithm not found");
-            }
-         }
       }
+      /// <summary>
+      /// A call has an effect if the algorithm it invokes has an effect.
+      /// </summary>
+      static bool CheckCallEffect(Call call,Section section) {
+         if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
+            return algorithm!.HasEffect;
+         } else {
+            throw new Exception("Algorithm not found");
+         }
+      }      
    }
 }
