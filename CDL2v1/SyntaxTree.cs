@@ -152,7 +152,7 @@ namespace CDL2v1 {
    /// <param id="id"></param>
    [Serializable]
    public class Module : Container {
-      public readonly Set<ID> imports = [];                       // Imports are specified in sections, but are propagated up the module level.
+      public readonly Dictionary<ID,Section> imports = [];        // Imports are specified in sections, but are propagated up the module level.
       public readonly Dictionary<ID,Section> exports = [];        // Exports are specified in sections, but are propagated up the module level.
 
       /// <summary>
@@ -487,6 +487,7 @@ namespace CDL2v1 {
       /// It can also fail.
       /// </summary>
       public bool IsSimple => HasNoGroups && HasNoRepeat;
+      public PBT ProcedureBodyType => IsVerySimple ? PBT.VerySimple : IsSimple ? PBT.Simple : PBT.General;
 
       public bool HasNoRepeat => HasNoRepeats(group);
       private static bool HasNoRepeats(Group group) {
@@ -507,6 +508,11 @@ namespace CDL2v1 {
             return true;
          }
       }
+
+      /// <summary>
+      /// The parser will set this if a repeat operator reference the procedure itself.
+      /// </summary>
+      public bool repeatsProcedure = false;
 
       public Procedure(RW ludeType,Section section) : this(ID.From(ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section,true) { } // Used for container Ludes which are parameterless actions with no locals.
       public override IEnumerable<Var> GetReferencedVariables() {

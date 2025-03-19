@@ -323,6 +323,7 @@ namespace CDL2v1 {
                      ReportError($"Label {label} not found in group hierarchy");
                   }
                   lastCall = new LastCall(label);
+                  if (id == proc.id) proc.repeatsProcedure = true;
                } else {
                   lastCall = new LastCall(LCT.Repeat);
                }

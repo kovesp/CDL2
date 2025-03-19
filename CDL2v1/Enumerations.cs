@@ -10,6 +10,7 @@ global using ANT = CDL2v1.AlgorithmNameType;
 global using DS  = CDL2v1.DecorationStyle;
 global using AS = CDL2v1.AnnotationSymbol;
 global using SA = CDL2v1.AnnotationSymbols;
+global using PBT = CDL2v1.ProcedureBodyType;
 using System.Text;
 
 namespace CDL2v1 {
@@ -120,6 +121,12 @@ namespace CDL2v1 {
       Repeat, 
       Group,
       None,                   // Use in the alternative generated for container Ludes.
+   }
+
+   public enum ProcedureBodyType {
+      VerySimple,
+      Simple,
+      General
    }
 
    /// <summary>

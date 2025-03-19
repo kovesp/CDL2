@@ -1,137 +1,435 @@
 ﻿using CDL2v1;
 
 /// <summary>
-/// Interface for code generators.
+/// Interface for target code generators.
 /// A specific code generator must implement this interface.
-/// They will be called by the generic code generator to generate specific elements for the target language.
+/// The m methods  will be called by the generic code generator to generate specific elements for the target language.
+/// The structure of calls made on the target code generator is as follows:
+///   For the Program:
+///      GenerateProgramStart                                     the start of the single program
+///         GenerateProgramPart                                   for each part of the program
+///         [ generated modules ]                                 if the program is compiled as a single unit.
+///         GenerateProgramLudesStart
+///            GenerateProgramLude                                for each of PRELUDE, ROOT, POSTLUDE, for each referenced module that has a lude of the given type
+///         GenerateProgramLudesEnd
+///      GenerateProgramEnd                                       at the end of the program
+///         [ generated modules ]                                 if the program is compiled into separate units.
+///    
+///      For each Module:
+///         GenerateModuleStart                                   for each module
+///            GenerateImpExStart                                 at the start of imports and exports
+///               GenerateExport                                  for each export
+///               GenerateImport                                  for each import
+///            GenerateImpExEnd                                   at the end of imports and exports
+///            GenerateLayerStart                                 for each layer
+///               GenerateSectionStart                            for each section
+///                  GenerateObjectSectionStart                     start of data declarations
+///                     GenerateConstantStart                     for each constant, followed by the elements of the constant
+///                        GenerateConstElementInt                   for integer constant elements
+///                        GenerateConstElementFloat                 for float constant elements
+///                        GenerateConstElementString                for string constant elements
+///                        GenerateMacroElementVar                      for references to other constants
+///                     GenerateConstantEnd
+///                  GenerateObjectSectionEnd                       end of data section
+///                  GenerateObjectSectionStart
+///                     GenerateVar                               for each variable
+///                  GenerateObjectSectionEnd 
+///                  GenerateObjectSectionStart
+///                     GenerateList                              for each list
+///                  GenerateObjectSectionEnd 
+///                  GenerateObjectSectionStart
+///                     GenerateMacroStart                        for each macro
+///                        ---------------------------------------algorithm header
+///                        GenerateAlgorithmHeaderStart           start of the algorithm declaration, then a sequence of alternating ...
+///                           GenerateAffix                 for each affix
+///                           GenerateAffixSeparator               for each parameter
+///                        GenerateAlgorithmHeaderEnd             end of the algorithm declaration
+///                        GenerateInitializer                    for each output and transput affix and each referenced variable
+///                        GenerateLocalDeclaration               for each local
+///                        ---------------------------------------end of algorithm header
+///                        GenerateMacroBodyStart                 start of macro body, then a sequence of ...
+///                           GenerateMacroElementInt
+///                           GenerateMacroElementFloat
+///                           GenerateMacroElementString
+///                           GenerateMacroElementVar                   ... to a Const, Var, List, Affix, or Local
+///                        GenerateMacroBodyEnd                   end of macro body
+///                        ---------------------------------------algorithm finalization
+///                        GenerateFinalizationStart              start of finalization, then a sequence of ...
+///                           GenerateFinalizer                   for each output and transput affix and each referenced variable
+///                        GenerateFinalizationEnd                end of finalization
+///                        ---------------------------------------end algorithm finalization
+///                     GenerateMacroEnd
+///                  GenerateObjectSectionEnd
+///                  GenerateObjectSectionStart
+///                     GenerateProcedureStart
+///                     ------------------------------------------algorithm header, same as for macros
+///                     GenerateProcedureBodyStart                start of procedure body
+///                     --- Very Simple Body: a sequence of calls which cannot fail
+///                        GenerateCallStart                           for each call including the last call
+///                     --- Simple Body: a sequence of alternatives, no groups, no repeats
+///                        ---------------------------------------GenerateAlternative
+///                        GenerateAlternativeStart               for each alternative
+///                           ------------------------------------call
+///                           GenerateCallStart                   for each call in the alternative, then an alternating sequence of ...
+///                              GenerateActualArg
+///                              GenerateActualArgSeparator
+///                           GenerateCallEnd
+///                           ------------------------------------last call
+///                           ------------------------------------call for Standard
+///                           GenerateFail                        for Fail
+///                           GenerateSucceed                     for Succeed
+///                           GenerateAbort                       for Abort
+///                        GenerateAlternativeEnd
+///                     --- General Body: anything goes, same as simple body, but with groups and repeats.
+///                         ------------------------------------last call as above but adds
+///                           GenerateRepeat                      for Repeat
+///                           GenerateGroupStart                  for Group
+///                              ---------------------------------GenerateAlternative for each alternative in the group
+///                           generateGroupEnd                     
+///                     GenerateProcedureBodyEnd
+///                     ------------------------------------------algorithm finalization, same as for macros
+///                     GenerateProcedureEnd
+///                  GenerateObjectSectionEnd                     end of object declaration section
+///               GenerateSectionEnd                              at the end of the section
+///            GenerateLayerEnd                                   at the end of the layer
+///         GenerateModuleEnd                                     at the end of the module
 /// </summary>
 internal interface ICodeGenerator {
-   public void GenerateStart(Program program,EmitterBase emitter);
-   public void GenerateEnd(Program program);
-   public void GenerateStart(Module module);
-   public void GenerateEnd(Module module);
-   public void GenerateStart(Layer layer);
-   public void GenerateEnd(Layer layer);
-   public void GenerateStart(Section section);
-   public void GenerateEnd(Section section);
-
-   public void GenerateCodeExport(ID id);
-   public void GenerateCodeImport(ID id);
-
-   public void GenerateStart(Macro macro);
-   public void GenerateEnd(Macro macro);
+   #region Units, Program Ludes
+   /// <summary>
+   /// This is called at the start of the program.
+   /// The supplied emitter is used to emit the generated code.
+   /// </summary>
+   /// <param name="program"></param>
+   /// <param name="emitter">
+   ///   Used to emit the code. The generator is free to change the target using the emitter's Target property if applicable.
+   ///   Only EmitterFile currently supports this.
+   /// </param>
+   /// <param name="isSeparate"></param>
+   void GenerateProgramStart(Program program,EmitterBase emitter,bool isSeparate = false);
+   /// <summary>
+   /// This is called at the end of the program.
+   /// </summary>
+   /// <param name="program"></param>
+   /// <param name="isSeparate"></param>
+   void GenerateProgramEnd(Program program,bool isSeparate = false);
+   /// <summary>
+   /// This is called at the start generation of program ludes
+   /// </summary>
+   /// <param name="program"></param>
+   void GenerateProgramLudesStart(Program program);
+   /// <summary>
+   /// Call for each referenced module for each type that has a lude of the given type
+   /// </summary>
+   /// <param name="program"></param>
+   /// <param name="ludeType"></param>
+   /// <param name="module"></param>
+   void GenerateProgramLude(Program program,RW ludeType,Module module);
+   /// <summary>
+   /// This is called at the end of the program ludes.
+   /// </summary>
+   /// <param name="program"></param>
+   void GenerateProgramLudesEnd(Program program);
+   /// <summary>
+   /// This is called for each part of the program. Typically does nothing, but may be used to setup linkage to the participating modules.
+   /// </summary>
+   /// <param name="program"></param>
+   /// <param name="mod"></param>
+   void GenerateProgramPart(Program program,ID mod,bool isSeparate=false);
 
    /// <summary>
-   /// The body of a CDL2 rule should look somethong like this:
-   /// FUNCTION func:
-   ///   test1, function1, test2, function2, test3, function3;
-   ///   function4, 
-   ///      (test5, * func ;
-   ///       +);   
-   ///   function6.
-   ///   
-   /// function func() {
-   ///    lbl_func: while (true) {
-   ///      if (test1) {
-   ///         function1;
-   ///         if (test2) {
-   ///            function2;
-   ///            if (test3) {
-   ///               function3; break;
-   ///            }
-   ///         }
-   ///      } else {
-   ///         function4;
-   ///         whhile (true) {
-   ///            if (test5) {
-   ///               continue lbl_func;
-   ///            } else {
-   ///               return;
-   ///            }
-   ///         }
-   ///      } else {
-   ///         function6;
-   ///         break;
-   ///      }    
-   ///    }
-   /// }
+   /// 
    /// </summary>
-   /// <param id="macro"></param>
-   public void GenerateStart(Procedure code);
-   public void GenerateEnd(Procedure code);
-
-   public void GenerateStart(Alternative alternative);
-   public void GenerateEnd(Alternative alternative);
-   public void GenerateStart(Group group);
-   public void GenerateEnd(Group group);
-
-   public void GenerateStart(Call call);
-   public void GenerateEnd(Call call);
-   public void GenerateDeclareLocal(Local local);
+   /// <param name="module"></param>
+   /// <param name="isSeparate">
+   ///   True if the generator should generate separate units. In this case, the modules are generated after GenerateProgramEnd, otherwise they are generated
+   ///   before that call.
+   ///   The generator is free to ignore this parameter.
+   /// </param>
+   /// <param name="target">May specify a target "file", or van be null. The generator can ignore this.</param>
+   void GenerateModuleStart(Module module,bool isSeparate = false,string? target = null);
+   /// <summary>
+   /// This is called at the end of the module.
+   /// </summary>
+   /// <param name="module"></param>
+   /// <param name="isSeparate"></param>
+   void GenerateModuleEnd(Module module,bool isSeparate = false);
 
    /// <summary>
-   /// This declares the head of a constant
+   /// This is called at the start of a layer. Unlikely to be used for anything.
    /// </summary>
-   /// <param name="id"></param>
-   public void GenerateCodeConst(Const c);
-   public void GenerateCodeDeclareVar(Var var);
+   /// <param name="layer"></param>
+   void GenerateLayerStart(Layer layer);
+   /// <summary>
+   /// This is called at the end of a layer. Unlikely to be used.
+   /// </summary>
+   /// <param name="layer"></param>
+   void GenerateLayerEnd(Layer layer);
+
+   /// <summary>
+   /// This is called at the start of a section.
+   /// </summary>
+   /// <param name="section"></param>
+   void GenerateSectionStart(Section section);
+   /// <summary>
+   /// This is called at the end of a section.
+   /// </summary>
+   /// <param name="section"></param>
+   void GenerateSectionEnd(Section section);
+   #endregion  Units, Program Ludes
+
+   #region Import/Export
+   /// <summary>
+   /// This is called at the start of imports and exports.
+   /// </summary>
+   /// <param name="module"></param>
+   void GenerateImpExStart(Module module);
+   /// <summary>
+   /// For each export. Note that IProvidedElement is either an Algorithm or a Const.
+   /// </summary>
+   /// <param name="export"></param>
+   void GenerateExport(IProvidedElement export);
+   /// <summary>
+   /// For each import. Note that IProvidedElement is either an Algorithm or a Const.
+   /// </summary>
+   /// <param name="import"></param>
+   void GenerateImport(IProvidedElement import);
+   /// <summary>
+   /// This is called at the end of imports and exports.
+   /// </summary>
+   /// <param name="module"></param>
+   void GenerateImpExEnd(Module module);
+   #endregion Import/Export
+
+   #region Object Sections
+   /// <summary>
+   /// Starts a section of the given kind.
+   /// </summary>
+   /// <param name="count"></param>
+   /// <param name="kind">CONST, VAR, LIST, MACRO, PROCEDURE</param>
+   void GenerateObjectSectionStart(Func<int> count,string kind);
+   void GenerateObjectSectionEnd(Func<int> count,string kind);
+   #endregion Object Sections
+
+   #region Data Declarations
+   /// <summary>
+   /// 
+   /// </summary>
+   /// <param name="c"></param>
+   void GenerateConstantStart(Const c);
+   /// <summary>
+   /// This is called for each element of a constant that is a string.
+   /// </summary>
+   /// <param name="value"></param>
+   void GenerateConstElementString(string value);
+   /// <summary>
+   /// This is called for each element of a constant that is a float.
+   /// </summary>
+   /// <param name="value"></param>
+   void GenerateConstElementFloat(double value);
+   /// <summary>
+   /// This is called for each element of a constant that is an integer.
+   /// </summary>
+   /// <param name="value"></param>
+   void GenerateConstElementInt(long value);
+   /// <summary>
+   /// This is called for each element of a constant that is a reference to another const.
+   /// </summary>
+   /// <param name="constant"></param>
+   void GenerateConstElementConst(Const constant);
+   /// <summary>
+   /// Marks the end of the constant element sequence.
+   /// </summary>
+   /// <param name="c"></param>
+   void GenerateConstantEnd(Const c);
+
+   /// <summary>
+   /// This declares a variable.
+   /// </summary>
+   /// <param name="var"></param>
+   void GenerateVar(Var var);
    /// <summary>
    /// This declares a list. 
    /// </summary>
    /// <param name="id"></param>
-   /// <param name="lwb">The name of the constant that contains the lower bound.</param>
-   /// <param name="upb">The name of the constant that contains the upper bound.</param>
-   public void GenerateCodeDeclareList(LIST list,Const lwb,Const upb);
+   /// <param name="lwb">The constant that contains the lower bound.</param>
+   /// <param name="upb">The constant that contains the upper bound.</param>
+   void GenerateList(LIST list,Const lwb,Const upb);
+   #endregion Data Declarations
 
-   void GenerateLudeStart(RW ludeType,Container section);
-   void GenerateLudeEnd(RW ludeType,Container section);
-   void GenerateExport(Module module,ID expId);
+   #region Algorithm Header
+   void GenerateAlgorithmHeaderStart(Algorithm proc);
+   void GenerateAlgorithmHeaderEnd(Algorithm proc);
+   void GenerateAffix(Affix affix,AD direction);
+   void GenerateAffixSeparator();
+   void GenerateLocal(Local local);
+   #endregion Algorithm Header
 
-   public void GenerateAlgorithmHeaderStart(Algorithm proc);
-   public void GenerateAlgorithmHeaderEnd(Algorithm proc);
-   public void GenerateParamSeparator();
-   void GenerateMacroElemInt(long value);
-   void GenerateMacroElemFloat(double value);
-   void GenerateMacroElemString(string value);
-   void GenerateReference(Var var);
-   void GenerateReference(LIST list);
-   void GenerateReference(Const constant);
-   void GenerateReference(Affix affix);
-   void GenerateReferenceLocal(Local local);
-   void GenerateDeclareAffix(Affix affix,AD direction);
-   void GenerateInitializer(IFailureProtected var,AD affixDir=AD.transput,bool isVar = false);
-   void GenerateFinalizer(IFailureProtected var,AD affixDir=AD.transput,bool isVar = false);
-   void Newline();
+   #region Macros
+   /// <summary>
+   /// This is called at the start of a macro.
+   /// </summary>
+   /// <param name="macro"></param>
+   void GenerateMacroStart(Macro macro);
+   /// <summary>
+   /// This is called at the end of a macro.
+   /// </summary>
+   /// <param name="macro"></param>
+   void GenerateMacroEnd(Macro macro);
+   /// <summary>
+   /// This is called at the start of the body of a macro.
+   /// </summary>
+   /// <param name="macro"></param>
    void GenerateMacroBodyStart(Macro macro);
+   /// <summary>
+   /// This is called at the end of the body of a macro.
+   /// </summary>
+   /// <param name="macro"></param>
    void GenerateMacroBodyEnd(Macro macro);
-   void GenerateProcedureBodyStart(Procedure macro);
-   void GenerateProcedureBodyEnd(Procedure macro);
-   void FinalizationStart(Algorithm algorithm,bool IsNeeded);
-   void FinalizationEnd(Algorithm algorithm,bool IsNeeded);
-   void GenerateConstantStart(Const c);
-   void GenerateConstElemString(string value);
-   void GenerateConstElemFloat(double value);
-   void GenerateConstElemInt(long value);
-   void GenerateConstantEnd(Const c);
-   void GenerateDataSectionStart(Func<int> count,string v);
+   /// <summary>
+   /// This is called for each element of a macro that is an integer.
+   /// </summary>
+   /// <param name="value"></param>
+   void GenerateMacroElementInt(long value);
+   /// <summary>
+   /// 
+   /// </summary>
+   /// <param name="value"></param>
+   void GenerateMacroElementFloat(double value);
+   /// <summary>
+   /// This is called for each element of a macro that is a string.
+   /// </summary>
+   /// <param name="value"></param>
+   void GenerateMacroElementString(string value);
+   /// <summary>
+   /// This is called for each reference in a const, macro or proc that is a constant.
+   /// </summary>
+   /// <param name="constant"></param>
+   void GenerateMacroElementConst(Const constant);
+   void GenerateMacroElementVar(Var var);
+   void GenerateMacroElementList(LIST list);
+   void GenerateMacroElementAffix(Affix affix);
+   void GenerateMacroElementLocal(Local local);
+   #endregion Macros
+
+   #region Procedures
+   /// <summary>
+   /// This is called at the start of a procedure.
+   /// </summary>
+   /// <param name="code"></param>
+   void GenerateProcedureStart(Procedure code);
+   /// <summary>
+   /// This is called at the end of a procedure.
+   /// </summary>
+   /// <param name="code"></param>
+   void GenerateProcedureEnd(Procedure code);
+
+   #region Alternatives
+   /// <summary>
+   /// This is called at the start of an alternative.
+   /// </summary>
+   /// <param name="alternative"></param>
+   void GenerateAlternativeStart(Alternative alternative);
+   /// <summary>
+   /// This is called at the end of an alternative.
+   /// </summary>
+   /// <param name="alternative"></param>
+   void GenerateAlternativeEnd(Alternative alternative);
+   #endregion Alternatives
+
+   #region Groups
+   /// <summary>
+   /// This is called at the start of a group.
+   /// </summary>
+   /// <param name="group"></param>
+   void GenerateGroupStart(Group group);
+   /// <summary>
+   /// This is called at the end of a group.
+   /// </summary>
+   /// <param name="group"></param>
+   void GenerateGroupEnd(Group group);
+   #endregion Groups
+
+   #region Calls
+   /// <summary>
+   /// This is called for each call in a procedure.
+   /// </summary>
+   /// <param name="call"></param>
+   void GenerateCallStart(Call call);
+   /// <summary>
+   /// This is called at the end of a call in a procedure.
+   /// </summary>
+   /// <param name="call"></param>
+   void GenerateCallEnd(Call call);
+
+   /// <summary>
+   /// Generate code for the repeat operator.
+   /// </summary>
+   /// <param name="proc"></param>
+   /// <param name="group">The immediate group containing the operator.</param>
+   /// <param name="label">The label to be repeated, or Anon to repeat the enclosing group.</param>
+   void GenerateRepeat(Procedure proc,Group group,ID label);
+   /// <summary>
+   /// Exit the current procedure with a fail. This can only occur in a TEST/PREDICATE.
+   /// </summary>
+   /// <param name="proc"></param>
+   /// <param name="group"></param>
+   void GenerateFail(Procedure proc,Group group);
+   /// <summary>
+   /// Exit the current procedure with success. This is probably a no-op.
+   /// </summary>
+   /// <param name="proc"></param>
+   /// <param name="group"></param>
+   void GenerateSucceed(Procedure proc,Group group);
+   /// <summary>
+   /// Terminate the running program.
+   /// </summary>
+   /// <param name="proc"></param>
+   /// <param name="group"></param>
+   void GenerateAbort(Procedure proc,Group group);
+
    void GenerateActualArgSeparator();
-   void GenerateCallStart(Algorithm called,Procedure proc,bool firstCall=false);
-   void GenerateCallEnd(Algorithm call,Procedure proc,bool firstCall=false);
+   void GenerateCallStart(Algorithm called,Procedure proc,bool firstCall = false);
+   void GenerateCallEnd(Algorithm call,Procedure proc,bool firstCall = false);
    void GenerateCallArgString(string value);
    void GenerateCallArgReferenceAffix(Affix calledAffix,Affix a);
    void GenerateCallArgReferenceLocal(Affix calledAffix,Local lo);
    void GenerateCallArgReferenceConst(Affix calledAffix,Const c);
    void GenerateCallArgReferenceVar(Affix calledAffix,Var v);
 
+
+
+
+   #endregion Calls
+
+   #endregion Procedures
+
+
+   void GenerateLudeStart(RW ludeType,Container section);
+   void GenerateLudeEnd(RW ludeType,Container section);
+
+
+
+
+
+
+  
+   void GenerateInitializer(IFailureProtected var,AD affixDir=AD.transput,bool isVar = false);
+   void GenerateFinalizer(IFailureProtected var,AD affixDir=AD.transput,bool isVar = false);
+   void Newline();
+
+   void GenerateProcedureBodyStart(Procedure macro,PBT bodyType);
+   void GenerateProcedureBodyEnd(Procedure macro,PBT bodyType);
+   void GenerateFinalizationStart(Algorithm algorithm,bool IsNeeded);
+   void GenerateFinalizationEnd(Algorithm algorithm,bool IsNeeded);
+
    void GenerateComment(string comment);
    void GenerateAlternativeStart(Procedure proc,Group group,int i);
    void GenerateAlternativeEnd(Procedure proc,Group group,int i);
-   void GenerateRepeat(Procedure proc,Group group,ID label);
-   void GenerateFail(Procedure proc,Group group);
-   void GenerateSucceed(Procedure proc,Group group);
-   void GenerateAbort(Procedure proc,Group group);
+
    void GenerateGroupStart(Procedure proc,Group group);
    void GenerateGroupEnd(Procedure proc,Group group);
 
-   public string FileExtension { get; }
+
+   string FileExtension { get; }
 }

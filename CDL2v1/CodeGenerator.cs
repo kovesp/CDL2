@@ -28,13 +28,22 @@ namespace CDL2v1 {
       /// <param id="program"></param>
       /// <param id="modules"></param>
       /// <param id="emitter"></param>
-      public void GenerateCode(Program program,EmitterBase emitter) {
-         cg.GenerateStart(program,emitter);  // Generate the overall scaffolding
-         foreach (ID mod in program.Parts) GenerateModuleCode(Database.Instance.Modules[mod]);
+      public void GenerateCode(Program program,EmitterBase emitter,bool isSeparate = false) {
+         cg.GenerateProgramStart(program,emitter);  // Generate the overall scaffolding
+
+         foreach (ID mod in program.Parts) cg.GenerateProgramPart(program,mod,isSeparate);
+
+         if (!isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod],isSeparate: false);
+
+         cg.GenerateProgramLudesStart(program);
          foreach (RW ludeType in ludeTypes)
-            foreach (Module mod in program.Lude(ludeType).Where(mod => mod.Ludes[ludeType].Count > 0))
-               GenerateLude(ludeType,mod);
-         cg.GenerateEnd(program);
+            foreach (Module mod in program.Lude(ludeType).Where(mod => mod.Ludes[ludeType].Count > 0)) 
+               cg.GenerateProgramLude(program,ludeType,mod);
+         cg.GenerateProgramLudesEnd(program);
+
+         cg.GenerateProgramEnd(program);
+
+         if (isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod],isSeparate: true);
       }
 
       /// <summary>
@@ -42,7 +51,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="ludeType"></param>
       /// <param id="mod"></param>
-      private void GenerateLude(RW ludeType,Module mod) {
+      private void GenerateProgramLude(RW ludeType,Module mod) {
          foreach (ID secId in mod.Ludes[ludeType]) {
             foreach (Layer layer in mod.Children.Cast<Layer>()) {
                foreach (Section section in layer.Children.Cast<Section>()) {
@@ -62,11 +71,27 @@ namespace CDL2v1 {
       /// Generate code for a module. It is up to the specific code generator to determine whether this code goes into a separate file or not.
       /// </summary>
       /// <param id="module"></param>
-      private void GenerateModuleCode(Module module) {
-         cg.GenerateStart(module);  // Generate the code for each module
-         foreach (ID expId in module.exports.Keys) cg.GenerateExport(module,expId);
+      private void GenerateModule(Module module,bool isSeparate) {
+         void GenerateImpEx(Dictionary<ID,Section> impexList,Action<IProvidedElement> generateImpEx) {
+            foreach (ID id in impexList.Keys) {
+               if (impexList[id].TryGetLocalDeclaration(id,out ILocalCDL2DataObject? obj) && obj is IProvidedElement impex) {
+                  generateImpEx(impex);
+               } else {
+                  throw new NotImplementedException($"GenerateModule: Import/Export {id} not found in {module}");
+               }
+            }
+         }
+
+         cg.GenerateModuleStart(module,isSeparate);
+
+         cg.GenerateImpExStart(module);
+         GenerateImpEx(module.exports,cg.GenerateExport);
+         GenerateImpEx(module.imports,cg.GenerateImport);
+         cg.GenerateImpExStart(module);
+
          foreach (Layer layer in module.Children.Cast<Layer>()) GenerateLayer(layer); 
-         cg.GenerateEnd(module);
+
+         cg.GenerateModuleEnd(module,isSeparate);
       }
 
       /// <summary>
@@ -74,9 +99,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="layer"></param>
       private void GenerateLayer(Layer layer) {
-         cg.GenerateStart(layer);
+         cg.GenerateLayerStart(layer);
          foreach (Section section in layer.Children.Cast<Section>()) GenerateSection(section);
-         cg.GenerateEnd(layer);
+         cg.GenerateLayerEnd(layer);
       }
 
       /// <summary>
@@ -86,36 +111,38 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="container"></param>
       private void GenerateSection(Section section) {
-         cg.GenerateStart(section);
+         cg.GenerateSectionStart(section);
          GenerateObjects(section.Constants,c => GenerateConstant(section,c));
-         GenerateObjects(section.Variables,v => cg.GenerateCodeDeclareVar(v));
+         GenerateObjects(section.Variables,v => cg.GenerateVar(v));
          GenerateObjects(section.Lists,l => {
             if (section.TryGetDeclaration(l.lwb,out Const? lwb) && section.TryGetDeclaration(l.upb,out Const? upb)) {
-               cg.GenerateCodeDeclareList(l,lwb!,upb!);
+               cg.GenerateList(l,lwb!,upb!);
             } else {
                throw new NotImplementedException($"GenerateSection: Could not find lower or upper bound for {l}");
             }
          });
-         GenerateObjects(section.Macros,m=>GenerateMacroCode(section,m));
+
+         GenerateObjects(section.Macros,m=>GenerateMacro(section,m));
          GenerateObjects(section.NonSyntheticProcedures,GenerateProcedureCode);
-         cg.GenerateEnd(section);
+         cg.GenerateSectionEnd(section);
       }
 
       private void GenerateObjects<T>(IEnumerable<T> items,Action<T> generate) {
-         cg.GenerateDataSectionStart(items.Count,typeof(T).Name);
+         cg.GenerateObjectSectionStart(items.Count,typeof(T).Name);
          foreach (T item in items) generate(item);
+         cg.GenerateObjectSectionEnd(items.Count,typeof(T).Name);
       }
 
       private void GenerateConstant(Section section,Const constant) {
          cg.GenerateConstantStart(constant);
          foreach (IConstElement elem in constant.elements) {
             switch (elem) {
-               case INT i: cg.GenerateConstElemInt(i.value); break;
-               case FLOAT f: cg.GenerateConstElemFloat(f.value); break;
-               case STRING s: cg.GenerateConstElemString(s.value); break;
+               case INT i: cg.GenerateConstElementInt(i.value); break;
+               case FLOAT f: cg.GenerateConstElementFloat(f.value); break;
+               case STRING s: cg.GenerateConstElementString(s.value); break;
                case ID id:
                   if (section.TryGetDeclaration(id,out Const? c)) {
-                     cg.GenerateReference(c!);
+                     cg.GenerateConstElementConst(c!);
                   } else {
                      throw new NotImplementedException($"GenerateSection: Reference to wrong element type ");
                   }
@@ -125,75 +152,77 @@ namespace CDL2v1 {
          cg.GenerateConstantEnd(constant);
       }
 
-      private void GenerateMacroCode(Section section,Macro macro) {
+      private void GenerateMacro(Section section,Macro macro) {
          IEnumerable<Var> variables = macro.GetReferencedVariables();
-         cg.GenerateStart(macro);
+         cg.GenerateMacroStart(macro);
          GenerateAlgorithmHeader(macro,variables);
 
          cg.GenerateMacroBodyStart(macro);
          foreach (IMacroElement elem in macro.elements) {
             switch (elem) {
-               case INT i: cg.GenerateMacroElemInt(i.value); break;
-               case FLOAT f: cg.GenerateMacroElemFloat(f.value); break;
-               case STRING s: cg.GenerateMacroElemString(s.value); break;
+               case INT i: cg.GenerateMacroElementInt(i.value); break;
+               case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
+               case STRING s: cg.GenerateMacroElementString(s.value); break;
                case ID id:
                   // This should be a reference to a Const, Var or List, so check which one
-                  if (section.TryGetDeclaration(id,out Const? c)) {
-                     cg.GenerateReference(c!);
-                  } else if (section.TryGetLocalDeclaration(id,out ILocalCDL2DataObject? v)) {
-                     if (v is Var var) cg.GenerateReference(var);
-                     else if (v is LIST list) cg.GenerateReference(list);
-                     else throw new NotImplementedException($"GenerateMacroCode: Reference to wrong element type {v}");
+                  if (section.TryGetDeclaration(id,out ILocalCDL2DataObject? obj)) {
+                     switch (obj) {
+                        case Const c: cg.GenerateMacroElementConst(c); break;
+                        case Var v:   cg.GenerateMacroElementVar(v);   break;
+                        case LIST l:  cg.GenerateMacroElementList(l);  break;
+                        default:
+                           throw new NotImplementedException($"GenerateMacro: Reference to wrong element type {obj}");
+                     }
                   } else {
-                     throw new NotImplementedException($"GenerateMacroCode: Unresolved reference to {id}");
+                     throw new NotImplementedException($"GenerateMacro: Unresolved reference to {id}");
                   }
                   break;
-               case Affix a: cg.GenerateReference(a); break;
-               case Local lo: cg.GenerateReferenceLocal(lo); break;
+               case Affix aff: cg.GenerateMacroElementAffix(aff); break;
+               case Local loc: cg.GenerateMacroElementLocal(loc); break;
                default:
-                  throw new NotImplementedException($"GenerateMacroCode: Unknown element type {elem.GetType()}");
+                  throw new NotImplementedException($"GenerateMacro: Unknown element type {elem.GetType()}");
             }
          }
          cg.GenerateMacroBodyEnd(macro);
          FinalizeAffixesAndVariables(macro,variables);
-         cg.GenerateEnd(macro);
+         cg.GenerateMacroEnd(macro);
       }
 
       private void FinalizeAffixesAndVariables(Algorithm algorithm,IEnumerable<Var> variables) {
          bool needed = algorithm.NeedsFinalization;
-         cg.FinalizationStart(algorithm,needed);
+         cg.GenerateFinalizationStart(algorithm,needed);
          if (needed) {
             foreach (Affix affix in algorithm.affixes) cg.GenerateFinalizer(affix,affix.affixDir);
             foreach (Var var in variables) cg.GenerateFinalizer(var,AD.transput,isVar: true);
          }
-         cg.FinalizationEnd(algorithm,needed);
+         cg.GenerateFinalizationEnd(algorithm,needed);
       }
 
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
          cg.GenerateComment(alg.ToString());
          cg.GenerateAlgorithmHeaderStart(alg);
          if (alg.affixes.Count > 0) {
-            cg.GenerateDeclareAffix(alg.affixes[0],alg.affixes[0].affixDir);
+            cg.GenerateAffix(alg.affixes[0],alg.affixes[0].affixDir);
             foreach (Affix affix in alg.affixes.Skip(1)) {
-               cg.GenerateParamSeparator();
-               cg.GenerateDeclareAffix(affix,affix.affixDir);
+               cg.GenerateAffixSeparator();
+               cg.GenerateAffix(affix,affix.affixDir);
             }
          }
          cg.GenerateAlgorithmHeaderEnd(alg);
          foreach (Affix affix in alg.affixes) cg.GenerateInitializer(affix,affix.affixDir);
          foreach (Var var in variables) cg.GenerateInitializer(var,AD.transput,isVar: true);
-         foreach (Local local in alg.locals) cg.GenerateDeclareLocal(local);
+         foreach (Local local in alg.locals) cg.GenerateLocal(local);
       }
 
       private void GenerateProcedureCode(Procedure proc) {
          IEnumerable<Var> variables = proc.GetReferencedVariables();
-         cg.GenerateStart(proc);
+         cg.GenerateProcedureStart(proc);
          GenerateAlgorithmHeader(proc,variables);
-         cg.GenerateProcedureBodyStart(proc);
+         cg.GenerateProcedureBodyStart(proc,proc.ProcedureBodyType);
          GenerateProcedureBody(proc);
-         cg.GenerateProcedureBodyEnd(proc);
+         cg.GenerateProcedureBodyEnd(proc,proc.ProcedureBodyType);
          FinalizeAffixesAndVariables(proc,variables);
-         cg.GenerateEnd(proc);
+         cg.GenerateProcedureEnd(proc);
       }
 
       private void GenerateProcedureBody(Procedure proc) {
@@ -231,9 +260,9 @@ namespace CDL2v1 {
             case LCT.Fail: cg.GenerateFail(proc,group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
             case LCT.Abort: cg.GenerateAbort(proc,group); break;
-            case LCT.Repeat: cg.GenerateRepeat(proc,group,group.alternatives[i].lastCall.label); break;
+            case LCT.Repeat: cg.GenerateRepeat(proc,group,group.alternatives[i].lastCall.label!); break;
             case LCT.Group: GenerateGroup(proc,group.alternatives[i].lastCall.group!); break;
-            case LCT.None: break; // Use in the alternative generated for section Ludes.
+            case LCT.None: break; // Used in the alternative generated for section Ludes.
             default:
                throw new NotImplementedException($"GenerateAlternative: Unknown last call type {group.alternatives[i].lastCall.type}");
          }
@@ -263,7 +292,7 @@ namespace CDL2v1 {
       private void GenerateActualArg(Procedure proc,Affix calledAffix,IActualArg arg) {
          switch (arg) {
             case STRING s:
-               Debug.Assert(calledAffix.affixType == AT.str,$"GenerateCall: String argument for non-string affix {calledAffix}");
+               Debug.Assert(calledAffix.affixType == AT.str,$"GenerateCallStart: String argument for non-string affix {calledAffix}");
                cg.GenerateCallArgString(s.value);
                break;
             case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
@@ -273,21 +302,21 @@ namespace CDL2v1 {
                   cg.GenerateCallArgReferenceLocal(calledAffix,local);
                } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out ICDL2DataObject? dataRef)) {
                   if (dataRef is Const c) {
-                     Debug.Assert(!calledAffix.IsOutput,$"GenerateCall: Const argument for output affix {calledAffix}");
+                     Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");
                      cg.GenerateCallArgReferenceConst(calledAffix,c);
                   } else if (dataRef is Var v) {
                      cg.GenerateCallArgReferenceVar(calledAffix,v);
                   } else {
-                     throw new NotImplementedException($"GenerateCall: Reference to wrong element type {dataRef}");
+                     throw new NotImplementedException($"GenerateCallStart: Reference to wrong element type {dataRef}");
                   }
                } else {
-                  throw new NotImplementedException($"GenerateCall: Unresolved reference to {id}");
+                  throw new NotImplementedException($"GenerateCallStart: Unresolved reference to {id}");
                }
                break;
             case Affix a:  cg.GenerateCallArgReferenceAffix(calledAffix,a); break;
             case Local lo: cg.GenerateCallArgReferenceLocal(calledAffix,lo); break;
             default:
-               throw new NotImplementedException($"GenerateCall: Unknown argument type {arg.GetType()}");
+               throw new NotImplementedException($"GenerateCallStart: Unknown argument type {arg.GetType()}");
          }
       }
    }
