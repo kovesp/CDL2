@@ -89,7 +89,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Static versions of the logger methods used with the singleton isntance.
+      /// Static versions of the logger methods used with the singleton instance.
       /// </summary>
       /// <param id="level"></param>
       /// <param id="message"></param>

@@ -103,7 +103,7 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeImports(Section section) {
-         // IMPORT items must be EXPORT items in some container of known modules. In addtion, there must be a corresponding VAR, LIST, CONST, MACRO or CODE
+         // IMPORT items must be EXPORT items in some container of known modules. In addition, there must be a corresponding VAR, LIST, CONST, MACRO or CODE
          // declaration in this container as follows:
          //    - VAR, LIST, CONST: just a id
          //    - CDOE, MACRO: just the proc header without the locals with no body.

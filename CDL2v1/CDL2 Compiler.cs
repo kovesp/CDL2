@@ -50,7 +50,7 @@ internal class CDL2 {
             new Option<string>(
                 ["-p","--program"],
                 getDefaultValue: () => "",
-                description: "Make program the one for which code is generated. The default is the first or only program that has beean read."),
+                description: "Make program the one for which code is generated. The default is the first or only program that has been read."),
             new Option<bool>(
                 "--save",
                 getDefaultValue: () => false,

@@ -51,7 +51,7 @@ namespace CDL2v1 {
       static Token() {
          // Place multi-character glyphs first to ensure they match before any single character contained in them.
          Glyph2TokenType = new Dictionary<string,TokenType> {
-            { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be in-lined (the default for = is to inline).
+            { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be in-lined (the default for = is to in-line).
             { ":=", TokenType.INLINECODEBODY },    // Indicates a ContainingProc body that should be in-lined.
             { "+",  TokenType.PLUS },              // Used as affixes (argument) separator and as the succeed operator.
             { "-",  TokenType.MINUS },             // Used as declarations variable separator and as the fail operator.

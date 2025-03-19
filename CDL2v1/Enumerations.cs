@@ -162,7 +162,7 @@ namespace CDL2v1 {
    ///   - imported from another module select orange
    ///   
    ///  exported abstr⇑  ext⇒ abstr-ext⇗ exported-abstr➤⇑ exported-ext➤⇒ exported-abstr-ext➤⇗
-   ///  imported⇐  ⇒invoked-ext ⇑invokded-abstr imported-ext⇔ emported-abstr
+   ///  imported⇐  ⇒invoked-ext ⇑invoked-abstr imported-ext⇔ imported-abstr
    ///  /// </summary>
    [Flags]
    public enum AlgorithmNameType {
