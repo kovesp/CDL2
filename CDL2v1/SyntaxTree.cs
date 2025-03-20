@@ -31,6 +31,7 @@ namespace CDL2v1 {
    public interface IInterfaceElement { }
    public interface IProvidedElement : IInterfaceElement { }
    public interface IRequiredElement : IInterfaceElement { }
+   public interface INotedElement { }
    public interface IActualArg { }
    /// <summary>
    /// Any CDL2 object: Algorithm, Const, Var, LIST.
@@ -145,8 +146,9 @@ namespace CDL2v1 {
       override public string ToString() => $"{ItemTypeShortName} {id.Name}";
       protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];
       public string? Comments;
-      public Set<Note> Notes = [];
+      public Notes Notes = [];
       public void AddNote(Note note,params object[] insertions) => Notes.Add(insertions.Length == 0 ? note : new Note(note,insertions));
+      public void AddNotes(Notes? notes) => notes?.ForEach(note => Notes.Add(note));
    }
 
    /// <summary>
@@ -160,9 +162,12 @@ namespace CDL2v1 {
       [JsonInclude]
       public List<Container> Children = [];
       /// <param id="id"></param>
-      public Container(ID id,string? comments) : base(id) => Comments = comments;
+      public Container(ID id,string? comments,Notes? notes) : base(id) {
+         Comments = comments;
+         AddNotes(notes);
+      }
 
-      public Container(ID id,Container? parent,string? comments = null) : this(id,comments) { 
+      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null) : this(id,comments,notes) { 
          Parent = parent;
          ContainerName = $"{Parent?.ContainerName ?? ""} {ItemTypeShortName} {id.Name}".Trim();
          if (Parent != null && (bool)(Parent.Children.Contains(this))) {
@@ -210,7 +215,7 @@ namespace CDL2v1 {
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param id="id"></param>
-      public Program(ID id,string? comments) : base(id,null,comments) {
+      public Program(ID id,string? comments,Notes notes) : base(id,null,comments,notes) {
          LudeParser = Parser.ParseLudeOfIDs;
          Database.Instance.FirstProgram ??= this;
       }
@@ -229,7 +234,7 @@ namespace CDL2v1 {
       /// Module Ludes are a list of container IDs.
       /// </summary>
       /// <param id="id"></param>
-      public Module(ID id,string? comments) : base(id,null,comments) {
+      public Module(ID id,string? comments,Notes notes) : base(id,null,comments,notes) {
          LudeParser = Parser.ParseLudeOfIDs;
          Comments = comments;
       }
@@ -243,7 +248,7 @@ namespace CDL2v1 {
    /// <param id="module"></param>
    /// <param Name="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
    [Serializable]
-   public class Layer(ID id,Module module,Layer? ancestor,string? comments = null) : Container(id,module,comments) {
+   public class Layer(ID id,Module module,Layer? ancestor,string? comments = null,Notes? notes=null) : Container(id,module,comments,notes) {
       public readonly Layer? Ancestor = ancestor;
       public readonly Dictionary<ID,Section> ext = [];
       public readonly Dictionary<ID,Section> abstr = [];
@@ -291,7 +296,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="id"></param>
       /// <param id="layer"></param>
-      public Section(ID id,Layer layer,string? comments = null) : base(id,layer,comments) => LudeParser = Parser.ParseLudeOfCalls;
+      public Section(ID id,Layer layer,string? comments = null,Notes? notes = null) : base(id,layer,comments,notes) => LudeParser = Parser.ParseLudeOfCalls;
 
       public static Type[] ProvidedElementImplementors;
       static Section() => ProvidedElementImplementors = [.. Extensions.GetImplementorsOfInterface<IProvidedElement>()];
@@ -607,6 +612,7 @@ namespace CDL2v1 {
       public readonly ID id = id;
       public readonly List<IActualArg> args = [];
       public readonly Procedure ContainingProc = containingProc;
+
       override public string ToString() => $"{id.Name}+{string.Join("+",args)}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
@@ -666,9 +672,10 @@ namespace CDL2v1 {
       };
    }
    [Serializable]
-   public class Alternative(List<Call> calls,LastCall lastCall) {
+   public class Alternative(List<Call> calls,LastCall lastCall,Notes notes) {
       public readonly List<Call> calls = calls;
       public readonly LastCall lastCall = lastCall;
+      public readonly Notes Notes = notes;
 
       public bool CanFail => calls.Any(call => call.CanFail) || (lastCall.type == LCT.Standard && lastCall.call!.CanFail);
    }

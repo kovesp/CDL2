@@ -73,7 +73,8 @@ namespace CDL2v1 {
       ENDMOD, 
       LAYER, 
       ENDLAY, 
-      SECTION, ENDSEC, 
+      SECTION,
+      ENDSEC, 
       ABSTR, 
       EXT, 
       INV, 
@@ -88,7 +89,8 @@ namespace CDL2v1 {
       ACTION, 
       FUNCTION, 
       TEST, 
-      PREDICATE
+      PREDICATE,
+      NOTE,
    }
 
    /// <summary>
@@ -98,6 +100,7 @@ namespace CDL2v1 {
       Error,
       Warning,
       Info,
+      Note,
    }
 
    /// <summary>

@@ -97,7 +97,7 @@ namespace CDL2v1 {
 
          CommentableReservedWords = [  RW.PROGRAM, RW.MODULE, RW.LAYER, RW.SECTION,
                                        RW.ACTION, RW.FUNCTION, RW.PREDICATE, RW.TEST,
-                                       RW.CONST, RW.LIST, RW.VAR
+                                       RW.CONST, RW.LIST, RW.VAR, RW.NOTE
                                     ];
       }
 

@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using static CDL2v1.Logger;
 
 namespace CDL2v1 {
+   public class Notes : List<Note> { }
    public class Parser {
       /// <summary>
       /// The object being compiled. Used mainly for error reporting.
@@ -84,11 +85,12 @@ namespace CDL2v1 {
          Logger.logger.CurrentObject = currentObject;
 
          while (tokens.IsNonEmpty()) {
+            Notes notes = ParseNotes();
             ID unitId = ID.ErrorID;
             if (tokens.CanConsumeContainerDelimiter(RW.MODULE,ref unitId,out string? comments)) {
-               ParseModule(unitId,comments);
+               ParseModule(unitId,comments,notes);
             } else if (tokens.CanConsumeContainerDelimiter(RW.PROGRAM,ref unitId,out comments)) {
-               ParseProgram(unitId,comments);
+               ParseProgram(unitId,comments,notes);
             } else {
                throw new Exception("Expected MODULE or PROGRAM");
             }
@@ -108,25 +110,35 @@ namespace CDL2v1 {
       /// ENDPROG program Name.
       /// </summary>
       /// <param Name="programId"></param>
-      private void ParseProgram(ID programId,string? comments) {
+      private void ParseProgram(ID programId,string? comments,Notes notes) {
          if (Database.Instance.Programs.ContainsKey(programId)) {
             ReportError($"Program {programId} already exists");
             return;
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
-            Database.Instance.Programs[programId] = currentProgram = new Program(programId,comments);
-            Log(1,$"Parsing {currentProgram}"); 
+            Database.Instance.Programs[programId] = currentProgram = new Program(programId,comments,notes);
+            Log(1,$"Parsing {currentProgram}");
          }
 
          if (tokens.CanConsume(RW.PART)) {
             ParseIDList(RW.PART,currentProgram.Parts);
             // TODO: Semantic Analysis to verify that the parts are modules.
          }
+
          ParseLudes(currentProgram);
          // Consume the ENDPROG token
-         tokens.CanConsumeContainerDelimiter(RW.ENDPROG,ref programId,out _); 
+         tokens.CanConsumeContainerDelimiter(RW.ENDPROG,ref programId,out _);
       }
-
+      /// <summary>
+      /// Parse (and skip) NOTEs.
+      /// </summary>
+      private Notes ParseNotes() {
+         Notes notes = [];
+         while (tokens.CanConsumeNote(out Note? note)) {
+            notes.Add(note!);
+         }
+         return notes;
+      }
 
       /// <summary>
       /// Parse a module.
@@ -143,36 +155,40 @@ namespace CDL2v1 {
       /// TODO: Semantic analysis to enforce CDL2 lab or compiler convention.
       /// </summary>
       /// <param id="moduleId">The ID (id) of the module.</param>
-      private void ParseModule(ID moduleId,string? comments) {
+      private void ParseModule(ID moduleId,string? comments,Notes notes) {
          if (Database.Instance.Modules.ContainsKey(moduleId)) {
             ReportError($"Program {moduleId} already exists");
             return;
          } else {
-            Database.Instance.Modules[moduleId] = currentModule = new Module(moduleId,comments);
+            Database.Instance.Modules[moduleId] = currentModule = new Module(moduleId,comments,notes);
             currentObject.Object = (RW.MODULE, moduleId);
             Log(1,$"Parsing {currentObject}");
          }
          
          // Now should see layers
          ID layerId = ID.ErrorID;
+         Notes internalNotes = ParseNotes();
          while (tokens.CanConsumeContainerDelimiter(RW.LAYER,ref layerId,out comments)) {
-            ParseLayer(layerId,comments);
+            ParseLayer(layerId,comments,internalNotes);
+            internalNotes = ParseNotes();
          }
          // Consume the ENDMOD
          tokens.CanConsumeContainerDelimiter(RW.ENDMOD,ref moduleId,out _);
          ParseLudes(currentModule);
       }
 
-      private void ParseLayer(ID layerId,string? comments) {
+      private void ParseLayer(ID layerId,string? comments,Notes notes) {
          Debug.Assert(currentModule != null);
          currentObject.Object = (RW.LAYER, layerId);
-         currentLayer= new Layer(layerId,currentModule,currentLayer,comments);
+         currentLayer= new Layer(layerId,currentModule,currentLayer,comments,notes);
          Log(1,$"Parsing {currentObject}");
 
          // Now should see sections
          ID sectionId = ID.ErrorID;
+         Notes internalNotes = ParseNotes();
          while (tokens.CanConsumeContainerDelimiter(RW.SECTION,ref sectionId,out comments)) {
-            ParseSection(sectionId,comments);
+            ParseSection(sectionId,comments,internalNotes);
+            internalNotes = ParseNotes();
          }
          // Consume the ENDLAY
          tokens.CanConsumeContainerDelimiter(RW.ENDLAY,ref layerId,out _);
@@ -180,10 +196,10 @@ namespace CDL2v1 {
       }
 
       private static readonly List<RW> AlgTypes = [RW.FUNCTION,RW.ACTION,RW.TEST,RW.PREDICATE];
-      private void ParseSection(ID sectionId,string? comments) {
+      private void ParseSection(ID sectionId,string? comments,Notes notes) {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
-         currentSection = new Section(sectionId,currentLayer,comments);
+         currentSection = new Section(sectionId,currentLayer,comments,notes);
          Log(1,$"Parsing {currentObject}");
 
          // Now should see container parts
@@ -193,14 +209,15 @@ namespace CDL2v1 {
          // Now could see algorithms, lists, variables, constants in any order.
          // Parse each LudeType and return its ID.
          while (!tokens.IsNext(RW.ENDSEC)) {
+            Notes internalNotes = ParseNotes();
             if (tokens.IsNext(AlgTypes)) {
-               ParseAlgorithm();
+               ParseAlgorithm(internalNotes);
             } else if (tokens.IsNext(RW.LIST)) {
-               ParseList();
+               ParseList(internalNotes);
             } else if (tokens.IsNext(RW.VAR)) {
-               ParseVar();
+               ParseVar(internalNotes);
             } else if (tokens.IsNext(RW.CONST)) {
-               ParseConstants();
+               ParseConstants(internalNotes);
             } else {
                ReportError("Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST");
             }
@@ -213,7 +230,7 @@ namespace CDL2v1 {
       }
 
       private static readonly List<TT> bodyTypes = [TT.INLINECODEBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.CODEBODY];
-      private void ParseAlgorithm() {
+      private void ParseAlgorithm(Notes notes) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             Logger.Log(3,$"Parsing {algType} {id}");
@@ -239,10 +256,12 @@ namespace CDL2v1 {
                   if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
                      // Parse the code body
                      algorithm = new Procedure(id,formals,locals,algType,bodyType.type,currentSection);
+                     algorithm.AddNotes(notes);
                      ParseProcedureBody((Procedure)algorithm);
                   } else {
                      // Parse the macro body
                      algorithm = new Macro(id,formals,locals,algType,bodyType.type,currentSection);
+                     algorithm.AddNotes(notes);
                      ParseMacroBody((Macro)algorithm);
                   }
                }
@@ -289,19 +308,20 @@ namespace CDL2v1 {
       private List<Alternative> ParseAlternatives(Procedure proc,Group? group) {
          List<Alternative> alternatives = [];
          do {
-            alternatives.Add(ParseAlternative(proc,group));
+            Notes notes = ParseNotes();
+            alternatives.Add(ParseAlternative(proc,group,notes));
          } while (tokens.Optional(TT.ALTSEP)) ;
          return alternatives;
       }
 
-      private Alternative ParseAlternative(Procedure proc,Group? group) {
+      private Alternative ParseAlternative(Procedure proc,Group? group,Notes notes) {
          List<Call> calls = [];
          LastCall? lastCall =null;
          do {
             if (lastCall != null) {
                // If we have a last call, then we should NOT have see a separator
                ReportError("Unexpected ,");
-            } else if (tokens.Optional(out ID id)) {
+            } else if (tokens.Optional(out ID id)) {              
                calls.Add(ParseCall(id,proc));
             } else if (tokens.Optional(TT.SUCCEED)) {
                lastCall = new LastCall(LCT.Succeed);
@@ -341,7 +361,7 @@ namespace CDL2v1 {
             lastCall = new LastCall(calls.Last());
             calls.RemoveAt(calls.Count - 1);
          }
-         return new Alternative(calls,lastCall);
+         return new Alternative(calls,lastCall,notes);
       }
 
       private Call ParseCall(ID id,Procedure proc) => ParseCall(this,id,proc);
@@ -436,10 +456,10 @@ namespace CDL2v1 {
          return args;
       }
 
-      private void ParseList() {
+      private void ParseList(Notes notes) {
          if (tokens.CanConsume(RW.LIST,out string? comments)) {
             Debug.Assert(currentSection != null);
-            ParseIDDeclarationList(currentSection.declarations,comments!,ParseListBody);
+            ParseIDDeclarationList(currentSection.declarations,comments!,ParseListBody,notes);
          }
       }
 
@@ -465,21 +485,21 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a var declaration.
       /// </summary>
-      private void ParseVar() {
+      private void ParseVar(Notes notes) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.VAR,out string? comments)) {
-            ParseIDDeclarationList(currentSection.declarations,comments!,id => new Var(id,currentSection));
+            ParseIDDeclarationList(currentSection.declarations,comments!,id => new Var(id,currentSection),notes);
          }
       }
 
       /// <summary>
       /// Parse a constant declaration.
       /// </summary>
-      private void ParseConstants() {
+      private void ParseConstants(Notes notes) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST,out string? comments)) {
             Debug.Assert(currentSection != null);
-            ParseIDDeclarationList(currentSection.declarations,comments!,ParseConstBody);
+            ParseIDDeclarationList(currentSection.declarations,comments!,ParseConstBody,notes);
          }
       }
 
@@ -606,7 +626,7 @@ namespace CDL2v1 {
             parser.tokens.CanConsumeEnd();
 
             lude.algorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
-            lude.group.alternatives.Add(new Alternative(callList,new LastCall(LCT.None)));
+            lude.group.alternatives.Add(new Alternative(callList,new LastCall(LCT.None),[]));
             section.Ludes[ludeType].Add(lude.id);
             section.declarations[lude.id] = lude;
          }
@@ -620,7 +640,7 @@ namespace CDL2v1 {
       /// <param id="idList"></param>
       /// <param id="idList2"></param>
       /// <param id="processID"></param>
-      private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList,string comments,Func<ID,ICDL2Object?> processID) {
+      private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList,string comments,Func<ID,ICDL2Object?> processID,Notes notes) {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
@@ -637,6 +657,7 @@ namespace CDL2v1 {
          }
          tokens.CanConsumeEnd();
          firstObject!.Comments = comments;
+         firstObject!.AddNotes(notes);
       }
 
       /// <summary>

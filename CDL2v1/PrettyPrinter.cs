@@ -282,7 +282,8 @@ namespace CDL2v1 {
 
       private void Print(Alternative alternative,Section section,bool extraSpace=false) {
          emitter.ExtraIndent = 0;
-         if (alternative.calls.Count > 0) { 
+         if (alternative.calls.Count > 0) {
+            PrintComment(alternative);
             Print(alternative.calls.First(),section,extraSpace:extraSpace,firstInAlternative:true);
             foreach (Call call in alternative.calls.Skip(1)) {
                EmitSeparator(TT.CALLSEP);
@@ -529,11 +530,13 @@ namespace CDL2v1 {
 
       public void Print(Var var) => PrintIDComment(var,SE.Var);
 
+      // TODO Fix printing of comments and notes
       private void PrintIDComment(DeclaredCDL2Object obj,SE type) {
-         if (obj.Comments != null) {
+         if (obj.Comments != null || obj.Notes.Count > 0) {
             emitter.Indented(
                () => {
-                  NlEmitnl(obj.Comments.Decorate(emitter,SE.Comment));
+                  //NlEmitnl(obj.Comments.Decorate(emitter,SE.Comment));
+                  PrintComment(obj);
                   Emit(obj.id.Decorate(emitter,type));
                }
             );
@@ -542,8 +545,10 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(LIST list,Section section)
-         => Emit(list.id.Decorate(emitter,SE.List),TT.LISTBOUNDSTART,DecoratedID(list.lwb,section),TT.LISTBOUNDSEP,DecoratedID(list.upb,section),TT.LISTBOUNDEND);
+      public void Print(LIST list,Section section) {
+         PrintIDComment(list,SE.List);
+         Emit(TT.LISTBOUNDSTART,DecoratedID(list.lwb,section),TT.LISTBOUNDSEP,DecoratedID(list.upb,section),TT.LISTBOUNDEND);
+      }
 
       /// <summary>
       /// Print the start and end of a container element, and then the contents.
@@ -566,16 +571,25 @@ namespace CDL2v1 {
       /// Print the comments for the element.
       /// </summary>
       /// <param name="element"></param>
-      private void PrintComment(NamedElement element) {
-         if (element.Comments != null) Emitnl(element.Comments.Decorate(emitter,SE.Comment));
-         foreach (Note note in element.Notes) {
-            Emitnl(string.Concat("#",Note.Marker,(note.Type.ToString().ToUpper().PadRight(7)[..7] + " "+ note.Number.ToString("D3") + ": "),note.Text)
-               .Decorate(emitter,note.Type switch {
-                  NoteType.Error    => SE.NoteError,
-                  NoteType.Warning  => SE.NoteWarning,
-                  NoteType.Info     => SE.NoteInfo,
-                  _                 => SE.NoteInfo
-            }));
+      private void PrintComment(NamedElement element) => PrintComment(element.Comments,element.Notes);
+      private void PrintComment(Alternative element) => PrintComment(null,element.Notes);
+
+      private void PrintComment(string? comments,Notes notes) {
+         if (comments != null) Emitnl(comments.Decorate(emitter,SE.Comment));
+         foreach (Note note in notes) {
+            if (note.Type == NoteType.Note) {
+               NlEmitnl(note.Text.Decorate(emitter,SE.Comment));
+               Emitnl(RW.NOTE,Token.TokenType2Glyph[TT.END]);
+            } else {
+               Emitnl(string.Concat("#",Note.Marker,(note.Type.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "),note.Text)
+                  .Decorate(emitter,note.Type switch {
+                     NoteType.Error    => SE.NoteError,
+                     NoteType.Warning  => SE.NoteWarning,
+                     NoteType.Info     => SE.NoteInfo,
+                     NoteType.Note     => SE.Comment,
+                     _ => SE.Comment
+                  }));
+            }
          }
       }
 
