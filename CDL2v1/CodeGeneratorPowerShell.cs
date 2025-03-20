@@ -72,9 +72,6 @@ class BoundedArray {
 
       static CodeGeneratorPowerShell() => ProgramHeader = ProgramHeaderPattern.Replace("{","{{").Replace("}","}}").Replace("<%","{").Replace("%>","}");
 
-      private void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl("# ",line);
-      }
 
       void ICodeGenerator.GenerateProgramStart(Program program,EmitterBase emitter,bool isSeparate) {
          this.emitter = emitter;
@@ -99,38 +96,16 @@ class BoundedArray {
       void ICodeGenerator.GenerateSectionStart(Section section) => EmitUnitStartComment(section);
       void ICodeGenerator.GenerateSectionEnd(Section section) => EmitUnitEndComment(section);
 
-      void ICodeGenerator.GenerateProgramLudesStart(Program program) { }
-      void ICodeGenerator.GenerateProgramLude(Program program,RW ludeType,Module module) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateProgramLudesEnd(Program program) { }
+      void ICodeGenerator.GenerateRequiringUnitLudesStart(IRequiringUnit unit) { }
+      void ICodeGenerator.GenerateRequiringUnitLude(RW ludeType,IRequiringUnit requiring,IProviderUnit provider) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateRequiringUnitLudesEnd(IRequiringUnit requiring) { }
       void ICodeGenerator.GenerateProgramPart(Program program,ID mod,bool isSeparate) { }
       void ICodeGenerator.GenerateImpExStart(Module module) { }
       void ICodeGenerator.GenerateImpExEnd(Module module) { }
 
       enum PSVarType { Var, List, Const, Affix, Local }
 
-      private static string PSVarPrefix(PSVarType type) => type switch {
-         PSVarType.Var => "V_",
-         PSVarType.List => "LL_",
-         PSVarType.Const => "C_",
-         PSVarType.Affix => "A_",
-         PSVarType.Local => "L_",
-         _ => throw new NotImplementedException(),
-      };
-      private static PSVarType PSVarTypeOf(DeclaredCDL2Object obj) => obj switch {
-         Var => PSVarType.Var,
-         LIST => PSVarType.List,
-         Const => PSVarType.Const,
-         _ => throw new NotImplementedException(),
-      };
 
-      private static string PS_Var(string name,PSVarType type,string prefix = "",string suffix = "",bool isRef = false) => $"{(isRef?"[ref]":"")}${prefix}{PSVarPrefix(type)}{name}{suffix}";
-      private static string PSVar(DeclaredCDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
-      private static string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(affix),PSVarType.Affix,prefix,suffix,isRef);
-      private static string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(local),PSVarType.Local,prefix,suffix,isRef);
-
-      private static string PSName(DeclaredCDL2Object obj) => obj.FQN(camelCase: true,literalObjectName:obj.IsSynthetic);
-      private static string PSName(Affix affix) => affix.id.Name.AsIdentifier(camelCase:true);
-      private static string PSName(Local local) => local.id.Name.AsIdentifier(camelCase: true);
 
       void ICodeGenerator.GenerateExport(IProvidedElement export) { }
       void ICodeGenerator.GenerateImport(IProvidedElement import) { }
@@ -142,24 +117,21 @@ class BoundedArray {
       }
 
       void ICodeGenerator.GenerateProcedureStart(Procedure code) { }
-      void GenerateProcedureEnd(Procedure proc) {
+      void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
          if (proc.CanFail) emitter.Emitnl("return $__b");
          emitter.IndentLevel--;
          emitter.NlEmitnl("}");
       }
 
-      void ICodeGenerator.GenerateAlternativeEnd(Alternative alternative) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateGroupEnd(Group group) => throw new NotImplementedException();
       void ICodeGenerator.GenerateCallEnd(Call call) => throw new NotImplementedException();
 
-      void ICodeGenerator.GenerateAlternativeStart(Alternative alternative) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateGroupStart(Group group) => throw new NotImplementedException();
+
       void ICodeGenerator.GenerateCallStart(Call call) => throw new NotImplementedException();
 
 
 
-      void ICodeGenerator.GenerateLudeStart(RW ludeType,Container section) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateLudeEnd(RW ludeType,Container section) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateSectionLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateSectionLudeEnd(RW ludeType,Section section) => throw new NotImplementedException();
       void ICodeGenerator.GenerateMacroStart(Macro macro) { }
       void ICodeGenerator.GenerateMacroEnd(Macro macro) {
          emitter.IndentLevel--;
@@ -168,9 +140,6 @@ class BoundedArray {
 
       void ICodeGenerator.GenerateAffixSeparator() => emitter.Emit(",");
 
-
-      private void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName}");
-      private void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName}");
       void ICodeGenerator.GenerateMacroElementInt(long value) => emitter.Emit(value);
       void ICodeGenerator.GenerateMacroElementFloat(double value) => emitter.Emit(value);
       void ICodeGenerator.GenerateMacroElementString(string value) {
@@ -237,7 +206,7 @@ class BoundedArray {
          }
       }
 
-      void Newline() => emitter.Emitnl();
+
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
          if (macro.CanFail) emitter.Emitnl("$__b = (");
          emitter.IndentLevel++;
@@ -298,7 +267,6 @@ class BoundedArray {
          Newline();
       }
 
-      private static string AffixRef(Affix calledAffix,string prefix = "") => (calledAffix.IsOutput ? "[ref]" : "") + prefix;
       void ICodeGenerator.GenerateCallArgString(string value) => emitter.Emit($"\"{value}\"");
       void ICodeGenerator.GenerateCallArgReferenceAffix(Affix calledAffix,Affix a) => emitter.Emit(PSVar(a,"_",isRef:calledAffix.IsOutput));
       void ICodeGenerator.GenerateCallArgReferenceLocal(Affix calledAffix,Local lo) => emitter.Emit(PSVar(lo,isRef: calledAffix.IsOutput));
@@ -347,8 +315,41 @@ class BoundedArray {
       void ICodeGenerator.GenerateObjectSectionEnd(Func<int> count,string name) { }
 
       void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(PSVar(constant));
-      void ICodeGenerator.GenerateProcedureEnd(Procedure code) => GenerateProcedureEnd(code);
       void ICodeGenerator.Newline() => Newline();
       void ICodeGenerator.GenerateComment(string comment) => GenerateComment(comment);
+
+      #region Helpers
+      void Newline() => emitter.Emitnl();
+      private void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName}");
+      private void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName}");
+      private void GenerateComment(string comment) {
+         foreach (string line in comment.Split('\n')) emitter.Emitnl("# ",line);
+      }
+
+      private static string PSVarPrefix(PSVarType type) => type switch {
+         PSVarType.Var => "V_",
+         PSVarType.List => "LL_",
+         PSVarType.Const => "C_",
+         PSVarType.Affix => "A_",
+         PSVarType.Local => "L_",
+         _ => throw new NotImplementedException(),
+      };
+      private static PSVarType PSVarTypeOf(DeclaredCDL2Object obj) => obj switch {
+         Var => PSVarType.Var,
+         LIST => PSVarType.List,
+         Const => PSVarType.Const,
+         _ => throw new NotImplementedException(),
+      };
+
+      private static string PS_Var(string name,PSVarType type,string prefix = "",string suffix = "",bool isRef = false) => $"{(isRef ? "[ref]" : "")}${prefix}{PSVarPrefix(type)}{name}{suffix}";
+      private static string PSVar(DeclaredCDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
+      private static string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(affix),PSVarType.Affix,prefix,suffix,isRef);
+      private static string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(local),PSVarType.Local,prefix,suffix,isRef);
+
+      private static string PSName(DeclaredCDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
+      private static string PSName(Affix affix) => affix.id.Name.AsIdentifier(camelCase: true);
+      private static string PSName(Local local) => local.id.Name.AsIdentifier(camelCase: true);
+
+      #endregion Helpers
    }
 }

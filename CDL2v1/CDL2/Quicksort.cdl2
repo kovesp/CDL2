@@ -19,6 +19,10 @@ MODULE quicksort.
 
          CONST ten=10.
          VAR var.
+
+         ### Procedure for testing the Semantic analyzer
+         # It cannot fail.  
+         
          TEST test+>a+>b>+c>:
             less+a+b, make+c+a;
             eq+a+b, add+a+ten+c;

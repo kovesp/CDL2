@@ -3,15 +3,18 @@
 /// <summary>
 /// Interface for target code generators.
 /// A specific code generator must implement this interface.
-/// The m methods  will be called by the generic code generator to generate specific elements for the target language.
+/// </summary>
+/// 
+/// <remarks>
+/// The methods  will be called by the generic code generator to generate specific elements for the target language.
 /// The structure of calls made on the target code generator is as follows:
 ///   For the Program:
 ///      GenerateProgramStart                                     the start of the single program
 ///         GenerateProgramPart                                   for each part of the program
 ///         [ generated modules ]                                 if the program is compiled as a single unit.
-///         GenerateProgramLudesStart
-///            GenerateProgramLude                                for each of PRELUDE, ROOT, POSTLUDE, for each referenced module that has a lude of the given type
-///         GenerateProgramLudesEnd
+///         GenerateRequiringUnitLudesStart
+///            GenerateRequiringUnitLude                                for each of PRELUDE, ROOT, POSTLUDE, for each referenced module that has a lude of the given type
+///         GenerateRequiringUnitLudesEnd
 ///      GenerateProgramEnd                                       at the end of the program
 ///         [ generated modules ]                                 if the program is compiled into separate units.
 ///    
@@ -93,9 +96,9 @@
 ///               GenerateSectionEnd                              at the end of the section
 ///            GenerateLayerEnd                                   at the end of the layer
 ///         GenerateModuleEnd                                     at the end of the module
-/// </summary>
+/// </remarks>
 internal interface ICodeGenerator {
-   #region Units, Program Ludes
+   #region Programs, Modules, Layers, Sections
    /// <summary>
    /// This is called at the start of the program.
    /// The supplied emitter is used to emit the generated code.
@@ -113,24 +116,7 @@ internal interface ICodeGenerator {
    /// <param name="program"></param>
    /// <param name="isSeparate"></param>
    void GenerateProgramEnd(Program program,bool isSeparate = false);
-   /// <summary>
-   /// This is called at the start generation of program ludes
-   /// </summary>
-   /// <param name="program"></param>
-   void GenerateProgramLudesStart(Program program);
-   /// <summary>
-   /// Call for each referenced module for each type that has a lude of the given type
-   /// </summary>
-   /// <param name="program"></param>
-   /// <param name="ludeType"></param>
-   /// <param name="module"></param>
-   void GenerateProgramLude(Program program,RW ludeType,Module module);
-   /// <summary>
-   /// This is called at the end of the program ludes.
-   /// </summary>
-   /// <param name="program"></param>
-   void GenerateProgramLudesEnd(Program program);
-   /// <summary>
+
    /// This is called for each part of the program. Typically does nothing, but may be used to setup linkage to the participating modules.
    /// </summary>
    /// <param name="program"></param>
@@ -176,7 +162,30 @@ internal interface ICodeGenerator {
    /// </summary>
    /// <param name="section"></param>
    void GenerateSectionEnd(Section section);
-   #endregion  Units, Program Ludes
+   #endregion Programs, Modules, Layers, Sections
+
+   #region Prelude, Root, Postlude
+   /// <summary>
+   /// This is called at the start generation of program ludes
+   /// </summary>
+   /// <param name="unit"></param>
+   void GenerateRequiringUnitLudesStart(IRequiringUnit unit);
+   /// <summary>
+   /// This is called for each lude of the given type in the program and in modules.
+   /// </summary>
+   /// <param name="ludeType"></param>
+   /// <param name="requiring"></param>
+   /// <param name="provider"></param>
+   void GenerateRequiringUnitLude(RW ludeType,IRequiringUnit requiring,IProviderUnit provider);
+   /// <summary>
+   /// This is called at the end of the program ludes.
+   /// </summary>
+   /// <param name="requiring"></param>
+   void GenerateRequiringUnitLudesEnd(IRequiringUnit requiring);
+   /// <summary>
+   void GenerateSectionLudeStart(RW ludeType,Section section);
+   void GenerateSectionLudeEnd(RW ludeType,Section section);   
+   #endregion
 
    #region Import/Export
    /// <summary>
@@ -326,28 +335,35 @@ internal interface ICodeGenerator {
 
    #region Alternatives
    /// <summary>
-   /// This is called at the start of an alternative.
+   /// Generate the start of alternative i the group.
    /// </summary>
-   /// <param name="alternative"></param>
-   void GenerateAlternativeStart(Alternative alternative);
+   /// <param name="proc"></param>
+   /// <param name="group"></param>
+   /// <param name="i"></param>
+   void GenerateAlternativeStart(Procedure proc,Group group,int i);
    /// <summary>
-   /// This is called at the end of an alternative.
+   /// Generate the end of alternative i int he group.
    /// </summary>
-   /// <param name="alternative"></param>
-   void GenerateAlternativeEnd(Alternative alternative);
+   /// <param name="proc"></param>
+   /// <param name="group"></param>
+   /// <param name="i"></param>
+   void GenerateAlternativeEnd(Procedure proc,Group group,int i);
+
    #endregion Alternatives
 
    #region Groups
    /// <summary>
-   /// This is called at the start of a group.
+   /// Called at the start of a group.
    /// </summary>
+   /// <param name="proc"></param>
    /// <param name="group"></param>
-   void GenerateGroupStart(Group group);
+   void GenerateGroupStart(Procedure proc,Group group);
    /// <summary>
-   /// This is called at the end of a group.
+   /// Called at the end of a group.
    /// </summary>
+   /// <param name="proc"></param>
    /// <param name="group"></param>
-   void GenerateGroupEnd(Group group);
+   void GenerateGroupEnd(Procedure proc,Group group);
    #endregion Groups
 
    #region Calls
@@ -405,8 +421,7 @@ internal interface ICodeGenerator {
    #endregion Procedures
 
 
-   void GenerateLudeStart(RW ludeType,Container section);
-   void GenerateLudeEnd(RW ludeType,Container section);
+
 
 
 
@@ -424,11 +439,6 @@ internal interface ICodeGenerator {
    void GenerateFinalizationEnd(Algorithm algorithm,bool IsNeeded);
 
    void GenerateComment(string comment);
-   void GenerateAlternativeStart(Procedure proc,Group group,int i);
-   void GenerateAlternativeEnd(Procedure proc,Group group,int i);
-
-   void GenerateGroupStart(Procedure proc,Group group);
-   void GenerateGroupEnd(Procedure proc,Group group);
 
 
    string FileExtension { get; }

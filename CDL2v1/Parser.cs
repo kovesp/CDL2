@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.Intrinsics.X86;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -226,14 +227,11 @@ namespace CDL2v1 {
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the imports list.
-               if (currentSection.import.Contains(id)) {
-                  algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
-               } else {
+               algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
+               if (!currentSection.import.Contains(id)) {
+                  algorithm.AddNote(Note.AlgorithmStubNotImported,algorithm.id.Name,currentSection.id.Name);
                   ReportError($"{algType} {id} is not exported but has no body.");
-                  return;
                }
-            } else if (currentSection.import.Contains(id)) {
-               ReportError($"{algType} {id} is imported but has locals or a body.");
             } else {
                Set<Local>? locals = ParseLocals();
                if (locals == null) return;
@@ -250,6 +248,10 @@ namespace CDL2v1 {
                }
             }
             Debug.Assert(algorithm != null);
+            if (currentSection.import.Contains(id)) {
+               algorithm.AddNote(Note.ImportedAlgorithmHasBody,algorithm.id.Name,currentSection.id.Name);
+               ReportError($"{algType} {id} is imported but has locals or a body.");
+            }
             currentSection.declarations[id] = algorithm;
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
@@ -320,6 +322,7 @@ namespace CDL2v1 {
                      g = g.Parent;
                   }
                   if (!found && label != proc.id) { // The label can be the ContainingProc id
+                     proc.AddNote(Note.LabelNotFound,label.Name);
                      ReportError($"Label {label} not found in group hierarchy");
                   }
                   lastCall = new LastCall(label);
@@ -351,7 +354,7 @@ namespace CDL2v1 {
 
       private LastCall ParseGroup(Procedure proc,Group? containingGroup) {
          LastCall? lastCall;
-         ID? label = ParseOptionalLabel(containingGroup);
+         ID? label = ParseOptionalLabel(containingGroup,proc);
          Group group = new(label,[],containingGroup,synthetic:label is null);
          group.alternatives = ParseAlternatives(proc,group);
          if (!tokens.CanConsume(TT.GRPCLOSE)) ReportError("Expected )");
@@ -359,7 +362,7 @@ namespace CDL2v1 {
          return lastCall;
       }
 
-      private ID? ParseOptionalLabel(Group? group) {
+      private ID? ParseOptionalLabel(Group? group,Procedure proc) {
          if (tokens.Peek().type == TT.ID && tokens.Peek(1).type == TT.LABELSEP) {
             // Consume the label and the colon
             ID label = ID.From(tokens.Next());
@@ -368,6 +371,7 @@ namespace CDL2v1 {
             Group? g = group;
             while (g != null) {
                if (g.id == label) {
+                  proc.AddNote(Note.DuplicateLabel,label.Name);
                   ReportError($"Duplicate label {label}");
                   return ID.AnonID;
                }

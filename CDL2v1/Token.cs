@@ -86,7 +86,7 @@ namespace CDL2v1 {
          // Allows annotation symbols to precede and follow the ID; these are removed.
          IdRE = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*",RegexOptions.Compiled);
          StringRE = new Regex(@"^"".*?(?:$"".*?)*""",RegexOptions.Compiled);
-         CommentRE = new Regex(@"^(?m:#(.*?)?(?:#|$))",RegexOptions.Compiled);
+         CommentRE = new Regex(@"^(?m:#((?:##)?.*?)?(?:#|$))",RegexOptions.Compiled);
          IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?\d+)",RegexOptions.Compiled);
          FloatRE = new Regex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled);
          // Must match all occurrences anywhere in a string
@@ -159,9 +159,14 @@ namespace CDL2v1 {
                reservedWordValue = Enum.Parse<ReservedWord>(text);
                // Attach comments encountered before reserved words that can have comments.
                if (CommentableReservedWords.Contains(reservedWordValue.Value) && collectedComments.Count > 0) {
-                  int width = collectedComments.Select(c => c.Trim().Length).Max();
+                  bool blockComment = collectedComments[0].StartsWith("##");
+                  IEnumerable<string> trimmedComments = collectedComments.Select(c => c.Trim('#',' '));
+                  int width = trimmedComments.Select(c => c.Length).Max();
+                  string mark = blockComment ? "###" : "#";
                   StringBuilder sb = new();
-                  foreach (string comment in collectedComments) sb.AppendLine(string.Format("# {0} #",comment.Trim().PadRight(width)));
+                  if (blockComment) sb.AppendLine(new string('#',width+8));
+                  foreach (string comment in trimmedComments) sb.AppendLine(string.Format("{0} {1} {0}",mark,comment.Trim().PadRight(width)));
+                  if (blockComment) sb.AppendLine(new string('#',width+8));
                   Comments = sb.ToString();
                }
                ClearComments();
@@ -231,7 +236,7 @@ namespace CDL2v1 {
             Match match = CommentRE.Match(input);
             if (match.Success) {
                input = input[match.Length..].TrimStart();
-               collectedComments.Add(match.Groups[^1].Value);
+               if (! match.Groups[^1].Value.StartsWith(Note.Marker)) collectedComments.Add(match.Groups[^1].Value);
                continue;
             }
 

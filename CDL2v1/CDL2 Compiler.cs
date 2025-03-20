@@ -62,7 +62,7 @@ internal class CDL2 {
             new Option<string?>(
                 "--pretty-print",
                 getDefaultValue: () => "",
-                description: "Pretty print the parsed code. If a value is given, it is assumed to be a filename, Otherwise output goes to the Debugger."){Arity = ArgumentArity.ZeroOrOne},
+                description: "Pretty print the parsed code. If a value is given, it is assumed to be a file-name, Otherwise output goes to the Debugger."){Arity = ArgumentArity.ZeroOrOne},
       };
 
       rootCommand.Description = "CDL2 Compiler";

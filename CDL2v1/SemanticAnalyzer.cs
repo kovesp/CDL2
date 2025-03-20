@@ -134,15 +134,21 @@ namespace CDL2v1 {
       private void AnalyzeProcedure(Procedure proc,Section section) {
          bool hasEffect = AnalyzeEffect(proc.group,section);
          if (proc.HasEffect && !hasEffect) {
+            proc.AddNote(Note.Defect,proc.algorithmType);
             ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.algorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
          } else if (!proc.HasEffect && hasEffect) {
+            proc.AddNote(Note.Defect,proc.algorithmType);
             ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.algorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
          bool canFail = AnalyzeCanFail(proc.group,section);
          if (proc.CanFail && !canFail) {
+            proc.AddNote(Note.CannotFail,proc.algorithmType);
+            //proc.AddNote(new(NoteType.Warning,"Test warning",108));
+            //proc.AddNote(new(NoteType.Info,"Test info",208));
             ReportError(section,$"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType==RW.TEST?RW.FUNCTION:RW.ACTION)}?");
          } else if (!proc.CanFail && canFail) {
+            proc.AddNote(Note.CanFail,proc.algorithmType);
             ReportError(section,$"Procedure {proc.AlgorithmName} can fail. Should be {(proc.algorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
          }
       }

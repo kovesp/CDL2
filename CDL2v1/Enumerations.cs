@@ -92,6 +92,15 @@ namespace CDL2v1 {
    }
 
    /// <summary>
+   /// Used to categorize annotations.
+   /// </summary>
+   public enum NoteType {
+      Error,
+      Warning,
+      Info,
+   }
+
+   /// <summary>
    /// Formal parameter directions of procedures.
    /// </summary>
    public enum AffixDir { 
@@ -149,7 +158,10 @@ namespace CDL2v1 {
       String,                    // Strings
       Comment,                   // Comments
       Other,                     // Default for other elements.
-      Label,
+      Label,                     // Labels
+      NoteError,                 // For showing errors
+      NoteWarning,               // For showing warnings
+      NoteInfo,                  // For showing information
    }
    /// <summary>
    /// Algorithm Name types.

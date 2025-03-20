@@ -52,7 +52,12 @@ namespace CDL2v1 {
       public record Decoration (string FG = "White", string BG = "#1E1E1E", DS Style = DS.Normal);
       public static readonly Decoration DefaultDecoration = new();
 
-      private static readonly string AffixColor = "#9cdcfe"; 
+      private static readonly string AffixColor = "#9cdcfe";
+      /// <summary>
+      /// Decorators for all syntax elements.
+      /// Colors may be specified as hex values of the form #rrggbb or
+      /// as a color name, <see cref="System.Windows.Media.Colors"/> and https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.colors?view=windowsdesktop-9.0
+      /// </summary>
       public static Dictionary<SE,Decoration> Decorators = new() {
          { SE.Id                 ,DefaultDecoration },
          { SE.Unit               ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
@@ -69,6 +74,9 @@ namespace CDL2v1 {
          { SE.Number             ,new Decoration(FG:"#b5cea8") },
          { SE.String             ,new Decoration(FG:"#d69d85") },
          { SE.Comment            ,new Decoration(FG:"#57a64a") },
+         { SE.NoteError          ,new Decoration(FG:"Red") },
+         { SE.NoteWarning        ,new Decoration(FG:"Orange") },
+         { SE.NoteInfo           ,new Decoration(FG:"LightSkyBlue") },
          { SE.Other              ,DefaultDecoration },                             // Will be used to obtain the overall background
          { SE.AlgorithmName      ,DefaultDecoration},                              // Not used, but required entry
        };
@@ -302,7 +310,7 @@ namespace CDL2v1 {
                   Emit(TT.REPEAT);
                   Debug.Assert(alternative.lastCall.label is not null,"alternative.lastCall.label is null");
                   if (alternative.lastCall.label != ID.AnonID) {
-                     Emit(alternative.lastCall.label.Name);
+                     Emit(alternative.lastCall.label.Name.Decorate(emitter,SE.Label));
                   }
                   break;
                case LastCallType.Group:
@@ -315,7 +323,7 @@ namespace CDL2v1 {
 
       private void Print(Group group,Section section) => Indented(() => {
          NlEmit(TT.GRPOPEN);
-         if (! group.IsSynthetic) Emit(group.id.Name,TT.LABELSEP);
+         if (! group.IsSynthetic) Emit(group.id.Name.Decorate(emitter,SE.Label),TT.LABELSEP);
          Print(group.alternatives,section);
          Emit(TT.GRPCLOSE);
       });
@@ -560,6 +568,15 @@ namespace CDL2v1 {
       /// <param name="element"></param>
       private void PrintComment(NamedElement element) {
          if (element.Comments != null) Emitnl(element.Comments.Decorate(emitter,SE.Comment));
+         foreach (Note note in element.Notes) {
+            Emitnl(string.Concat("#",Note.Marker,(note.Type.ToString().ToUpper().PadRight(7)[..7] + " "+ note.Number.ToString("D3") + ": "),note.Text)
+               .Decorate(emitter,note.Type switch {
+                  NoteType.Error    => SE.NoteError,
+                  NoteType.Warning  => SE.NoteWarning,
+                  NoteType.Info     => SE.NoteInfo,
+                  _                 => SE.NoteInfo
+            }));
+         }
       }
 
       /// <summary>

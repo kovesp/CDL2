@@ -35,11 +35,11 @@ namespace CDL2v1 {
 
          if (!isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod],isSeparate: false);
 
-         cg.GenerateProgramLudesStart(program);
+         cg.GenerateRequiringUnitLudesStart(program);
          foreach (RW ludeType in ludeTypes)
             foreach (Module mod in program.Lude(ludeType).Where(mod => mod.Ludes[ludeType].Count > 0)) 
-               cg.GenerateProgramLude(program,ludeType,mod);
-         cg.GenerateProgramLudesEnd(program);
+               cg.GenerateRequiringUnitLude(ludeType,program,mod);
+         cg.GenerateRequiringUnitLudesEnd(program);
 
          cg.GenerateProgramEnd(program);
 
