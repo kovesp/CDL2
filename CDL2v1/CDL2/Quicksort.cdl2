@@ -24,6 +24,14 @@ MODULE quicksort.
          CONST ten=10.
          VAR var.
 
+          TEST choose +>a+>limit+c>+>inc =
+            c " = " a " + " inc
+            "$L" a " -gt " limit.
+
+          FUNCTION choose func +>a+>limit+c>+>inc+res> =
+            c " = " a " + " inc
+            "$L" res " = " a " -gt " limit.
+
          ### Procedure for testing the Semantic analyzer
          # It cannot fail.           
          TEST test+>a+>b>+c>:

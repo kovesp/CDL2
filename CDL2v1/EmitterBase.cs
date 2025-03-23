@@ -124,13 +124,13 @@ namespace CDL2v1 {
       /// ToString is used on the objects.
       /// </summary>
       /// <param id="code"></param>
-      public bool Emit(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: false,honorLineLength: true,extraSpace: false,code);
+      public void Emit(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: false,honorLineLength: true,extraSpace: false,code);
       /// <summary>
       /// Like <see cref="Emitnl(object[])"/> with a new line added.
       /// </summary>
       /// <param id="code"></param>
       /// <returns>True if a new line was written.</returns>
-      public bool Emitnl(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: true,honorLineLength: true,extraSpace: false,code);
+      public void Emitnl(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: true,honorLineLength: true,extraSpace: false,code);
 
       /// <summary>
       /// Like <see cref="Emit(int, object[])"/> with a new line added at the beginning.
@@ -138,14 +138,14 @@ namespace CDL2v1 {
       /// <param id="indentLevel"></param>
       /// <param id="code"></param>
       /// <returns>True if a new line was written.</returns>
-      public bool NlEmit(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: false,honorLineLength: true,extraSpace: false,code);
+      public void NlEmit(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: false,honorLineLength: true,extraSpace: false,code);
       /// <summary>
       /// Like <see cref="Emit(int, object[])"/> with a new line added at the beginning and end.
       /// </summary>
       /// <param id="indentLevel"></param>
       /// <param id="code"></param>
       /// <returns>True if a new line was written.</returns>
-      public bool NlEmitnl(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: true,honorLineLength: true,extraSpace: false,code);
+      public void NlEmitnl(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: true,honorLineLength: true,extraSpace: false,code);
 
       /// <summary>
       /// Emit a string to the target without a new line.
@@ -163,22 +163,21 @@ namespace CDL2v1 {
       /// <param id="honorLineLength"></param> 
       /// <param id="items"></param>
       /// <returns>True if a new line was written.</returns>
-      protected bool WriteWithIndent(bool nlbefore,bool nlafter,bool honorLineLength = true,bool extraSpace = false,params object[] items) {
+      protected void WriteWithIndent(bool nlbefore,bool nlafter,bool honorLineLength = true,bool extraSpace = false,params object[] items) {
          if (AggregateOutput) {
             AggregateBuffer += (extraSpace ? " " : "") + string.Join("",items.Select(i => i?.ToString() ?? ""));
-            return false;
          } else {
-            bool wasNewline = WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
+            WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
             // Split the items into lines.
             string[] lines = Regex.Split(string.Join("",items.Select(i => i?.ToString() ?? "")),@"\r\n|\r|\n",RegexOptions.Compiled);
             // Write the previous line if it would be too long with the first new item AND if line length is being honoured.
-            if (!IgnoreLineLength && honorLineLength && WillNotFitOnCurrentLine(lines[0])) wasNewline = wasNewline || WriteNewLine(true);
+            if (!IgnoreLineLength && honorLineLength && WillNotFitOnCurrentLine(lines[0])) WriteNewLine(true);
             AddToCurrentLine(lines[0],extraSpace);
             foreach (string line in lines.Skip(1)) {
-               wasNewline = WriteNewLine(true) || wasNewline; // Write the previous line
+               WriteNewLine(true); // Write the previous line
                AddToCurrentLine(line);
             }
-            return wasNewline || WriteNewLine(nlafter);
+            WriteNewLine(nlafter);
          }
       }
 
@@ -193,13 +192,12 @@ namespace CDL2v1 {
       }
 
       // Write the current line to the target. Add a newline if requested and return the request.
-      private bool WriteNewLine(bool nl) {
+      private void WriteNewLine(bool nl) {
          if (nl) {
             WriteDebug(CurrentLine);            
             WriteLine(CurrentLine);
             CurrentLine = "";
          }
-         return nl;
       }
 
       public virtual void BeginUpdate() { }

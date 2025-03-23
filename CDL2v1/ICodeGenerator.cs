@@ -279,7 +279,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="affix"></param>
       /// <param name="direction"></param>
-      void GenerateAffix(Affix affix, AD direction);
+      /// <param name="algorithmCanFail"></param>
+      void GenerateAffix(Affix affix, AD direction, bool algorithmCanFail);
       /// <summary>
       /// This is called to generate the separator between affixes in the algorithm header.
       /// </summary>
@@ -380,15 +381,16 @@ namespace CDL2v1 {
       /// This is called for each element of a macro that is a string.
       /// </summary>
       /// <param name="value"></param>
-      void GenerateMacroElementString(string value);
+      /// <param name="canFail"></param>
+      void GenerateMacroElementString(string value, bool canFail);
       /// <summary>
       /// This is called for each reference in a const, macro or proc that is a constant.
       /// </summary>
       /// <param name="constant"></param>
       void GenerateMacroElementConst(Const constant);
-      void GenerateMacroElementVar(Var var);
+      void GenerateMacroElementVar(Var var, bool macroCanFail);
       void GenerateMacroElementList(LIST list);
-      void GenerateMacroElementAffix(Affix affix);
+      void GenerateMacroElementAffix(Affix affix, bool macroCanFail);
       void GenerateMacroElementLocal(Local local);
       #endregion Macros
 

@@ -161,13 +161,13 @@ namespace CDL2v1 {
             switch (elem) {
                case INT i: cg.GenerateMacroElementInt(i.value); break;
                case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
-               case STRING s: cg.GenerateMacroElementString(s.value); break;
+               case STRING s: cg.GenerateMacroElementString(s.value, macro.CanFail); break;
                case ID id:
                   // This should be a reference to a Const, Var or List, so check which one
                   if (section.TryGetDeclaration(id,out ILocalCDL2DataObject? obj)) {
                      switch (obj) {
                         case Const c: cg.GenerateMacroElementConst(c); break;
-                        case Var v:   cg.GenerateMacroElementVar(v);   break;
+                        case Var v:   cg.GenerateMacroElementVar(v, macro.CanFail);   break;
                         case LIST l:  cg.GenerateMacroElementList(l);  break;
                         default:
                            throw new NotImplementedException($"GenerateMacro: Reference to wrong element type {obj}");
@@ -176,7 +176,7 @@ namespace CDL2v1 {
                      throw new NotImplementedException($"GenerateMacro: Unresolved reference to {id}");
                   }
                   break;
-               case Affix aff: cg.GenerateMacroElementAffix(aff); break;
+               case Affix aff: cg.GenerateMacroElementAffix(aff, macro.CanFail); break;
                case Local loc: cg.GenerateMacroElementLocal(loc); break;
                default:
                   throw new NotImplementedException($"GenerateMacro: Unknown element type {elem.GetType()}");
@@ -201,17 +201,19 @@ namespace CDL2v1 {
          cg.GenerateComment(alg.ToString());
          cg.GenerateAlgorithmHeaderStart(alg);
          if (alg.affixes.Count > 0) {
-            cg.GenerateAffix(alg.affixes[0],alg.affixes[0].affixDir);
+            cg.GenerateAffix(alg.affixes[0], alg.affixes[0].affixDir, alg.CanFail);
             foreach (Affix affix in alg.affixes.Skip(1)) {
                cg.GenerateAffixSeparator();
-               cg.GenerateAffix(affix,affix.affixDir);
+               cg.GenerateAffix(affix, affix.affixDir, alg.CanFail);
             }
          }
          cg.GenerateAlgorithmHeaderEnd(alg);
 
          cg.GenerateAffixAndVariableInitializationStart(alg);
-         foreach (Affix affix in alg.affixes) cg.GenerateAffixAndVariableInitializer(alg, affix);
-         foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg, var, isVar: true);
+         if (alg.CanFail) {
+            foreach (Affix affix in alg.affixes) cg.GenerateAffixAndVariableInitializer(alg, affix);
+            foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg, var, isVar: true);
+         }
          foreach (Local local in alg.locals) cg.GenerateLocal(local);
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }

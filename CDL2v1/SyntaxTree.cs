@@ -426,7 +426,7 @@ namespace CDL2v1 {
       public bool AlwaysSucceeds => !CanFail;
       public bool HasEffect => algorithmType == RW.PREDICATE || algorithmType == RW.ACTION;
       public bool HasNoEffect => !HasEffect;
-      public Boolean NeedsFinalization => affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any();
+      public Boolean NeedsFinalization => CanFail && (affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
 
       public bool TryGetAffix(ID id,out Affix affix) => (affix = this.affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;

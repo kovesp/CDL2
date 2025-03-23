@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection.Emit;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
@@ -126,7 +127,7 @@ class BoundedArray {
 
       #region Data Declarations
       void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c), " = ");
-      void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value);
+      void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value, false);
       void ICodeGenerator.GenerateConstElementFloat(double value) => ((ICodeGenerator)this).GenerateMacroElementFloat(value);
       void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
       void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(PSVar(constant));
@@ -143,16 +144,16 @@ class BoundedArray {
       }
       void ICodeGenerator.GenerateAffixSeparator() => emitter.Emit(",");
       void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT, PSVar(local), " = 0");
-      void ICodeGenerator.GenerateAffix(Affix affix, AD dir) {
+      void ICodeGenerator.GenerateAffix(Affix affix, AD dir, bool algorithmCanFail) {
          switch (dir) {
             case AD.input:
-               emitter.Emit(DT, PSVar(affix, "_"));
+               emitter.Emit(DT, PSVar(affix));
                break;
             case AD.NONE:
                // String (given as AD.NONE)
-               emitter.Emit("[string]", PSVar(affix, "_"));
+               emitter.Emit("[string]", PSVar(affix));
                break;
-            default:
+            default: // input or transput
                emitter.Emit("[ref]", PSVar(affix));
                break;
          }
@@ -217,32 +218,47 @@ class BoundedArray {
       #region Macros
       void ICodeGenerator.GenerateMacroStart(Macro macro) { }
       void ICodeGenerator.GenerateMacroEnd(Macro macro) {
+         if (macro.CanFail) emitter.Emitnl("$__b");
          emitter.IndentLevel--;
          emitter.NlEmitnl("}");
       }
 
       void ICodeGenerator.GenerateMacroElementInt(long value) => emitter.Emit(value);
       void ICodeGenerator.GenerateMacroElementFloat(double value) => emitter.Emit(value);
-      void ICodeGenerator.GenerateMacroElementString(string value) {
+      void ICodeGenerator.GenerateMacroElementString(string value, bool canFail) {
          string[] lines = value.Split('\n');
          foreach (string line in lines.SkipLast(1)) emitter.Emitnl(line);
          emitter.Emit(lines.Last());
       }
-      void ICodeGenerator.GenerateMacroElementVar(Var var) => emitter.Emit(PSVar(var, "_"));
+      void ICodeGenerator.GenerateMacroElementVar(Var var, bool macroCanFail) => emitter.Emit(PSVar(var, macroCanFail ? "_" : ""));
       void ICodeGenerator.GenerateMacroElementList(LIST list) => emitter.Emit(PSVar(list));
       void ICodeGenerator.GenerateMacroElementConst(Const constant) => emitter.Emit(PSVar(constant));
-      void ICodeGenerator.GenerateMacroElementAffix(Affix affix) => emitter.Emit(PSVar(affix, "_"));
+      void ICodeGenerator.GenerateMacroElementAffix(Affix affix, bool macroCanFail) {
+         if (affix.IsOutput) {
+            emitter.Emit(PSVar(affix, macroCanFail ? "_" : "", macroCanFail ? "" : ".Value"));
+         }
+         else {
+            emitter.Emit(PSVar(affix));
+         }
+      }
       void ICodeGenerator.GenerateMacroElementLocal(Local local) => emitter.Emit(PSVar(local));
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
-         if (macro.CanFail) emitter.Emitnl("$__b = (");
          emitter.IndentLevel++;
+         if (macro.CanFail && HasMultipleStatments(macro)) {
+            emitter.Emitnl("$__b = {");
+            emitter.IndentLevel++;
+         }
       }
       void ICodeGenerator.GenerateMacroBodyEnd(Macro macro) {
-         emitter.Emitnl();
+         if (macro.CanFail && HasMultipleStatments(macro)) {
+            emitter.IndentLevel--;
+            emitter.NlEmitnl("}.Invoke()");
+         }
          emitter.IndentLevel--;
-         if (macro.CanFail) emitter.Emitnl(")");
       }
+      private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => Regex.IsMatch(str.value, @"(?<!['""])(?:\n|;)(?![^'""]*['""])",RegexOptions.Compiled));
+
       #endregion Macros
 
       #region Procedures
