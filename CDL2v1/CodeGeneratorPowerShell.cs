@@ -22,7 +22,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="dataType">This can be used to change the word size, e.g., to Int32.</param>
       /// <remarks>No explicit references to this class. The instance is constructed via reflection.</remarks>
-      CodeGeneratorPowerShell(string dataType) {
+      public CodeGeneratorPowerShell(string dataType) {
          DataType = dataType;
          DT       = $"[{DataType}]";
       }
@@ -169,8 +169,8 @@ class BoundedArray {
       }
       void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT,PSVar(var)," = 0");
       void ICodeGenerator.GenerateList(LIST var,Const lwb,Const upb) => emitter.Emitnl(PSVar(var),$" = [BoundArray]::new({PSVar(lwb)},{PSVar(upb)})");
-      void ICodeGenerator.GenerateInitializer(IFailureProtected var,AD affixDir,bool isVar) {
-         switch (affixDir) {
+      void ICodeGenerator.GenerateAffixAndVariableInitializer(Algorithm alg, IFailureProtected var, bool isVar) {
+         switch (var is Affix affix ? affix.affixDir : AD.transput) {
             case AD.NONE:               
             case AD.input:
                break;
@@ -190,9 +190,12 @@ class BoundedArray {
                break;
          }
       }
+      void ICodeGenerator.GenerateAffixAndVariableInitializationStart(Algorithm alg) { }
 
-      void ICodeGenerator.GenerateFinalizer(IFailureProtected var,AD affixDir,bool isVar) {
-         switch (affixDir) {
+      void ICodeGenerator.GenerateAffixAndVariableInitializationEnd(Algorithm alg) { }
+
+      void ICodeGenerator.GenerateAffixAndVariableFinalizer(Algorithm alg, IFailureProtected var, bool isVar) {
+         switch (var is Affix affix ? affix.affixDir : AD.transput) {
             case AD.NONE:
             case AD.input:
                break;
@@ -229,13 +232,13 @@ class BoundedArray {
          if (!proc.IsVerySimple || proc.NeedsFinalization) emitter.Emitnl("} while ($true)");
       }
 
-      void ICodeGenerator.GenerateFinalizationStart(Algorithm algorithm,bool IsNeeded) {
+      void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm,bool IsNeeded) {
          if (IsNeeded && algorithm.CanFail) {
             emitter.Emitnl("if ($__b) {");
             emitter.IndentLevel++;
          }
       }
-      void ICodeGenerator.GenerateFinalizationEnd(Algorithm algorithm,bool IsNeeded) {
+      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm,bool IsNeeded) {
          if (IsNeeded && algorithm.CanFail) {
             emitter.IndentLevel--;
             emitter.Emitnl("}");

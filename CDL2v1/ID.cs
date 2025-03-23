@@ -9,7 +9,7 @@ namespace CDL2v1 {
    /// It contains the token it was created from.
    /// </summary>
    [Serializable]
-   [JsonConverter(typeof(IDJsonConverter))]
+   //[JsonConverter(typeof(IDJsonConverter))]
    public class ID : IConstElement, IMacroElement, IActualArg {
       [JsonInclude]
       public string InternalName = string.Empty;
@@ -78,6 +78,7 @@ namespace CDL2v1 {
       public static bool operator !=(ID left,ID right) => !(left == right);
    }
 
+#if JSONSerialize
    public class IDJsonConverter : JsonConverter<ID> {
       public override ID Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
          if (reader.TokenType != JsonTokenType.StartObject)
@@ -116,5 +117,6 @@ namespace CDL2v1 {
          writer.WriteEndObject();
       }
    }
+#endif // JSONSerialize
 
 }

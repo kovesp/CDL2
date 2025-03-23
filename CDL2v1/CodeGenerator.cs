@@ -17,7 +17,6 @@ namespace CDL2v1 {
    [Serializable]
    internal class CodeGenerator(ICodeGenerator cg) {
       private readonly ICodeGenerator cg = cg;
-      //private EmitterBase emitter = new EmitterSink();
 
       private static readonly List<RW> ludeTypes = [ RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
 
@@ -190,12 +189,12 @@ namespace CDL2v1 {
 
       private void FinalizeAffixesAndVariables(Algorithm algorithm,IEnumerable<Var> variables) {
          bool needed = algorithm.NeedsFinalization;
-         cg.GenerateFinalizationStart(algorithm,needed);
+         cg.GenerateAffixAndVariableFinalizationStart(algorithm,needed);
          if (needed) {
-            foreach (Affix affix in algorithm.affixes) cg.GenerateFinalizer(affix,affix.affixDir);
-            foreach (Var var in variables) cg.GenerateFinalizer(var,AD.transput,isVar: true);
+            foreach (Affix affix in algorithm.affixes) cg.GenerateAffixAndVariableFinalizer(algorithm, affix);
+            foreach (Var var in variables) cg.GenerateAffixAndVariableFinalizer(algorithm, var, isVar: true);
          }
-         cg.GenerateFinalizationEnd(algorithm,needed);
+         cg.GenerateAffixAndVariableFinalizationEnd(algorithm,needed);
       }
 
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
@@ -209,9 +208,12 @@ namespace CDL2v1 {
             }
          }
          cg.GenerateAlgorithmHeaderEnd(alg);
-         foreach (Affix affix in alg.affixes) cg.GenerateInitializer(affix,affix.affixDir);
-         foreach (Var var in variables) cg.GenerateInitializer(var,AD.transput,isVar: true);
+
+         cg.GenerateAffixAndVariableInitializationStart(alg);
+         foreach (Affix affix in alg.affixes) cg.GenerateAffixAndVariableInitializer(alg, affix);
+         foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg, var, isVar: true);
          foreach (Local local in alg.locals) cg.GenerateLocal(local);
+         cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
 
       private void GenerateProcedureCode(Procedure proc) {
@@ -262,7 +264,7 @@ namespace CDL2v1 {
             case LCT.Abort: cg.GenerateAbort(proc,group); break;
             case LCT.Repeat: cg.GenerateRepeat(proc,group,group.alternatives[i].lastCall.label!); break;
             case LCT.Group: GenerateGroup(proc,group.alternatives[i].lastCall.group!); break;
-            case LCT.None: break; // Used in the alternative generated for section Ludes.
+            case LCT.None: break; // Used in the alternative generated for Section Ludes.
             default:
                throw new NotImplementedException($"GenerateAlternative: Unknown last call type {group.alternatives[i].lastCall.type}");
          }

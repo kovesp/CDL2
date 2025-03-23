@@ -207,53 +207,30 @@ namespace CDL2v1 {
          PrintList(RW.EXT,section.ext);
          PrintList(RW.INV,section.inv);
 
-         int EmitCount(IEnumerable<ICDL2Object> list,string type) {
+         int EmitCount<T>(IEnumerable<T> list,string type) {
             int count = list.Count();
             if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(emitter,SE.Comment)); }
             return count;
          }
-
-         if (EmitCount(section.Constants,"CONST") > 0) {
-            Emit(RW.CONST.Decorate(emitter,SE.ReservedWord)," ");
-            Print(section.Constants.First());
-            foreach (Const constant in section.Constants.Skip(1)) {
-               EmitSeparator(TT.LISTSEP);
-               Print(constant);
+         void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : ICDL2DataObject {
+            if (EmitCount(items, type.ToString()) > 0) {
+               foreach (T item in items) {
+                  if (item.HasCommentOrNote) PrintComment(item);
+                  Emit(type.Decorate(emitter, SE.ReservedWord), " ");
+                  print(item);
+                  EmitSeparatorWithNL(TT.END);
+               }
             }
-            EmitSeparatorWithNL(TT.END);
+         }
+         void PrintAlgorithms<T>(string type,IEnumerable<T> list,Action<T> print) where T : Algorithm {
+            if (EmitCount(list, type) > 0) foreach (T algorithm in list) print(algorithm);
          }
 
-         if (EmitCount(section.Variables,"VAR  ") > 0) {
-            Emit(RW.VAR.Decorate(emitter,SE.ReservedWord)," ");
-            Print(section.Variables.First());
-            foreach (Var var in section.Variables.Skip(1)) {
-               EmitSeparator(TT.LISTSEP);
-               Print(var);
-            }
-            EmitSeparatorWithNL(TT.END);
-         }
-
-         if (EmitCount(section.Lists,"LIST ") > 0) {
-            Emit(RW.LIST.Decorate(emitter,SE.ReservedWord)," ");
-            LIST first = section.Lists.First();
-            if (first.Comments != null) {
-               emitter.Indented(() => {
-                  NlEmitnl(first.Comments.Decorate(emitter,SE.Comment));
-                  Print(first,section);
-               });
-            } else { 
-               Print(first,section);
-            }
-            foreach (LIST list in section.Lists.Skip(1)) {
-               EmitSeparator(TT.LISTSEP);
-               Print(list,section);
-            }
-            EmitSeparatorWithNL(TT.END);
-         }
-
-         if (EmitCount(section.Macros,"MACRO") > 0) foreach (Macro macro in section.Macros) Print(macro);
-
-         if (EmitCount(section.NonSyntheticProcedures,"PROC ") > 0) foreach (Procedure proc in section.NonSyntheticProcedures) Print(proc,section);
+         PrintDataDefinitions(RW.CONST, section.Constants, Print);
+         PrintDataDefinitions(RW.VAR, section.Variables, Print);
+         PrintDataDefinitions(RW.LIST, section.Lists, l=>Print(l,section));
+         PrintAlgorithms("Macro", section.Macros, Print);
+         PrintAlgorithms("Procedure", section.NonSyntheticProcedures, a=>Print(a,section));
 
       },updateUI: true);     
 
@@ -503,8 +480,9 @@ namespace CDL2v1 {
       }
 
       public void Print(Const constant) {
-         PrintIDComment(constant,SE.Const);
-         Emit(TT.EQUALS);
+         //PrintIDComment(item,SE.Const);
+         Emit(constant.id.Decorate(emitter, SE.Const));
+         Emit(" ",TT.EQUALS," ");
          foreach (IConstElement element in constant.elements) {
             switch (element) {
                case STRING s:
@@ -528,7 +506,7 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(Var var) => PrintIDComment(var,SE.Var);
+      public void Print(Var var) => Emit(var.id.Decorate(emitter, SE.Var));
 
       // TODO Fix printing of comments and notes
       private void PrintIDComment(DeclaredCDL2Object obj,SE type) {
@@ -546,7 +524,7 @@ namespace CDL2v1 {
       }
 
       public void Print(LIST list,Section section) {
-         PrintIDComment(list,SE.List);
+         Emit(list.id.Decorate(emitter, SE.List));
          Emit(TT.LISTBOUNDSTART,DecoratedID(list.lwb,section),TT.LISTBOUNDSEP,DecoratedID(list.upb,section),TT.LISTBOUNDEND);
       }
 
@@ -571,7 +549,7 @@ namespace CDL2v1 {
       /// Print the comments for the element.
       /// </summary>
       /// <param name="element"></param>
-      private void PrintComment(NamedElement element) => PrintComment(element.Comments,element.Notes);
+      private void PrintComment(INamedElement element) => PrintComment(element.Comments,element.Notes);
       private void PrintComment(Alternative element) => PrintComment(null,element.Notes);
 
       private void PrintComment(string? comments,Notes notes) {

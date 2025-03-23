@@ -10,6 +10,14 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
    public abstract class EmitterBase {
+      protected EmitterBase() {
+         if (GetType() != typeof(EmitterDebug)) WriteDebug = (s) => {
+           
+            EmitterDebug.WriteDebug(s);
+         };
+      }
+      private readonly Action<string> WriteDebug = (s) => { };
+
       public virtual string Target { get; set; } = "";
       /// <summary>
       /// The number of spaces to use for each level of indentation.
@@ -77,6 +85,7 @@ namespace CDL2v1 {
       public bool SupportsDecoration { get; set; } = false;
       public Regex spanRegex = new(@"<span\s+(fg='(?<fg>[^']*)')?\s+(bg='(?<bg>[^']*)')?\s+(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",
                                  RegexOptions.IgnoreCase | RegexOptions.Compiled);
+      protected string RemoveSpans(string text) => spanRegex.Replace(text, "${text}");
 
       public void Indented(Action action) {
          IndentLevel++;
@@ -186,6 +195,7 @@ namespace CDL2v1 {
       // Write the current line to the target. Add a newline if requested and return the request.
       private bool WriteNewLine(bool nl) {
          if (nl) {
+            WriteDebug(CurrentLine);            
             WriteLine(CurrentLine);
             CurrentLine = "";
          }

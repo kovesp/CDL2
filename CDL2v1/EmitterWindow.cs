@@ -138,9 +138,10 @@ namespace CDL2v1 {
          //window.Dispatcher.Invoke(() => window.Close());
       }
 
+   
       /// <summary>
       /// Write the item to the window.
-      /// The text may contain sequences of <spam fg="colorName" style="Normal|Bold|Italic|BoldItalic">text</spam>.
+      /// The text may contain sequences of <spam fg="colorName" style="Normal|Bold|Italic|BoldItalic">text</span>.
       /// </summary>
       /// <param id="item"></param>
       protected override void WriteLine(string item) {

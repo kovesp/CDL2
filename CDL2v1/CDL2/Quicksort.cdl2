@@ -17,15 +17,18 @@ MODULE quicksort.
          FUNCTION halve +>a> = a " /= 2".
          FUNCTION make +a>+>b = a " = " b.
 
+         ACTION action test: +.
+
+         ### A constant note.
+         NOTE.
          CONST ten=10.
          VAR var.
 
          ### Procedure for testing the Semantic analyzer
-         # It cannot fail.  
-         
+         # It cannot fail.           
          TEST test+>a+>b>+c>:
             less+a+b, make+c+a;
-            eq+a+b, add+a+ten+c;
+            eq+a+b, add+a+ten+c,actiontest;
             add+b+ten+var, incr+b, make+c+b.
 
 
@@ -37,6 +40,7 @@ MODULE quicksort.
          TEST ge+>a+>b : eq+a+b ; gt+a+b.
          TEST le+>a+>b : eq+a+b ; lt+a+b. 
 
+         # The range of random numbers generated.
          CONST min random=0, max random=200.
          FUNCTION random+>min+>max+r> =: r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.

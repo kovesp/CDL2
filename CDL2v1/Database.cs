@@ -43,7 +43,7 @@ namespace CDL2v1
 #endif // GroupCounter
       internal Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)),out Program? program) ? program : null;
       private Database() { }
-
+#if SaveAsXML
       public static void SaveXML(string filePath) {
          using FileStream fs = new(Path.ChangeExtension(filePath,"XML"),FileMode.Create);
          new XmlSerializer(typeof(Database)).Serialize(fs,Instance);
@@ -53,8 +53,9 @@ namespace CDL2v1
          using FileStream fs = new(Path.ChangeExtension(filePath,"XML"),FileMode.Open);
          Instance = (Database)new XmlSerializer(typeof(Database)).Deserialize(fs)!;
       }
-         
-         public Dictionary<ID,string> test = new() {
+#endif // SaveAsXML
+#if SaveAsJSON
+      public Dictionary<ID,string> test = new() {
             { ID.ErrorID,"ErrorID" },
             { ID.AnonID,"AnonID" },
          };
@@ -68,13 +69,17 @@ namespace CDL2v1
       }
 
       public static void LoadJSON(string filePath) => Instance = JsonSerializer.Deserialize<Database>(File.ReadAllText(Path.ChangeExtension(filePath,"JSON")))!;
+#endif // SaveAsJSON
 
 #if SaveAsXML
       public static void Save(string filePath) => SaveXML(filePath);
       public static void Load(string filePath) => LoadXML(filePath);
-#else
+#elif SaveAsJSON
       public static void Save(string filePath) => SaveJSON(filePath);
       public static void Load(string filePath) => LoadJSON(filePath);
+#else
+      public static void Save(string filePath) { }
+      public static void Load(string filePath) { }
 #endif
    }
 }

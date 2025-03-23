@@ -606,7 +606,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse a section lude. This is an alternative (i.e., a sequence of calls, without the other serializationOptions for the last call) terminated by a period.
+      /// Parse a Section lude. This is an alternative (i.e., a sequence of calls, without the other serializationOptions for the last call) terminated by a period.
       /// It will be stored as a Procedure. The ID will be SectionName_LudeType. 
       /// </summary>
       /// <param id="parser"></param>

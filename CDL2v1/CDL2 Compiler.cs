@@ -28,7 +28,7 @@ internal class CDL2 {
    }
 
    private static void Main(string[] args) {
-      Console.WriteLine($"CDL2 Compiler v{Version}");
+      Log(0,$"CDL2 Compiler v{Version}");
 
       // Define the root command with serializationOptions
       var rootCommand = new RootCommand {
@@ -92,13 +92,17 @@ internal class CDL2 {
       rootCommand.Invoke(args);
    }
 
+   private string BoolOption(bool option, string name) => option ? name+" ": "";
+   private string IntOption(int option, string name) => option > 0 ? $"{name} {option} " : "";
+   private string StringOption(string? option, string name) => option == null || option.IsWhiteSpace() ? "" : $"{name} {option} ";
+
    public Parser? Parser;
    public SemanticAnalyzer? semanticAnalyzer;
    public CodeGenerator? codeGenerator;
 
    public void CompileSources(string[] args) {
-      Debug.WriteLine( $"Options: --sources {args} --verbose {VerbosityLevel} --debug-log {DebugVerbosityLevel} "+
-                                 "--target {Target} --program {ProgramName} --line-numbers {SaveDB} --parse-only {ParseOnly} --pretty-print {PrettyPrint}");
+      Log(0,$"Options: --sources {string.Join(',',args)} {IntOption(VerbosityLevel,"--verbose")}{IntOption(DebugVerbosityLevel,"--debug-log")}"+
+                                 $"{StringOption(Target,"--target")}{StringOption(ProgramName,"--program")}{BoolOption(SaveDB,"--save")}{BoolOption(ParseOnly,"--parse-only")}{StringOption(PrettyPrint,"--pretty-print")}");
       if (args.Length > 0) {
          Parser = new Parser();
          foreach (string arg in args) {
@@ -164,7 +168,7 @@ internal class CDL2 {
                codeGenerator = new CodeGenerator(cg);
                codeGenerator.GenerateCode(MainProgram,emitter);
             } else {
-               Console.WriteLine("No program found in the source files");
+               ReportError("No target code generator");
             }
          }
       }
@@ -177,8 +181,8 @@ internal class CDL2 {
          if (type != null && typeof(ICodeGenerator).IsAssignableFrom(type)) {
             return Activator.CreateInstance(type,dataType) as ICodeGenerator;
          }
-      } catch (Exception ex) {
-         Console.WriteLine($"Error creating code generator for target {target} with Data type {dataType}: {ex.Message}");
+      } catch (Exception ex) {     
+         ReportError($"Error creating code generator for target {target} with Data type {dataType}: {ex.Message}");
       }
       return null;
    }
