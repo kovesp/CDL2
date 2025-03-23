@@ -167,7 +167,7 @@ namespace CDL2v1 {
 
       #region Prelude, Root, Postlude
       /// <summary>
-      /// This is called at the start generation of program ludes
+      /// This is called at the start generation of program and module ludes
       /// </summary>
       /// <param name="unit"></param>
       void GenerateRequiringUnitLudesStart(IRequiringUnit unit);
@@ -179,7 +179,7 @@ namespace CDL2v1 {
       /// <param name="provider"></param>
       void GenerateRequiringUnitLude(RW ludeType, IRequiringUnit requiring, IProviderUnit provider);
       /// <summary>
-      /// This is called at the end of the program ludes.
+      /// This is called at the end of the program and module ludes.
       /// </summary>
       /// <param name="requiring"></param>
       void GenerateRequiringUnitLudesEnd(IRequiringUnit requiring);
@@ -493,7 +493,7 @@ namespace CDL2v1 {
       #endregion Procedures
 
       #region Support
-      void Newline();
+      void GenerateNewline();
       void GenerateComment(string comment);
       /// <summary>
       /// Provides the file extentsion for the target language.

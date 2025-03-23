@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 namespace CDL2v1 {
    [Serializable]
    internal class CodeGeneratorPowerShell : ICodeGenerator {
+      #region Instance and Static Varibles, Constructors
       EmitterBase emitter = new EmitterSink();
       private readonly string DataType;
       private readonly string DT;
@@ -27,7 +28,6 @@ namespace CDL2v1 {
          DT       = $"[{DataType}]";
       }
 
-      string ICodeGenerator.FileExtension { get; } = ".ps1";
       private static readonly string ProgramHeaderPattern = @"
 <#
 .SYNOPSIS
@@ -71,13 +71,15 @@ class BoundedArray {
       private static readonly string ProgramHeader;
 
       static CodeGeneratorPowerShell() => ProgramHeader = ProgramHeaderPattern.Replace("{","{{").Replace("}","}}").Replace("<%","{").Replace("%>","}");
+      #endregion Instance and Static Varibles, Constructors
 
-
+      #region Programs, Modules, Layers, Sections
       void ICodeGenerator.GenerateProgramStart(Program program,EmitterBase emitter,bool isSeparate) {
          this.emitter = emitter;
          emitter.Emitnl(string.Format(ProgramHeader,CDL2.Version,program.id.Name,DateTime.Now,DataType));
          if (program != null) EmitUnitStartComment(program);
       }
+      void ICodeGenerator.GenerateProgramPart(Program program,ID mod,bool isSeparate) { }
 
       void ICodeGenerator.GenerateProgramEnd(Program program,bool isSeparate) {
          if (program != null) EmitUnitEndComment(program);
@@ -96,96 +98,85 @@ class BoundedArray {
       void ICodeGenerator.GenerateSectionStart(Section section) => EmitUnitStartComment(section);
       void ICodeGenerator.GenerateSectionEnd(Section section) => EmitUnitEndComment(section);
 
+      #endregion Programs, Modules, Layers, Sections
+
+      #region Predlude, Postlude, Root
       void ICodeGenerator.GenerateRequiringUnitLudesStart(IRequiringUnit unit) { }
       void ICodeGenerator.GenerateRequiringUnitLude(RW ludeType,IRequiringUnit requiring,IProviderUnit provider) => throw new NotImplementedException();
       void ICodeGenerator.GenerateRequiringUnitLudesEnd(IRequiringUnit requiring) { }
-      void ICodeGenerator.GenerateProgramPart(Program program,ID mod,bool isSeparate) { }
+
+      void ICodeGenerator.GenerateSectionLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateSectionLudeEnd(RW ludeType,Section section) => throw new NotImplementedException();
+      #endregion Predlude, Postlude, Root
+
+      #region Impport/Export
       void ICodeGenerator.GenerateImpExStart(Module module) { }
       void ICodeGenerator.GenerateImpExEnd(Module module) { }
-
-      enum PSVarType { Var, List, Const, Affix, Local }
-
-
-
       void ICodeGenerator.GenerateExport(IProvidedElement export) { }
       void ICodeGenerator.GenerateImport(IProvidedElement import) { }
+      #endregion Import/Export
 
+      #region Object Sections
+      void ICodeGenerator.GenerateObjectSectionStart(Func<int> count, string v) {
+         int n = count();
+         if (n > 0) emitter.NlEmitnl($"\n##### {n} {v}{(n != 1 ? "s" : "")} #####\n");
+      }
+      void ICodeGenerator.GenerateObjectSectionEnd(Func<int> count,string name) { }
+      #endregion Object Sections
+
+      #region Data Declarations
+      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c), " = ");
+      void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value);
+      void ICodeGenerator.GenerateConstElementFloat(double value) => ((ICodeGenerator)this).GenerateMacroElementFloat(value);
+      void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
+      void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(PSVar(constant));
+      void ICodeGenerator.GenerateConstantEnd(Const c) => emitter.Emitnl();
+      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT, PSVar(var), " = 0");
+      void ICodeGenerator.GenerateList(LIST var, Const lwb, Const upb) => emitter.Emitnl(PSVar(var), $" = [BoundArray]::new({PSVar(lwb)},{PSVar(upb)})");
+      #endregion Data Declarations
+
+      #region Algorithm Common
       void ICodeGenerator.GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc)} (");
       void ICodeGenerator.GenerateAlgorithmHeaderEnd(Algorithm proc) {
          emitter.Emitnl(") {");
          emitter.IndentLevel++;
       }
-
-      void ICodeGenerator.GenerateProcedureStart(Procedure code) { }
-      void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
-         if (proc.CanFail) emitter.Emitnl("return $__b");
-         emitter.IndentLevel--;
-         emitter.NlEmitnl("}");
-      }
-
-      void ICodeGenerator.GenerateCallEnd(Call call) => throw new NotImplementedException();
-
-
-      void ICodeGenerator.GenerateCallStart(Call call) => throw new NotImplementedException();
-
-
-
-      void ICodeGenerator.GenerateSectionLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateSectionLudeEnd(RW ludeType,Section section) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateMacroStart(Macro macro) { }
-      void ICodeGenerator.GenerateMacroEnd(Macro macro) {
-         emitter.IndentLevel--;
-         emitter.NlEmitnl("}");
-      }
-
       void ICodeGenerator.GenerateAffixSeparator() => emitter.Emit(",");
-
-      void ICodeGenerator.GenerateMacroElementInt(long value) => emitter.Emit(value);
-      void ICodeGenerator.GenerateMacroElementFloat(double value) => emitter.Emit(value);
-      void ICodeGenerator.GenerateMacroElementString(string value) {
-         string[] lines = value.Split('\n');
-         foreach (string line in lines.SkipLast(1)) emitter.Emitnl(line);
-         emitter.Emit(lines.Last());
-      }
-      void ICodeGenerator.GenerateMacroElementVar(Var var) => emitter.Emit(PSVar(var,"_"));
-      void ICodeGenerator.GenerateMacroElementList(LIST list) => emitter.Emit(PSVar(list));
-      void ICodeGenerator.GenerateMacroElementConst(Const constant) => emitter.Emit(PSVar(constant));
-      void ICodeGenerator.GenerateMacroElementAffix(Affix affix) => emitter.Emit(PSVar(affix,"_"));
-      void ICodeGenerator.GenerateMacroElementLocal(Local local) => emitter.Emit(PSVar(local));
-      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT,PSVar(local)," = 0");
-      void ICodeGenerator.GenerateAffix(Affix affix,AD dir) {
+      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT, PSVar(local), " = 0");
+      void ICodeGenerator.GenerateAffix(Affix affix, AD dir) {
          switch (dir) {
             case AD.input:
-               emitter.Emit(DT,PSVar(affix,"_"));
+               emitter.Emit(DT, PSVar(affix, "_"));
                break;
             case AD.NONE:
                // String (given as AD.NONE)
-               emitter.Emit("[string]",PSVar(affix,"_"));
+               emitter.Emit("[string]", PSVar(affix, "_"));
                break;
             default:
-               emitter.Emit("[ref]",PSVar(affix));
+               emitter.Emit("[ref]", PSVar(affix));
                break;
          }
       }
-      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT,PSVar(var)," = 0");
-      void ICodeGenerator.GenerateList(LIST var,Const lwb,Const upb) => emitter.Emitnl(PSVar(var),$" = [BoundArray]::new({PSVar(lwb)},{PSVar(upb)})");
+
       void ICodeGenerator.GenerateAffixAndVariableInitializer(Algorithm alg, IFailureProtected var, bool isVar) {
          switch (var is Affix affix ? affix.affixDir : AD.transput) {
-            case AD.NONE:               
+            case AD.NONE:
             case AD.input:
                break;
             case AD.output:
                if (isVar) {
-                  emitter.Emitnl(DT,PSVar((Var)var,"_")," = 0");
-               } else {
-                  emitter.Emitnl(DT,PSVar((Affix)var,"_")," = 0");
+                  emitter.Emitnl(DT, PSVar((Var)var, "_"), " = 0");
+               }
+               else {
+                  emitter.Emitnl(DT, PSVar((Affix)var, "_"), " = 0");
                }
                break;
             case AD.transput:
-               if (isVar) { 
-                  emitter.Emitnl(DT,PSVar((Var)var,"_")," = ",PSVar((Var)var)); 
-               } else {
-                  emitter.Emitnl(DT,PSVar((Affix)var,"_")," = ",PSVar((Affix)var,suffix:".Value"));
+               if (isVar) {
+                  emitter.Emitnl(DT, PSVar((Var)var, "_"), " = ", PSVar((Var)var));
+               }
+               else {
+                  emitter.Emitnl(DT, PSVar((Affix)var, "_"), " = ", PSVar((Affix)var, suffix: ".Value"));
                }
                break;
          }
@@ -193,6 +184,18 @@ class BoundedArray {
       void ICodeGenerator.GenerateAffixAndVariableInitializationStart(Algorithm alg) { }
 
       void ICodeGenerator.GenerateAffixAndVariableInitializationEnd(Algorithm alg) { }
+      void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm, bool IsNeeded) {
+         if (IsNeeded && algorithm.CanFail) {
+            emitter.Emitnl("if ($__b) {");
+            emitter.IndentLevel++;
+         }
+      }
+      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm, bool IsNeeded) {
+         if (IsNeeded && algorithm.CanFail) {
+            emitter.IndentLevel--;
+            emitter.Emitnl("}");
+         }
+      }
 
       void ICodeGenerator.GenerateAffixAndVariableFinalizer(Algorithm alg, IFailureProtected var, bool isVar) {
          switch (var is Affix affix ? affix.affixDir : AD.transput) {
@@ -201,14 +204,35 @@ class BoundedArray {
                break;
             default:
                if (isVar) {
-                  emitter.Emitnl(PSVar((Var)var)," = ",PSVar((Var)var,"_"));
-               } else {
-                  emitter.Emitnl(PSVar((Affix)var,suffix:".Value")," = ",PSVar((Affix)var,"_"));
+                  emitter.Emitnl(PSVar((Var)var), " = ", PSVar((Var)var, "_"));
+               }
+               else {
+                  emitter.Emitnl(PSVar((Affix)var, suffix: ".Value"), " = ", PSVar((Affix)var, "_"));
                }
                break;
          }
       }
+      #endregion Algorithm Common
 
+      #region Macros
+      void ICodeGenerator.GenerateMacroStart(Macro macro) { }
+      void ICodeGenerator.GenerateMacroEnd(Macro macro) {
+         emitter.IndentLevel--;
+         emitter.NlEmitnl("}");
+      }
+
+      void ICodeGenerator.GenerateMacroElementInt(long value) => emitter.Emit(value);
+      void ICodeGenerator.GenerateMacroElementFloat(double value) => emitter.Emit(value);
+      void ICodeGenerator.GenerateMacroElementString(string value) {
+         string[] lines = value.Split('\n');
+         foreach (string line in lines.SkipLast(1)) emitter.Emitnl(line);
+         emitter.Emit(lines.Last());
+      }
+      void ICodeGenerator.GenerateMacroElementVar(Var var) => emitter.Emit(PSVar(var, "_"));
+      void ICodeGenerator.GenerateMacroElementList(LIST list) => emitter.Emit(PSVar(list));
+      void ICodeGenerator.GenerateMacroElementConst(Const constant) => emitter.Emit(PSVar(constant));
+      void ICodeGenerator.GenerateMacroElementAffix(Affix affix) => emitter.Emit(PSVar(affix, "_"));
+      void ICodeGenerator.GenerateMacroElementLocal(Local local) => emitter.Emit(PSVar(local));
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
          if (macro.CanFail) emitter.Emitnl("$__b = (");
@@ -219,7 +243,15 @@ class BoundedArray {
          emitter.IndentLevel--;
          if (macro.CanFail) emitter.Emitnl(")");
       }
+      #endregion Macros
 
+      #region Procedures
+      void ICodeGenerator.GenerateProcedureStart(Procedure code) { }
+      void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
+         if (proc.CanFail) emitter.Emitnl("return $__b");
+         emitter.IndentLevel--;
+         emitter.NlEmitnl("}");
+      }
       void ICodeGenerator.GenerateProcedureBodyStart(Procedure proc,PBT bodyType) {
          if (proc.repeatsProcedure) emitter.Emit(":",proc.id.InternalName," ");
          //TODO: The needs finalization test for enclosing do { } while ($true) is likely wrong.
@@ -231,30 +263,39 @@ class BoundedArray {
          emitter.IndentLevel--;
          if (!proc.IsVerySimple || proc.NeedsFinalization) emitter.Emitnl("} while ($true)");
       }
-
-      void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm,bool IsNeeded) {
-         if (IsNeeded && algorithm.CanFail) {
-            emitter.Emitnl("if ($__b) {");
-            emitter.IndentLevel++;
-         }
+      #region Alternatives
+      void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) {
+         GenerateComment($"Alternative {i+1}");
+         emitter.IndentLevel++;
       }
-      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm,bool IsNeeded) {
-         if (IsNeeded && algorithm.CanFail) {
+      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i) {
+         bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
+         if (proc.NeedsFinalization && notLastAlternativeOfProc) {
+            emitter.Emitnl("if ($__b) { break }");
+         } else if (notLastAlternativeOfProc && group.alternatives[i].lastCall.type != LCT.Repeat) { 
+            emitter.Emitnl("if ($__b) { ",proc.CanFail ? "return $__b }" : "return }");
+         } else if (proc.NeedsFinalization && !group.alternatives[i].CanFail) {
+            emitter.Emitnl("$__b = $true");
+         }
             emitter.IndentLevel--;
-            emitter.Emitnl("}");
-         }
       }
+      #endregion Alternatives
 
-      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c)," = ");
-      void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value);
-      void ICodeGenerator.GenerateConstElementFloat(double value)  => ((ICodeGenerator)this).GenerateMacroElementFloat(value);
-      void ICodeGenerator.GenerateConstElementInt(long value)      => ((ICodeGenerator)this).GenerateMacroElementInt(value);
-      void ICodeGenerator.GenerateConstantEnd(Const c) => emitter.Emitnl();
-      void ICodeGenerator.GenerateObjectSectionStart(Func<int> count,string v) {
-         int n = count();
-         if (n > 0) emitter.NlEmitnl($"\n##### {n} {v}{(n != 1 ? "s" : "")} #####\n");
+      #region Groups
+      void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
+         if (!group.IsSynthetic) emitter.Emit(":",group.id.InternalName," ");
+         emitter.Emitnl("do {");
+         emitter.IndentLevel++;
       }
+      void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
+         emitter.IndentLevel--;
+         emitter.Emitnl("} while ($true)");
+      }
+      #endregion Groups
 
+      #region Calls
+      void ICodeGenerator.GenerateCallEnd(Call call) => throw new NotImplementedException();
+      void ICodeGenerator.GenerateCallStart(Call call) => throw new NotImplementedException();
       void ICodeGenerator.GenerateActualArgSeparator() => emitter.Emit(" ");
       void ICodeGenerator.GenerateCallStart(Algorithm called,Procedure proc,bool canFail) {
          if (!proc.IsVerySimple) {
@@ -275,21 +316,7 @@ class BoundedArray {
       void ICodeGenerator.GenerateCallArgReferenceLocal(Affix calledAffix,Local lo) => emitter.Emit(PSVar(lo,isRef: calledAffix.IsOutput));
       void ICodeGenerator.GenerateCallArgReferenceConst(Affix calledAffix,Const c) => emitter.Emit(PSVar(c));
       void ICodeGenerator.GenerateCallArgReferenceVar(Affix calledAffix,Var v) => emitter.Emit(PSVar(v,"_",isRef: calledAffix.IsOutput));
-      void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) {
-         GenerateComment($"Alternative {i+1}");
-         emitter.IndentLevel++;
-      }
-      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i) {
-         bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
-         if (proc.NeedsFinalization && notLastAlternativeOfProc) {
-            emitter.Emitnl("if ($__b) { break }");
-         } else if (notLastAlternativeOfProc && group.alternatives[i].lastCall.type != LCT.Repeat) { 
-            emitter.Emitnl("if ($__b) { ",proc.CanFail ? "return $__b }" : "return }");
-         } else if (proc.NeedsFinalization && !group.alternatives[i].CanFail) {
-            emitter.Emitnl("$__b = $true");
-         }
-            emitter.IndentLevel--;
-      }
+
       void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label) {
          // TODO: Needs more work to ensure labels are unique within a proc
          if (label == ID.AnonID) {
@@ -305,21 +332,15 @@ class BoundedArray {
       }
       void ICodeGenerator.GenerateSucceed(Procedure proc,Group group) { }
       void ICodeGenerator.GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit 1");
-      void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
-         if (!group.IsSynthetic) emitter.Emit(":",group.id.InternalName," ");
-         emitter.Emitnl("do {");
-         emitter.IndentLevel++;
-      }
-      void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
-         emitter.IndentLevel--;
-         emitter.Emitnl("} while ($true)");
-      }
+      #endregion Calls
 
-      void ICodeGenerator.GenerateObjectSectionEnd(Func<int> count,string name) { }
+      #endregion Procedures
 
-      void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(PSVar(constant));
-      void ICodeGenerator.Newline() => Newline();
+      #region Support
+      void ICodeGenerator.GenerateNewline() => Newline();
       void ICodeGenerator.GenerateComment(string comment) => GenerateComment(comment);
+      string ICodeGenerator.FileExtension { get; } = ".ps1";
+      #endregion Support
 
       #region Helpers
       void Newline() => emitter.Emitnl();
@@ -328,6 +349,7 @@ class BoundedArray {
       private void GenerateComment(string comment) {
          foreach (string line in comment.Split('\n')) emitter.Emitnl("# ",line);
       }
+      enum PSVarType { Var, List, Const, Affix, Local }
 
       private static string PSVarPrefix(PSVarType type) => type switch {
          PSVarType.Var => "V_",
