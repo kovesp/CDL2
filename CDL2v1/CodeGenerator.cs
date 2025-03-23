@@ -157,11 +157,12 @@ namespace CDL2v1 {
          GenerateAlgorithmHeader(macro,variables);
 
          cg.GenerateMacroBodyStart(macro);
+         bool first = true;
          foreach (IMacroElement elem in macro.elements) {
             switch (elem) {
                case INT i: cg.GenerateMacroElementInt(i.value); break;
                case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
-               case STRING s: cg.GenerateMacroElementString(s.value, macro.CanFail); break;
+               case STRING s: cg.GenerateMacroElementString(s.value, macro.CanFail, first); break;
                case ID id:
                   // This should be a reference to a Const, Var or List, so check which one
                   if (section.TryGetDeclaration(id,out ILocalCDL2DataObject? obj)) {
@@ -181,6 +182,7 @@ namespace CDL2v1 {
                default:
                   throw new NotImplementedException($"GenerateMacro: Unknown element type {elem.GetType()}");
             }
+            first = false;
          }
          cg.GenerateMacroBodyEnd(macro);
          FinalizeAffixesAndVariables(macro,variables);

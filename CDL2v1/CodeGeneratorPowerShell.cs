@@ -127,7 +127,7 @@ class BoundedArray {
 
       #region Data Declarations
       void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c), " = ");
-      void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value, false);
+      void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value, false, false);
       void ICodeGenerator.GenerateConstElementFloat(double value) => ((ICodeGenerator)this).GenerateMacroElementFloat(value);
       void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
       void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(PSVar(constant));
@@ -225,9 +225,9 @@ class BoundedArray {
 
       void ICodeGenerator.GenerateMacroElementInt(long value) => emitter.Emit(value);
       void ICodeGenerator.GenerateMacroElementFloat(double value) => emitter.Emit(value);
-      void ICodeGenerator.GenerateMacroElementString(string value, bool canFail) {
+      void ICodeGenerator.GenerateMacroElementString(string value, bool canFail, bool firstElement) {
          string[] lines = value.Split('\n');
-         foreach (string line in lines.SkipLast(1)) emitter.Emitnl(line);
+         foreach (string line in lines.Skip(firstElement ? 1 : 0).SkipLast(1)) emitter.Emitnl(line);
          emitter.Emit(lines.Last());
       }
       void ICodeGenerator.GenerateMacroElementVar(Var var, bool macroCanFail) => emitter.Emit(PSVar(var, macroCanFail ? "_" : ""));
@@ -246,14 +246,14 @@ class BoundedArray {
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
          emitter.IndentLevel++;
          if (macro.CanFail && HasMultipleStatments(macro)) {
-            emitter.Emitnl("$__b = {");
+            emitter.Emitnl("$__b = @(");
             emitter.IndentLevel++;
          }
       }
       void ICodeGenerator.GenerateMacroBodyEnd(Macro macro) {
          if (macro.CanFail && HasMultipleStatments(macro)) {
             emitter.IndentLevel--;
-            emitter.NlEmitnl("}.Invoke()");
+            emitter.NlEmitnl(")[-1]");
          }
          emitter.IndentLevel--;
       }

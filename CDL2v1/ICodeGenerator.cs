@@ -382,7 +382,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="value"></param>
       /// <param name="canFail"></param>
-      void GenerateMacroElementString(string value, bool canFail);
+      /// <param name="firstElement"></param>
+      void GenerateMacroElementString(string value, bool canFail, bool firstElement);
       /// <summary>
       /// This is called for each reference in a const, macro or proc that is a constant.
       /// </summary>
