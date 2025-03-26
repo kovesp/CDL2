@@ -13,9 +13,9 @@ namespace CDL2v1 {
    ///      GenerateProgramStart                                     the start of the single program
    ///         GenerateProgramPart                                   for each part of the program
    ///         [ generated modules ]                                 if the program is compiled as a single unit.
-   ///         GenerateRequiringUnitLudesStart
-   ///            GenerateRequiringUnitLude                                for each of PRELUDE, ROOT, POSTLUDE, for each referenced module that has a lude of the given type
-   ///         GenerateRequiringUnitLudesEnd
+   ///         GenerateProgramLudeStart
+   ///            GenerateProgramLude                                for each of PRELUDE, ROOT, POSTLUDE, for each referenced module that has a lude of the given type
+   ///         GenerateProgramLudeEnd
    ///      GenerateProgramEnd                                       at the end of the program
    ///         [ generated modules ]                                 if the program is compiled into separate units.
    ///    
@@ -169,21 +169,44 @@ namespace CDL2v1 {
       /// <summary>
       /// This is called at the start generation of program and module ludes
       /// </summary>
-      /// <param name="unit"></param>
-      void GenerateRequiringUnitLudesStart(IRequiringUnit unit);
+      /// <param name="ludetype"></param>
+      /// <param name="program"></param>
+      void GenerateProgramLudeStart(RW ludetype, Program program);
       /// <summary>
       /// This is called for each lude of the given type in the program and in modules.
       /// </summary>
       /// <param name="ludeType"></param>
-      /// <param name="requiring"></param>
-      /// <param name="provider"></param>
-      void GenerateRequiringUnitLude(RW ludeType, IRequiringUnit requiring, IProviderUnit provider);
+      /// <param name="program"></param>
+      /// <param name="module"></param>
+      void GenerateProgramLude(RW ludeType, Program program, Module module);
       /// <summary>
       /// This is called at the end of the program and module ludes.
       /// </summary>
-      /// <param name="requiring"></param>
-      void GenerateRequiringUnitLudesEnd(IRequiringUnit requiring);
+      /// <param name="ludeType"></param>
+      /// <param name="program"></param>
+      void GenerateProgramLudeEnd(RW ludeType, Program program);
+
       /// <summary>
+      /// This is called at the start generation of program and module ludes
+      /// </summary>
+      /// <param name="ludetype"></param>
+      /// <param name="module"></param>
+      void GenerateModuleLudeStart(RW ludetype, Module module);
+      /// <summary>
+      /// This is called for each lude of the given type in the program and in modules.
+      /// </summary>
+      /// <param name="ludeType"></param>
+      /// <param name="module"></param>
+      /// <param name="section"></param>
+      void GenerateModuleLude(RW ludeType, Module program, Section module);
+      /// <summary>
+      /// This is called at the end of the program and module ludes.
+      /// </summary>
+      /// <param name="ludeType"></param>
+      /// <param name="module"></param>
+      void GenerateModuleLudeEnd(RW ludeType, Module module);
+
+
       void GenerateSectionLudeStart(RW ludeType, Section section);
       void GenerateSectionLudeEnd(RW ludeType, Section section);
       #endregion

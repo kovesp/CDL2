@@ -102,9 +102,26 @@ class BoundedArray {
       #endregion Programs, Modules, Layers, Sections
 
       #region Predlude, Postlude, Root
-      void ICodeGenerator.GenerateRequiringUnitLudesStart(IRequiringUnit unit) { }
-      void ICodeGenerator.GenerateRequiringUnitLude(RW ludeType,IRequiringUnit requiring,IProviderUnit provider) => throw new NotImplementedException();
-      void ICodeGenerator.GenerateRequiringUnitLudesEnd(IRequiringUnit requiring) { }
+      void ICodeGenerator.GenerateProgramLudeStart(RW ludetype, Program program) {
+         GenerateComment($"{program.TypeShortName}_{program.id.Name.AsIdentifier(camelCase: true)}_{ludetype}");
+         emitter.IndentLevel++;
+      }
+      void ICodeGenerator.GenerateProgramLude(RW ludeType, Program program, Module module)
+         => emitter.Emitnl($"{module.TypeShortName}_{module.id.Name.AsIdentifier(camelCase: true)}_{ludeType}");
+      void ICodeGenerator.GenerateProgramLudeEnd(RW ludeType, Program program) {
+         emitter.IndentLevel--;
+      }
+
+      void ICodeGenerator.GenerateModuleLudeStart(RW ludetype, Module module) {
+         emitter.Emitnl($"function {module.TypeShortName}_{module.id.Name.AsIdentifier(camelCase: true)}_{ludetype} {{");
+         emitter.IndentLevel++;
+      }
+      void ICodeGenerator.GenerateModuleLude(RW ludeType, Module module, Section section)
+         => emitter.Emitnl(section.SyntheticProcedures.Where(p=>p.id.InternalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true, literalObjectName:true)!);
+      void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType, Module module) {
+         emitter.IndentLevel--;
+         emitter.Emitnl("}");
+      }
 
       void ICodeGenerator.GenerateSectionLudeStart(RW ludeType,Section section) => throw new NotImplementedException();
       void ICodeGenerator.GenerateSectionLudeEnd(RW ludeType,Section section) => throw new NotImplementedException();

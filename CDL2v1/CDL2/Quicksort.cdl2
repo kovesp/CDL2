@@ -105,7 +105,7 @@ MODULE quicksort.
    NOTE.
    LAYER sort.
       SECTION sorter.
-         INV lwb, upb, less, make, add, halve, incr, decr, swap element, smaller element, dump data.
+         INV lwb, upb, less, make, add, halve, incr, decr, swap element, smaller element, dump data, show msg.
          ACTION quicksort +>from +>to -p -q:
             less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
             +.
@@ -133,15 +133,19 @@ MODULE quicksort.
             smaller element+q+m;
             decr+q, *.
       ENDSEC sorter.
-      ROOT dump data+"Data before sorting: ", quicksort+lwb+upb, dump data+"Data after sorting: ".
+      PRELUDE dump data+"Data before sorting: ".
+      ROOT  show msg+"Running quicksort ...", quicksort+lwb+upb, show msg+"Done.".
+      POSTLUDE dump data+"Data after sorting: ".
    ENDLAY sort.
 ENDMOD quicksort.
-PRELUDE data.
+PRELUDE data, sorter.
 ROOT sorter.
+POSTLUDE sorter.
 PROGRAM sort.
    PART quicksort.
    PRELUDE quicksort.
    ROOT quicksort.
+   POSTLUDE quicksort.
 ENDPROG sort.
 
 

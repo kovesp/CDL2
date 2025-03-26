@@ -65,14 +65,7 @@ namespace CDL2v1 {
    /// <param name="id"></param>
    public interface IFailureProtected : IActualArg { }
    public interface IScope { }
-   /// <summary>
-   /// Units that have ludes (Program & Module).
-   /// </summary>
-   public interface IRequiringUnit { }
-   /// <summary>
-   /// Units that provide ludes (Module & Section).
-   /// </summary>
-   public interface IProviderUnit { }
+
 
    /// <summary>
    /// Notes can be attached to NamedElements. The primary use is annotate objects with error/warning/info messages.
@@ -150,13 +143,27 @@ namespace CDL2v1 {
       public bool IsSynthetic { get; } = synthetic;
       public Container? Parent { get; set; }      // null for the Program and Modules.
 
-      override public string ToString() => $"{ItemTypeShortName} {id.Name}";
-      protected virtual string ItemTypeShortName => GetType().Name.ToUpper()[..3];
+      override public string ToString() => $"{TypeShortName} {id.Name}";
+      public virtual string TypeShortName => GetType().Name.ToUpper()[..3];
       public string? Comments { get; set; }
       public Notes Notes { get; set; } = [];
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
       public void AddNote(Note note,params object[] insertions) => Notes.Add(insertions.Length == 0 ? note : new Note(note,insertions));
       public void AddNotes(Notes? notes) => notes?.ForEach(note => Notes.Add(note));
+
+      /// <summary>
+      /// Fully qualified name as Module_Layer_Section_Object.
+      /// Separator can be specified. Default is "_".
+      /// </summary>
+      /// <param name="separator"></param>
+      /// <returns></returns>
+      public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
+         string sectionName = Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string layerName = Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string moduleName = Parent!.Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string objectName = id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
+         return $"{moduleName}{separator}{layerName}{separator}{sectionName}{separator}{objectName}";
+      }
    }
 
    /// <summary>
@@ -177,7 +184,7 @@ namespace CDL2v1 {
 
       public Container(ID id,Container? parent,string? comments = null,Notes? notes = null) : this(id,comments,notes) { 
          Parent = parent;
-         ContainerName = $"{Parent?.ContainerName ?? ""} {ItemTypeShortName} {id.Name}".Trim();
+         ContainerName = $"{Parent?.ContainerName ?? ""} {TypeShortName} {id.Name}".Trim();
          if (Parent != null && (bool)(Parent.Children.Contains(this))) {
             Logger.ReportError($"{ContainerName} is already a child of {Parent.ContainerName}");
          } else {
@@ -186,13 +193,15 @@ namespace CDL2v1 {
       }
 
       // The Ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
-      // Section Ludes will be generated as Procedure items and given the id of the lude type (which are not legal as a CDL2 id).
+      // Section Ludes will be generated as Procedures and given the id of the lude type (which are not legal as a CDL2 id).
       [JsonInclude]
-      public readonly Dictionary<RW,List<ID>> Ludes = new() {
+      public Dictionary<RW,List<ID>> Ludes { get; } = new() {
          { RW.PRELUDE,[] },
          { RW.ROOT,[] },
          { RW.POSTLUDE,[] }
       };
+
+      public Container? Child(ID id) => Children.FirstOrDefault(child => child.id == id);
 
       /// <summary>
       /// Sets the LudeParser action for the container. The default is to do nothing.
@@ -209,8 +218,8 @@ namespace CDL2v1 {
    /// Represents a program in the syntax tree.
    /// </summary>
    [Serializable]
-   public class Program : Container, IRequiringUnit {
-      override protected string ItemTypeShortName => "PROG";
+   public class Program : Container {
+      override public string TypeShortName => "PROG";
       /// <summary>
       /// Get the modules that have the given lude type.
       /// </summary>
@@ -234,7 +243,7 @@ namespace CDL2v1 {
    /// </summary>
    /// <param id="id"></param>
    [Serializable]
-   public class Module : Container, IRequiringUnit, IProviderUnit {
+   public class Module : Container {
       public readonly Dictionary<ID,Section> imports = [];        // Imports are specified in sections, but are propagated up the module level.
       public readonly Dictionary<ID,Section> exports = [];        // Exports are specified in sections, but are propagated up the module level.
 
@@ -245,6 +254,15 @@ namespace CDL2v1 {
       public Module(ID id,string? comments,Notes notes) : base(id,null,comments,notes) {
          LudeParser = Parser.ParseLudeOfIDs;
          Comments = comments;
+      }
+
+      public Section? Section(ID id) {
+         foreach (Container layer in Children) {
+            foreach (Container section in layer.Children) {
+               if (id == section.id) return (Section)section;
+            }
+         }
+         return null;
       }
    }
 
@@ -269,7 +287,7 @@ namespace CDL2v1 {
    /// <param id="id"></param>
    /// <param id="layer"></param>
    [Serializable]
-   public class Section : Container, IProviderUnit {
+   public class Section : Container {
       /// <summary>
       /// The interfaces.
       /// </summary>
@@ -297,6 +315,7 @@ namespace CDL2v1 {
       /// Synthetic procedures are generated by the parser for container ludes.
       /// </summary>
       public IEnumerable<Procedure> NonSyntheticProcedures => Procedures.Where(proc => !proc.IsSynthetic);
+      public IEnumerable<Procedure> SyntheticProcedures => Procedures.Where(proc => proc.IsSynthetic);
 
       /// <summary>
       /// Sections have Ludes each of which contains the ID of an publicly generated CODE FUNCTION or ACTION which consist of a single alternative.
@@ -363,20 +382,6 @@ namespace CDL2v1 {
          Parent = section;
          Comments = comments;
       }
-
-      /// <summary>
-      /// Fully qualified name as Module_Layer_Section_Object.
-      /// Separator can be specified. Default is "_".
-      /// </summary>
-      /// <param name="separator"></param>
-      /// <returns></returns>
-      public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
-         string sectionName = Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string layerName = Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string moduleName = Parent!.Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string objectName = id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
-         return $"{moduleName}{separator}{layerName}{separator}{sectionName}{separator}{objectName}";
-      }
    }
    /// <summary>
    /// Represents the common properties of Algorithms (Macros and Procedures).
@@ -433,7 +438,7 @@ namespace CDL2v1 {
 
       public override string ToString() {
          StringBuilder buffer = new();
-         buffer.Append($"{ItemTypeShortName} {id.Name}");
+         buffer.Append($"{TypeShortName} {id.Name}");
          foreach (Affix affix in affixes) buffer.Append(affix);
          foreach (Local local in locals) buffer.Append(local);
          return buffer.ToString();
@@ -507,7 +512,7 @@ namespace CDL2v1 {
       /// </summary>
       //public void ResetNameAnnotations() => sa = null;
       public abstract IEnumerable<Var> GetReferencedVariables();
-      override protected string ItemTypeShortName => $"{algorithmType}";
+      override public string TypeShortName => $"{algorithmType}";
    }
 
    /// <summary>
@@ -547,24 +552,9 @@ namespace CDL2v1 {
          : Algorithm(id,formals,locals,algorithmType,bodyType,section,synthetic) {
       public Group group = new(id,[],null,synthetic: false);
       /// <summary>
-      /// True if the ContainingProc is an Action or Function that has only a single alternative which is a sequence of calls none of which can fail.
+      /// True if the procedure is an Action or Function that has only a single alternative (which is a sequence of calls none of which can fail ... which will be guarenteed by the sematic analyzer)
       /// </summary>
-      public bool IsVerySimple {
-         get {
-            if (isVerySimple.notset) {
-               isVerySimple.notset = false;
-               if (AlwaysSucceeds && group.alternatives.Count == 1) {
-                  List<Call> calls = group.alternatives[0].calls;
-                  LastCall lastCall = group.alternatives[0].lastCall;
-                  if ((lastCall.type == LCT.Standard || lastCall.type == LCT.Succeed) && calls.All(call => (bool)call.AlwaysSucceeds)) {
-                     isVerySimple.value = lastCall.type == LCT.Succeed || (bool)lastCall.call!.AlwaysSucceeds;
-                  }
-               }
-            }
-            return isVerySimple.value;
-         }
-      }
-      private (bool notset, bool value) isVerySimple = (true, false);
+      public bool IsVerySimple => AlwaysSucceeds && group.alternatives.Count == 1;
       /// <summary>
       /// Can have alternatives, but there are mo groups except for the primary one.
       /// It can also fail.

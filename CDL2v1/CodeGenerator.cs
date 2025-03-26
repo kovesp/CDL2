@@ -21,59 +21,42 @@ namespace CDL2v1 {
       private static readonly List<RW> ludeTypes = [ RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
 
       /// <summary>
-      /// Generate code for the program and all its modules.
-      /// If there is a program, then use its Ludes. Otherwise, use the Ludes from all modules.
+      /// Generate code for the unit and all its modulesWithLudes.
+      /// If there is a unit, then use its Ludes. Otherwise, use the Ludes from all modulesWithLudes.
       /// </summary>
-      /// <param id="program"></param>
-      /// <param id="modules"></param>
+      /// <param id="modulesWithLudes"></param>
       /// <param id="emitter"></param>
-      public void GenerateCode(Program program,EmitterBase emitter,bool isSeparate = false) {
-         cg.GenerateProgramStart(program,emitter);  // Generate the overall scaffolding
+      /// <param id="isSeparate"></param>
+      public void GenerateCode(Program program, EmitterBase emitter, bool isSeparate = false) {
+         cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
 
-         foreach (ID mod in program.Parts) cg.GenerateProgramPart(program,mod,isSeparate);
+         foreach (ID mod in program.Parts) cg.GenerateProgramPart(program, mod, isSeparate);
 
-         if (!isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod],isSeparate: false);
+         if (!isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod], isSeparate: false);
 
-         cg.GenerateRequiringUnitLudesStart(program);
-         foreach (RW ludeType in ludeTypes)
-            foreach (Module mod in program.Lude(ludeType).Where(mod => mod.Ludes[ludeType].Count > 0)) 
-               cg.GenerateRequiringUnitLude(ludeType,program,mod);
-         cg.GenerateRequiringUnitLudesEnd(program);
+
+         foreach (RW ludeType in ludeTypes) {            
+            IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.Modules[id]).Where(mod => mod.Ludes[ludeType].Count > 0);
+            if (modulesWithLudes.Any()) {
+               cg.GenerateProgramLudeStart(ludeType, program);
+               foreach (Module module in modulesWithLudes) cg.GenerateProgramLude(ludeType, program, module);
+               cg.GenerateProgramLudeEnd(ludeType, program);
+            }
+         }
 
          cg.GenerateProgramEnd(program);
 
-         if (isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod],isSeparate: true);
-      }
-
-      /// <summary>
-      /// Generate code for the Lude of a given type for a module.
-      /// </summary>
-      /// <param id="ludeType"></param>
-      /// <param id="mod"></param>
-      private void GenerateProgramLude(RW ludeType,Module mod) {
-         foreach (ID secId in mod.Ludes[ludeType]) {
-            foreach (Layer layer in mod.Children.Cast<Layer>()) {
-               foreach (Section section in layer.Children.Cast<Section>()) {
-                  if (section.id == secId) {
-                     Debug.Assert(section.Ludes[ludeType].Count == 1,$"CG: {section} referenced in {ludeType} of {mod}. Expected reference to single Procedure, found {section.Ludes[ludeType].Count}");
-                     ID procId = section.Ludes[ludeType][0];
-                     Logger.Log($"Generating Procedure for {procId}");
-                     
-                     GenerateProcedureCode((Procedure)section.declarations[procId]);
-                  }
-               }
-            }
-         }
+         if (isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod], isSeparate: true);
       }
 
       /// <summary>
       /// Generate code for a module. It is up to the specific code generator to determine whether this code goes into a separate file or not.
       /// </summary>
       /// <param id="module"></param>
-      private void GenerateModule(Module module,bool isSeparate) {
-         void GenerateImpEx(Dictionary<ID,Section> impexList,Action<IProvidedElement> generateImpEx) {
+      private void GenerateModule(Module module, bool isSeparate) {
+         void GenerateImpEx(Dictionary<ID, Section> impexList, Action<IProvidedElement> generateImpEx) {
             foreach (ID id in impexList.Keys) {
-               if (impexList[id].TryGetLocalDeclaration(id,out ILocalCDL2DataObject? obj) && obj is IProvidedElement impex) {
+               if (impexList[id].TryGetLocalDeclaration(id, out ILocalCDL2DataObject? obj) && obj is IProvidedElement impex) {
                   generateImpEx(impex);
                } else {
                   throw new NotImplementedException($"GenerateModule: Import/Export {id} not found in {module}");
@@ -81,19 +64,29 @@ namespace CDL2v1 {
             }
          }
 
-         cg.GenerateModuleStart(module,isSeparate);
+         cg.GenerateModuleStart(module, isSeparate);
 
          cg.GenerateImpExStart(module);
-         GenerateImpEx(module.exports,cg.GenerateExport);
-         GenerateImpEx(module.imports,cg.GenerateImport);
+         GenerateImpEx(module.exports, cg.GenerateExport);
+         GenerateImpEx(module.imports, cg.GenerateImport);
          cg.GenerateImpExStart(module);
 
-         foreach (Layer layer in module.Children.Cast<Layer>()) GenerateLayer(layer); 
+         foreach (Layer layer in module.Children.Cast<Layer>()) GenerateLayer(layer);
+
+        
+         foreach (RW ludeType in ludeTypes) {
+            IEnumerable<Section?> SectionsWithLudes = module.Ludes[ludeType].Select(id => module.Section(id)).Where(sec => sec?.Ludes[ludeType].Count > 0) ?? [];
+            if (SectionsWithLudes.Any()) {
+               cg.GenerateModuleLudeStart(ludeType, module);
+               foreach (Section? section in SectionsWithLudes) cg.GenerateModuleLude(ludeType, module, section!);
+               cg.GenerateModuleLudeEnd(ludeType, module);
+            }
+          }
 
          cg.GenerateModuleEnd(module,isSeparate);
       }
 
-      /// <summary>
+      /// <summary> 
       /// Generate proc for a layer. Typically there is no target proc associated with this.
       /// </summary>
       /// <param id="layer"></param>
@@ -111,25 +104,29 @@ namespace CDL2v1 {
       /// <param id="container"></param>
       private void GenerateSection(Section section) {
          cg.GenerateSectionStart(section);
-         GenerateObjects(section.Constants,c => GenerateConstant(section,c));
-         GenerateObjects(section.Variables,v => cg.GenerateVar(v));
-         GenerateObjects(section.Lists,l => {
-            if (section.TryGetDeclaration(l.lwb,out Const? lwb) && section.TryGetDeclaration(l.upb,out Const? upb)) {
-               cg.GenerateList(l,lwb!,upb!);
+         GenerateObjects(section.Constants, c => GenerateConstant(section, c));
+         GenerateObjects(section.Variables, v => cg.GenerateVar(v));
+         GenerateObjects(section.Lists, l => {
+            if (section.TryGetDeclaration(l.lwb, out Const? lwb) && section.TryGetDeclaration(l.upb, out Const? upb)) {
+               cg.GenerateList(l, lwb!, upb!);
             } else {
                throw new NotImplementedException($"GenerateSection: Could not find lower or upper bound for {l}");
             }
          });
 
-         GenerateObjects(section.Macros,m=>GenerateMacro(section,m));
-         GenerateObjects(section.NonSyntheticProcedures,GenerateProcedureCode);
+         GenerateObjects(section.Macros, m => GenerateMacro(section, m));
+         GenerateObjects(section.NonSyntheticProcedures, GenerateProcedure);
+         GenerateObjects(section.SyntheticProcedures, GenerateProcedure, "Synthetic Procedure");
+
          cg.GenerateSectionEnd(section);
       }
 
-      private void GenerateObjects<T>(IEnumerable<T> items,Action<T> generate) {
-         cg.GenerateObjectSectionStart(items.Count,typeof(T).Name);
-         foreach (T item in items) generate(item);
-         cg.GenerateObjectSectionEnd(items.Count,typeof(T).Name);
+      private void GenerateObjects<T>(IEnumerable<T> items, Action<T> generate, string? specialType = null) {
+         if (items.Any()) {
+            cg.GenerateObjectSectionStart(items.Count, specialType ?? typeof(T).Name);
+            foreach (T item in items) generate(item);
+            cg.GenerateObjectSectionEnd(items.Count, typeof(T).Name);
+         }
       }
 
       private void GenerateConstant(Section section,Const constant) {
@@ -220,7 +217,7 @@ namespace CDL2v1 {
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
 
-      private void GenerateProcedureCode(Procedure proc) {
+      private void GenerateProcedure(Procedure proc) {
          IEnumerable<Var> variables = proc.GetReferencedVariables();
          cg.GenerateProcedureStart(proc);
          GenerateAlgorithmHeader(proc,variables);
