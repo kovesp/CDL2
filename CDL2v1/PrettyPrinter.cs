@@ -31,19 +31,19 @@ namespace CDL2v1 {
       private int IndentMultiplier { get; set; }        = DEFAULT_INDENT_MULTIPLIER;        // The indent multiplier
       private int MaxIndentIncrement { get; set; }      = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
    
-      private readonly EmitterBase emitter;
+      public readonly EmitterBase Emitter;
 
 
       /// <summary>
       /// Perform action with an increased indent level.
       /// </summary>
       /// <param id="action"></param>
-      private void Indented(Action action) => emitter.Indented(action);
+      private void Indented(Action action) => Emitter.Indented(action);
       /// <summary>
       /// Perform action keeping produced output together on one line.
       /// </summary>
       /// <param id="action"></param>
-      private void KeepTogether(Action action) => emitter.KeepTogether(action);
+      private void KeepTogether(Action action) => Emitter.KeepTogether(action);
 
       public static readonly FontWeight Bold = FontWeights.Bold;
       public static readonly FontStyle Italic = FontStyles.Oblique;
@@ -136,12 +136,12 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Construct a pretty printer with a maximum line length and an indentation width using the specified emitter.
+      /// Construct a pretty printer with a maximum line length and an indentation width using the specified Emitter.
       /// </summary>
       /// <param id="width"></param>
       /// <param id="indent"></param>
       /// <param id="maxIndentIncrement"></param>
-      /// <param id="emitter"></param>
+      /// <param id="Emitter"></param>
       /// <example>
       ///   Construct a pretty printer that outputs to a file.
       ///   
@@ -153,7 +153,7 @@ namespace CDL2v1 {
          this.LineLength = width;
          this.IndentMultiplier = indent;
          this.MaxIndentIncrement = maxIndentIncrement;
-         this.emitter = emitter;
+         this.Emitter = emitter;
          emitter.IndentWidth = this.IndentMultiplier;
          emitter.LineLength = this.LineLength;
          emitter.IndentLevel = 0;
@@ -166,9 +166,9 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified emitter.
+      /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified Emitter.
       /// </summary>
-      /// <param id="emitter"></param>
+      /// <param id="Emitter"></param>
       public PrettyPrinter(EmitterBase emitter) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter) { }
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file id.
@@ -185,10 +185,10 @@ namespace CDL2v1 {
       };
 
       public void Print(Dictionary<ID,Program> programs,Dictionary<ID,Module> modules) {
-         emitter.BeginUpdate();
+         Emitter.BeginUpdate();
          foreach (Program program in programs.Values) Print(program);
          foreach (Module module in modules.Values) Print(module);
-         emitter.EndUpdate();
+         Emitter.EndUpdate();
       }
 
       public void Print(Program program) => PrintContainer(program,() => {
@@ -209,14 +209,14 @@ namespace CDL2v1 {
 
          int EmitCount<T>(IEnumerable<T> list,string type) {
             int count = list.Count();
-            if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(emitter,SE.Comment)); }
+            if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(Emitter,SE.Comment)); }
             return count;
          }
          void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : ICDL2DataObject {
             if (EmitCount(items, type.ToString()) > 0) {
                foreach (T item in items) {
                   if (item.HasCommentOrNote) PrintComment(item);
-                  Emit(type.Decorate(emitter, SE.ReservedWord), " ");
+                  Emit(type.Decorate(Emitter, SE.ReservedWord), " ");
                   print(item);
                   EmitSeparatorWithNL(TT.END);
                }
@@ -243,7 +243,7 @@ namespace CDL2v1 {
       private void PrintLude(RW ludeType,Container container) {
          if (container is Section section) {
             if (section.Ludes[ludeType].Count != 0) {
-               Emit(ludeType.Decorate(emitter,SE.ReservedWord)," ");
+               Emit(ludeType.Decorate(Emitter,SE.ReservedWord)," ");
                // Section Ludes are stored as ids of a generated Procedure item.
                if (section.TryGetLocalDeclaration(section.Ludes[ludeType].First(),out Procedure? proc)) { // This should always be the case
                   Print(proc!.group.alternatives.First(),section);
@@ -258,7 +258,7 @@ namespace CDL2v1 {
       }
 
       private void Print(Alternative alternative,Section section,bool extraSpace=false) {
-         emitter.ExtraIndent = 0;
+         Emitter.ExtraIndent = 0;
          if (alternative.calls.Count > 0) {
             PrintComment(alternative);
             Print(alternative.calls.First(),section,extraSpace:extraSpace,firstInAlternative:true);
@@ -288,7 +288,7 @@ namespace CDL2v1 {
                   Emit(TT.REPEAT);
                   Debug.Assert(alternative.lastCall.label is not null,"alternative.lastCall.label is null");
                   if (alternative.lastCall.label != ID.AnonID) {
-                     Emit(alternative.lastCall.label.Name.Decorate(emitter,SE.Label));
+                     Emit(alternative.lastCall.label.Name.Decorate(Emitter,SE.Label));
                   }
                   break;
                case LastCallType.Group:
@@ -301,7 +301,7 @@ namespace CDL2v1 {
 
       private void Print(Group group,Section section) => Indented(() => {
          NlEmit(TT.GRPOPEN);
-         if (! group.IsSynthetic) Emit(group.id.Name.Decorate(emitter,SE.Label),TT.LABELSEP);
+         if (! group.IsSynthetic) Emit(group.id.Name.Decorate(Emitter,SE.Label),TT.LABELSEP);
          Print(group.alternatives,section);
          Emit(TT.GRPCLOSE);
       });
@@ -324,27 +324,27 @@ namespace CDL2v1 {
          } else {
             ReportError($"Internal error: {call.id} has no container. Something wrong with semantic analysis?");
          }
-         EmitWithExtraSpace(extraSpace,call.id.Decorate(emitter,AlgorithmNameDecorators[callDecorator]));
+         EmitWithExtraSpace(extraSpace,call.id.Decorate(Emitter,AlgorithmNameDecorators[callDecorator]));
 
          foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {
-               Emit(s.AsDecoratedCDL2String(emitter));
+               Emit(s.AsDecoratedCDL2String(Emitter));
             } else if (arg is ID id) {
                if (call.TryGetAffix(id,out Affix affix)) {
-                  Emit(id.Decorate(emitter,affix.SyntaxElement));
+                  Emit(id.Decorate(Emitter,affix.SyntaxElement));
                } else if (call.TryGetLocal(id,out Local _)) {
-                  Emit(id.Decorate(emitter,SE.Local));
+                  Emit(id.Decorate(Emitter,SE.Local));
                } else if (section.TryGetDeclaration(id,out ICDL2Object? cdl2obj)) {
                   switch (cdl2obj) {
                      case Const constant:
-                        Emit(id.Decorate(emitter,SE.Const));
+                        Emit(id.Decorate(Emitter,SE.Const));
                         break;
                      case LIST list:
-                        Emit(id.Decorate(emitter,SE.List));
+                        Emit(id.Decorate(Emitter,SE.List));
                         break;
                      case Var var:
-                        Emit(id.Decorate(emitter,SE.Var));
+                        Emit(id.Decorate(Emitter,SE.Var));
                         break;
                      default:
                         Emit(id);
@@ -358,7 +358,7 @@ namespace CDL2v1 {
             }
          }
          // This is safe, because the MaxIndentIncrement limits the extra indent.
-         if (!firstInAlternative && emitter.WillKeepTogetherNotFitOnCurrentLine()) emitter.ExtraIndent++;
+         if (!firstInAlternative && Emitter.WillKeepTogetherNotFitOnCurrentLine()) Emitter.ExtraIndent++;
          //static bool TryFindInvocationType(ID id,ref AlgorithmNameType callDecorator,AlgorithmNameType callAttribute,Layer layer) {
          //   foreach (Section container in layer.Children.Cast<Section>()) {
          //      if (container.import.Contains(id)) {
@@ -375,7 +375,7 @@ namespace CDL2v1 {
 
       private void PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true) {
          if (ids.Any()) {
-            Emit(rw.Decorate(emitter,SE.ReservedWord)," ",DecoratedID(ids.First(),section,decorate));
+            Emit(rw.Decorate(Emitter,SE.ReservedWord)," ",DecoratedID(ids.First(),section,decorate));
             foreach (ID id in ids.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
                Emit(DecoratedID(id,section,decorate));
@@ -393,9 +393,9 @@ namespace CDL2v1 {
       private string DecoratedID(ID id,Section? section,bool decorate=true) {
          if (decorate && (section?.TryGetDeclaration(id,out ICDL2Object? obj)??false)) {
             if (obj!.SE == SE.AlgorithmName) {
-               return id.Decorate(emitter,AlgorithmNameDecorators[((Algorithm)obj).NameType]);
+               return id.Decorate(Emitter,AlgorithmNameDecorators[((Algorithm)obj).NameType]);
             } else {
-               return id.Decorate(emitter,obj.SE);
+               return id.Decorate(Emitter,obj.SE);
             }
          }
          return id.Name;
@@ -439,22 +439,22 @@ namespace CDL2v1 {
          if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
-               Emit((withNl && s.value.Contains('\n')?"\n":""),s.AsDecoratedCDL2String(emitter));
+               Emit((withNl && s.value.Contains('\n')?"\n":""),s.AsDecoratedCDL2String(Emitter));
                break;
             case INT n:
-               Emit(n.value.Decorate(emitter));
+               Emit(n.value.Decorate(Emitter));
                break;
             case FLOAT f:
-               Emit(f.value.Decorate(emitter));
+               Emit(f.value.Decorate(Emitter));
                break;
             case ID id:
                Emit(id.Name);
                break;
             case Affix affix:
-               Emit(affix.id.Decorate(emitter,affix.SyntaxElement));
+               Emit(affix.id.Decorate(Emitter,affix.SyntaxElement));
                break;
             case Local local:
-               Emit(local.id.Decorate(emitter,SE.Local));
+               Emit(local.id.Decorate(Emitter,SE.Local));
                break;
             default:
                throw new NotImplementedException();
@@ -463,17 +463,17 @@ namespace CDL2v1 {
 
       private void PrintProcHead(Algorithm algorithm) {
          PrintComment(algorithm);
-         Emit(algorithm.algorithmType.Decorate(emitter,SE.ReservedWord)," ",
-            algorithm.id.Decorate(emitter,AlgorithmNameDecorators[algorithm.NameType]));
+         Emit(algorithm.algorithmType.Decorate(Emitter,SE.ReservedWord)," ",
+            algorithm.id.Decorate(Emitter,AlgorithmNameDecorators[algorithm.NameType]));
          foreach (Affix affix in algorithm.affixes.Cast<Affix>()) {
             Emit(affix.affixType == AffixType.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
             if (affix.IsInput) Emit(TT.AFFIXDIR);
-            Emit(affix.id.Decorate(emitter,affix.SyntaxElement));
+            Emit(affix.id.Decorate(Emitter,affix.SyntaxElement));
             if (affix.IsOutput) Emit(TT.AFFIXDIR);
          }
          if (algorithm.locals.Any()) {
             foreach (Local local in algorithm.locals) {
-               Emit(" ",TT.LOCALSEP,local.id.Decorate(emitter,SE.Local));
+               Emit(" ",TT.LOCALSEP,local.id.Decorate(Emitter,SE.Local));
             }
          }
          Emitnl(algorithm.bodyType);
@@ -481,21 +481,21 @@ namespace CDL2v1 {
 
       public void Print(Const constant) {
          //PrintIDComment(item,SE.Const);
-         Emit(constant.id.Decorate(emitter, SE.Const));
+         Emit(constant.id.Decorate(Emitter, SE.Const));
          Emit(" ",TT.EQUALS," ");
          foreach (IConstElement element in constant.elements) {
             switch (element) {
                case STRING s:
-                  Emit(s.value.Decorate(emitter,SE.String));
+                  Emit(s.value.Decorate(Emitter,SE.String));
                   break;
                case INT n:
-                  Emit(n.value.Decorate(emitter));
+                  Emit(n.value.Decorate(Emitter));
                   break;
                case FLOAT f:
-                  Emit(f.value.Decorate(emitter));
+                  Emit(f.value.Decorate(Emitter));
                   break;
                case Const c:
-                  Emit(c.id.Decorate(emitter,SE.Const));
+                  Emit(c.id.Decorate(Emitter,SE.Const));
                   break;
                case ID id:
                   Emit(id.Name);
@@ -506,25 +506,25 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(Var var) => Emit(var.id.Decorate(emitter, SE.Var));
+      public void Print(Var var) => Emit(var.id.Decorate(Emitter, SE.Var));
 
       // TODO Fix printing of comments and notes
       private void PrintIDComment(DeclaredCDL2Object obj,SE type) {
          if (obj.Comments != null || obj.Notes.Count > 0) {
-            emitter.Indented(
+            Emitter.Indented(
                () => {
-                  //NlEmitnl(obj.Comments.Decorate(emitter,SE.Comment));
+                  //NlEmitnl(obj.Comments.Decorate(Emitter,SE.Comment));
                   PrintComment(obj);
-                  Emit(obj.id.Decorate(emitter,type));
+                  Emit(obj.id.Decorate(Emitter,type));
                }
             );
          } else {
-            Emit(obj.id.Decorate(emitter,type));
+            Emit(obj.id.Decorate(Emitter,type));
          }
       }
 
       public void Print(LIST list,Section section) {
-         Emit(list.id.Decorate(emitter, SE.List));
+         Emit(list.id.Decorate(Emitter, SE.List));
          Emit(TT.LISTBOUNDSTART,DecoratedID(list.lwb,section),TT.LISTBOUNDSEP,DecoratedID(list.upb,section),TT.LISTBOUNDEND);
       }
 
@@ -537,12 +537,12 @@ namespace CDL2v1 {
       /// <param Name="action"></param>
       private void PrintContainer(Container unit,Action action,bool Newline = false,bool updateUI = false) {
          PrintComment(unit);
-         Emitnl(units[unit.GetType()].Start.Decorate(emitter,SE.Unit)," ",unit.id.Decorate(emitter,SE.Id),TT.END);
+         Emitnl(units[unit.GetType()].Start.Decorate(Emitter,SE.Unit)," ",unit.id.Decorate(Emitter,SE.Id),TT.END);
          Indented(() => action());
-         Emitnl(units[unit.GetType()].End.Decorate(emitter,SE.Unit)," ",unit.id.Name,TT.END);
+         Emitnl(units[unit.GetType()].End.Decorate(Emitter,SE.Unit)," ",unit.id.Name,TT.END);
          if (unit is Module || unit is Section) PrintLudes(unit);
          if (Newline) Emitnl();
-         if (updateUI) emitter.UpdateUI();
+         if (updateUI) Emitter.UpdateUI();
       }
 
       /// <summary>
@@ -553,14 +553,14 @@ namespace CDL2v1 {
       private void PrintComment(Alternative element) => PrintComment(null,element.Notes);
 
       private void PrintComment(string? comments,Notes notes) {
-         if (comments != null) Emitnl(comments.Decorate(emitter,SE.Comment));
+         if (comments != null) Emitnl(comments.Decorate(Emitter,SE.Comment));
          foreach (Note note in notes) {
             if (note.Type == NoteType.Note) {
-               NlEmitnl(note.Text.Decorate(emitter,SE.Comment));
+               NlEmitnl(note.Text.Decorate(Emitter,SE.Comment));
                Emitnl(RW.NOTE,Token.TokenType2Glyph[TT.END]);
             } else {
                Emitnl(string.Concat("#",Note.Marker,(note.Type.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "),note.Text)
-                  .Decorate(emitter,note.Type switch {
+                  .Decorate(Emitter,note.Type switch {
                      NoteType.Error    => SE.NoteError,
                      NoteType.Warning  => SE.NoteWarning,
                      NoteType.Info     => SE.NoteInfo,
@@ -584,12 +584,12 @@ namespace CDL2v1 {
       /// The methods with nl will add a new line at the beginning or end.
       /// </summary>
       /// <param id="items"></param>
-      private void Emit(params object[] items) => emitter.Emit(TranslateTokens(items));
-      private void EmitWithExtraSpace(bool extraSpace,params object[] items) => emitter.EmitWithExtraSpace(extraSpace,TranslateTokens(items));
-      private void EmitSeparator(TT sep,bool space=true) => emitter.EmitIgnoreLineLength(TranslateToken(sep)+(space?" ":""));
-      private void EmitSeparatorWithNL(TT sep) => emitter.EmitIgnoreLineLength(TranslateToken(sep),NL:true);
-      private void Emitnl(params object[] items) => emitter.Emitnl(TranslateTokens(items));
-      private void NlEmit(params object[] items) => emitter.NlEmit(TranslateTokens(items));
-      private void NlEmitnl(params object[] items) => emitter.NlEmitnl(TranslateTokens(items));
+      private void Emit(params object[] items) => Emitter.Emit(TranslateTokens(items));
+      private void EmitWithExtraSpace(bool extraSpace,params object[] items) => Emitter.EmitWithExtraSpace(extraSpace,TranslateTokens(items));
+      private void EmitSeparator(TT sep,bool space=true) => Emitter.EmitIgnoreLineLength(TranslateToken(sep)+(space?" ":""));
+      private void EmitSeparatorWithNL(TT sep) => Emitter.EmitIgnoreLineLength(TranslateToken(sep),NL:true);
+      private void Emitnl(params object[] items) => Emitter.Emitnl(TranslateTokens(items));
+      private void NlEmit(params object[] items) => Emitter.NlEmit(TranslateTokens(items));
+      private void NlEmitnl(params object[] items) => Emitter.NlEmitnl(TranslateTokens(items));
    }
 }

@@ -25,7 +25,7 @@ namespace CDL2v1 {
       /// If there is a unit, then use its Ludes. Otherwise, use the Ludes from all modulesWithLudes.
       /// </summary>
       /// <param id="modulesWithLudes"></param>
-      /// <param id="emitter"></param>
+      /// <param id="Emitter"></param>
       /// <param id="isSeparate"></param>
       public void GenerateCode(Program program, EmitterBase emitter, bool isSeparate = false) {
          cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
@@ -197,7 +197,12 @@ namespace CDL2v1 {
       }
 
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
-         cg.GenerateComment(alg.ToString());
+         if (!alg.IsSynthetic && alg is Procedure proc) {
+            cg.SourcePrinter.Print(proc, proc.Section);
+            cg.GenerateComment(cg.SourcePrinter);
+         } else {
+            cg.GenerateComment(alg.ToString());
+         }
          cg.GenerateAlgorithmHeaderStart(alg);
          if (alg.affixes.Count > 0) {
             cg.GenerateAffix(alg.affixes[0], alg.affixes[0].affixDir, alg.CanFail);

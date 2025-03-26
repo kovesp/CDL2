@@ -31,7 +31,6 @@ namespace CDL2v1 {
    public interface IInterfaceElement { }
    public interface IProvidedElement : IInterfaceElement { }
    public interface IRequiredElement : IInterfaceElement { }
-   public interface INotedElement { }
    public interface IActualArg { }
    public interface INamedElement {
       bool HasCommentOrNote { get; }
@@ -64,7 +63,7 @@ namespace CDL2v1 {
    /// </summary>
    /// <param name="id"></param>
    public interface IFailureProtected : IActualArg { }
-   public interface IScope { }
+
 
 
    /// <summary>
@@ -170,7 +169,7 @@ namespace CDL2v1 {
    /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
    /// </summary>
    [Serializable]
-   public abstract class Container : NamedElement, IScope {
+   public abstract class Container : NamedElement {
       /// <summary>
       /// The Children of the container. Layers are ordered, hence the list.
       /// </summary>
@@ -387,7 +386,7 @@ namespace CDL2v1 {
    /// Represents the common properties of Algorithms (Macros and Procedures).
    /// </summary>
    [Serializable]
-   public abstract class Algorithm : DeclaredCDL2Object, IProvidedElement, ILocalCDL2Object, IScope {
+   public abstract class Algorithm : DeclaredCDL2Object, IProvidedElement, ILocalCDL2Object {
       // public readonly Section container = container;
       public          RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
       public readonly TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)

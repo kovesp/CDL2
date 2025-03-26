@@ -87,8 +87,8 @@ class BoundedArray {
       }
       void ICodeGenerator.GenerateModuleStart(Module module,bool isSeparate,string? target) {
          if (isSeparate) {
-            // Changes the target file name to be the module name with the extension. Ignored by emitters except for the file emitter.
-            // This causes the file emitter to close the current file and switch to the new file.
+            // Changes the target file name to be the module name with the extension. Ignored by emitters except for the file Emitter.
+            // This causes the file Emitter to close the current file and switch to the new file.
             emitter.Target = Path.Combine(Path.GetDirectoryName(emitter.Target)??"",module.id.InternalName+((ICodeGenerator)this).FileExtension);
          }
          EmitUnitStartComment(module);
@@ -279,6 +279,7 @@ class BoundedArray {
       #endregion Macros
 
       #region Procedures
+      private PrettyPrinter? pp = null;
       void ICodeGenerator.GenerateProcedureStart(Procedure code) { }
       void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
          if (proc.CanFail) emitter.Emitnl("return $__b");
@@ -372,7 +373,10 @@ class BoundedArray {
       #region Support
       void ICodeGenerator.GenerateNewline() => Newline();
       void ICodeGenerator.GenerateComment(string comment) => GenerateComment(comment);
+      void ICodeGenerator.GenerateComment(PrettyPrinter pp) => emitter.Emit(pp.Emitter.ToString()!);
       string ICodeGenerator.FileExtension { get; } = ".ps1";
+
+      PrettyPrinter ICodeGenerator.SourcePrinter => new(new EmitterString("# "));
       #endregion Support
 
       #region Helpers

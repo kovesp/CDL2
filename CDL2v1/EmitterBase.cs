@@ -10,13 +10,13 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
    public abstract class EmitterBase {
-      protected EmitterBase() {
-         if (GetType() != typeof(EmitterDebug)) WriteDebug = (s) => {
-           
-            EmitterDebug.WriteDebug(s);
-         };
+      protected EmitterBase() { }
+
+      private void WriteDebug(string s) {
+         if (!SupressDebug) EmitterDebug.WriteDebug(s);
       }
-      private readonly Action<string> WriteDebug = (s) => { };
+
+      protected bool SupressDebug = false;
 
       public virtual string Target { get; set; } = "";
       /// <summary>

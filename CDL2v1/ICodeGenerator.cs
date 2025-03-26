@@ -102,11 +102,11 @@ namespace CDL2v1 {
       #region Programs, Modules, Layers, Sections
       /// <summary>
       /// This is called at the start of the program.
-      /// The supplied emitter is used to emit the generated code.
+      /// The supplied Emitter is used to emit the generated code.
       /// </summary>
       /// <param name="program"></param>
       /// <param name="emitter">
-      ///   Used to emit the code. The generator is free to change the target using the emitter's Target property if applicable.
+      ///   Used to emit the code. The generator is free to change the target using the Emitter's Target property if applicable.
       ///   Only EmitterFile currently supports this.
       /// </param>
       /// <param name="isSeparate"></param>
@@ -521,10 +521,18 @@ namespace CDL2v1 {
       #region Support
       void GenerateNewline();
       void GenerateComment(string comment);
+      void GenerateComment(PrettyPrinter sourcePrinter);
+
       /// <summary>
       /// Provides the file extentsion for the target language.
       /// </summary>
       string FileExtension { get; }
+
+      /// <summary>
+      /// Provides the source comment printer for the target language.
+      /// This is used to generate source code as comments into the target program.
+      /// </summary>
+      PrettyPrinter SourcePrinter { get; }
       #endregion Support
    }
 }
