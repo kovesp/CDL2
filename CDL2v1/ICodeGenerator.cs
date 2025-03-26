@@ -522,6 +522,7 @@ namespace CDL2v1 {
       void GenerateNewline();
       void GenerateComment(string comment);
       void GenerateComment(PrettyPrinter sourcePrinter);
+      void GenerateSourceComment();
 
       /// <summary>
       /// Provides the file extentsion for the target language.
@@ -532,7 +533,7 @@ namespace CDL2v1 {
       /// Provides the source comment printer for the target language.
       /// This is used to generate source code as comments into the target program.
       /// </summary>
-      PrettyPrinter SourcePrinter { get; }
+      EmitterBase SourceEmitter { get; }
       #endregion Support
    }
 }

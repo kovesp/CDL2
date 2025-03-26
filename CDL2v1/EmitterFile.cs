@@ -30,5 +30,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="item"></param>
       protected override void WriteLine(string item) => writer?.WriteLine(item);
+
+      public override void Close() {
+         writer?.Flush();
+         writer?.Close();
+         writer = null;
+      }
    }
 }

@@ -49,8 +49,6 @@ MODULE quicksort.
          TEST ge+>a+>b : eq+a+b ; gt+a+b.
          TEST le+>a+>b : eq+a+b ; lt+a+b. 
 
-         # The range of random numbers generated.
-         CONST min random=0, max random=200.
          FUNCTION random+>min+>max+r> =: r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
       SECTION data.
@@ -84,8 +82,10 @@ MODULE quicksort.
             "Write-Host " data.
          ACTION dump data*msg:
             show msg no newline+msg, dump list.
+
          # The range of random numbers. #
          CONST min random=0, max random=200.
+
          # Fill the array with random integers. #
          ACTION initialize data -i -r:
             make+i+lwb,
@@ -147,15 +147,3 @@ PROGRAM sort.
    ROOT quicksort.
    POSTLUDE quicksort.
 ENDPROG sort.
-
-
-
-
-
-
-
-
-
-
-
-

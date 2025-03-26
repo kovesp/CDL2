@@ -203,5 +203,6 @@ namespace CDL2v1 {
       public virtual void BeginUpdate() { }
       public virtual void EndUpdate() { }
       public virtual void UpdateUI() { }
+      public virtual string Content { get; } = "";
    }
 }

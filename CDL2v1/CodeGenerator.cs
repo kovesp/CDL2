@@ -20,6 +20,8 @@ namespace CDL2v1 {
 
       private static readonly List<RW> ludeTypes = [ RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
 
+      private readonly PrettyPrinter sourceCommentPrinter = new(cg.SourceEmitter);
+
       /// <summary>
       /// Generate code for the unit and all its modulesWithLudes.
       /// If there is a unit, then use its Ludes. Otherwise, use the Ludes from all modulesWithLudes.
@@ -198,8 +200,8 @@ namespace CDL2v1 {
 
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
          if (!alg.IsSynthetic && alg is Procedure proc) {
-            cg.SourcePrinter.Print(proc, proc.Section);
-            cg.GenerateComment(cg.SourcePrinter);
+            sourceCommentPrinter.Print(proc, proc.Section);
+            cg.GenerateSourceComment();
          } else {
             cg.GenerateComment(alg.ToString());
          }
