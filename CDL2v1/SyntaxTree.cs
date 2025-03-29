@@ -85,7 +85,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Procedure has defect (has an effect tough it is a FUNCTION/ACTION.
       /// </summary>
-      public static readonly Note Defect = new(NoteType.Error,"Procedure has defect (has an effect tough it is a {0}",1);
+      public static readonly Note Defect = new(NoteType.Error,"Procedure has defect (has an effect tough it is a {0})",1);
       /// <summary>
       /// Procedure has effect tough is a FUNCTION/ACTION.
       /// </summary>
@@ -115,6 +115,10 @@ namespace CDL2v1 {
       /// </summary>
       public static readonly Note ImportedConstantHasBody = new(NoteType.Warning,"Imported Constant has body",104);
       /// <summary>
+      /// ACTION/PREDICATE has no effect.
+      /// </summary>
+      public static readonly Note NoEffect = new(NoteType.Warning, "Procedure has no effect tough is a {0}", 105);
+      /// <summary>
       /// Label not found in Procedure.
       /// </summary>
       public static readonly Note LabelNotFound = new(NoteType.Error,"*{0}: label not found in Procedure",5);
@@ -122,6 +126,10 @@ namespace CDL2v1 {
       /// Duplicate label in Procedure.
       /// </summary>
       public static readonly Note DuplicateLabel = new(NoteType.Error,"{0}: duplicate label in Procedure",6);
+      /// <summary>
+      /// FUNCTIONs and ACTIONs cannot use the FAIL operator.
+      /// </summary>
+      public static readonly Note IllegalFailOperator= new(NoteType.Error, "Procedure has FAIl operator (-) tough it is a {0}", 7);
 
       public Note(Note template,params object[] args) : this(template.Type,string.Format(template.Text,args),template.Number) { }
    }
@@ -148,7 +156,7 @@ namespace CDL2v1 {
       public Notes Notes { get; set; } = [];
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
       public void AddNote(Note note,params object[] insertions) => Notes.Add(insertions.Length == 0 ? note : new Note(note,insertions));
-      public void AddNotes(Notes? notes) => notes?.ForEach(note => Notes.Add(note));
+      public void AddNotes(Notes? notes) => notes?.ForEach(note => AddNote(note));
 
       /// <summary>
       /// Fully qualified name as Module_Layer_Section_Object.

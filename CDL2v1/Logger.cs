@@ -75,17 +75,17 @@ namespace CDL2v1 {
       /// Log an error message.
       /// </summary>
       /// <param id="message"></param>
-      private void _LogError(string message) => WriteLine(-1,$"CDL2 Error: {message}");
+      private void _LogError(string message) => WriteLine(-1, string.Join('\n', message.Split('\n').Select(line => $"CDL2 Error: {line}")));
 
       /// <summary>
       /// Report an error message.
       /// If the ErrorAction is not null, it is called.
       /// </summary>
       /// <param id="message"></param>
-      public void _ReportError(string message) {
+      public void _ReportError(string message, bool suppressErrorAction = false) {
          string? currentObj = CurrentObject?.ToString();
-         _LogError($"{(currentObj is null?"":":")} {message}");
-         if (ErrorAction is not null) ErrorAction();
+         _LogError($"{(currentObj is null?"":": ")}{message}");
+         if (!suppressErrorAction && ErrorAction is not null) ErrorAction();
       }
 
       /// <summary>
@@ -96,7 +96,7 @@ namespace CDL2v1 {
       public static void Log(int level,string message) => logger._Log(level,message);
       public static void Log(string message) => logger._Log(0,message);
       public static void LogError(string message) => logger._LogError(message);
-      public static void ReportError(string message) => logger._ReportError(message);
+      public static void ReportError(string message,bool suppressErrorAction=false) => logger._ReportError(message, suppressErrorAction: suppressErrorAction);
 
       /// <summary>
       /// Writes a message to the console and debug output if the verbosity level is high enough.

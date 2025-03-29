@@ -8,6 +8,7 @@ using System.CommandLine.Invocation;
 using static CDL2v1.Logger;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using System.ComponentModel;
 
 [Serializable]
 internal class CDL2 {
@@ -22,75 +23,90 @@ internal class CDL2 {
    public bool ParseOnly { get; internal set; }
    public string? PrettyPrint { get; internal set; } = null;
    public string? ProgramName { get; set; }
+   public bool AllowErrors { get; set; }
+   public bool StopOnWarnings { get; set; }
 
    static CDL2() {
       Compiler = new CDL2();
    }
 
-   private static void Main(string[] args) {
-      Log(0,$"CDL2 Compiler v{Version}");
+   // Configuration class to hold all options
+   private class CompilerOptions {
+      public string[] Sources { get; set; } = Array.Empty<string>();
+      public int VerbosityLevel { get; set; } = -1;
+      public int DebugVerbosityLevel { get; set; } = -1;
+      public string Target { get; set; } = "PowerShell";
+      public string ProgramName { get; set; } = "";
+      public bool SaveDB { get; set; } = false;
+      public bool ParseOnly { get; set; } = false;
+      public bool StopOnWarnings { get; set; } = false;
+      public bool AllowErrors { get; set; } = false;
+      public string? PrettyPrint { get; set; } = "";
+      public bool GenerateDebugInfo { get; set; } = false;
+      public string? OutputDirectory { get; set; } = null;
+      // Add any additional options here
+   }
 
-      // Define the root command with serializationOptions
+   private static void Main(string[] args) {
+      Log(0, $"CDL2 Compiler v{Version}");
+
+      // Define the root command with options
       var rootCommand = new RootCommand {
-            new Option<string[]>(
-                "--sources",
-                description: "The source files to compile"),
-            new Option<int>(
-                ["-v", "--verbose"],
-                getDefaultValue: () => -1,   // Means off
-                description: "Set the verbosity level (0-3)"),
-            new Option<int>(
-                ["-d", "--debug-log"],
-                getDefaultValue: () => -1,   // Means off
-                description: "Set the debug verbosity level (0-3)"),
-            new Option<string>(
-                ["-t","--target"],
-                getDefaultValue: () => "PowerShell",
-                description: "Generate code for the specified target language. Default is PowerShell."),
-            new Option<string>(
-                ["-p","--program"],
-                getDefaultValue: () => "",
-                description: "Make program the one for which code is generated. The default is the first or only program that has been read."),
-            new Option<bool>(
-                "--save",
-                getDefaultValue: () => false,
-                description: "Save the parsed code to a file using JSON"),
-            new Option<bool>(
-                "--parse-only",
-                getDefaultValue: () => false,
-                description: "Do not generate code. Verifies whether the source is valid."),
-            new Option<string?>(
-                "--pretty-print",
-                getDefaultValue: () => "",
-                description: "Pretty print the parsed code. If a value is given, it is assumed to be a file-name, Otherwise output goes to the Debugger."){Arity = ArgumentArity.ZeroOrOne},
-      };
+            new Option<string[]>("--sources",                              "The source files to compile"),
+            new Option<int>     (["-v", "--verbose"],  () => -1,           "Set the verbosity level (0-3)"),
+            new Option<int>     (["-d", "--debug-log"],() => -1,           "Set the debug verbosity level (0-3)"),
+            new Option<string>  (["-t","--target"],    () => "PowerShell", "Generate code for the specified target language. Default is PowerShell."),
+            new Option<string>  (["-p","--program"],   () => "",           "Make program the one for which code is generated. The default is the first or only program that has been read."),
+            new Option<bool>    ("--save",             () => false,        "Save the parsed code to a file using JSON"),
+            new Option<bool>    ("--parse-only",       () => false,        "Do not generate code. Verifies whether the source is valid."),
+            new Option<bool>    ("--stop-on-warnings", () => false,        "Stop processing if any warnings are generated."),
+            new Option<bool>    ("--allow-errors",     () => false,        "Continue even if there are errors. Mainly for debugging the compiler."),
+            new Option<string?> ("--pretty-print",     () => "",           "Pretty print the parsed code. If a value is given, it is assumed to be a file-name, Otherwise output goes to the Debugger.") { Arity = ArgumentArity.ZeroOrOne },
+            new Option<bool>    ("--gen-debug-info",   () => false,        "Generate debug information"),
+            new Option<string?> ("--output-dir",       () => null,         "Specify output directory for generated code")
+        };
 
       rootCommand.Description = "CDL2 Compiler";
 
-      // Set the handler for the root command
-      rootCommand.SetHandler((string[] sources,int verbosity,int debugVerbosity,string target,string programName,
-            bool SaveDB,bool parseOnly,string? prettyPrint) => {
-         Compiler.VerbosityLevel = verbosity;
-         Compiler.DebugVerbosityLevel = debugVerbosity;
-         Compiler.SaveDB = SaveDB;
-         Compiler.Target = target;
-         Compiler.ProgramName = programName;
-         Compiler.ParseOnly = parseOnly;
-         Compiler.PrettyPrint = prettyPrint;
-         Compiler.CompileSources(sources);
-      },
-      (Option<string[]>)rootCommand.Options[0],
-      (Option<int>)rootCommand.Options[1],
-      (Option<int>)rootCommand.Options[2],
-      (Option<string>)rootCommand.Options[3],
-      (Option<string>)rootCommand.Options[4],
-      (Option<bool>)rootCommand.Options[5],
-      (Option<bool>)rootCommand.Options[6],
-      (Option<string?>)rootCommand.Options[7]);
+      // Set the handler using a configuration object
+      rootCommand.SetHandler((context) => {
+         var options = new CompilerOptions {
+            Sources             = context.ParseResult.GetValueForOption<string[]>((Option<string[]>)rootCommand.Options[0])!,
+            VerbosityLevel      = context.ParseResult.GetValueForOption<int>((Option<int>)rootCommand.Options[1]),
+            DebugVerbosityLevel = context.ParseResult.GetValueForOption<int>((Option<int>)rootCommand.Options[2]),
+            Target              = context.ParseResult.GetValueForOption<string>((Option<string>)rootCommand.Options[3])!,
+            ProgramName         = context.ParseResult.GetValueForOption<string>((Option<string>)rootCommand.Options[4])!,
+            SaveDB              = context.ParseResult.GetValueForOption<bool>((Option<bool>)rootCommand.Options[5]),
+            ParseOnly           = context.ParseResult.GetValueForOption<bool>((Option<bool>)rootCommand.Options[6]),
+            StopOnWarnings      = context.ParseResult.GetValueForOption<bool>((Option<bool>)rootCommand.Options[7]),
+            AllowErrors         = context.ParseResult.GetValueForOption<bool>((Option<bool>)rootCommand.Options[8]),
+            PrettyPrint         = context.ParseResult.GetValueForOption<string?>((Option<string?>)rootCommand.Options[9]),
+            GenerateDebugInfo   = context.ParseResult.GetValueForOption<bool>((Option<bool>)rootCommand.Options[10]),
+            OutputDirectory     = context.ParseResult.GetValueForOption<string?>((Option<string?>)rootCommand.Options[11])
+         };
+
+         ProcessOptions(options);
+      });
 
       // Invoke the command handler
       rootCommand.Invoke(args);
    }
+
+   private static void ProcessOptions(CompilerOptions options) {
+      Compiler.VerbosityLevel = options.VerbosityLevel;
+      Compiler.DebugVerbosityLevel = options.DebugVerbosityLevel;
+      Compiler.SaveDB = options.SaveDB;
+      Compiler.Target = options.Target;
+      Compiler.ProgramName = options.ProgramName;
+      Compiler.ParseOnly = options.ParseOnly;
+      Compiler.StopOnWarnings = options.StopOnWarnings;
+      Compiler.AllowErrors = options.AllowErrors;
+      Compiler.PrettyPrint = options.PrettyPrint;
+      // Process any additional options
+
+      Compiler.CompileSources(options.Sources);
+   }
+
 
    private string BoolOption(bool option, string name) => option ? name+" ": "";
    private string IntOption(int option, string name) => option > 0 ? $"{name} {option} " : "";
@@ -102,7 +118,9 @@ internal class CDL2 {
 
    public void CompileSources(string[] args) {
       Log(0,$"Options: --sources {string.Join(',',args)} {IntOption(VerbosityLevel,"--verbose")}{IntOption(DebugVerbosityLevel,"--debug-log")}"+
-                                 $"{StringOption(Target,"--target")}{StringOption(ProgramName,"--program")}{BoolOption(SaveDB,"--save")}{BoolOption(ParseOnly,"--parse-only")}{StringOption(PrettyPrint,"--pretty-print")}");
+                                 $"{StringOption(Target,"--target")}{StringOption(ProgramName,"--program")}{BoolOption(SaveDB,"--save")}"+
+                                 $"{BoolOption(ParseOnly,"--parse-only")}{BoolOption(StopOnWarnings, "--stop-on-warnings")}{BoolOption(AllowErrors, "--allow-errors")}"+
+                                 $"{StringOption(PrettyPrint,"--pretty-print")}");
       if (args.Length > 0) {
          Parser = new Parser();
          foreach (string arg in args) {
@@ -113,6 +131,15 @@ internal class CDL2 {
                // Add the tokens comprising the file to the syntax tree
                Parser.Parse(sourceTokens);
             }
+         }
+         Log(0,$"Parser: {Parser.Errors} errors(s), {Parser.Warnings} warining(s)");
+         if (Parser.Errors > 0 && !AllowErrors) {
+            Log(0, "Compilation aborted due to errors");
+            return;
+         }
+         if (Parser.Warnings > 0 && StopOnWarnings) {
+            Log(0, "Compilation aborted due to warnings");
+            return;
          }
 
          Program? MainProgram = null;
@@ -138,6 +165,15 @@ internal class CDL2 {
          if (Database.Instance.Programs.Count >= 1) {
             // TODO: If errors are found, null out the program object.
             semanticAnalyzer.Analyze(MainProgram);
+            Log(0, $"Semantic Analyzer: {semanticAnalyzer.Errors} errors(s), {semanticAnalyzer.Warnings} warining(s)");
+         }
+         if (semanticAnalyzer.Errors > 0 && !AllowErrors) {
+            Log(0, "Compilation aborted due to errors");
+            return;
+         }
+         if (semanticAnalyzer.Warnings > 0 && StopOnWarnings) {
+            Log(0, "Compilation aborted due to warnings");
+            return;
          }
 
          if (SaveDB) Database.Save("CDL2v1");

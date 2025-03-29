@@ -402,12 +402,24 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// Print an algorithm which (of course) is either a Procedure or a Macro.
+      /// </summary>
+      /// <param name="algorithm"></param>
+      public void Print(Algorithm algorithm) {
+         if (algorithm is Procedure proc) {
+            Print(proc, proc.Section);
+         } else {
+            Print((Macro)algorithm);
+         }
+      }
+
+      /// <summary>
       /// Print a ContainingProc unless it is IsSynthetic.
       /// </summary>
       /// <param name="proc"></param>
       public void Print(Procedure proc,Section section) {
          Debug.Assert(!proc.IsSynthetic,"Synthetic procedures should not be printed");
-         PrintProcHead(proc);
+         PrintAlgorithmHeader(proc);
          Indented(() => {
             Debug.Assert(proc.group.alternatives.Count != 0,"alternatives list is empty");
             Print(proc.group.alternatives.First(),section);
@@ -424,7 +436,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="macro"></param>
       public void Print(Macro macro) {
-         PrintProcHead(macro);
+         PrintAlgorithmHeader(macro);
          Indented(() => {
             Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
             PrintMacroElement(macro.elements.First(),withNl: false);
@@ -461,7 +473,7 @@ namespace CDL2v1 {
          }
       }
 
-      private void PrintProcHead(Algorithm algorithm) {
+      private void PrintAlgorithmHeader(Algorithm algorithm) {
          PrintComment(algorithm);
          Emit(algorithm.algorithmType.Decorate(Emitter,SE.ReservedWord)," ",
             algorithm.id.Decorate(Emitter,AlgorithmNameDecorators[algorithm.NameType]));
@@ -476,7 +488,7 @@ namespace CDL2v1 {
                Emit(" ",TT.LOCALSEP,local.id.Decorate(Emitter,SE.Local));
             }
          }
-         Emitnl(algorithm.bodyType);
+         Emitnl(" ",algorithm.bodyType);
       }
 
       public void Print(Const constant) {

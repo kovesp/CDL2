@@ -46,7 +46,27 @@ namespace CDL2v1 {
    /// </summary>
    [Serializable]
    internal class SemanticAnalyzer {
+      /// <summary>
+      /// Number of warnings generated.
+      /// </summary>
+      public int Warnings { get; private set; }
+      /// <summary>
+      /// Number of errors generated.
+      /// </summary>
+      public int Errors { get; private set; }
+
+      private void AddNote(NamedElement subject, Note note,params object[] insertions) {
+         subject.AddNote(note,insertions);
+         if (note.Type == NoteType.Warning) Warnings++;
+         if (note.Type == NoteType.Error) Errors++;
+      }
+
+      /// <summary>
+      /// Analyze the given program.
+      /// </summary>
+      /// <param name="MainProgram"></param>
       internal void Analyze(Program MainProgram) {
+         Warnings = Errors = 0;
          foreach (Program program in Database.Instance.Programs.Values) {
             AnalyzeProgram(program);
          }
@@ -134,21 +154,21 @@ namespace CDL2v1 {
       private void AnalyzeProcedure(Procedure proc,Section section) {
          bool hasEffect = AnalyzeEffect(proc.group,section);
          if (proc.HasEffect && !hasEffect) {
-            proc.AddNote(Note.Defect,proc.algorithmType);
+            AddNote(proc,Note.NoEffect,proc.algorithmType);
             ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.algorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
          } else if (!proc.HasEffect && hasEffect) {
-            proc.AddNote(Note.Defect,proc.algorithmType);
+            AddNote(proc,Note.Defect,proc.algorithmType);
             ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.algorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
          bool canFail = AnalyzeCanFail(proc.group,section);
          if (proc.CanFail && !canFail) {
-            proc.AddNote(Note.CannotFail,proc.algorithmType);
-            //proc.AddNote(new(NoteType.Warning,"Test warning",108));
-            //proc.AddNote(new(NoteType.Info,"Test info",208));
+            AddNote(proc,Note.CannotFail,proc.algorithmType);
+            //AddNote(proc,new(NoteType.Warning,"Test warning",108));
+            //AddNote(proc,new(NoteType.Info,"Test info",208));
             ReportError(section,$"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType==RW.TEST?RW.FUNCTION:RW.ACTION)}?");
          } else if (!proc.CanFail && canFail) {
-            proc.AddNote(Note.CanFail,proc.algorithmType);
+            AddNote(proc,Note.CanFail,proc.algorithmType);
             ReportError(section,$"Procedure {proc.AlgorithmName} can fail. Should be {(proc.algorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
          }
       }

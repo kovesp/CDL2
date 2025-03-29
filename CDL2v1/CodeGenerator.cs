@@ -31,11 +31,12 @@ namespace CDL2v1 {
       /// <param id="isSeparate"></param>
       public void GenerateCode(Program program, EmitterBase emitter, bool isSeparate = false) {
          cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
+         sourceCommentPrinter.Print(program);
+         cg.GenerateSourceComment();
 
          foreach (ID mod in program.Parts) cg.GenerateProgramPart(program, mod, isSeparate);
 
          if (!isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod], isSeparate: false);
-
 
          foreach (RW ludeType in ludeTypes) {            
             IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.Modules[id]).Where(mod => mod.Ludes[ludeType].Count > 0);
@@ -199,8 +200,8 @@ namespace CDL2v1 {
       }
 
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
-         if (!alg.IsSynthetic && alg is Procedure proc) {
-            sourceCommentPrinter.Print(proc, proc.Section);
+         if (!alg.IsSynthetic) {
+            sourceCommentPrinter.Print(alg);
             cg.GenerateSourceComment();
          } else {
             cg.GenerateComment(alg.ToString());

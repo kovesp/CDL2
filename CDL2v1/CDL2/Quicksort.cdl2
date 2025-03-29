@@ -1,6 +1,6 @@
 # Ignore Spelling: lwb upb eq ne ge namespace str concat io fac prog decr cspell
 # Ignore Spelling: ENDMOD ENDLAY ENDSEC quicksort incr msg 
-# cspell:ignore ENDMOD ENDLAY ENDSEC decr ABSTR
+# cspell:ignore ENDMOD ENDLAY ENDSEC ENDPROG decr ABSTR incr decr
 
 MODULE quicksort.
    LAYER base.
@@ -11,17 +11,23 @@ MODULE quicksort.
          TEST choose +>a+>limit+c>+>inc =
             "$L" c " = " a " + " inc
             "$L" a " -gt " limit.
-
+         # Return the test result as 0 or 1
          FUNCTION choose func +>a+>limit+c>+>inc+res> =
             c " = " a " + " inc
-            "$L" res " = " a " -gt " limit.
+            "$L" res " = [int](" a " -gt " limit ")".
 
          FUNCTION incr+>a> = a "++".
          FUNCTION decr+>a> = a "--".
-         TEST greater+>a+>b : gt+a+b.
-         TEST less+>a+>b : lt+a+b.
-         TEST less or equal+>a+>b : le+a+b.
+         FUNCTION incr with +>a>+>b = a " += " b.
+         FUNCTION decr with +>a>+>b = a " -= " b.
+
          FUNCTION add +>a+>b+c> = c " = " a " + " b.
+         FUNCTION subtract +>a+>b+c> = c " = " a " - " b.
+         FUNCTION multiply +>a+>b+c> = c " = " a " * " b.
+         FUNCTION divide +>a+>b+c> = c " = " a " / " b.
+         FUNCTION remainder +>a+>b+c> = c " = " a " - " a " / " b " * " b.
+         FUNCTION modulo +>a+>b+c> = c " = " a " % " b.
+
          FUNCTION halve +>a> = a " /= 2".
          FUNCTION make +a>+>b = a " = " b.
 
@@ -33,21 +39,25 @@ MODULE quicksort.
          VAR var.
 
 
-         ### Procedure for testing the Semantic analyzer
-         # It cannot fail.           
+         ### Procedures for testing the Semantic analyzer
+         # This one cannot fail.           
          TEST test+>a+>b>+c>:
             less+a+b, make+c+a;
             eq+a+b, add+a+ten+c,actiontest;
             add+b+ten+var, incr+b, make+c+b.
 
+         FUNCTION illegal fail operator: eq+var+ten, -.
 
          TEST lt+>a+>b = a " -lt " b.
          TEST eq+>a+>b = a " -eq " b.
-         TEST gt+>a+>b = a " -gt " b.
 
+         TEST gt+>a+>b : lt+b+a.
          TEST ne+>a+>b : eq+a+b,- ; +.
          TEST ge+>a+>b : eq+a+b ; gt+a+b.
          TEST le+>a+>b : eq+a+b ; lt+a+b. 
+         TEST greater+>a+>b : gt+a+b.
+         TEST less+>a+>b : lt+a+b.
+         TEST less or equal+>a+>b : le+a+b.
 
          FUNCTION random+>min+>max+r> =: r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
@@ -67,13 +77,13 @@ MODULE quicksort.
          NOTE.
          VAR unused2.
 
-         TEST smaller element +>p+>q =: 
+         TEST smaller element +>p+>q = 
             data ".Item(" p ") -lt " data ".Item(" q ")".
          ACTION swap element +>p+>q -t:
             get element+p+t, set element to+p+q, set element+q+t.
-         FUNCTION get element +>i+v> =: 
+         FUNCTION get element +>i+v> = 
             v " = " data ".Item(" i ")".
-         ACTION set element +>i+>v =: 
+         ACTION set element +>i+>v = 
             data ".Item(" i "," v ")".
          ACTION set element to+>p+>q =
             data ".Item(" p "," data ".Item(" q "))".

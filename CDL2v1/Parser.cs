@@ -60,6 +60,21 @@ namespace CDL2v1 {
          override public string ToString() => $"{Program}{Module}{Layer}{Section}{Obj}".TrimStart();
       }
 
+      /// <summary>
+      /// Number of warnings generated.
+      /// </summary>
+      public int Warnings { get; private set; }
+      /// <summary>
+      /// Number of errors generated.
+      /// </summary>
+      public int Errors { get; private set; }
+
+      private void AddNote(NamedElement subject, Note note, params object[] insertions) {
+         subject.AddNote(note, insertions);
+         if (note.Type == NoteType.Warning) Warnings++;
+         if (note.Type == NoteType.Error) Errors++;
+      }
+
       public TokenList tokens = new();
 
 
@@ -246,7 +261,7 @@ namespace CDL2v1 {
                // IMPORT declaration. Check if it is in the imports list.
                algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
                if (!currentSection.import.Contains(id)) {
-                  algorithm.AddNote(Note.AlgorithmStubNotImported,algorithm.id.Name,currentSection.id.Name);
+                  AddNote(algorithm,Note.AlgorithmStubNotImported,algorithm.id.Name,currentSection.id.Name);
                   ReportError($"{algType} {id} is not exported but has no body.");
                }
             } else {
@@ -268,7 +283,7 @@ namespace CDL2v1 {
             }
             Debug.Assert(algorithm != null);
             if (currentSection.import.Contains(id)) {
-               algorithm.AddNote(Note.ImportedAlgorithmHasBody,algorithm.id.Name,currentSection.id.Name);
+               AddNote(algorithm,Note.ImportedAlgorithmHasBody,algorithm.id.Name,currentSection.id.Name);
                ReportError($"{algType} {id} is imported but has locals or a body.");
             }
             currentSection.declarations[id] = algorithm;
@@ -326,7 +341,12 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.SUCCEED)) {
                lastCall = new LastCall(LCT.Succeed);
             } else if (tokens.Optional(TT.FAIL)) {
-               lastCall = new LastCall(LCT.Fail);
+               if (proc.CanFail) {
+                  lastCall = new LastCall(LCT.Fail);
+               } else {
+                  AddNote(proc, Note.IllegalFailOperator, proc.algorithmType);
+                  ReportError($"{proc} contains fail operator",supressErrorAction:true);
+               }
             } else if (tokens.Optional(TT.ABORT)) {
                lastCall = new LastCall(LCT.Abort);
             } else if (tokens.Optional(TT.REPEAT)) {
@@ -342,7 +362,7 @@ namespace CDL2v1 {
                      g = g.Parent;
                   }
                   if (!found && label != proc.id) { // The label can be the ContainingProc id
-                     proc.AddNote(Note.LabelNotFound,label.Name);
+                     AddNote(proc,Note.LabelNotFound,label.Name);
                      ReportError($"Label {label} not found in group hierarchy");
                   }
                   lastCall = new LastCall(label);
@@ -391,7 +411,7 @@ namespace CDL2v1 {
             Group? g = group;
             while (g != null) {
                if (g.id == label) {
-                  proc.AddNote(Note.DuplicateLabel,label.Name);
+                  AddNote(proc,Note.DuplicateLabel,label.Name);
                   ReportError($"Duplicate label {label}");
                   return ID.AnonID;
                }
@@ -685,7 +705,7 @@ namespace CDL2v1 {
          tokens.CanConsumeEnd();
       }
 
-      private void ReportError(string v) => ReportError($"MOD {currentModule} LAY {currentLayer} SEC {currentSection}: {v}");
+      private void ReportError(string v,bool supressErrorAction=false) => Logger.ReportError($"{currentModule} {currentLayer} {currentSection}: {v}", supressErrorAction);
       internal void SkipToNextEnd() {
          while (!tokens.IsNext(TT.END)) tokens.Skip();
          tokens.Skip(); // The end itself
