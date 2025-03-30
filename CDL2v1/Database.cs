@@ -9,10 +9,17 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using Microsoft.Win32;
 
-namespace CDL2v1
-{
+namespace CDL2v1 {
+   /// <summary>
+   /// Entrypoint for all data maintanined by the compiler.
+   /// In memory dta holder for a future CDL2 Lab implementation.
+   /// </summary>
    [Serializable]
    public class Database {
+      /// <summary>
+      /// This is a singleton class.
+      /// </summary>
+      private Database() { }
       public static Database Instance { get; private set; } = new Database();
 
       [JsonInclude]
@@ -21,9 +28,12 @@ namespace CDL2v1
       public Program? FirstProgram = null;                        // The first program in the syntax tree.
       [JsonInclude]
       public readonly Dictionary<ID,Module> Modules = [];         // Contains all the modules in the syntax tree.
+
       /// <summary>
-      /// When a note is added to an element, the elements is also added here.
-      /// Cleared at the begining of compilation.
+      /// When a note is added to an element, the element is also added here.
+      /// Should be cleared at the begining of compilation.
+      /// In database mode, i.e., when operating on smaller units (e.g., algorithms) the Parser and SemanticAnalyzer must ensure that
+      /// analyzed elements are appropriately removed or added.
       /// </summary>
       [JsonInclude]
       public readonly Set<NamedElement> ElementsWithNotes = [];   // Contains all the arguments in the syntax tree.
@@ -47,8 +57,9 @@ namespace CDL2v1
 #else
       public static ID NextGroupLabel => ID.AnonID;
 #endif // GroupCounter
+
       internal Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)),out Program? program) ? program : null;
-      private Database() { }
+
 #if SaveAsXML
       public static void SaveXML(string filePath) {
          using FileStream fs = new(Path.ChangeExtension(filePath,"XML"),FileMode.Create);
