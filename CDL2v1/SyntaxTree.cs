@@ -19,12 +19,16 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using System.Xml.Linq;
 
+using static System.Net.Mime.MediaTypeNames;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+
 namespace CDL2v1 {
    [Serializable]
    public class Set<T> : HashSet<T> {
       public Set() { }
       public Set(ICollection<T> collection) : base(collection) { }
    }
+
    // Marker interfaces to allow lists to be composed of permissible elements.
    public interface IMacroElement { }
    public interface IConstElement { }
@@ -64,8 +68,6 @@ namespace CDL2v1 {
    /// <param name="id"></param>
    public interface IFailureProtected : IActualArg { }
 
-
-
    /// <summary>
    /// Notes can be attached to NamedElements. The primary use is annotate objects with error/warning/info messages.
    /// The PrettyPrinter will these with the object as a comment starting with the <see cref="Marker"/>.
@@ -74,46 +76,53 @@ namespace CDL2v1 {
    /// <param name="type"></param>
    /// <param name="text"></param>
    /// <param name="number"></param>
-   public class Note(NoteType type,string text,int number) {
-      public readonly NoteType Type = type;
-      public readonly string Text = text;
-      public readonly int Number = number;
+   public class Note {
+      public readonly NoteType Type;
+      public readonly string Text;
+      public readonly int Number;
+      public readonly string PhaseName;
+      public Note(NoteType type, string text, int number, string phaseName = "") { 
+         Type = type;
+         Text = text;
+         Number = number;
+         PhaseName = phaseName;
+      }
+      public Note(Note template, string phaseName, params object[] args) : this(template.Type, string.Format(template.Text, args), template.Number,phaseName) { }
 
       public static readonly string Marker = " >>> ";
-
 
       /// <summary>
       /// Procedure has defect (has an effect tough it is a FUNCTION/ACTION.
       /// </summary>
-      public static readonly Note Defect = new(NoteType.Error,"Procedure has defect (has an effect tough it is a {0})",1);
+      public static readonly Note Defect = new(NoteType.Error, "Procedure has defect (has an effect tough it is a {0})", 1);
       /// <summary>
       /// Procedure has effect tough is a FUNCTION/ACTION.
       /// </summary>
-      public static readonly Note Effect = new(NoteType.Error,"Procedure has effect tough is a {0}",2);
+      public static readonly Note Effect = new(NoteType.Error, "Procedure has effect tough is a {0}", 2);
       /// <summary>
       /// Procedure can fail tough it is a FUNCTION/ACTION.
       /// </summary>
-      public static readonly Note CanFail = new(NoteType.Error,"Procedure can fail tough it is a {0}",3);
+      public static readonly Note CanFail = new(NoteType.Error, "Procedure can fail tough it is a {0}", 3);
       /// <summary>
       /// Procedure can not fail tough it is a TEST/PREDICATE.
       /// </summary>
-      public static readonly Note CannotFail = new(NoteType.Error,"Procedure can not fail tough it is a {0}",4);
+      public static readonly Note CannotFail = new(NoteType.Error, "Procedure can not fail tough it is a {0}", 4);
       /// <summary>
       /// Algorithm stub is not imported.
       /// </summary>
-      public static readonly Note AlgorithmStubNotImported = new(NoteType.Warning,"Algorithm stub is not imported",101);
+      public static readonly Note AlgorithmStubNotImported = new(NoteType.Warning, "Algorithm stub is not imported", 101);
       /// <summary>
       /// Constant stub is not imported.
       /// </summary>
-      public static readonly Note ConstantStubNotImported = new(NoteType.Warning,"Constant stub is not imported",102);
+      public static readonly Note ConstantStubNotImported = new(NoteType.Warning, "Constant stub is not imported", 102);
       /// <summary>
       /// Imported Algorithm has body.
       /// </summary>
-      public static readonly Note ImportedAlgorithmHasBody = new(NoteType.Warning,"Imported Algorithm has body",103);
+      public static readonly Note ImportedAlgorithmHasBody = new(NoteType.Warning, "Imported Algorithm has body", 103);
       /// <summary>
       /// Imported Constant has body.
       /// </summary>
-      public static readonly Note ImportedConstantHasBody = new(NoteType.Warning,"Imported Constant has body",104);
+      public static readonly Note ImportedConstantHasBody = new(NoteType.Warning, "Imported Constant has body", 104);
       /// <summary>
       /// ACTION/PREDICATE has no effect.
       /// </summary>
@@ -121,17 +130,17 @@ namespace CDL2v1 {
       /// <summary>
       /// Label not found in Procedure.
       /// </summary>
-      public static readonly Note LabelNotFound = new(NoteType.Error,"*{0}: label not found in Procedure",5);
+      public static readonly Note LabelNotFound = new(NoteType.Error, "*{0}: label not found in Procedure", 5);
       /// <summary>
       /// Duplicate label in Procedure.
       /// </summary>
-      public static readonly Note DuplicateLabel = new(NoteType.Error,"{0}: duplicate label in Procedure",6);
+      public static readonly Note DuplicateLabel = new(NoteType.Error, "{0}: duplicate label in Procedure", 6);
       /// <summary>
       /// FUNCTIONs and ACTIONs cannot use the FAIL operator.
       /// </summary>
       public static readonly Note IllegalFailOperator= new(NoteType.Error, "Procedure has FAIl operator (-) tough it is a {0}", 7);
 
-      public Note(Note template,params object[] args) : this(template.Type,string.Format(template.Text,args),template.Number) { }
+      public override string ToString() => $"{Type} {Number}: {Text}";
    }
 
    /// <summary>
@@ -155,8 +164,11 @@ namespace CDL2v1 {
       public string? Comments { get; set; }
       public Notes Notes { get; set; } = [];
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
-      public void AddNote(Note note,params object[] insertions) => Notes.Add(insertions.Length == 0 ? note : new Note(note,insertions));
-      public void AddNotes(Notes? notes) => notes?.ForEach(note => AddNote(note));
+      public void AddNote(string phase, Note note, params object[] insertions) {
+         Notes.Add(new Note(note, phase, insertions));
+         Database.Instance.ElementsWithNotes.Add(this);
+      }
+      public void AddNotes(string phase, Notes? notes) => notes?.ForEach(note => AddNote(phase, note));
 
       /// <summary>
       /// Fully qualified name as Module_Layer_Section_Object.
@@ -170,6 +182,17 @@ namespace CDL2v1 {
          string moduleName = Parent!.Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
          string objectName = id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
          return $"{moduleName}{separator}{layerName}{separator}{sectionName}{separator}{objectName}";
+      }
+      /// <summary>
+      /// Element display name, i.e. MOD mod LAY lay SEC sec obj.
+      /// </summary>
+      /// <returns></returns>
+      public string FQDN() {
+         string sectionName = Parent!.ToString();
+         string layerName   = Parent!.Parent!.ToString();
+         string moduleName  = Parent!.Parent!.Parent!.ToString();
+         string objectName  = ToString();
+         return $"{moduleName} {layerName} {sectionName} {objectName}";
       }
    }
 
@@ -186,7 +209,7 @@ namespace CDL2v1 {
       /// <param id="id"></param>
       public Container(ID id,string? comments,Notes? notes) : base(id) {
          Comments = comments;
-         AddNotes(notes);
+         AddNotes("Parser", notes);
       }
 
       public Container(ID id,Container? parent,string? comments = null,Notes? notes = null) : this(id,comments,notes) { 
@@ -279,7 +302,7 @@ namespace CDL2v1 {
    /// </summary>
    /// <param id="id"></param>
    /// <param id="module"></param>
-   /// <param Name="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
+   /// <param PhaseName="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
    [Serializable]
    public class Layer(ID id,Module module,Layer? ancestor,string? comments = null,Notes? notes=null) : Container(id,module,comments,notes) {
       public readonly Layer? Ancestor = ancestor;
@@ -438,7 +461,7 @@ namespace CDL2v1 {
       public bool AlwaysSucceeds => !CanFail;
       public bool HasEffect => algorithmType == RW.PREDICATE || algorithmType == RW.ACTION;
       public bool HasNoEffect => !HasEffect;
-      public Boolean NeedsFinalization => CanFail && (affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
+      public bool NeedsFinalization => CanFail && (affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
 
       public bool TryGetAffix(ID id,out Affix affix) => (affix = this.affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
@@ -514,8 +537,8 @@ namespace CDL2v1 {
       //}
       //private SA? sa = null;
       /// <summary>
-      /// Used to force the re-computation of the Name annotations.
-      /// TODO: figure out when to re-compute Name annotations.
+      /// Used to force the re-computation of the PhaseName annotations.
+      /// TODO: figure out when to re-compute PhaseName annotations.
       /// </summary>
       //public void ResetNameAnnotations() => sa = null;
       public abstract IEnumerable<Var> GetReferencedVariables();
@@ -773,10 +796,10 @@ namespace CDL2v1 {
       public readonly AffixDir affixDir = dir;
       public readonly AffixType affixType = type;
 
-      public Boolean IsInput => affixDir == AffixDir.input || affixDir == AffixDir.transput;
-      public Boolean IsOutput => affixDir == AffixDir.output || affixDir == AffixDir.transput;
-      public Boolean IsTransput => affixDir == AffixDir.transput;
-      public Boolean IsString => affixType == AffixType.str;
+      public bool IsInput => affixDir == AffixDir.input || affixDir == AffixDir.transput;
+      public bool IsOutput => affixDir == AffixDir.output || affixDir == AffixDir.transput;
+      public bool IsTransput => affixDir == AffixDir.transput;
+      public bool IsString => affixType == AffixType.str;
 
      public SE SyntaxElement => IsString ? SE.StringAffix : IsTransput ? SE.TransputAffix : IsInput ? SE.InputAffix : SE.OutputAffix;
 

@@ -45,28 +45,14 @@ namespace CDL2v1 {
    /// 3. Verify the above rules.
    /// </summary>
    [Serializable]
-   internal class SemanticAnalyzer {
-      /// <summary>
-      /// Number of warnings generated.
-      /// </summary>
-      public int Warnings { get; private set; }
-      /// <summary>
-      /// Number of errors generated.
-      /// </summary>
-      public int Errors { get; private set; }
-
-      private void AddNote(NamedElement subject, Note note,params object[] insertions) {
-         subject.AddNote(note,insertions);
-         if (note.Type == NoteType.Warning) Warnings++;
-         if (note.Type == NoteType.Error) Errors++;
-      }
+   public class SemanticAnalyzer : CompilationPhase {
+      public SemanticAnalyzer(CDL2 compiler) : base(compiler) { }
 
       /// <summary>
       /// Analyze the given program.
       /// </summary>
       /// <param name="MainProgram"></param>
       internal void Analyze(Program MainProgram) {
-         Warnings = Errors = 0;
          foreach (Program program in Database.Instance.Programs.Values) {
             AnalyzeProgram(program);
          }
@@ -139,7 +125,7 @@ namespace CDL2v1 {
          //      if (container.Symbols[id] is Undeclared) {
          //         ReportError(container,$"{kind} {id} is Instance");
          //      } else if (container.Symbols[id] is not IProvidedElement) {
-         //         ReportError(container,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.Name))}}}");
+         //         ReportError(container,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.PhaseName))}}}");
          //      }
          //   } else {
          //      ReportError(container,$"{kind} {id} not found");

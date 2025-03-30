@@ -19,7 +19,7 @@ using static CDL2v1.Logger;
 
 namespace CDL2v1 {
    public class Notes : List<Note> { }
-   public class Parser {
+   public class Parser : CompilationPhase {
       /// <summary>
       /// The object being compiled. Used mainly for error reporting.
       /// </summary>
@@ -60,21 +60,6 @@ namespace CDL2v1 {
          override public string ToString() => $"{Program}{Module}{Layer}{Section}{Obj}".TrimStart();
       }
 
-      /// <summary>
-      /// Number of warnings generated.
-      /// </summary>
-      public int Warnings { get; private set; }
-      /// <summary>
-      /// Number of errors generated.
-      /// </summary>
-      public int Errors { get; private set; }
-
-      private void AddNote(NamedElement subject, Note note, params object[] insertions) {
-         subject.AddNote(note, insertions);
-         if (note.Type == NoteType.Warning) Warnings++;
-         if (note.Type == NoteType.Error) Errors++;
-      }
-
       public TokenList tokens = new();
 
 
@@ -84,7 +69,7 @@ namespace CDL2v1 {
       private Section?          currentSection;    // The current container being parsed. Should be the same as currentObject.Section.
       public  CompilationObject currentObject;     // The object being compiled. Used mainly for error reporting.
 
-      public Parser() => currentObject = new CompilationObject(this);
+      public Parser(CDL2 compiler) : base(compiler) => currentObject = new CompilationObject(this);
 
       /// <summary>
       /// Recursive descent parser for CDL2.
@@ -117,14 +102,14 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Parse a program. 
-      /// PROGRAM program Name.
+      /// PROGRAM program PhaseName.
       ///   PART module1, module2, ... .
       ///   PRELUDE id1, id2, ... .
       ///   ROOT id1, id2, ... .
       ///   POSTLUDE id1, id2, ... .
-      /// ENDPROG program Name.
+      /// ENDPROG program PhaseName.
       /// </summary>
-      /// <param Name="programId"></param>
+      /// <param PhaseName="programId"></param>
       private void ParseProgram(ID programId,string? comments,Notes notes) {
          if (Database.Instance.Programs.ContainsKey(programId)) {
             ReportError($"Program {programId} already exists");
@@ -271,12 +256,12 @@ namespace CDL2v1 {
                   if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
                      // Parse the code body
                      algorithm = new Procedure(id,formals,locals,algType,bodyType.type,currentSection);
-                     algorithm.AddNotes(notes);
+                     algorithm.AddNotes(PhaseName, notes);
                      ParseProcedureBody((Procedure)algorithm);
                   } else {
                      // Parse the macro body
                      algorithm = new Macro(id,formals,locals,algType,bodyType.type,currentSection);
-                     algorithm.AddNotes(notes);
+                     algorithm.AddNotes(PhaseName, notes);
                      ParseMacroBody((Macro)algorithm);
                   }
                }
@@ -677,14 +662,14 @@ namespace CDL2v1 {
          }
          tokens.CanConsumeEnd();
          firstObject!.Comments = comments;
-         firstObject!.AddNotes(notes);
+         firstObject!.AddNotes(PhaseName, notes);
       }
 
       /// <summary>
       /// Parse plain list of IDs. Interface lists, PARTs and VARs.
       /// </summary>
-      /// <param Name="idList"></param>
-      /// <param Name="idList2"></param>
+      /// <param PhaseName="idList"></param>
+      /// <param PhaseName="idList2"></param>
       private void ParseIDList(RW type,ICollection<ID> idList,Dictionary<ID,Section>? propagationDictionary=null) {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());

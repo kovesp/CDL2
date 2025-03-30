@@ -98,7 +98,7 @@ namespace CDL2v1 {
    ///            GenerateLayerEnd                                   at the end of the layer
    ///         GenerateModuleEnd                                     at the end of the module
    /// </remarks>
-   internal interface ICodeGenerator {
+   public interface ICodeGenerator {
       #region Programs, Modules, Layers, Sections
       /// <summary>
       /// This is called at the start of the program.

@@ -20,7 +20,7 @@ namespace CDL2v1 {
          Debug.WriteLine("ID Dump:\n--------");
          List<ID> sortedIDs = [.. Database.Instance.UniqueIDs.Values
                                      .OrderBy(id => id.Name)
-                                     //.ThenBy (id => id.Name)
+                                     //.ThenBy (id => id.PhaseName)
                                      ];
          int maxNameLength = sortedIDs.Select(id => id.Name.Length).Max();
          // int maxTypeLength = sortedIDs.Select(id => id.TargetType.Length).Max();
@@ -62,9 +62,9 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Renames an ID.
-      /// This allows changing the Name of an ID without changing the ID itself, in particular where spaces are in the id.
+      /// This allows changing the PhaseName of an ID without changing the ID itself, in particular where spaces are in the id.
       /// </summary>
-      /// <param Name="newName"></param>
+      /// <param PhaseName="newName"></param>
       public void Rename(string newName) {
          Name = newName;
          InternalName = newName.Trim().Replace(" ","");

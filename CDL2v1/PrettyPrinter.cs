@@ -22,7 +22,7 @@ namespace CDL2v1 {
    /// Formatted printing of the parse tree.
    /// </summary>
    [Serializable]
-   internal class PrettyPrinter {
+   public class PrettyPrinter {
       private const int DEFAULT_LINE_LENGTH          = 100;
       private const int DEFAULT_INDENT_MULTIPLIER    = 3;
       private const int DEFAULT_MAX_INDENT_INCREMENT = 3;
@@ -545,8 +545,8 @@ namespace CDL2v1 {
       /// Print the Ludes for the container if it can have any at the correct place.
       /// (Why they couldn't position the Ludes in the same place for a PROGRAM as the other items is a mystery).
       /// </summary>
-      /// <param Name="element"></param>
-      /// <param Name="action"></param>
+      /// <param PhaseName="element"></param>
+      /// <param PhaseName="action"></param>
       private void PrintContainer(Container unit,Action action,bool Newline = false,bool updateUI = false) {
          PrintComment(unit);
          Emitnl(units[unit.GetType()].Start.Decorate(Emitter,SE.Unit)," ",unit.id.Decorate(Emitter,SE.Id),TT.END);

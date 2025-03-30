@@ -40,12 +40,12 @@ MODULE quicksort.
 
 
          ### Procedures for testing the Semantic analyzer
-         # This one cannot fail.           
+         # This proc cannot fail.          
          TEST test+>a+>b>+c>:
             less+a+b, make+c+a;
             eq+a+b, add+a+ten+c,actiontest;
             add+b+ten+var, incr+b, make+c+b.
-
+         # This proc tries to use a fail.
          FUNCTION illegal fail operator: eq+var+ten, -.
 
          TEST lt+>a+>b = a " -lt " b.

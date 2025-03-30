@@ -16,11 +16,17 @@ namespace CDL2v1
       public static Database Instance { get; private set; } = new Database();
 
       [JsonInclude]
-      public readonly Dictionary<ID,Program> Programs = [];   // Contains all the programs in the syntax tree.
+      public readonly Dictionary<ID,Program> Programs = [];       // Contains all the programs in the syntax tree.
       [JsonInclude]
-      public Program? FirstProgram = null;                    // The first program in the syntax tree.
+      public Program? FirstProgram = null;                        // The first program in the syntax tree.
       [JsonInclude]
-      public readonly Dictionary<ID,Module> Modules = [];     // Contains all the modules in the syntax tree.
+      public readonly Dictionary<ID,Module> Modules = [];         // Contains all the modules in the syntax tree.
+      /// <summary>
+      /// When a note is added to an element, the elements is also added here.
+      /// Cleared at the begining of compilation.
+      /// </summary>
+      [JsonInclude]
+      public readonly Set<NamedElement> ElementsWithNotes = [];   // Contains all the arguments in the syntax tree.
 
       /// <summary>
       /// Used to ensure that multiple spellings of tokens produce the same ID.

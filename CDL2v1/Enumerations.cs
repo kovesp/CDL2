@@ -167,7 +167,7 @@ namespace CDL2v1 {
       NoteInfo,                  // For showing information
    }
    /// <summary>
-   /// Algorithm Name types.
+   /// Algorithm PhaseName types.
    /// Use the CanFail flag to select italic.
    /// Use the Macro flag to select underline.
    /// If the algorithm is
@@ -213,8 +213,8 @@ namespace CDL2v1 {
 
    /// <summary>
    /// Character codes in the Wingdings 3 font.
-   /// ImportExport is placed to the left of the Name when imported and to the right when exported. Mutually exclusive.
-   /// Abstr/Ext/AbstrExt is placed to the left of the Name when invoked, and to the right when defined.
+   /// ImportExport is placed to the left of the PhaseName when imported and to the right when exported. Mutually exclusive.
+   /// Abstr/Ext/AbstrExt is placed to the left of the PhaseName when invoked, and to the right when defined.
    /// </summary>
    public enum  AnnotationSymbol {
       None = 0,
@@ -232,11 +232,11 @@ namespace CDL2v1 {
       public AS Suffix2 = Suffix2;
 
       /// <summary>
-      /// The string to use as a prefix for a Name.
+      /// The string to use as a prefix for a PhaseName.
       /// </summary>
       public string Prefix => (Prefix1 != AS.None ? $"{(char)Prefix1}" : "")+(Prefix2 != AS.None ? $"{(char)Prefix2}" : "");
       /// <summary>
-      /// The string to use as a suffix for a Name.
+      /// The string to use as a suffix for a PhaseName.
       /// </summary>
       public string Suffix => (Suffix1 != AS.None ? $"{(char)Suffix1}" : "")+(Suffix2 != AS.None ? $"{(char)Suffix2}" : "");
 

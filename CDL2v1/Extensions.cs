@@ -36,6 +36,30 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Return the plural of the word word for count.
+      /// </summary>
+      /// <param name="count">Number of items.</param>
+      /// <param name="word">The item name.</param>
+      /// <param name="plural">If given the plural of word. Otherwise an s, es, or ies is added as ap appropriate.</param>
+      /// <returns></returns>
+      public static string Plural(this int count, string word, string? plural = null) {
+         string items;
+         if (count == 1) {
+            items = word;
+         } else if (plural != null) {
+            items = plural;
+         } else if (Regex.IsMatch(word, @"(s|sh|ch|x|z)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
+            items =  word + "es";
+         } else if (Regex.IsMatch(word, @"[^aeiou]y$", RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
+           items = Regex.Replace(word, "y$", "ies", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+         } else {
+            items = word + "s";
+         }
+         return $"{count:N0} {items}";
+      }
+      public static string Plural(this string word,int count,string? plural=null) => count.Plural(word, plural);
+
       public static Color DimColor(this Color color,double factor) {
          if (factor < 0 || factor > 1)
             throw new ArgumentOutOfRangeException(nameof(factor),"Factor must be between 0 and 1.");

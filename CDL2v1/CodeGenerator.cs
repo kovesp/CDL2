@@ -15,7 +15,7 @@ namespace CDL2v1 {
    /// </summary>
    /// <param id="cg"></param>
    [Serializable]
-   internal class CodeGenerator(ICodeGenerator cg) {
+   public class CodeGenerator(ICodeGenerator cg) {
       private readonly ICodeGenerator cg = cg;
 
       private static readonly List<RW> ludeTypes = [ RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
