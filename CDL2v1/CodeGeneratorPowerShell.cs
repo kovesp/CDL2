@@ -262,7 +262,7 @@ class BoundedArray {
       void ICodeGenerator.GenerateMacroElementLocal(Local local) => emitter.Emit(PSVar(local));
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
-         emitter.IndentLevel++;
+         if (macro.NeedsFinalization) emitter.IndentLevel++;
          if (macro.CanFail && HasMultipleStatments(macro)) {
             emitter.Emitnl("$__b = @(");
             emitter.IndentLevel++;
@@ -273,7 +273,7 @@ class BoundedArray {
             emitter.IndentLevel--;
             emitter.NlEmitnl(")[-1]");
          }
-         emitter.IndentLevel--;
+         if (macro.NeedsFinalization) emitter.IndentLevel--;
       }
       private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => Regex.IsMatch(str.value, @"(?<!['""])(?:\n|;)(?![^'""]*['""])",RegexOptions.Compiled));
 
@@ -302,13 +302,16 @@ class BoundedArray {
          GenerateComment($"Alternative {i+1}");
          emitter.IndentLevel++;
       }
-      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i) {
+      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i, bool removed) {
          bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
          if (notLastAlternativeOfProc) {
-            if (proc.NeedsFinalization) {
+            if (removed) {
+               // Just fall through to the next alternative
+            } else if (proc.NeedsFinalization) {
                Debug.Assert(proc.CanFail, $"{proc} needs finalization but cannot fail???");
                emitter.Emitnl("if ($__b) { break }");
-            } else {
+            }
+            else {
                if (proc.CanFail) {
                   emitter.Emitnl("if ($__b) { return $true }");
                }
@@ -335,6 +338,10 @@ class BoundedArray {
          }
          emitter.IndentLevel--;
       }
+      /// <summary>
+      /// Generates the fail required when the rest of an alternative is discarded due to conditional compilation.
+      /// </summary>
+      void ICodeGenerator.GenerateAlternativeFail() => emitter.Emitnl("$__b = $false");
       #endregion Alternatives
 
       #region Groups

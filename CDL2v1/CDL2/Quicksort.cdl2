@@ -38,11 +38,17 @@ MODULE quicksort.
          CONST ten=10.
          VAR var.
 
+         # Test of builin parsing.
+         FUNCTION parse prolog:
+            BUILTIN is option value+"Prolog Syntax"+"MProlog", parse mprolog;
+            parse swiprolog.
 
          ### Procedures for testing the Semantic analyzer
+         # Conditional compilation flag.
+         TEST wants less test: +.
          # This proc cannot fail.          
          TEST test+>a+>b>+c>:
-            less+a+b, make+c+a;
+            wants less test, less+a+b, make+c+a;
             eq+a+b, add+a+ten+c,actiontest;
             add+b+ten+var, incr+b, make+c+b.
          # This proc tries to use a fail.

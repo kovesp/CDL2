@@ -138,7 +138,9 @@ namespace CDL2v1 {
       private void AnalyzeMacro(Macro macro) {
       }
       private void AnalyzeProcedure(Procedure proc,Section section) {
-         bool hasEffect = AnalyzeEffect(proc.group,section);
+         if (MissingDefinitions(proc,proc.group)) return;
+
+         bool hasEffect = AnalyzeEffect(proc.group);
          if (proc.HasEffect && !hasEffect) {
             AddNote(proc,Note.NoEffect,proc.algorithmType);
             ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.algorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
@@ -159,16 +161,47 @@ namespace CDL2v1 {
          }
       }
 
+      private bool MissingDefinitions(Procedure proc,Group group) {
+         bool missingDefinitions = false;
+         foreach (Alternative alt in group.alternatives) {
+            missingDefinitions = MissingDefintions(proc,alt) || missingDefinitions;
+         }
+         return missingDefinitions;
+      }
+
+      private bool MissingDefintions(Procedure proc,Alternative alt) {
+         bool missingDefinitions = false;
+         foreach (Call call in alt.calls) {
+            missingDefinitions = missingCallDefinition(call) || missingDefinitions;
+         }
+         if (alt.lastCall.type == LCT.Group) {
+            missingDefinitions = MissingDefinitions(proc, alt.lastCall.group!) || missingDefinitions;
+         } else if (alt.lastCall.type == LCT.Standard) {
+            missingDefinitions = missingCallDefinition(alt.lastCall.call!);
+         }
+         return missingDefinitions;
+
+         bool missingCallDefinition(Call call) {
+            if (!call.IsBuiltin) {
+               if (call.Called is null) {
+                  proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
+                  return true;
+               }
+            }
+            return false;
+         }
+      }
+
       /// <summary>
       /// Analyze the effect of a group of alternatives.
       /// If any call in any alternative has an effect then the group has an effect.
       /// </summary>
       /// <param name="group"></param>
-      /// <param name="section"></param>
+      /// 
       /// <returns></returns>
-      private bool AnalyzeEffect(Group group,Section section) {
+      private bool AnalyzeEffect(Group group) {
          bool effect = false;
-         foreach (Alternative alt in group.alternatives) effect |= AnalyzeEffect(alt,section);
+         foreach (Alternative alt in group.alternatives) effect |= AnalyzeEffect(alt);
          return effect;
       }
       private bool AnalyzeCanFail(Group group,Section section) {
@@ -185,17 +218,17 @@ namespace CDL2v1 {
       /// If any call in the alternative, or its ending group if any has an effect then the alternative has an effect.
       /// </summary>
       /// <param name="alt"></param>
-      /// <param name="section"></param>
+      /// 
       /// <returns></returns>
       /// <exception cref="Exception"></exception>
-      private bool AnalyzeEffect(Alternative alt,Section section) {
+      private bool AnalyzeEffect(Alternative alt) {
          foreach (Call call in alt.calls) {
-            if (CheckCallEffect(call,section)) return true;
+            if (CallhasEffect(call)) return true;
          }
          if (alt.lastCall.type == LastCallType.Standard) {
-            return CheckCallEffect(alt.lastCall.call!,section);
+            return CallhasEffect(alt.lastCall.call!);
          } else if (alt.lastCall.type == LastCallType.Group) {
-            return AnalyzeEffect(alt.lastCall.group!,section);
+            return AnalyzeEffect(alt.lastCall.group!);
          } else {
             return false;
          }
@@ -203,12 +236,6 @@ namespace CDL2v1 {
       /// <summary>
       /// A call has an effect if the algorithm it invokes has an effect.
       /// </summary>
-      static bool CheckCallEffect(Call call,Section section) {
-         if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
-            return algorithm!.HasEffect;
-         } else {
-            throw new Exception("Algorithm not found");
-         }
-      }      
+      static bool CallhasEffect(Call call) => !call.IsBuiltin && call.Called.HasEffect;      
    }
 }

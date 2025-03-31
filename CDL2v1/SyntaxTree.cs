@@ -138,7 +138,11 @@ namespace CDL2v1 {
       /// <summary>
       /// FUNCTIONs and ACTIONs cannot use the FAIL operator.
       /// </summary>
-      public static readonly Note IllegalFailOperator= new(NoteType.Error, "Procedure has FAIl operator (-) tough it is a {0}", 7);
+      public static readonly Note IllegalFailOperator = new(NoteType.Error, "Procedure has FAIl operator (-) tough it is a {0}", 7);
+      /// <summary>
+      /// A procedure tried to call an undefined algorithm.
+      /// </summary>
+      public static readonly Note UndeclaredAlgorithmCall = new(NoteType.Error, "Call of undeclared Algorithm {0}", 8);
 
       public override string ToString() => $"{Type} {Number}: {Text}";
    }
@@ -462,7 +466,13 @@ namespace CDL2v1 {
       public bool HasEffect => algorithmType == RW.PREDICATE || algorithmType == RW.ACTION;
       public bool HasNoEffect => !HasEffect;
       public bool NeedsFinalization => CanFail && (affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
-
+      /// <summary>
+      /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
+      /// </summary>
+      /// <param name="group"></param>
+      /// <returns></returns>
+      public virtual bool IsConditionalCompilationOff => false;
+      public virtual bool IsConditionalCompilationOn => false;
       public bool TryGetAffix(ID id,out Affix affix) => (affix = this.affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
 
@@ -592,7 +602,19 @@ namespace CDL2v1 {
       public bool IsSimple => HasNoGroups && HasNoRepeat;
       public PBT ProcedureBodyType => IsVerySimple ? PBT.VerySimple : IsSimple ? PBT.Simple : PBT.General;
 
+      /// <summary>
+      /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
+      /// TODO: This is the intial version. It will be refined to check that all calls in a procedure are to other procedures that are also conditional compilation flags.
+      /// </summary>
+      /// <returns></returns>
+      public override bool IsConditionalCompilationOff => CanFail && group.alternatives.Count == 1 && group.alternatives[0].calls.Count == 0 && group.alternatives[0].lastCall.type == LCT.Fail;
+      public override bool IsConditionalCompilationOn => group.alternatives.Count == 1 && group.alternatives[0].calls.Count == 0 && group.alternatives[0].lastCall.type == LCT.Succeed;
+
+      /// <summary>
+      /// The procedure ha no repeats.
+      /// </summary>
       public bool HasNoRepeat => HasNoRepeats(group);
+      public bool IsConditionalCompilation => IsConditionalCompilationOff || IsConditionalCompilationOn;
       private static bool HasNoRepeats(Group group) {
          foreach (Alternative alternative in group.alternatives) {
             if (alternative.lastCall.type == LCT.Repeat) return false;
@@ -636,19 +658,23 @@ namespace CDL2v1 {
    }
 
    [Serializable]
-   public class Call(ID id,Procedure containingProc) {
+   public class Call(ID id,Procedure containingProc,bool builtin=false) {
       public readonly ID id = id;
       public readonly List<IActualArg> args = [];
       public readonly Procedure ContainingProc = containingProc;
+      /// <summary>
+      /// Set for compiler procedures that are evaluated at code generation time.
+      /// </summary>
+      public readonly bool IsBuiltin = builtin;
 
-      override public string ToString() => $"{id.Name}+{string.Join("+",args)}";
+      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}+{string.Join("+",args)}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
       private Algorithm? called = null;
       public Algorithm Called {
          get {
             if (called == null && TryGetCalled(out Algorithm? calledByMe)) called = calledByMe;
-            Debug.Assert(called != null,$"{this} was unable to resolve the called algorithm");
+            //Debug.Assert(called != null,$"{this} was unable to resolve the called algorithm");
             return called;
          }
       }

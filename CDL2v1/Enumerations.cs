@@ -91,6 +91,30 @@ namespace CDL2v1 {
       TEST, 
       PREDICATE,
       NOTE,
+
+      // Reserved for future as a call qualifier. 
+      // Examples of called built-ins might be:
+      // FUNCTION date string+date>.
+      // FUNCTION time string+time>.
+      // FUNCTION version string+version>.
+      // FUNCTION option*name+value>.
+      // TEST     is option*name.                      // Can be used for conditional compilation.
+      // TEST     is option value*name*value.          // Can be used for conditional compilation..
+      // FUNCTION environment variable*name+value>.
+      // TEST     is environment variable*name.       // Is it defined?
+      // TEST     is target*target                    // The target the given one? In principle can be used to select code for different targets.
+      // Syntex and usage examples:
+      //   FUNCTION add+>a+>b+c>:
+      //      BUILTIN is target*"PowerShell", ps add+a+b+c;
+      //      BUILTIN is target*"C#", cs add+a+b+c;
+      //      add+a+b+c.
+      // With this, the compiler could avoid generating code for the second alternative, and with full flow analysis also avoid generating code for
+      // whatever is called from there recursively.
+      //   ACTION parse prolog:
+      //      BUILTIN is option value*"Prolog Syntax"*"MProlog", parse mprolog;
+      //      parse clockins mellish.
+      //   
+      BUILTIN,
    }
 
    /// <summary>
@@ -148,6 +172,7 @@ namespace CDL2v1 {
       Id,                        // Default for ids, unless otherwise specified, e.g., AlgorithmName, ...Affix, Local.
       ReservedWord,              // Default for reserved words, unless otherwise specified, e.g., Unit
       Unit,                      // Units (PROGRAM, MODULE, LAYER, SECTION).
+      Builtin,                   // The builin indicator
       AlgorithmName,             // When used it will be overridden by the AlgorithmNameDecorators table
       InputAffix,                // Applied to affixes ids in both Algorithm definitions and invocations.
       OutputAffix,               // Ditto
@@ -165,6 +190,7 @@ namespace CDL2v1 {
       NoteError,                 // For showing errors
       NoteWarning,               // For showing warnings
       NoteInfo,                  // For showing information
+      UNDEFINED,                 // Fro showing undefined elements
    }
    /// <summary>
    /// Algorithm PhaseName types.

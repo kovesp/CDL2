@@ -60,25 +60,27 @@ namespace CDL2v1 {
       /// </summary>
       public static Dictionary<SE,Decoration> Decorators = new() {
          { SE.Id                 ,DefaultDecoration },
-         { SE.Unit               ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
-         { SE.ReservedWord       ,new Decoration(FG:"#569cd6",Style:DS.Bold) },
-         { SE.InputAffix         ,new Decoration(FG:AffixColor) },
-         { SE.OutputAffix        ,new Decoration(FG:AffixColor.IntensifyColor(1.25)) }, // #51c0fd
-         { SE.TransputAffix      ,new Decoration(FG:AffixColor.IntensifyColor(1.50)) }, // #26b1fd
-         { SE.StringAffix        ,new Decoration(FG:"#d69d85") },
-         { SE.Local              ,new Decoration(FG:"DarkOrange") },
-         { SE.Label              ,new Decoration(FG:"LightGray") },
-         { SE.Const              ,new Decoration(FG:"Olive") },
-         { SE.Var                ,new Decoration(FG:"OliveDrab") },
-         { SE.List               ,new Decoration(FG:"DarkOliveGreen") },
-         { SE.Number             ,new Decoration(FG:"#b5cea8") },
-         { SE.String             ,new Decoration(FG:"#d69d85") },
-         { SE.Comment            ,new Decoration(FG:"#57a64a") },
-         { SE.NoteError          ,new Decoration(FG:"Red") },
-         { SE.NoteWarning        ,new Decoration(FG:"Orange") },
-         { SE.NoteInfo           ,new Decoration(FG:"LightSkyBlue") },
-         { SE.Other              ,DefaultDecoration },                             // Will be used to obtain the overall background
-         { SE.AlgorithmName      ,DefaultDecoration},                              // Not used, but required entry
+         { SE.Unit               ,new(FG:"#569cd6",Style:DS.Bold) },
+         { SE.Builtin            ,new(FG:"#569cd6",Style:DS.Italic)},
+         { SE.ReservedWord       ,new(FG:"#569cd6",Style:DS.Bold) },
+         { SE.InputAffix         ,new(FG:AffixColor) },
+         { SE.OutputAffix        ,new(FG:AffixColor.IntensifyColor(1.25)) },  // #51c0fd
+         { SE.TransputAffix      ,new(FG:AffixColor.IntensifyColor(1.50)) },  // #26b1fd
+         { SE.StringAffix        ,new(FG:"#d69d85") },
+         { SE.Local              ,new(FG:"DarkOrange") },
+         { SE.Label              ,new(FG:"LightGray") },
+         { SE.Const              ,new(FG:"Olive") },
+         { SE.Var                ,new(FG:"OliveDrab") },
+         { SE.List               ,new(FG:"DarkOliveGreen") },
+         { SE.Number             ,new(FG:"#b5cea8") },
+         { SE.String             ,new(FG:"#d69d85") },
+         { SE.Comment            ,new(FG:"#57a64a") },
+         { SE.NoteError          ,new(FG:"Red") },
+         { SE.NoteWarning        ,new(FG:"Orange") },
+         { SE.NoteInfo           ,new(FG:"LightSkyBlue") },
+         { SE.UNDEFINED          ,new(FG:"Red")},                             // Undefined identifiers.
+         { SE.Other              ,DefaultDecoration },                        // Will be used to obtain the overall background
+         { SE.AlgorithmName      ,DefaultDecoration},                         // Not used, but required entry
        };
 
       public static Dictionary<AlgorithmNameType,Decoration> AlgorithmNameDecorators = new() {
@@ -324,8 +326,13 @@ namespace CDL2v1 {
          } else {
             ReportError($"Internal error: {call.id} has no container. Something wrong with semantic analysis?");
          }
-         EmitWithExtraSpace(extraSpace,call.id.Decorate(Emitter,AlgorithmNameDecorators[callDecorator]));
-
+         if (call.IsBuiltin) {
+            EmitWithExtraSpace(extraSpace, RW.BUILTIN.Decorate(Emitter, SE.Builtin), " ", call.id.Decorate(Emitter, SE.Builtin));
+         } else if (call.Called is null) {
+            EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, SE.UNDEFINED));
+         } else { 
+            EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, AlgorithmNameDecorators[callDecorator]));
+         }
          foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
             if (arg is STRING s) {

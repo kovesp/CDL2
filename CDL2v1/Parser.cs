@@ -321,8 +321,10 @@ namespace CDL2v1 {
             if (lastCall != null) {
                // If we have a last call, then we should NOT have see a separator
                ReportError("Unexpected ,");
-            } else if (tokens.Optional(out ID id)) {              
-               calls.Add(ParseCall(id,proc));
+            } else if (tokens.Optional(RW.BUILTIN) && tokens.Optional(out ID id)) {
+               calls.Add(ParseCall(id, proc,builtin:true));
+            } else if (tokens.Optional(out id)) {              
+               calls.Add(ParseCall(id, proc));
             } else if (tokens.Optional(TT.SUCCEED)) {
                lastCall = new LastCall(LCT.Succeed);
             } else if (tokens.Optional(TT.FAIL)) {
@@ -362,17 +364,17 @@ namespace CDL2v1 {
             }
          } while (tokens.Optional(TT.CALLSEP));
          if (lastCall == null) {
-            // The last all position contained an actual call so convert it to a last call
+            // The last call position contained an actual call so convert it to a last call
             lastCall = new LastCall(calls.Last());
             calls.RemoveAt(calls.Count - 1);
          }
          return new Alternative(calls,lastCall,notes);
       }
 
-      private Call ParseCall(ID id,Procedure proc) => ParseCall(this,id,proc);
-      private static Call ParseCall(Parser parser,ID id,Procedure containingProc) {
+      private Call ParseCall(ID id, Procedure proc, bool builtin = false) => ParseCall(this, id, proc,builtin);
+      private static Call ParseCall(Parser parser, ID id, Procedure containingProc, bool builtin = false) {
          Debug.Assert(parser.currentSection != null);
-         Call call = new(id,containingProc);
+         Call call = new(id,containingProc,builtin);
          ParseActualArgs(parser,call);
          return call;
       }
@@ -625,7 +627,7 @@ namespace CDL2v1 {
 
             List<Call> callList =[];
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               callList.Add(ParseCall(parser,ID.From(id),lude));
+               callList.Add(ParseCall(parser, ID.From(id), lude));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();

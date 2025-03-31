@@ -445,7 +445,12 @@ namespace CDL2v1 {
       /// <param name="proc"></param>
       /// <param name="group"></param>
       /// <param name="i"></param>
-      void GenerateAlternativeEnd(Procedure proc, Group group, int i);
+      /// <param name="removed">Set if the alternative tail was skipped due to conditional compilation.</param>
+      void GenerateAlternativeEnd(Procedure proc, Group group, int i,bool removed=false);
+      /// <summary>
+      /// Generates the fail required when the rest of an alternative is discarded due to conditional compilation.
+      /// </summary>
+      void GenerateAlternativeFail();
 
       #endregion Alternatives
 
@@ -510,10 +515,6 @@ namespace CDL2v1 {
       void GenerateCallArgReferenceLocal(Affix calledAffix, Local lo);
       void GenerateCallArgReferenceConst(Affix calledAffix, Const c);
       void GenerateCallArgReferenceVar(Affix calledAffix, Var v);
-
-
-
-
       #endregion Calls
 
       #endregion Procedures
