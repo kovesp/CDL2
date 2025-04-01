@@ -81,68 +81,45 @@ namespace CDL2v1 {
       public readonly string Text;
       public readonly int Number;
       public readonly string PhaseName;
-      public Note(NoteType type, string text, int number, string phaseName = "") { 
+      public Note(NoteType type, int number, string text, string phaseName = "") { 
          Type = type;
          Text = text;
          Number = number;
          PhaseName = phaseName;
       }
-      public Note(Note template, string phaseName, params object[] args) : this(template.Type, string.Format(template.Text, args), template.Number,phaseName) { }
+      public Note(Note template, string phaseName, params object[] args) : this(template.Type, template.Number, string.Format(template.Text, args), phaseName) { }
 
       public static readonly string Marker = " >>> ";
 
-      /// <summary>
-      /// Procedure has defect (has an effect tough it is a FUNCTION/ACTION.
-      /// </summary>
-      public static readonly Note Defect = new(NoteType.Error, "Procedure has defect (has an effect tough it is a {0})", 1);
-      /// <summary>
-      /// Procedure has effect tough is a FUNCTION/ACTION.
-      /// </summary>
-      public static readonly Note Effect = new(NoteType.Error, "Procedure has effect tough is a {0}", 2);
-      /// <summary>
-      /// Procedure can fail tough it is a FUNCTION/ACTION.
-      /// </summary>
-      public static readonly Note CanFail = new(NoteType.Error, "Procedure can fail tough it is a {0}", 3);
-      /// <summary>
-      /// Procedure can not fail tough it is a TEST/PREDICATE.
-      /// </summary>
-      public static readonly Note CannotFail = new(NoteType.Error, "Procedure can not fail tough it is a {0}", 4);
-      /// <summary>
-      /// Algorithm stub is not imported.
-      /// </summary>
-      public static readonly Note AlgorithmStubNotImported = new(NoteType.Warning, "Algorithm stub is not imported", 101);
-      /// <summary>
-      /// Constant stub is not imported.
-      /// </summary>
-      public static readonly Note ConstantStubNotImported = new(NoteType.Warning, "Constant stub is not imported", 102);
-      /// <summary>
-      /// Imported Algorithm has body.
-      /// </summary>
-      public static readonly Note ImportedAlgorithmHasBody = new(NoteType.Warning, "Imported Algorithm has body", 103);
-      /// <summary>
-      /// Imported Constant has body.
-      /// </summary>
-      public static readonly Note ImportedConstantHasBody = new(NoteType.Warning, "Imported Constant has body", 104);
-      /// <summary>
-      /// ACTION/PREDICATE has no effect.
-      /// </summary>
-      public static readonly Note NoEffect = new(NoteType.Warning, "Procedure has no effect tough is a {0}", 105);
-      /// <summary>
-      /// Label not found in Procedure.
-      /// </summary>
-      public static readonly Note LabelNotFound = new(NoteType.Error, "*{0}: label not found in Procedure", 5);
-      /// <summary>
-      /// Duplicate label in Procedure.
-      /// </summary>
-      public static readonly Note DuplicateLabel = new(NoteType.Error, "{0}: duplicate label in Procedure", 6);
-      /// <summary>
-      /// FUNCTIONs and ACTIONs cannot use the FAIL operator.
-      /// </summary>
-      public static readonly Note IllegalFailOperator = new(NoteType.Error, "Procedure has FAIl operator (-) tough it is a {0}", 7);
-      /// <summary>
-      /// A procedure tried to call an undefined algorithm.
-      /// </summary>
-      public static readonly Note UndeclaredAlgorithmCall = new(NoteType.Error, "Call of undeclared Algorithm {0}", 8);
+      public static readonly Note Defect                            = new(NoteType.Error  , 001, "Procedure has defect (has an effect tough it is a {0})");
+      public static readonly Note Effect                            = new(NoteType.Error  , 002, "Procedure has effect tough is a {0}");
+      public static readonly Note CanFail                           = new(NoteType.Error  , 003, "Procedure can fail tough it is a {0}");
+      public static readonly Note CannotFail                        = new(NoteType.Error  , 004, "Procedure can not fail tough it is a {0}");
+      public static readonly Note LabelNotFound                     = new(NoteType.Error  , 005, "*{0}: label not found in Procedure");
+      public static readonly Note DuplicateLabel                    = new(NoteType.Error  , 006, "{0}: duplicate label in Procedure");
+      public static readonly Note IllegalFailOperator               = new(NoteType.Error  , 007, "Procedure has FAIl operator (-) tough it is a {0}");
+      public static readonly Note UndeclaredAlgorithmCall           = new(NoteType.Error  , 008, "Call of undeclared Algorithm {0}");
+      public static readonly Note ArgumentCountMismatch             = new(NoteType.Error  , 009, "Argument count mismatch. {0} has {1} affixes, but called with {2}");
+      public static readonly Note WrongTypeOfargumentForStringAffix = new(NoteType.Error  , 010, "Only a literal string or a CONST can be passed to a string affix for {0}");
+      public static readonly Note UninitializedOutputPassedAsInput  = new(NoteType.Error  , 011, "Output affix that has not been set passed as input or transput {0}");
+      public static readonly Note InputAffixPassedToOutput          = new(NoteType.Error  , 012, "Input affix passed to output or transput {0}");
+      public static readonly Note ConstPassedToOutput               = new(NoteType.Error  , 013, "CONST passed to output or transput {0}");
+      public static readonly Note ConstPassedToTransput             = new(NoteType.Error  , 014, "CONST passed to transput {0}");      
+      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix has not been assigned on all execution paths {0}");
+      public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local that has not been set passed as input {0}");
+      public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local whose value has not been read passed to output {0}");
+      public static readonly Note AlgorithmStubNotImported          = new(NoteType.Error  , 018, "Algorithm stub is not imported");
+      public static readonly Note ConstantStubNotImported           = new(NoteType.Error  , 019, "Constant stub is not imported");
+      public static readonly Note ImportedAlgorithmHasBody          = new(NoteType.Error  , 020, "Imported Algorithm has body");
+      public static readonly Note ImportedConstantHasBody           = new(NoteType.Error  , 021, "Imported Constant has body");
+
+      public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is a {0}");
+      public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix whose value has not been read passed to output {0}");
+      public static readonly Note TransputAffixOverwritten          = new(NoteType.Warning, 103, "Transput affix whose value has not been read passed to output {0}");
+
+      public static readonly Note AffixNotRefeenced                 = new(NoteType.Info   , 201, "Affix was not used in procedure {0}");
+      public static readonly Note LocalNotReferenced                = new(NoteType.Info   , 202, "Local was not used in procedure {0}");
+
 
       public override string ToString() => $"{Type} {Number}: {Text}";
    }

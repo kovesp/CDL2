@@ -98,7 +98,7 @@ namespace CDL2v1 {
 
 
 
-         foreach (Algorithm algorithm in section.declarations.Values.Where(obj => obj is Algorithm algorithm)) {
+         foreach (Algorithm algorithm in section.declarations.Values.Where(obj => obj is Algorithm algorithm).Cast<Algorithm>()) {
             Log(2,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
             if (algorithm is Procedure procedure) {
                AnalyzeProcedure(procedure,section);
@@ -138,7 +138,9 @@ namespace CDL2v1 {
       private void AnalyzeMacro(Macro macro) {
       }
       private void AnalyzeProcedure(Procedure proc,Section section) {
-         if (MissingDefinitions(proc,proc.group)) return;
+         if (AnalyzeGroup(proc,proc.group)) return;
+
+
 
          bool hasEffect = AnalyzeEffect(proc.group);
          if (proc.HasEffect && !hasEffect) {
@@ -161,31 +163,36 @@ namespace CDL2v1 {
          }
       }
 
-      private bool MissingDefinitions(Procedure proc,Group group) {
+      private bool AnalyzeGroup(Procedure proc,Group group) {
          bool missingDefinitions = false;
          foreach (Alternative alt in group.alternatives) {
-            missingDefinitions = MissingDefintions(proc,alt) || missingDefinitions;
+            missingDefinitions = AnalyzeAlternative(proc,alt) || missingDefinitions;
          }
          return missingDefinitions;
       }
 
-      private bool MissingDefintions(Procedure proc,Alternative alt) {
+      private bool AnalyzeAlternative(Procedure proc,Alternative alt) {
          bool missingDefinitions = false;
          foreach (Call call in alt.calls) {
-            missingDefinitions = missingCallDefinition(call) || missingDefinitions;
+            missingDefinitions = AnalyzeCall(call) || missingDefinitions;
+            
          }
          if (alt.lastCall.type == LCT.Group) {
-            missingDefinitions = MissingDefinitions(proc, alt.lastCall.group!) || missingDefinitions;
+            missingDefinitions = AnalyzeGroup(proc, alt.lastCall.group!) || missingDefinitions;
          } else if (alt.lastCall.type == LCT.Standard) {
-            missingDefinitions = missingCallDefinition(alt.lastCall.call!);
+            missingDefinitions = AnalyzeCall(alt.lastCall.call!);
          }
          return missingDefinitions;
 
-         bool missingCallDefinition(Call call) {
+         bool AnalyzeCall(Call call) {
             if (!call.IsBuiltin) {
                if (call.Called is null) {
                   proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
                   return true;
+               } else {
+                  if (call.Called.affixes.Count != call.args.Count) {
+                     proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id,call.args.Count, call.Called.affixes.Count);
+                  }  
                }
             }
             return false;
