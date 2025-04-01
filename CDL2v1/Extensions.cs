@@ -99,6 +99,8 @@ namespace CDL2v1 {
       }
       public static string ToHex(this Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
+      public static Set<T> ToSet<T>(this IEnumerable<T> enumerable) => [.. enumerable];
+
       internal static string Decorate(this string str,EmitterBase emitter,SE element,PrettyPrinter.Decoration? decoration=null) {
          if (str == null) return "";
          if (emitter.SupportsDecoration) {

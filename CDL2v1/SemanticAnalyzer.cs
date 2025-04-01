@@ -5,6 +5,7 @@ using Microsoft.VisualBasic;
 using System;
 using System.CodeDom;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -137,10 +138,15 @@ namespace CDL2v1 {
 
       private void AnalyzeMacro(Macro macro) {
       }
+      private class DataFlowInfo(Procedure proc) {
+         public readonly Set<Affix> readableAffixes = proc.affixes.Where(affix => affix.IsInput).ToSet();
+         public readonly Set<Local> readableLocals  = [];
+         public readonly Set<Affix> writableAffixes = proc.affixes.Where(affix => affix.IsOutput).ToSet();
+         public readonly Set<Local> writableLocals  = proc.locals;
+      }
       private void AnalyzeProcedure(Procedure proc,Section section) {
-         if (AnalyzeGroup(proc,proc.group)) return;
-
-
+         DataFlowInfo info = new(proc);
+         if (AnalyzeGroup(proc, proc.group, info)) return;
 
          bool hasEffect = AnalyzeEffect(proc.group);
          if (proc.HasEffect && !hasEffect) {
@@ -163,36 +169,86 @@ namespace CDL2v1 {
          }
       }
 
-      private bool AnalyzeGroup(Procedure proc,Group group) {
+      private bool AnalyzeGroup(Procedure proc, Group group, DataFlowInfo info) {
          bool missingDefinitions = false;
          foreach (Alternative alt in group.alternatives) {
-            missingDefinitions = AnalyzeAlternative(proc,alt) || missingDefinitions;
+            missingDefinitions = AnalyzeAlternative(proc, alt, info) || missingDefinitions;
          }
          return missingDefinitions;
       }
 
-      private bool AnalyzeAlternative(Procedure proc,Alternative alt) {
+      private bool AnalyzeAlternative(Procedure proc, Alternative alt, DataFlowInfo info) {
          bool missingDefinitions = false;
          foreach (Call call in alt.calls) {
-            missingDefinitions = AnalyzeCall(call) || missingDefinitions;
-            
+            missingDefinitions = AnalyzeCall(call, proc, info) || missingDefinitions;            
          }
          if (alt.lastCall.type == LCT.Group) {
-            missingDefinitions = AnalyzeGroup(proc, alt.lastCall.group!) || missingDefinitions;
+            missingDefinitions = AnalyzeGroup(proc, alt.lastCall.group!, info) || missingDefinitions;
          } else if (alt.lastCall.type == LCT.Standard) {
-            missingDefinitions = AnalyzeCall(alt.lastCall.call!);
+            missingDefinitions = AnalyzeCall(alt.lastCall.call!, proc, info);
          }
          return missingDefinitions;
 
-         bool AnalyzeCall(Call call) {
+         bool AnalyzeCall(Call call, Procedure proc, DataFlowInfo info) {
             if (!call.IsBuiltin) {
                if (call.Called is null) {
                   proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
                   return true;
+               } else if (call.Called.affixes.Count != call.args.Count) {
+                  proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id,call.args.Count, call.Called.affixes.Count);
+                  return true;
                } else {
-                  if (call.Called.affixes.Count != call.args.Count) {
-                     proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id,call.args.Count, call.Called.affixes.Count);
-                  }  
+                  List<Affix> affix = call.Called.affixes;
+                  List<IActualArg> arg = call.args;
+                  for (int i = 0; i < call.args.Count; i++) {
+                     if (affix[i].IsString) {
+                     } else if (affix[i].IsInputOnly) {
+                        switch (arg[i]) {
+                           case Const _:
+                           case Var _:
+                           case Affix inputArg when inputArg.IsInputOnly:
+                              break;
+                           case Affix outputArg when outputArg.IsOutputOnly:
+                              if (!info.readableAffixes.Contains(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg);
+                              info.writableAffixes.Add(outputArg);
+                              break;
+                           case Affix transputArg when transputArg.IsTransput:
+                              if (!info.readableAffixes.Contains(transputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, transputArg);
+                              info.writableAffixes.Add(transputArg);
+                              break;
+                           case Local local:
+                              if (!info.readableLocals.Contains(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
+                              info.writableLocals.Add(local);
+                              break;
+                           default:
+                              proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i]);
+                              break;
+                        }
+                     } else if (affix[i].IsOutputOnly) {
+                        switch (arg[i]) {
+                           case Var _:
+                              break;
+                           case Affix outputArg when outputArg.IsOutput:   // Includes transput
+                              if (!info.writableAffixes.Contains(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg);
+                              info.readableAffixes.Add(outputArg);
+                              info.writableAffixes.Remove(outputArg);
+                              break;
+                           case Local local:
+                              if (!info.writableLocals.Contains(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local);
+                              info.readableLocals.Add(local);
+                              info.writableLocals.Remove(local);
+                              break;
+                           case Affix inputArg when inputArg.IsInputOnly:
+                              proc.AddNote(PhaseName, Note.InvalidOutputArg, inputArg);
+                              break;
+                           default:
+                              proc.AddNote(PhaseName, Note.InvalidOutputArg, arg[i]);
+                              break;
+                        }
+                     } else {
+                        Debug.Assert(affix[i].IsTransput, "Transput affix expected");
+                     }
+                  }
                }
             }
             return false;

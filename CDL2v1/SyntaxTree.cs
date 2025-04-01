@@ -27,6 +27,10 @@ namespace CDL2v1 {
    public class Set<T> : HashSet<T> {
       public Set() { }
       public Set(ICollection<T> collection) : base(collection) { }
+
+      public Set(IEnumerable<T> enumerable) {
+         foreach (T item in enumerable) Add(item);
+      }
    }
 
    // Marker interfaces to allow lists to be composed of permissible elements.
@@ -97,7 +101,7 @@ namespace CDL2v1 {
       public static readonly Note CannotFail                        = new(NoteType.Error  , 004, "Procedure can not fail tough it is a {0}");
       public static readonly Note LabelNotFound                     = new(NoteType.Error  , 005, "*{0}: label not found in Procedure");
       public static readonly Note DuplicateLabel                    = new(NoteType.Error  , 006, "{0}: duplicate label in Procedure");
-      public static readonly Note IllegalFailOperator               = new(NoteType.Error  , 007, "Procedure has FAIl operator (-) tough it is a {0}");
+      public static readonly Note IllegalFailOperator               = new(NoteType.Error  , 007, "Procedure has FAIL operator (-) tough it is a {0}");
       public static readonly Note UndeclaredAlgorithmCall           = new(NoteType.Error  , 008, "Call of undeclared Algorithm {0}");
       public static readonly Note ArgumentCountMismatch             = new(NoteType.Error  , 009, "Argument count mismatch. {0} has {1} affixes, but called with {2}");
       public static readonly Note WrongTypeOfargumentForStringAffix = new(NoteType.Error  , 010, "Only a literal string or a CONST can be passed to a string affix for {0}");
@@ -112,6 +116,8 @@ namespace CDL2v1 {
       public static readonly Note ConstantStubNotImported           = new(NoteType.Error  , 019, "Constant stub is not imported");
       public static readonly Note ImportedAlgorithmHasBody          = new(NoteType.Error  , 020, "Imported Algorithm has body");
       public static readonly Note ImportedConstantHasBody           = new(NoteType.Error  , 021, "Imported Constant has body");
+      public static readonly Note InvalidInputArg                   = new(NoteType.Error  , 022, "Only CONST, VAR, AFFIX (input or transput) or LOCAL may be passed to an input affix {0}");
+      public static readonly Note InvalidOutputArg                  = new(NoteType.Error  , 023, "Only VAR, AFFIX (output or transput) or LOCAL may be passed to an output affix {0}");
 
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is a {0}");
       public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix whose value has not been read passed to output {0}");
@@ -800,7 +806,9 @@ namespace CDL2v1 {
       public readonly AffixType affixType = type;
 
       public bool IsInput => affixDir == AffixDir.input || affixDir == AffixDir.transput;
+      public bool IsInputOnly => affixDir == AffixDir.input;
       public bool IsOutput => affixDir == AffixDir.output || affixDir == AffixDir.transput;
+      public bool IsOutputOnly => affixDir == AffixDir.output;
       public bool IsTransput => affixDir == AffixDir.transput;
       public bool IsString => affixType == AffixType.str;
 
