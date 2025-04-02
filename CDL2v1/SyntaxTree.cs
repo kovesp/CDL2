@@ -109,7 +109,7 @@ namespace CDL2v1 {
       public static readonly Note InputAffixPassedToOutput          = new(NoteType.Error  , 012, "Input affix passed to output or transput {0}");
       public static readonly Note ConstPassedToOutput               = new(NoteType.Error  , 013, "CONST passed to output or transput {0}");
       public static readonly Note ConstPassedToTransput             = new(NoteType.Error  , 014, "CONST passed to transput {0}");      
-      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix has not been assigned on all execution paths {0}");
+      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix that has not been set passed as input {0}");
       public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local that has not been set passed as input {0}");
       public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local whose value has not been read passed to output {0}");
       public static readonly Note AlgorithmStubNotImported          = new(NoteType.Error  , 018, "Algorithm stub is not imported");
@@ -120,7 +120,6 @@ namespace CDL2v1 {
       public static readonly Note InvalidOutputArg                  = new(NoteType.Error  , 023, "Only VAR, AFFIX (output or transput) or LOCAL may be passed to an output affix {0}");
       public static readonly Note InvalidStringArg                  = new(NoteType.Error  , 024, "Only CONST, literal string, or string affix a string affix {0}");
       public static readonly Note InvalidTransputArg                = new(NoteType.Error  , 025, "Only VAR, AFFIX (output or transput) or LOCAL may be passed to a transput affix {0}");
-      public static readonly Note OutputAffixUseBeforeAssignment    = new(NoteType.Error  , 026, "Output affix has not been assigned before use as input {0}");
 
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is a {0}");
       public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix whose value has not been read passed to output {0}");

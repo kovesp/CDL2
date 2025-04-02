@@ -239,19 +239,13 @@ namespace CDL2v1 {
                         switch (arg[i]) {
                            case Const _:
                            case Var _:
-                           case Affix inputArg when inputArg.IsInputOnly:
+                           case Affix inputArg when inputArg.IsInput:   // Includes transput
                               break;
                            case Affix outputArg when outputArg.IsOutputOnly:
-                              if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg);
-                              info.MakeWritable(outputArg);
-                              break;
-                           case Affix transputArg when transputArg.IsTransput:
-                              if (info.Unreadable(transputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, transputArg);
-                              info.MakeWritable(transputArg);
+                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg);
                               break;
                            case Local local:
-                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
-                              info.MakeWritable(local);
+                              if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
                               break;
                            default:
                               proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i]);
@@ -287,14 +281,16 @@ namespace CDL2v1 {
                               info.MakeReadable(transputArg);
                               info.MakeUnwritable(transputArg);
                               break;
-                           case Affix outputArg when outputArg.IsOutput:
+                           case Affix outputArg when outputArg.IsOutputOnly:
                               // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another set in info?
-                              if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixUseBeforeAssignment, outputArg);
+                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg);
+                              else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg);
                               info.MakeReadable(outputArg);
                               info.MakeUnwritable(outputArg);
                               break;
                            case Local local:
                               if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
+                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local);
                               info.MakeReadable(local);
                               info.MakeUnwritable(local);
                               break;
