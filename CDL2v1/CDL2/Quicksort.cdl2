@@ -45,7 +45,7 @@ MODULE quicksort.
 
          ### Procedures for testing the Semantic analyzer
          # Conditional compilation flag.
-         TEST wants less test: +.
+         TEST wants less test: -.
          # This proc cannot fail.          
          TEST test+>a+>b>+c>:
             wants less test, less+a+b, make+c+a;

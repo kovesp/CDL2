@@ -120,6 +120,8 @@ namespace CDL2v1 {
       public static readonly Note InvalidOutputArg                  = new(NoteType.Error  , 023, "Only VAR, AFFIX (output or transput) or LOCAL may be passed to an output affix {0}");
       public static readonly Note InvalidStringArg                  = new(NoteType.Error  , 024, "Only CONST, literal string, or string affix a string affix {0}");
       public static readonly Note InvalidTransputArg                = new(NoteType.Error  , 025, "Only VAR, AFFIX (output or transput) or LOCAL may be passed to a transput affix {0}");
+      public static readonly Note InvalidArgumentType               = new(NoteType.Error  , 026, "Argument must reference an affix, const or var, not {0}");
+      public static readonly Note UnresolvedArgument                = new(NoteType.Error  , 027, "Argument could not be resolved {0}");
 
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is a {0}");
       public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix whose value has not been read passed to output {0}");
@@ -458,7 +460,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       public virtual bool IsConditionalCompilationOff => false;
       public virtual bool IsConditionalCompilationOn => false;
-      public bool TryGetAffix(ID id,out Affix affix) => (affix = this.affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
+      public bool TryGetAffix(ID id,out Affix affix) => (affix = affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
 
       public override string ToString() {
@@ -640,6 +642,8 @@ namespace CDL2v1 {
             }
          }
       }
+
+    
    }
 
    [Serializable]
@@ -652,7 +656,7 @@ namespace CDL2v1 {
       /// </summary>
       public readonly bool IsBuiltin = builtin;
 
-      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}+{string.Join("+",args)}";
+      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}{string.Join("",args)}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
       private Algorithm? called = null;
@@ -715,6 +719,7 @@ namespace CDL2v1 {
       public readonly List<Call> calls = calls;
       public readonly LastCall lastCall = lastCall;
       public readonly Notes Notes = notes;
+      public bool IsConditionalOff = false;
 
       public bool CanFail => calls.Any(call => call.CanFail) || (lastCall.type == LCT.Standard && lastCall.call!.CanFail);
    }

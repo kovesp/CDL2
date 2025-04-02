@@ -190,7 +190,9 @@ namespace CDL2v1 {
       NoteError,                 // For showing errors
       NoteWarning,               // For showing warnings
       NoteInfo,                  // For showing information
-      UNDEFINED,                 // Fro showing undefined elements
+      UNDEFINED,                 // For showing undefined elements
+      ConditionalCompilationOn,  // For showing conditional compilation
+      ConditionalCompilationOff, // For showing conditional compilation
    }
    /// <summary>
    /// Algorithm PhaseName types.

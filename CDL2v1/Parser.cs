@@ -328,12 +328,12 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.SUCCEED)) {
                lastCall = new LastCall(LCT.Succeed);
             } else if (tokens.Optional(TT.FAIL)) {
-               if (proc.CanFail) {
-                  lastCall = new LastCall(LCT.Fail);
-               } else {
+               lastCall = new LastCall(LCT.Fail);
+               if (! proc.CanFail) {
                   AddNote(proc, Note.IllegalFailOperator, proc.algorithmType);
                   ReportError($"{proc} contains fail operator",supressErrorAction:true);
                }
+
             } else if (tokens.Optional(TT.ABORT)) {
                lastCall = new LastCall(LCT.Abort);
             } else if (tokens.Optional(TT.REPEAT)) {
@@ -375,7 +375,7 @@ namespace CDL2v1 {
       private static Call ParseCall(Parser parser, ID id, Procedure containingProc, bool builtin = false) {
          Debug.Assert(parser.currentSection != null);
          Call call = new(id,containingProc,builtin);
-         ParseActualArgs(parser,call);
+         ParseActualArgs(parser, call, containingProc);
          return call;
       }
 
@@ -416,14 +416,30 @@ namespace CDL2v1 {
       /// </summary>
       /// <param id="call"></param>
       // private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
-      private static void ParseActualArgs(Parser parser,Call call) {
+      private static void ParseActualArgs(Parser parser, Call call, Procedure proc) {
          Debug.Assert(parser.currentSection != null);
          while (parser.tokens.Optional(TT.PARAMSEP)) {
             if (parser.tokens.Optional(out ID id)) {
-               call.args.Add(id);
-            } else if (parser.tokens.CanConsume(TT.STRING,out Token str)) {
+               if (proc.TryGetAffix(id, out Affix affix)) {
+                  call.args.Add(affix);
+               } else if (proc.TryGetLocal(id, out Local local)) {
+                  call.args.Add(local);
+               } else if (parser.currentSection.resolvedDeclarations.TryGetValue(id, out ICDL2Object? obj)) {
+                  if (obj is Const c) {
+                     call.args.Add(c);
+                  } else if (obj is Var v) {
+                     call.args.Add(v);
+                  } else {
+                     parser.ReportError($"Expected Affix, Local, Const, or Var got {obj}");
+                  }
+               } else {
+                  // Resolve later
+                  call.args.Add(id);
+               }
+            } else if (parser.tokens.CanConsume(TT.STRING, out Token str)) {
                call.args.Add(new STRING(str));
-            } else {
+            }
+            else {
                parser.ReportError("Expected ID or STRING");
             }
          }

@@ -59,28 +59,30 @@ namespace CDL2v1 {
       /// as a color name, <see cref="System.Windows.Media.Colors"/> and https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.colors?view=windowsdesktop-9.0
       /// </summary>
       public static Dictionary<SE,Decoration> Decorators = new() {
-         { SE.Id                 ,DefaultDecoration },
-         { SE.Unit               ,new(FG:"#569cd6",Style:DS.Bold) },
-         { SE.Builtin            ,new(FG:"#569cd6",Style:DS.Italic)},
-         { SE.ReservedWord       ,new(FG:"#569cd6",Style:DS.Bold) },
-         { SE.InputAffix         ,new(FG:AffixColor) },
-         { SE.OutputAffix        ,new(FG:AffixColor.IntensifyColor(1.25)) },  // #51c0fd
-         { SE.TransputAffix      ,new(FG:AffixColor.IntensifyColor(1.50)) },  // #26b1fd
-         { SE.StringAffix        ,new(FG:"#d69d85") },
-         { SE.Local              ,new(FG:"DarkOrange") },
-         { SE.Label              ,new(FG:"LightGray") },
-         { SE.Const              ,new(FG:"Olive") },
-         { SE.Var                ,new(FG:"OliveDrab") },
-         { SE.List               ,new(FG:"DarkOliveGreen") },
-         { SE.Number             ,new(FG:"#b5cea8") },
-         { SE.String             ,new(FG:"#d69d85") },
-         { SE.Comment            ,new(FG:"#57a64a") },
-         { SE.NoteError          ,new(FG:"Red") },
-         { SE.NoteWarning        ,new(FG:"Orange") },
-         { SE.NoteInfo           ,new(FG:"LightSkyBlue") },
-         { SE.UNDEFINED          ,new(FG:"Red")},                             // Undefined identifiers.
-         { SE.Other              ,DefaultDecoration },                        // Will be used to obtain the overall background
-         { SE.AlgorithmName      ,DefaultDecoration},                         // Not used, but required entry
+         { SE.Id                       ,DefaultDecoration },
+         { SE.Unit                     ,new(FG:"#569cd6",Style:DS.Bold) },
+         { SE.Builtin                  ,new(FG:"#569cd6",Style:DS.Italic)},
+         { SE.ReservedWord             ,new(FG:"#569cd6",Style:DS.Bold) },
+         { SE.InputAffix               ,new(FG:AffixColor) },
+         { SE.OutputAffix              ,new(FG:AffixColor.IntensifyColor(1.25)) },  // #51c0fd
+         { SE.TransputAffix            ,new(FG:AffixColor.IntensifyColor(1.50)) },  // #26b1fd
+         { SE.StringAffix              ,new(FG:"#d69d85") },
+         { SE.Local                    ,new(FG:"DarkOrange") },
+         { SE.Label                    ,new(FG:"LightGray") },
+         { SE.Const                    ,new(FG:"Olive") },
+         { SE.Var                      ,new(FG:"OliveDrab") },
+         { SE.List                     ,new(FG:"DarkOliveGreen") },
+         { SE.Number                   ,new(FG:"#b5cea8") },
+         { SE.String                   ,new(FG:"#d69d85") },
+         { SE.Comment                  ,new(FG:"#57a64a") },
+         { SE.NoteError                ,new(FG:"Red") },
+         { SE.NoteWarning              ,new(FG:"Orange") },
+         { SE.NoteInfo                 ,new(FG:"LightSkyBlue") },
+         { SE.ConditionalCompilationOn ,new(FG:"MediumSpringGreen",Style:DS.Italic) },
+         { SE.ConditionalCompilationOff,new(FG:"DarkGray",Style:DS.Italic) },
+         { SE.UNDEFINED                ,new(FG:"Red")},                             // Undefined identifiers.
+         { SE.Other                    ,DefaultDecoration },                        // Will be used to obtain the overall background
+         { SE.AlgorithmName            ,DefaultDecoration},                         // Not used, but required entry
        };
 
       public static Dictionary<AlgorithmNameType,Decoration> AlgorithmNameDecorators = new() {
@@ -258,15 +260,19 @@ namespace CDL2v1 {
             PrintList(ludeType,container.Ludes[ludeType],decorate:false);
          }
       }
+      private class Boxed<T> {
+         public T? Value { get; set; }
+         public Boxed() => Value = default;
+      }
 
-      private void Print(Alternative alternative,Section section,bool extraSpace=false) {
+      private void Print(Alternative alternative, Section section,bool extraSpace=false) {
          Emitter.ExtraIndent = 0;
          if (alternative.calls.Count > 0) {
             PrintComment(alternative);
-            Print(alternative.calls.First(),section,extraSpace:extraSpace,firstInAlternative:true);
+            Print(alternative.calls.First(), section, extraSpace: extraSpace, firstInAlternative: true);
             foreach (Call call in alternative.calls.Skip(1)) {
                EmitSeparator(TT.CALLSEP);
-               Print(call,section);
+               Print(call, section);
             }
             if (alternative.lastCall.type != LCT.None) EmitSeparator(TT.CALLSEP);
          }
@@ -275,7 +281,7 @@ namespace CDL2v1 {
             switch (alternative.lastCall.type) {
                case LastCallType.Standard:
                   Debug.Assert(alternative.lastCall.call != null,"alternative.lastCall.call is null");
-                  Print(alternative.lastCall.call,section,firstInAlternative:alternative.calls.Count==0);
+                  Print(alternative.lastCall.call, section, firstInAlternative: alternative.calls.Count == 0);
                   break;
                case LastCallType.Succeed:
                   Emit(TT.SUCCEED);
@@ -317,7 +323,7 @@ namespace CDL2v1 {
          }
       }
 
-      public void Print(Call call,Section section,bool extraSpace = false,bool firstInAlternative=false) => KeepTogether(() => {
+      public void Print(Call call, Section section, bool extraSpace = false, bool firstInAlternative = false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
          Algorithm? called = null;
          if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
@@ -328,41 +334,82 @@ namespace CDL2v1 {
          }
          if (call.IsBuiltin) {
             EmitWithExtraSpace(extraSpace, RW.BUILTIN.Decorate(Emitter, SE.Builtin), " ", call.id.Decorate(Emitter, SE.Builtin));
-         } else if (call.Called is null) {
+         } else if (called is null) {
             EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, SE.UNDEFINED));
+         } else if (called.IsConditionalCompilationOn) {
+            EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, SE.ConditionalCompilationOn));
+         } else if (called.IsConditionalCompilationOff) {
+            EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, SE.ConditionalCompilationOff));
          } else { 
             EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, AlgorithmNameDecorators[callDecorator]));
          }
          foreach (IActualArg arg in call.args) {
             Emit(TT.PARAMSEP);
-            if (arg is STRING s) {
-               Emit(s.AsDecoratedCDL2String(Emitter));
-            } else if (arg is ID id) {
-               if (call.TryGetAffix(id,out Affix affix)) {
-                  Emit(id.Decorate(Emitter,affix.SyntaxElement));
-               } else if (call.TryGetLocal(id,out Local _)) {
-                  Emit(id.Decorate(Emitter,SE.Local));
-               } else if (section.TryGetDeclaration(id,out ICDL2Object? cdl2obj)) {
-                  switch (cdl2obj) {
-                     case Const constant:
-                        Emit(id.Decorate(Emitter,SE.Const));
-                        break;
-                     case LIST list:
-                        Emit(id.Decorate(Emitter,SE.List));
-                        break;
-                     case Var var:
-                        Emit(id.Decorate(Emitter,SE.Var));
-                        break;
-                     default:
-                        Emit(id);
-                        break;
+            switch (arg) {
+               case STRING s:
+                  Emit(s.AsDecoratedCDL2String(Emitter));
+                  break;
+               case Const c:
+                  Emit(c.id.Decorate(Emitter,SE.Const));
+                  break;
+               case Var v:
+                  Emit(v.id.Decorate(Emitter, SE.Var));
+                  break;
+               case Affix affix:
+                  Emit(affix.id.Decorate(Emitter, affix.SyntaxElement));
+                  break;
+               case Local local:
+                  Emit(local.id.Decorate(Emitter, SE.Local));
+                  break;
+               case ID id:
+                  if (section.TryGetDeclaration(id, out ICDL2Object? cdl2obj)) {
+                     switch (cdl2obj) {
+                        case Const constant:
+                           Emit(id.Decorate(Emitter, SE.Const));
+                           break;
+                        case LIST list:
+                           Emit(id.Decorate(Emitter, SE.List));
+                           break;
+                        case Var var:
+                           Emit(id.Decorate(Emitter, SE.Var));
+                           break;
+                        default:
+                           Emit(id);
+                           break;
+                     }
+                  } else {
+                     Emit(id);
                   }
-               } else {
-                  // Should not be possible
-                  Debug.WriteLine($"Internal error: Algorithm {call.id} not found.");
-                  Emit(id);
-               }
+                  break;
             }
+            //if (arg is STRING s1) {
+            //   Emit(s.AsDecoratedCDL2String(Emitter));
+            //} else if (arg is ID id) {
+            //   if (call.TryGetAffix(id,out Affix affix)) {
+            //      Emit(id.Decorate(Emitter,affix.SyntaxElement));
+            //   } else if (call.TryGetLocal(id,out Local _)) {
+            //      Emit(id.Decorate(Emitter,SE.Local));
+            //   } else if (section.TryGetDeclaration(id,out ICDL2Object? cdl2obj)) {
+            //      switch (cdl2obj) {
+            //         case Const constant:
+            //            Emit(id.Decorate(Emitter,SE.Const));
+            //            break;
+            //         case LIST list:
+            //            Emit(id.Decorate(Emitter,SE.List));
+            //            break;
+            //         case Var var:
+            //            Emit(id.Decorate(Emitter,SE.Var));
+            //            break;
+            //         default:
+            //            Emit(id);
+            //            break;
+            //      }
+            //   } else {
+            //      // Should not be possible
+            //      Debug.WriteLine($"Internal error: Algorithm {call.id} not found.");
+            //      Emit(id);
+            //   }
+            //}
          }
          // This is safe, because the MaxIndentIncrement limits the extra indent.
          if (!firstInAlternative && Emitter.WillKeepTogetherNotFitOnCurrentLine()) Emitter.ExtraIndent++;
@@ -483,7 +530,7 @@ namespace CDL2v1 {
       private void PrintAlgorithmHeader(Algorithm algorithm) {
          PrintComment(algorithm);
          Emit(algorithm.algorithmType.Decorate(Emitter,SE.ReservedWord)," ",
-            algorithm.id.Decorate(Emitter,AlgorithmNameDecorators[algorithm.NameType]));
+            algorithm.id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
          foreach (Affix affix in algorithm.affixes.Cast<Affix>()) {
             Emit(affix.affixType == AffixType.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
             if (affix.IsInput) Emit(TT.AFFIXDIR);
@@ -497,6 +544,10 @@ namespace CDL2v1 {
          }
          Emitnl(" ",algorithm.bodyType);
       }
+      private Decoration AlgorithmNameDecorator(Algorithm alg) 
+         => alg.IsConditionalCompilationOn ? Decorators[SE.ConditionalCompilationOn] : 
+            alg.IsConditionalCompilationOff ? Decorators[SE.ConditionalCompilationOff] : 
+            AlgorithmNameDecorators[alg.NameType];
 
       public void Print(Const constant) {
          //PrintIDComment(item,SE.Const);

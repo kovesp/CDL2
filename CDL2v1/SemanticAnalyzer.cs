@@ -7,6 +7,7 @@ using System.CodeDom;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -178,15 +179,17 @@ namespace CDL2v1 {
             ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.algorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
-         bool canFail = AnalyzeCanFail(proc.group,section);
-         if (proc.CanFail && !canFail) {
-            AddNote(proc,Note.CannotFail,proc.algorithmType);
-            //AddNote(proc,new(NoteType.Warning,"Test warning",108));
-            //AddNote(proc,new(NoteType.Info,"Test info",208));
-            ReportError(section,$"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType==RW.TEST?RW.FUNCTION:RW.ACTION)}?");
-         } else if (!proc.CanFail && canFail) {
-            AddNote(proc,Note.CanFail,proc.algorithmType);
-            ReportError(section,$"Procedure {proc.AlgorithmName} can fail. Should be {(proc.algorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
+         if (! proc.IsConditionalCompilation) {
+            bool canFail = AnalyzeCanFail(proc.group, section);
+            if (proc.CanFail && !canFail) {
+               AddNote(proc, Note.CannotFail, proc.algorithmType);
+               //AddNote(proc,new(NoteType.Warning,"Test warning",108));
+               //AddNote(proc,new(NoteType.Info,"Test info",208));
+               ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
+            } else if (!proc.CanFail && canFail) {
+               AddNote(proc, Note.CanFail, proc.algorithmType);
+               ReportError(section, $"Procedure {proc.AlgorithmName} can fail. Should be {(proc.algorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
+            }
          }
       }
 
@@ -216,12 +219,32 @@ namespace CDL2v1 {
                   proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
                   return true;
                } else if (call.Called.affixes.Count != call.args.Count) {
-                  proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id,call.args.Count, call.Called.affixes.Count);
+                  proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.args.Count, call.Called.affixes.Count);
                   return true;
+               } else if (call.args.Count == 0) {
+                  return false;
                } else {
                   List<Affix> affix = call.Called.affixes;
                   List<IActualArg> arg = call.args;
                   for (int i = 0; i < call.args.Count; i++) {
+                     if (arg[i] is ID id) {
+                        // ID that was not resolved during parsing
+                        if (proc.Section.resolvedDeclarations.TryGetValue(id, out ICDL2Object? obj)) {
+                           switch (obj) {
+                              case Var var:
+                                 arg[i] = var; break;
+                              case Const c:
+                                 arg[i] = c; break;
+                              default:
+                                 proc.AddNote(PhaseName, Note.InvalidArgumentType, arg[i]);
+                                 break;
+                           }               
+                        } else {
+                           proc.AddNote(PhaseName, Note.UnresolvedArgument, arg[i]);
+                           return true; // No point in continuing
+                        }
+                     }
+
                      if (affix[i].IsString) {
                         // The actual argument must be a constant, a string or a string affix of the containing procedure.
                         switch (arg[i]) {
