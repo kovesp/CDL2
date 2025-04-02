@@ -139,10 +139,31 @@ namespace CDL2v1 {
       private void AnalyzeMacro(Macro macro) {
       }
       private class DataFlowInfo(Procedure proc) {
-         public readonly Set<Affix> readableAffixes = proc.affixes.Where(affix => affix.IsInput).ToSet();
-         public readonly Set<Local> readableLocals  = [];
-         public readonly Set<Affix> writableAffixes = proc.affixes.Where(affix => affix.IsOutput).ToSet();
-         public readonly Set<Local> writableLocals  = proc.locals;
+         private readonly Set<Affix> readableAffixes     = proc.affixes.Where(affix => affix.IsInput).ToSet();
+         private readonly Set<Local> readableLocals      = [];
+         private readonly Set<Affix> writableAffixes     = proc.affixes.Where(affix => affix.IsOutput).ToSet();
+         private readonly Set<Local> writableLocals      = [..proc.locals];
+         private readonly Set<Affix> neverWrittenAffixes = proc.affixes.Where(affix => affix.IsOutputOnly).ToSet();
+         private readonly Set<Local> neverWrittenLocals  = [..proc.locals ];
+
+         public bool Readable(Affix affix)       => readableAffixes.Contains(affix);
+         public bool Readable(Local local)       => readableLocals.Contains(local);
+         public bool Writable(Affix affix)       => writableAffixes.Contains(affix);
+         public bool Writable(Local local)       => writableLocals.Contains(local);
+         public bool Unreadable(Affix affix)     => !readableAffixes.Contains(affix);
+         public bool Unreadable(Local local)     => !readableLocals.Contains(local);
+         public bool Unwritable(Affix affix)     => !writableAffixes.Contains(affix);
+         public bool Unwritable(Local local)     => !writableLocals.Contains(local);
+         public bool NeverWritten(Affix affix)   => neverWrittenAffixes.Contains(affix);
+         public bool NeverWritten(Local local)   => neverWrittenLocals.Contains(local);
+         public void MakeReadable(Affix affix)   { readableAffixes.Add(affix); neverWrittenAffixes.Remove(affix); }
+         public void MakeReadable(Local local)   { readableLocals.Add(local);  neverWrittenLocals.Remove(local); }
+         public void MakeWritable(Affix affix)   => writableAffixes.Add(affix);
+         public void MakeWritable(Local local)   => writableLocals.Add(local);
+         public void MakeUnreadable(Affix affix) => readableAffixes.Remove(affix);
+         public void MakeUnreadable(Local local) => readableLocals.Remove(local);
+         public void MakeUnwritable(Affix affix) => writableAffixes.Remove(affix);
+         public void MakeUnwritable(Local local) => writableLocals.Remove(local);
       }
       private void AnalyzeProcedure(Procedure proc,Section section) {
          DataFlowInfo info = new(proc);
@@ -202,44 +223,55 @@ namespace CDL2v1 {
                   List<IActualArg> arg = call.args;
                   for (int i = 0; i < call.args.Count; i++) {
                      if (affix[i].IsString) {
+                        // The actual argument must be a constant, a string or a string affix of the containing procedure.
+                        switch (arg[i]) {
+                           case Const _:
+                           case Affix stringArg when stringArg.IsString:
+                           case STRING _:
+                              break;
+                           default:
+                              proc.AddNote(PhaseName, Note.InvalidStringArg, arg[i]);
+                              break;
+                        }
                      } else if (affix[i].IsInputOnly) {
+                        // The actual argument must be a constant, a variable, an input or transput affix of the containing procedure,
+                        // or a local or output affix that has already received a value.
                         switch (arg[i]) {
                            case Const _:
                            case Var _:
                            case Affix inputArg when inputArg.IsInputOnly:
                               break;
                            case Affix outputArg when outputArg.IsOutputOnly:
-                              if (!info.readableAffixes.Contains(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg);
-                              info.writableAffixes.Add(outputArg);
+                              if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg);
+                              info.MakeWritable(outputArg);
                               break;
                            case Affix transputArg when transputArg.IsTransput:
-                              if (!info.readableAffixes.Contains(transputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, transputArg);
-                              info.writableAffixes.Add(transputArg);
+                              if (info.Unreadable(transputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, transputArg);
+                              info.MakeWritable(transputArg);
                               break;
                            case Local local:
-                              if (!info.readableLocals.Contains(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
-                              info.writableLocals.Add(local);
+                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
+                              info.MakeWritable(local);
                               break;
                            default:
                               proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i]);
                               break;
                         }
                      } else if (affix[i].IsOutputOnly) {
+                        // The actual argument must be a variable, a local or an affix (output or transput) of the containing procedure.
+                        // The local or affix must have been read since it was last written (this is a warning).
                         switch (arg[i]) {
                            case Var _:
                               break;
                            case Affix outputArg when outputArg.IsOutput:   // Includes transput
-                              if (!info.writableAffixes.Contains(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg);
-                              info.readableAffixes.Add(outputArg);
-                              info.writableAffixes.Remove(outputArg);
+                              if (info.Unwritable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg);
+                              info.MakeReadable(outputArg);
+                              info.MakeUnwritable(outputArg);
                               break;
                            case Local local:
-                              if (!info.writableLocals.Contains(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local);
-                              info.readableLocals.Add(local);
-                              info.writableLocals.Remove(local);
-                              break;
-                           case Affix inputArg when inputArg.IsInputOnly:
-                              proc.AddNote(PhaseName, Note.InvalidOutputArg, inputArg);
+                              if (info.Unwritable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local);
+                              info.MakeReadable(local);
+                              info.MakeUnwritable(local);
                               break;
                            default:
                               proc.AddNote(PhaseName, Note.InvalidOutputArg, arg[i]);
@@ -247,6 +279,29 @@ namespace CDL2v1 {
                         }
                      } else {
                         Debug.Assert(affix[i].IsTransput, "Transput affix expected");
+                        // The actual argument must be a variable, a transput affix or a local or an output affix which has already been assigned a value of the containing procedure.
+                        switch (arg[i]) {
+                           case Var _:
+                              break;
+                           case Affix transputArg when transputArg.IsTransput:
+                              info.MakeReadable(transputArg);
+                              info.MakeUnwritable(transputArg);
+                              break;
+                           case Affix outputArg when outputArg.IsOutput:
+                              // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another set in info?
+                              if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixUseBeforeAssignment, outputArg);
+                              info.MakeReadable(outputArg);
+                              info.MakeUnwritable(outputArg);
+                              break;
+                           case Local local:
+                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
+                              info.MakeReadable(local);
+                              info.MakeUnwritable(local);
+                              break;
+                           default:
+                              proc.AddNote(PhaseName, Note.InvalidTransputArg, arg[i]);
+                              break;
+                        }
                      }
                   }
                }
@@ -299,6 +354,6 @@ namespace CDL2v1 {
       /// <summary>
       /// A call has an effect if the algorithm it invokes has an effect.
       /// </summary>
-      static bool CallhasEffect(Call call) => !call.IsBuiltin && call.Called.HasEffect;      
+      static bool CallhasEffect(Call call) => !call.IsBuiltin && (call.Called?.HasEffect ?? false);      
    }
 }

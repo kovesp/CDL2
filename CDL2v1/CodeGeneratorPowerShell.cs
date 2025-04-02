@@ -161,7 +161,12 @@ class BoundedArray {
          emitter.IndentLevel++;
       }
       void ICodeGenerator.GenerateAffixSeparator() => emitter.Emit(",");
-      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT, PSVar(local), " = 0");
+      /// <summary>
+      /// Locals are initialized to a random value to ensure that they are not used before being set.
+      /// The latter should be made impossible by semantic analysis.
+      /// </summary>
+      /// <param name="local"></param>
+      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT, PSVar(local), " = ",RandomInitialValue);
       void ICodeGenerator.GenerateAffix(Affix affix, AD dir, bool algorithmCanFail) {
          switch (dir) {
             case AD.input:
@@ -183,11 +188,11 @@ class BoundedArray {
             case AD.input:
                break;
             case AD.output:
+               // The output shadow is initialized to a random value to ensure that it is set before use.
                if (isVar) {
-                  emitter.Emitnl(DT, PSVar((Var)var, "_"), " = 0");
-               }
-               else {
-                  emitter.Emitnl(DT, PSVar((Affix)var, "_"), " = 0");
+                  emitter.Emitnl(DT, PSVar((Var)var, "_"), " = ", RandomInitialValue);
+               } else {
+                  emitter.Emitnl(DT, PSVar((Affix)var, "_"), " = ", RandomInitialValue);
                }
                break;
             case AD.transput:
@@ -455,6 +460,8 @@ class BoundedArray {
       private static string PSName(Affix affix) => affix.id.Name.AsIdentifier(camelCase: true);
       private static string PSName(Local local) => local.id.Name.AsIdentifier(camelCase: true);
 
+      private static readonly Random Random = new();
+      private static string RandomInitialValue => Random.Next(0, int.MaxValue).ToString();
       #endregion Helpers
    }
 }
