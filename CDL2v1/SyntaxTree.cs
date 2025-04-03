@@ -39,7 +39,9 @@ namespace CDL2v1 {
    public interface IInterfaceElement { }
    public interface IProvidedElement : IInterfaceElement { }
    public interface IRequiredElement : IInterfaceElement { }
-   public interface IActualArg { }
+   public interface IActualArg {
+      ID id { get; }
+   }
    public interface INamedElement {
       bool HasCommentOrNote { get; }
       bool IsSynthetic { get; }
@@ -91,44 +93,45 @@ namespace CDL2v1 {
          Number = number;
          PhaseName = phaseName;
       }
-      public Note(Note template, string phaseName, params object[] args) : this(template.Type, template.Number, string.Format(template.Text, args), phaseName) { }
+      public Note(Note template, string phaseName, params object[] args) 
+         : this(template.Type, template.Number, string.Format(template.Text, [.. args.Select(arg=>arg is Affix aff ? aff.id : arg is Local loc ? loc.id : arg)]), phaseName) { }
 
       public static readonly string Marker = " >>> ";
 
-      public static readonly Note Defect                            = new(NoteType.Error  , 001, "Procedure has defect (has an effect tough it is a {0})");
-      public static readonly Note Effect                            = new(NoteType.Error  , 002, "Procedure has effect tough is a {0}");
-      public static readonly Note CanFail                           = new(NoteType.Error  , 003, "Procedure can fail tough it is a {0}");
-      public static readonly Note CannotFail                        = new(NoteType.Error  , 004, "Procedure can not fail tough it is a {0}");
+      public static readonly Note Defect                            = new(NoteType.Error  , 001, "Procedure has defect (has an effect tough tough declared as {0})");
+      public static readonly Note Effect                            = new(NoteType.Error  , 002, "Procedure has effect tough declared as {0}");
+      public static readonly Note CanFail                           = new(NoteType.Error  , 003, "Procedure can fail tough declared as {0}");
+      public static readonly Note CannotFail                        = new(NoteType.Error  , 004, "Procedure can not fail tough declared as {0}");
       public static readonly Note LabelNotFound                     = new(NoteType.Error  , 005, "*{0}: label not found in Procedure");
       public static readonly Note DuplicateLabel                    = new(NoteType.Error  , 006, "{0}: duplicate label in Procedure");
-      public static readonly Note IllegalFailOperator               = new(NoteType.Error  , 007, "Procedure has FAIL operator (-) tough it is a {0}");
+      public static readonly Note IllegalFailOperator               = new(NoteType.Error  , 007, "Procedure has FAIL operator (-) tough declared as {0}");
       public static readonly Note UndeclaredAlgorithmCall           = new(NoteType.Error  , 008, "Call of undeclared Algorithm {0}");
       public static readonly Note ArgumentCountMismatch             = new(NoteType.Error  , 009, "Argument count mismatch. {0} has {1} affixes, but called with {2}");
       public static readonly Note WrongTypeOfargumentForStringAffix = new(NoteType.Error  , 010, "Only a literal string or a CONST can be passed to a string affix for {0}");
-      public static readonly Note UninitializedOutputPassedAsInput  = new(NoteType.Error  , 011, "Output affix that has not been set passed as input or transput {0}");
-      public static readonly Note InputAffixPassedToOutput          = new(NoteType.Error  , 012, "Input affix passed to output or transput {0}");
-      public static readonly Note ConstPassedToOutput               = new(NoteType.Error  , 013, "CONST passed to output or transput {0}");
-      public static readonly Note ConstPassedToTransput             = new(NoteType.Error  , 014, "CONST passed to transput {0}");      
-      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix that has not been set passed as input {0}");
-      public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local that has not been set passed as input {0}");
-      public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local whose value has not been read passed to output {0}");
+      public static readonly Note UninitializedOutputPassedAsInput  = new(NoteType.Error  , 011, "Output affix {0} that has not been set passed as input or transput in {1}");
+      public static readonly Note InputAffixPassedToOutput          = new(NoteType.Error  , 012, "Input affix {0} passed to output or transput in {0}");
+      public static readonly Note ConstPassedToOutput               = new(NoteType.Error  , 013, "CONST {0} passed to output or transput in {0}");
+      public static readonly Note ConstPassedToTransput             = new(NoteType.Error  , 014, "CONST {0} passed to transput in {1}");      
+      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix {0} that has not been set passed as input in {1}");
+      public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local {0} that has not been set passed as input in {1}");
+      public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local {0} whose value has not been read passed to output in {1}");
       public static readonly Note AlgorithmStubNotImported          = new(NoteType.Error  , 018, "Algorithm stub is not imported");
       public static readonly Note ConstantStubNotImported           = new(NoteType.Error  , 019, "Constant stub is not imported");
       public static readonly Note ImportedAlgorithmHasBody          = new(NoteType.Error  , 020, "Imported Algorithm has body");
       public static readonly Note ImportedConstantHasBody           = new(NoteType.Error  , 021, "Imported Constant has body");
       public static readonly Note InvalidInputArg                   = new(NoteType.Error  , 022, "Only CONST, VAR, AFFIX (input or transput) or LOCAL may be passed to an input affix {0}");
       public static readonly Note InvalidOutputArg                  = new(NoteType.Error  , 023, "Only VAR, AFFIX (output or transput) or LOCAL may be passed to an output affix {0}");
-      public static readonly Note InvalidStringArg                  = new(NoteType.Error  , 024, "Only CONST, literal string, or string affix a string affix {0}");
+      public static readonly Note InvalidStringArg                  = new(NoteType.Error  , 024, "Only CONST, literal string, or string affix can be passed to {1}, not {0}");
       public static readonly Note InvalidTransputArg                = new(NoteType.Error  , 025, "Only VAR, AFFIX (output or transput) or LOCAL may be passed to a transput affix {0}");
       public static readonly Note InvalidArgumentType               = new(NoteType.Error  , 026, "Argument must reference an affix, const or var, not {0}");
       public static readonly Note UnresolvedArgument                = new(NoteType.Error  , 027, "Argument could not be resolved {0}");
 
-      public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is a {0}");
-      public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix whose value has not been read passed to output {0}");
-      public static readonly Note TransputAffixOverwritten          = new(NoteType.Warning, 103, "Transput affix whose value has not been read passed to output {0}");
+      public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is declared as {0}");
+      public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix {0} whose value has not been read passed to output in {1}");
+      public static readonly Note TransputAffixOverwritten          = new(NoteType.Warning, 103, "Transput affix (0} whose value has not been read passed to output in {1}");
 
-      public static readonly Note AffixNotRefeenced                 = new(NoteType.Info   , 201, "Affix was not used in procedure {0}");
-      public static readonly Note LocalNotReferenced                = new(NoteType.Info   , 202, "Local was not used in procedure {0}");
+      public static readonly Note AffixNotRefeenced                 = new(NoteType.Info   , 201, "Affix {0} was not used in procedure {1}");
+      public static readonly Note LocalNotReferenced                = new(NoteType.Info   , 202, "Local {0} was not used in procedure {1}");
 
 
       public override string ToString() => $"{Type} {Number}: {Text}";
@@ -140,7 +143,7 @@ namespace CDL2v1 {
    /// <param id="id"></param>
    [Serializable]
    public class NamedElement(ID id,bool synthetic = false) : INamedElement {
-      public readonly ID id = id;
+      public ID id { get; } = id;
       /// <summary>
       /// True if the object is synthetic, i.e., generated by the parser.
       /// Objects that can be synthetic:
@@ -149,6 +152,16 @@ namespace CDL2v1 {
       /// </summary>
       public bool IsSynthetic { get; } = synthetic;
       public Container? Parent { get; set; }      // null for the Program and Modules.
+
+      /// <summary>
+      /// Contains the objects that reference this object.
+      /// What may be here depends on the type of this object.
+      ///  - Const: Algorithms and Consts.
+      ///  - Vars:  Algorithms.
+      ///  - LISTs: Macros.
+      ///  - Algorithms: Algorithms.
+      /// </summary>
+      public Set<ICDL2Object> Refeences = [];
 
       override public string ToString() => $"{TypeShortName} {id.Name}";
       public virtual string TypeShortName => GetType().Name.ToUpper()[..3];
@@ -460,13 +473,17 @@ namespace CDL2v1 {
       /// <returns></returns>
       public virtual bool IsConditionalCompilationOff => false;
       public virtual bool IsConditionalCompilationOn => false;
+      public bool IsConditionalCompilation(bool? on=null) => on is null ? IsConditionalCompilationOn || IsConditionalCompilationOff : (bool)on ? IsConditionalCompilationOn : IsConditionalCompilationOff;
       public bool TryGetAffix(ID id,out Affix affix) => (affix = affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
       public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
 
       public override string ToString() {
          StringBuilder buffer = new();
          buffer.Append($"{TypeShortName} {id.Name}");
-         foreach (Affix affix in affixes) buffer.Append(affix);
+         foreach (Affix affix in affixes) {
+            buffer.Append(Token.TokenType2Glyph[affix.IsString ? TT.STRINGAFFIXSEP : TT.AFFIXSEP]);
+            buffer.Append(affix);
+         }
          foreach (Local local in locals) buffer.Append(local);
          return buffer.ToString();
       }
@@ -595,13 +612,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <returns></returns>
       public override bool IsConditionalCompilationOff => CanFail && group.alternatives.Count == 1 && group.alternatives[0].calls.Count == 0 && group.alternatives[0].lastCall.type == LCT.Fail;
-      public override bool IsConditionalCompilationOn => group.alternatives.Count == 1 && group.alternatives[0].calls.Count == 0 && group.alternatives[0].lastCall.type == LCT.Succeed;
+      public override bool IsConditionalCompilationOn => CanFail && group.alternatives.Count == 1 && group.alternatives[0].calls.Count == 0 && group.alternatives[0].lastCall.type == LCT.Succeed;
 
       /// <summary>
       /// The procedure ha no repeats.
       /// </summary>
       public bool HasNoRepeat => HasNoRepeats(group);
-      public bool IsConditionalCompilation => IsConditionalCompilationOff || IsConditionalCompilationOn;
       private static bool HasNoRepeats(Group group) {
          foreach (Alternative alternative in group.alternatives) {
             if (alternative.lastCall.type == LCT.Repeat) return false;
@@ -656,7 +672,19 @@ namespace CDL2v1 {
       /// </summary>
       public readonly bool IsBuiltin = builtin;
 
-      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}{string.Join("",args)}";
+      public bool IsConditionalCompilationOff => IsConditionalCompilation(on: true);
+      public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: false);
+      private bool IsConditionalCompilation(bool on) {
+         if (Called != null) {
+            return called!.IsConditionalCompilation(on);
+         } else if (IsBuiltin && Builtin.IsTest(this)) {
+            return on == Builtin.EvalTest(this);
+         } else {
+            return ! on;
+         }
+      }
+
+      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}{(args.Count>0?"+":"")}{string.Join("+",args.Select(arg=>arg.id))}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
       private Algorithm? called = null;
@@ -756,7 +784,11 @@ namespace CDL2v1 {
       public STRING(Token str) {
          Debug.Assert(str.type == TT.STRING && str.StringValue != null);
          value = str.StringValue;
+         fakeID = ID.From(ToString());
       }
+
+      private ID fakeID;
+      public ID id => fakeID;
 
       private static string EscapedCDL2(string str) {
          StringBuilder sb = new();
@@ -824,7 +856,7 @@ namespace CDL2v1 {
       public override bool Equals(object? obj) => obj is Affix affix && EqualityComparer<ID>.Default.Equals(id,affix.id);
       public override int GetHashCode() => HashCode.Combine(id);
 
-      override public string ToString() => affixType == AffixType.std ? $"+{(IsInput ? ">" : "")}{id}{(IsOutput ? ">" : "")}" : $"*{id}";
+      override public string ToString() => affixType == AffixType.std ? $"{(IsInput ? ">" : "")}{id}{(IsOutput ? ">" : "")}" : $"*{id}";
 
       public static bool operator ==(Affix? left,Affix? right) => EqualityComparer<Affix>.Default.Equals(left,right);
       public static bool operator !=(Affix? left,Affix? right) => !(left == right);

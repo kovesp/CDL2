@@ -418,7 +418,7 @@ namespace CDL2v1 {
       // private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
       private static void ParseActualArgs(Parser parser, Call call, Procedure proc) {
          Debug.Assert(parser.currentSection != null);
-         while (parser.tokens.Optional(TT.PARAMSEP)) {
+         while (parser.tokens.Optional(TT.AFFIXSEP)) {
             if (parser.tokens.Optional(out ID id)) {
                if (proc.TryGetAffix(id, out Affix affix)) {
                   call.args.Add(affix);
@@ -456,7 +456,7 @@ namespace CDL2v1 {
          }
          return locals;
       }
-      private static readonly List<TT> formalTypes = [TT.PARAMSEP,TT.STRINGPARAMSEP];
+      private static readonly List<TT> formalTypes = [TT.AFFIXSEP,TT.STRINGAFFIXSEP];
       private List<Affix>? ParseAffixes() {
          List<Affix> args = [];
          while (tokens.Optional(formalTypes,out Token affixTypeInd)) {
@@ -464,7 +464,7 @@ namespace CDL2v1 {
             if (tokens.CanConsume(out ID id)) {
                bool isOut = tokens.Optional(TT.AFFIXDIR);
                AffixDir affixDir = isIn ? (isOut ? AffixDir.transput : AffixDir.input) : (isOut ? AffixDir.output : AffixDir.NONE);
-               AffixType affixType = affixTypeInd.type == TT.PARAMSEP ? AffixType.std : AffixType.str;
+               AffixType affixType = affixTypeInd.type == TT.AFFIXSEP ? AffixType.std : AffixType.str;
                if (affixType == AffixType.str && affixDir != AffixDir.NONE) ReportError("String arguments cannot have a direction");
                if (affixType == AffixType.std && affixDir == AffixDir.NONE) ReportError("Standard arguments must be input, output, or transput");
                Affix affix = new(id,affixDir,affixType);

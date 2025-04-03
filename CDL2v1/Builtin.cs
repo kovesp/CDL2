@@ -1,0 +1,82 @@
+﻿using System;
+using System.CodeDom.Compiler;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CDL2v1 {
+   internal static class Builtin {
+      // FUNCTION date+date>.
+      // FUNCTION time+time>.
+      // FUNCTION version+version>.
+      // FUNCTION option*name+value>.
+      // FUNCTION environment variable*name+value>.
+
+      // TEST     is option*name.                      // Can be used for conditional compilation.
+      // TEST     is option value*name*value.          // Can be used for conditional compilation..
+      // TEST     is environment variable*name.       // Is it defined?
+      // TEST     is target*target
+
+      private static readonly Set<string> BuiltinFunctions = ["date","time", "version", "option", "environmentvariable"];
+      private static readonly Set<string> BuiltinTests     = ["isoption", "isoptionvalue", "isenvironmentvariable", "istarget"]; 
+
+      public static bool IsFunction(Call call) => BuiltinFunctions.Contains(call.id.InternalName);
+      public static bool IsTest(Call call) => BuiltinTests.Contains(call.id.InternalName);
+
+      public static string EvalFunction(Call call) {
+         switch (call.id.InternalName) {
+            case "datestring":
+               return DateTime.Now.ToString("yyyy-MM-dd");
+            case "timestring":
+               return DateTime.Now.ToString("HH:mm:ss");
+            case "versionstring":
+               return CDL2.Version;
+            case "option":
+               if (call.args.Count >= 1 && call.args[0] is STRING option) {
+                  return Settings.TryGetSettingValue(option.value, out string? value) ? value : "";
+               } else {
+                  return "";
+               }
+            case "environmentvariable":
+               if (call.args.Count >= 1 && call.args[0] is STRING envName) {
+                  return Environment.GetEnvironmentVariable(envName.value) ?? "";
+               } else {
+                  return "";
+               }
+            default:
+               throw new NotImplementedException($"Builtin function {call.id.InternalName} not implemented.");
+         }
+      }
+      public static bool EvalTest(Call call) {
+         switch (call.id.InternalName) {
+            case "isoption":
+               if (call.args.Count >= 1 && call.args[0] is STRING option) {
+                  return Settings.TryGetSettingValue(option.value, out _);
+               } else {
+                  return false;
+               }
+            case "isoptionvalue":
+               if (call.args.Count >= 2 && call.args[0] is STRING option1 && call.args[1] is STRING value) {
+                  return Settings.TryGetSettingValue(option1.value, out string? settingValue) && settingValue == value.value;
+               } else {
+                  return false;
+               }
+            case "isenvironmentvariable":
+               if (call.args.Count >= 1 && call.args[0] is STRING envName) {
+                  return Environment.GetEnvironmentVariable(envName.value) != null;
+               } else {
+                  return false;
+               }
+            case "istarget":
+               if (call.args.Count >= 1 && call.args[0] is STRING target) {
+                  return target.value == Settings.SettingValue<string>("Target");
+               } else {
+                  return false;
+               }
+            default:
+               throw new NotImplementedException($"Builtin test {call.id.InternalName} not implemented.");
+         }
+      }
+   }
+}

@@ -344,7 +344,7 @@ namespace CDL2v1 {
             EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, AlgorithmNameDecorators[callDecorator]));
          }
          foreach (IActualArg arg in call.args) {
-            Emit(TT.PARAMSEP);
+            Emit(TT.AFFIXSEP);
             switch (arg) {
                case STRING s:
                   Emit(s.AsDecoratedCDL2String(Emitter));
@@ -532,7 +532,7 @@ namespace CDL2v1 {
          Emit(algorithm.algorithmType.Decorate(Emitter,SE.ReservedWord)," ",
             algorithm.id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
          foreach (Affix affix in algorithm.affixes.Cast<Affix>()) {
-            Emit(affix.affixType == AffixType.std ? TT.PARAMSEP : TT.STRINGPARAMSEP);
+            Emit(affix.affixType == AffixType.std ? TT.AFFIXSEP : TT.STRINGAFFIXSEP);
             if (affix.IsInput) Emit(TT.AFFIXDIR);
             Emit(affix.id.Decorate(Emitter,affix.SyntaxElement));
             if (affix.IsOutput) Emit(TT.AFFIXDIR);

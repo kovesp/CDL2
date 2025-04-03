@@ -41,7 +41,8 @@ MODULE quicksort.
          # Test of builin parsing.
          FUNCTION parse prolog:
             BUILTIN is option value+"Prolog Syntax"+"MProlog", parse mprolog;
-            parse swiprolog.
+            BUILTIN is option value+"Prolog Syntax"+"SWI", parse swiprolog;
+            +.
 
          ### Procedures for testing the Semantic analyzer
          # Conditional compilation flag.

@@ -62,6 +62,25 @@ namespace CDL2v1 {
          }
          throw new KeyNotFoundException($"Setting with name '{name}' not found or of incorrect type.");
       }
+      public static bool TryGetSettingValue(string name,out string value) {
+         if (Instance.SettingsDict.TryGetValue(name, out ISetting? setting)) {
+            if (setting is Setting<string> sSetting) {
+               value = sSetting.Value;
+               return true;
+            }
+            if (setting is Setting<bool> bSetting) {
+               value = bSetting.Value.ToString();
+               return true;
+            }
+            if (setting is Setting<int> iSetting) {
+               value = iSetting.Value.ToString();
+               return true;
+            }
+         }
+         value = "";
+         return false;
+      }
+      
 
       public static void ProcessCommandLine(string[] commandLine) {
          RootCommand rootCommand = new() { Description = "CDL2 Compiler" };

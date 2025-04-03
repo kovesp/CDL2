@@ -16,6 +16,8 @@ namespace CDL2v1 {
       [JsonInclude]
       public string Name = string.Empty;
 
+      public ID id => this;
+
       public static void Dump() {
          Debug.WriteLine("ID Dump:\n--------");
          List<ID> sortedIDs = [.. Database.Instance.UniqueIDs.Values

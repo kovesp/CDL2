@@ -150,7 +150,7 @@ class BoundedArray {
       void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
       void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(PSVar(constant));
       void ICodeGenerator.GenerateConstantEnd(Const c) => emitter.Emitnl();
-      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT, PSVar(var), " = 0");
+      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT, PSVar(var), " = ",RandomInitialValue);
       void ICodeGenerator.GenerateList(LIST var, Const lwb, Const upb) => emitter.Emitnl(PSVar(var), $" = [BoundArray]::new({PSVar(lwb)},{PSVar(upb)})");
       #endregion Data Declarations
 

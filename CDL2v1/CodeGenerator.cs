@@ -231,7 +231,7 @@ namespace CDL2v1 {
       }
 
       private void GenerateProcedure(Procedure proc) {
-         if (proc.IsConditionalCompilation) {
+         if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
          } else {
             IEnumerable<Var> variables = proc.GetReferencedVariables();
@@ -251,8 +251,8 @@ namespace CDL2v1 {
             cg.GenerateComment("Very simple body");
             Debug.Assert(proc.group.alternatives.Count == 1,$"GenerateProcedureBody: Expected single alternative, found {proc.group.alternatives.Count}");
             foreach (Call call in proc.group.alternatives[0].calls) {
-               if (call.Called.IsConditionalCompilationOn) continue;   // No need to generate code for this call;
-               if (call.Called.IsConditionalCompilationOff) {
+               if (call.Called!.IsConditionalCompilationOn) continue;   // No need to generate code for this call;
+               if (call.IsConditionalCompilationOff) {
                   if (proc.CanFail) cg.GenerateAlternativeFail();
                   return;    // No need to generate code for the rest of the proc's single alternative.
                }
@@ -278,14 +278,14 @@ namespace CDL2v1 {
       private void GenerateAlternative(Procedure proc,Group group,int i) {
          cg.GenerateAlternativeStart(proc,group,i);
          List<Call> calls = proc.group.alternatives[i].calls;
-         bool removeAlternative = calls.Count > 0 && calls[0].Called.IsConditionalCompilationOff;
+         bool removeAlternative = calls.Count > 0 && calls[0].IsConditionalCompilationOff;
          if (removeAlternative) {
             cg.GenerateComment($"Alternative removed by conditional compilation set by {calls[0].Called}");
          } else {
             bool canFail = false;
             foreach (Call call in group.alternatives[i].calls) {
-               if (call.Called.IsConditionalCompilationOn) continue;   // No need to generate code for this call;
-               if (call.Called.IsConditionalCompilationOff) {
+               if (call.IsConditionalCompilationOn) continue;   // No need to generate code for this call;
+               if (call.IsConditionalCompilationOff) {
                   // Skip the rest of the alternative.
                   if (proc.CanFail) cg.GenerateAlternativeFail();
                   cg.GenerateAlternativeEnd(proc, group, i,removed:true);
@@ -318,15 +318,19 @@ namespace CDL2v1 {
       }
 
       private void GenerateCall(Procedure proc,Call call,bool canFail = false) {
-         cg.GenerateCallStart(call.Called,proc,canFail);
-         if (call.args.Count > 0) {
-            GenerateActualArg(proc,call.Called.affixes[0],call.args[0]);
-            for (int i = 1 ; i < call.args.Count ; i++) {
-               cg.GenerateActualArgSeparator();
-               GenerateActualArg(proc,call.Called.affixes[i],call.args[i]);
+         if (call.Called is not null) {
+            cg.GenerateCallStart(call.Called!, proc, canFail);
+            if (call.args.Count > 0) {
+               GenerateActualArg(proc, call.Called!.affixes[0], call.args[0]);
+               for (int i = 1; i < call.args.Count; i++) {
+                  cg.GenerateActualArgSeparator();
+                  GenerateActualArg(proc, call.Called.affixes[i], call.args[i]);
+               }
             }
+            cg.GenerateCallEnd(call.Called!, proc, canFail);
+         } else {
+            cg.GenerateComment($"Call to undefined algorithm {call} skipped.");
          }
-         cg.GenerateCallEnd(call.Called,proc,canFail);
       }
 
       private void GenerateActualArg(Procedure proc,Affix calledAffix,IActualArg arg) {
@@ -334,6 +338,12 @@ namespace CDL2v1 {
             case STRING s:
                Debug.Assert(calledAffix.affixType == AT.str,$"GenerateCallStart: String argument for non-string affix {calledAffix}");
                cg.GenerateCallArgString(s.value);
+               break;
+            case Const c:
+               cg.GenerateCallArgReferenceConst(calledAffix, c);
+               break;
+            case Var v:
+               cg.GenerateCallArgReferenceVar(calledAffix, v);
                break;
             case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
                if (proc.TryGetAffix(id,out Affix procAffix)) {

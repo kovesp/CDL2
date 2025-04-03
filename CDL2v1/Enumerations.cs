@@ -29,14 +29,14 @@ namespace CDL2v1 {
       STRING         = 4,
       ID             = 5,
       PLUS           = 6,
-      PARAMSEP       = 6,  // Alias for PLUS
+      AFFIXSEP       = 6,  // Alias for PLUS
       SUCCEED        = 6,  // Alias for PLUS
       MINUS          = 7,
       LOCALSEP       = 7,  // Alias for MINUS
       FAIL           = 7,  // Alias for MINUS
       STAR           = 8,
       REPEAT         = 8,  // Alias for STAR
-      STRINGPARAMSEP = 8,  // Alias for STAR
+      STRINGAFFIXSEP = 8,  // Alias for STAR
       ABORT          = 9,
       AFFIXDIR       = 10,
       COLON          = 11,

@@ -98,6 +98,18 @@ namespace CDL2v1 {
          AnalyzeInvs(section);
          AnalyzeImports(section);
 
+         // Build refeences from macros defined in this section.
+         //foreach (Macro m in section.Macros) {
+         //   foreach (IMacroElement elem in m.elements) {
+         //      if (elem is ID id) {
+         //         if (section.TryGetDeclaration(id, out ICDL2Object? obj)) {
+         //            m.AddReference(obj);
+         //         } else {
+         //            m.AddReference(id);
+         //         }
+         //      }
+         //   }
+         //}
 
 
          foreach (Algorithm algorithm in section.declarations.Values.Where(obj => obj is Algorithm algorithm).Cast<Algorithm>()) {
@@ -179,7 +191,7 @@ namespace CDL2v1 {
             ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.algorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
-         if (! proc.IsConditionalCompilation) {
+         if (! proc.IsConditionalCompilation()) {
             bool canFail = AnalyzeCanFail(proc.group, section);
             if (proc.CanFail && !canFail) {
                AddNote(proc, Note.CannotFail, proc.algorithmType);
@@ -229,18 +241,18 @@ namespace CDL2v1 {
                   for (int i = 0; i < call.args.Count; i++) {
                      if (arg[i] is ID id) {
                         // ID that was not resolved during parsing
-                        if (proc.Section.resolvedDeclarations.TryGetValue(id, out ICDL2Object? obj)) {
+                        if (proc.Section.TryGetDeclaration(id, out ICDL2Object? obj)) {                           
                            switch (obj) {
                               case Var var:
                                  arg[i] = var; break;
                               case Const c:
                                  arg[i] = c; break;
                               default:
-                                 proc.AddNote(PhaseName, Note.InvalidArgumentType, arg[i]);
+                                 proc.AddNote(PhaseName, Note.InvalidArgumentType, arg[i],call);
                                  break;
                            }               
                         } else {
-                           proc.AddNote(PhaseName, Note.UnresolvedArgument, arg[i]);
+                           proc.AddNote(PhaseName, Note.UnresolvedArgument, arg[i],call);
                            return true; // No point in continuing
                         }
                      }
@@ -253,7 +265,7 @@ namespace CDL2v1 {
                            case STRING _:
                               break;
                            default:
-                              proc.AddNote(PhaseName, Note.InvalidStringArg, arg[i]);
+                              proc.AddNote(PhaseName, Note.InvalidStringArg, arg[i], call);
                               break;
                         }
                      } else if (affix[i].IsInputOnly) {
@@ -265,13 +277,13 @@ namespace CDL2v1 {
                            case Affix inputArg when inputArg.IsInput:   // Includes transput
                               break;
                            case Affix outputArg when outputArg.IsOutputOnly:
-                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg);
+                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.id,call);
                               break;
                            case Local local:
-                              if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
+                              if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
                               break;
                            default:
-                              proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i]);
+                              proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i], call);
                               break;
                         }
                      } else if (affix[i].IsOutputOnly) {
@@ -281,17 +293,17 @@ namespace CDL2v1 {
                            case Var _:
                               break;
                            case Affix outputArg when outputArg.IsOutput:   // Includes transput
-                              if (info.Unwritable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg);
+                              if (info.Unwritable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg, call);
                               info.MakeReadable(outputArg);
                               info.MakeUnwritable(outputArg);
                               break;
                            case Local local:
-                              if (info.Unwritable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local);
+                              if (info.Unwritable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local, call);
                               info.MakeReadable(local);
                               info.MakeUnwritable(local);
                               break;
                            default:
-                              proc.AddNote(PhaseName, Note.InvalidOutputArg, arg[i]);
+                              proc.AddNote(PhaseName, Note.InvalidOutputArg, arg[i], call);
                               break;
                         }
                      } else {
@@ -306,19 +318,19 @@ namespace CDL2v1 {
                               break;
                            case Affix outputArg when outputArg.IsOutputOnly:
                               // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another set in info?
-                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg);
-                              else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg);
+                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.id,call);
+                              else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg,call);
                               info.MakeReadable(outputArg);
                               info.MakeUnwritable(outputArg);
                               break;
                            case Local local:
-                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local);
-                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local);
+                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
+                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local,call);
                               info.MakeReadable(local);
                               info.MakeUnwritable(local);
                               break;
                            default:
-                              proc.AddNote(PhaseName, Note.InvalidTransputArg, arg[i]);
+                              proc.AddNote(PhaseName, Note.InvalidTransputArg, arg[i], call);
                               break;
                         }
                      }
