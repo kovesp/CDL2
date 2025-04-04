@@ -2,8 +2,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 using System.Security.Principal;
 using System.Text;
 
@@ -30,6 +33,12 @@ namespace CDL2v1 {
       /// <param id="Emitter"></param>
       /// <param id="isSeparate"></param>
       public void GenerateCode(Program program, EmitterBase emitter, bool isSeparate = false) {
+         Logger.Log(0,$"Collecting objects reachable from {program} ...");
+         CollectReachableObjects(program); // Collect all the objects reachable from the program's ludes.
+         string CountObjects(Type type) => ReachableObjects.Where(obj => obj.GetType() == type).Count().Plural(type.Name);
+         Logger.Log(0, $"{CountObjects(typeof(Const))}, {CountObjects(typeof(Var))}, {CountObjects(typeof(LIST))}, {CountObjects(typeof(Macro))}, {CountObjects(typeof(Procedure))} collected");
+         DumpReachableObjects(program);
+
          cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
          sourceCommentPrinter.Print(program);
          cg.GenerateSourceComment();
@@ -367,6 +376,167 @@ namespace CDL2v1 {
             case Local lo: cg.GenerateCallArgReferenceLocal(calledAffix,lo); break;
             default:
                throw new NotImplementedException($"GenerateCallStart: Unknown argument type {arg.GetType()}");
+         }
+      }
+
+      private void DumpReachableObjects(Program prog) {
+         Debug.WriteLine($"Reachable Objects for {prog}:");
+         foreach (string objectName in ReachableObjects.Select(obj=> ((NamedElement)obj).FQDN()).ToImmutableSortedSet()) { 
+            Debug.WriteLine($"   {objectName}");
+         }
+         Debug.WriteLine("End of reachable objects.");
+      }
+
+      private readonly Set<ICDL2Object> ReachableObjects = [];
+      private void CollectReachableObjects(Program prog) {
+         foreach (RW ludeType in ludeTypes) {
+            foreach (ID id in prog.Ludes[ludeType]) {
+               if (Database.Instance.Modules.TryGetValue(id, out Module? module)) {
+                  CollectReachableObjects(ludeType,module);
+               }
+            }
+         }
+
+      }
+      private void CollectReachableObjects(RW Ludetype, Module module) {
+         foreach (Section? section in module.Ludes[Ludetype].Select(id => module.Section(id))) {
+            if (section is not null) CollectReachableObjects(Ludetype, section); 
+         }
+      }
+      private void CollectReachableObjects(RW ludetype, Section section) {
+         // Section ludes contain teh single entry of a synthetic procedure that is the lude
+         // So we need to collect all the objects in the section that are reachable from this lude.
+         Debug.Assert(section.Ludes[ludetype].Count == 1, $"CollectReachableObjects: Expected single lude in {section}");
+         if (section.TryGetDeclaration(section.Ludes[ludetype][0], out Procedure? proc)) {
+            if (ReachableObjects.Add(proc!)) CollectReachableObjects(proc!.group);
+         } else {
+            throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludetype][0]} in {section}");
+         }
+      }
+      private void CollectReachableObjects(Group proc) {
+         // Collect all the objects reachable from this group.
+         foreach (Alternative alt in proc.alternatives) CollectReachableObjects(alt);
+      }
+      
+      private void CollectReachableObjects(Alternative alt) {
+         foreach (Call call in alt.calls) {
+            if (!CollectReachableObjects(call)) return; // Skip the rest of the alternative.
+         }
+         switch (alt.lastCall.type) {
+            case LCT.Standard:
+               if (alt.lastCall.call is not null) CollectReachableObjects(alt.lastCall.call);
+               break;
+            case LCT.Group:
+               if (alt.lastCall.group is not null) CollectReachableObjects(alt.lastCall.group);
+               break;
+         }
+      }
+
+      /// <summary>
+      /// Return false if the rest of the alternative contining the call is to be ignored.
+      /// </summary>
+      /// <param name="call"></param>
+      /// <returns></returns>
+      private bool CollectReachableObjects(Call call) {
+         if (call.Called is not null) {
+            Algorithm called = call.Called;
+            if (called is ImportedAlgorithm importedAlg) {
+               // TODO: Find imported algorithm and assign it to called.
+            }
+            if (called.IsConditionalCompilationOn) return true;   // Ignore
+            if (called.IsConditionalCompilationOff) return false; // Skip the rest of the alternative.
+
+            if (ReachableObjects.Add(called)) {
+               foreach (IActualArg arg in call.args) {
+                  switch (arg) {
+                     case Const c:
+                        CollectReachableObjects(c);
+                        break;
+                     case Var v:
+                        ReachableObjects.Add(v);
+                        break;
+                     case ID id:
+                        if (call.Called.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
+                           if (obj is Const c) {
+                              CollectReachableObjects(c);
+                           } else if (obj is Var v) {
+                              ReachableObjects.Add(v);
+                           }
+                        } else {
+                           throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
+                        }
+                        break;
+                  }
+               }
+               if (called is Macro macro) {
+                  CollectReachableObjects(macro);
+               } else {
+                  Debug.Assert(called is Procedure, $"CollectReachableObjects: Unknown call type {called}");
+                  CollectReachableObjects(((Procedure)called).group);
+               }
+            }
+         }
+         return true;
+      }
+      private void CollectReachableObjects(Const constant) {
+         if (ReachableObjects.Add(constant)) {
+            foreach (IConstElement elem in constant.elements) {
+               switch (elem) {
+                  case ID id:
+                     if (((Section)constant.Parent!).TryGetDeclaration(id, out ICDL2DataObject? obj)) {
+                        if (obj is Const c) CollectReachableObjects(c);
+                     } else {
+                        throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
+                     }
+                     break;
+               }
+            }
+         }
+      }
+      private void CollectReachableObjects(Macro macro) {
+         foreach (IMacroElement element in macro.elements) {
+            switch (element) {
+               case Affix:
+               case Local:
+                  break;
+               case ID id:
+                  if (macro.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
+                     switch (obj) {
+                        case ImportedConst ic:
+                           // TODO: Find imported constant.
+                           break;
+                        case Const c:
+                           CollectReachableObjects(c);
+                           break;
+                        case Var v:
+                           ReachableObjects.Add(v);
+                           break;
+                        case LIST l:
+                           CollectReachableObjects(macro, l);
+                           break;
+                     }
+                  }
+                  break;
+               case ImportedConst ic:
+                  // TODO: Find imported constant.
+                  break;
+               case Const c:
+                  CollectReachableObjects(c);
+                  break;
+               case Var v:
+                  ReachableObjects.Add(v);
+                  break;
+               case LIST l:
+                  CollectReachableObjects(macro, l);
+                  break;
+            }
+         }
+      }
+
+      private void CollectReachableObjects(Macro macro, LIST list) {
+         if (ReachableObjects.Add(list)) {
+            if (macro.Section.TryGetDeclaration(list.lwb, out ICDL2DataObject? lwbObj) && lwbObj is Const lwb) CollectReachableObjects(lwb);
+            if (macro.Section.TryGetDeclaration(list.upb, out ICDL2DataObject? upbObj) && lwbObj is Const upb) CollectReachableObjects(upb);
          }
       }
    }
