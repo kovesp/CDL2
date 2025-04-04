@@ -191,7 +191,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="ludetype"></param>
       /// <param name="module"></param>
-      void GenerateModuleLudeStart(RW ludetype, Module module);
+      /// <param name="wrapped"></param>
+      void GenerateModuleLudeStart(RW ludetype, Module module, bool wrapped);
       /// <summary>
       /// This is called for each lude of the given type in the program and in modules.
       /// </summary>
@@ -204,7 +205,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="ludeType"></param>
       /// <param name="module"></param>
-      void GenerateModuleLudeEnd(RW ludeType, Module module);
+      /// <param name="wrapped"></param>
+      void GenerateModuleLudeEnd(RW ludeType, Module module, bool wrapped);
 
 
       void GenerateSectionLudeStart(RW ludeType, Section section);

@@ -9,6 +9,7 @@ using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Security.Principal;
 using System.Text;
+using System.Windows.Documents;
 
 
 
@@ -37,17 +38,53 @@ namespace CDL2v1 {
          CollectReachableObjects(program); // Collect all the objects reachable from the program's ludes.
          string CountObjects(Type type) => ReachableObjects.Where(obj => obj.GetType() == type).Count().Plural(type.Name);
          Logger.Log(0, $"{CountObjects(typeof(Const))}, {CountObjects(typeof(Var))}, {CountObjects(typeof(LIST))}, {CountObjects(typeof(Macro))}, {CountObjects(typeof(Procedure))} collected");
-         DumpReachableObjects(program);
+         foreach (Var var in ReachableObjects.OfType<Var>()) {
+            if (AmbigousVars.Contains(var)) {
+               // We know the variable was written to, but we can't tell whther it was read (becasue it was only referenced in an ACTION/PREDICATE macro).
+               var.AddNote("CodeGeneration", Note.VariableMayNotHaveBeenRead, var);
+               Logger.ReportError($"Variable {var} may not have been read. It was only referenced in an ACTION/PREDICATE macro.");
+            } else if (!ReadVars.Contains(var)) {
+               // It must have been written, but not read.
+               var.AddNote("CodeGeneration", Note.VariableNotRead, var);
+               Logger.ReportError($"Variable {var} was written to, but never read.");
+            }
+         }
+         //DumpReachableObjects(program);
 
-         cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
-         sourceCommentPrinter.Print(program);
-         cg.GenerateSourceComment();
+         if (!isSeparate) {
+            // Generate an integrated program ignoring module boundaries of all objects reachable from the program's ludes.
+            cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
+            sourceCommentPrinter.Print(program);
+            cg.GenerateSourceComment();
 
-         foreach (ID mod in program.Parts) cg.GenerateProgramPart(program, mod, isSeparate);
+            GenerateObjects(ReachableObjects.OfType<Const>(),                                      GenerateConstant);
+            GenerateObjects(ReachableObjects.OfType<Var>(),                                        GenerateVar);
+            GenerateObjects(ReachableObjects.OfType<LIST>(),                                       GenerateList);
 
-         if (!isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod], isSeparate: false);
+            GenerateObjects(ReachableObjects.OfType<Macro>(),                                      GenerateMacro);
+            GenerateObjects(ReachableObjects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic),   GenerateProcedure);
+            GenerateObjects(ReachableObjects.OfType<Procedure>().Where(proc=> proc.IsSynthetic),   GenerateProcedure, "Synthetic Procedure");
 
-         foreach (RW ludeType in ludeTypes) {            
+            cg.GenerateProgramEnd(program);
+
+            cg.GenerateComment("Program Ludes");
+            foreach (RW ludeType in ludeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
+            //cg.GenerateComment("Program Ludes");
+            //GenerateProgramLudes(program);
+         } else {
+            cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
+            sourceCommentPrinter.Print(program);
+            cg.GenerateSourceComment();
+            foreach (ID mod in program.Parts) cg.GenerateProgramPart(program, mod, isSeparate);
+
+            GenerateProgramLudes(program);
+            cg.GenerateProgramEnd(program);
+            foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod], isSeparate: true);
+         }
+      }
+
+      private void GenerateProgramLudes(Program program) {
+         foreach (RW ludeType in ludeTypes) {
             IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.Modules[id]).Where(mod => mod.Ludes[ludeType].Count > 0);
             if (modulesWithLudes.Any()) {
                cg.GenerateProgramLudeStart(ludeType, program);
@@ -55,10 +92,6 @@ namespace CDL2v1 {
                cg.GenerateProgramLudeEnd(ludeType, program);
             }
          }
-
-         cg.GenerateProgramEnd(program);
-
-         if (isSeparate) foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod], isSeparate: true);
       }
 
       /// <summary>
@@ -81,21 +114,22 @@ namespace CDL2v1 {
          cg.GenerateImpExStart(module);
          GenerateImpEx(module.exports, cg.GenerateExport);
          GenerateImpEx(module.imports, cg.GenerateImport);
-         cg.GenerateImpExStart(module);
+         cg.GenerateImpExEnd(module);
 
          foreach (Layer layer in module.Children.Cast<Layer>()) GenerateLayer(layer);
 
-        
-         foreach (RW ludeType in ludeTypes) {
-            IEnumerable<Section?> SectionsWithLudes = module.Ludes[ludeType].Select(id => module.Section(id)).Where(sec => sec?.Ludes[ludeType].Count > 0) ?? [];
-            if (SectionsWithLudes.Any()) {
-               cg.GenerateModuleLudeStart(ludeType, module);
-               foreach (Section? section in SectionsWithLudes) cg.GenerateModuleLude(ludeType, module, section!);
-               cg.GenerateModuleLudeEnd(ludeType, module);
-            }
-          }
+         foreach (RW ludeType in ludeTypes) GenerateModuleLude(ludeType, module, wrapped: true);
 
-         cg.GenerateModuleEnd(module,isSeparate);
+         cg.GenerateModuleEnd(module, isSeparate);
+      }
+
+      private void GenerateModuleLude(RW ludeType, Module module, bool wrapped) {
+         IEnumerable<Section?> SectionsWithLudes = module.Ludes[ludeType].Select(id => module.Section(id)).Where(sec => sec?.Ludes[ludeType].Count > 0) ?? [];
+         if (SectionsWithLudes.Any()) {
+            cg.GenerateModuleLudeStart(ludeType, module, wrapped: wrapped);
+            foreach (Section? section in SectionsWithLudes) cg.GenerateModuleLude(ludeType, module, section!);
+            cg.GenerateModuleLudeEnd(ludeType, module, wrapped: wrapped);
+         }
       }
 
       /// <summary> 
@@ -116,32 +150,39 @@ namespace CDL2v1 {
       /// <param id="container"></param>
       private void GenerateSection(Section section) {
          cg.GenerateSectionStart(section);
-         GenerateObjects(section.Constants, c => GenerateConstant(section, c));
-         GenerateObjects(section.Variables, v => cg.GenerateVar(v));
-         GenerateObjects(section.Lists, l => {
-            if (section.TryGetDeclaration(l.lwb, out Const? lwb) && section.TryGetDeclaration(l.upb, out Const? upb)) {
-               cg.GenerateList(l, lwb!, upb!);
-            } else {
-               throw new NotImplementedException($"GenerateSection: Could not find lower or upper bound for {l}");
-            }
-         });
+         GenerateObjects(section.Constants,              GenerateConstant);
+         GenerateObjects(section.Variables,              GenerateVar);
+         GenerateObjects(section.Lists,                  GenerateList);
 
-         GenerateObjects(section.Macros, m => GenerateMacro(section, m));
+         GenerateObjects(section.Macros,                 GenerateMacro);
          GenerateObjects(section.NonSyntheticProcedures, GenerateProcedure);
-         GenerateObjects(section.SyntheticProcedures, GenerateProcedure, "Synthetic Procedure");
+         GenerateObjects(section.SyntheticProcedures,    GenerateProcedure, "Synthetic Procedure");
 
          cg.GenerateSectionEnd(section);
       }
 
-      private void GenerateObjects<T>(IEnumerable<T> items, Action<T> generate, string? specialType = null) {
+      private void GenerateList(LIST list, int maxNameLength) {
+         Section section = (Section)list.Parent!;
+         if (section.TryGetDeclaration(list.lwb, out Const? lwb) && section.TryGetDeclaration(list.upb, out Const? upb)) {
+            cg.GenerateList(list, lwb!, upb!);
+         } else {
+            throw new NotImplementedException($"GenerateSection: Could not find lower or upper bound for {list}");
+         }
+      }
+
+      private void GenerateVar(Var v,int maxNameLength) => cg.GenerateVar(v);
+
+      private void GenerateObjects<T>(IEnumerable<T> items, Action<T,int> generate, string? specialType = null) where T: NamedElement {
          if (items.Any()) {
+            int maxNameLength = items.Select(item=>item.id.InternalName.Length).Max();
             cg.GenerateObjectSectionStart(items.Count, specialType ?? typeof(T).Name);
-            foreach (T item in items) generate(item);
+            foreach (T item in items) generate(item,maxNameLength);
             cg.GenerateObjectSectionEnd(items.Count, typeof(T).Name);
          }
       }
 
-      private void GenerateConstant(Section section,Const constant) {
+      private void GenerateConstant(Const constant,int maxNameLength) {
+         Section section = (Section)constant.Parent!;
          cg.GenerateConstantStart(constant);
          foreach (IConstElement elem in constant.elements) {
             switch (elem) {
@@ -160,7 +201,8 @@ namespace CDL2v1 {
          cg.GenerateConstantEnd(constant);
       }
 
-      private void GenerateMacro(Section section,Macro macro) {
+      private void GenerateMacro(Macro macro,int _) {
+         Section section = (Section)macro.Parent!;
          IEnumerable<Var> variables = macro.GetReferencedVariables();
          cg.GenerateMacroStart(macro);
          GenerateAlgorithmHeader(macro,variables);
@@ -239,7 +281,7 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateProcedure(Procedure proc) {
+      private void GenerateProcedure(Procedure proc, int _) {
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
          } else {
@@ -388,6 +430,8 @@ namespace CDL2v1 {
       }
 
       private readonly Set<ICDL2Object> ReachableObjects = [];
+      private readonly Set<Var> ReadVars = [];     // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
+      private readonly Set<Var> AmbigousVars = []; //
       private void CollectReachableObjects(Program prog) {
          foreach (RW ludeType in ludeTypes) {
             foreach (ID id in prog.Ludes[ludeType]) {
@@ -447,13 +491,16 @@ namespace CDL2v1 {
             if (called.IsConditionalCompilationOff) return false; // Skip the rest of the alternative.
 
             if (ReachableObjects.Add(called)) {
-               foreach (IActualArg arg in call.args) {
+               for (int i = 0; i<call.args.Count; i++) {
+                  IActualArg arg = call.args[i];
+                  Affix affix = called.affixes[i];
                   switch (arg) {
                      case Const c:
                         CollectReachableObjects(c);
                         break;
                      case Var v:
                         ReachableObjects.Add(v);
+                        if (affix.IsInput) ReadVars.Add(v);
                         break;
                      case ID id:
                         if (call.Called.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
@@ -525,6 +572,14 @@ namespace CDL2v1 {
                   break;
                case Var v:
                   ReachableObjects.Add(v);
+                  if (macro.HasNoEffect) {
+                     // Assume the variable is read. Because (1) it can't be written, otherwise it would not meet the macro contract and (2) it is referenced so it must be read.
+                     // OTOH, with ACTIONs/PREDICATEs we can't tell.
+                     ReadVars.Add(v);
+                     AmbigousVars.Remove(v);
+                  } else if (! ReadVars.Contains(v)){
+                     AmbigousVars.Add(v);
+                  }
                   break;
                case LIST l:
                   CollectReachableObjects(macro, l);
