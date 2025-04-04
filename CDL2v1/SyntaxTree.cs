@@ -129,6 +129,9 @@ namespace CDL2v1 {
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix {0} whose value has not been read passed to output in {1}");
       public static readonly Note TransputAffixOverwritten          = new(NoteType.Warning, 103, "Transput affix (0} whose value has not been read passed to output in {1}");
+      public static readonly Note VariableNotRead                   = new(NoteType.Warning, 104, "Variable {0} was assigned a value which was never read");
+      public static readonly Note VariableNotWritten                = new(NoteType.Warning, 105, "Variable {0} was read, but never assigned a value");
+      public static readonly Note VariableMayNotHaveBeenRead        = new(NoteType.Warning, 106, "Variable {0} was assigned a value, but may not have been read");
 
       public static readonly Note AffixNotRefeenced                 = new(NoteType.Info   , 201, "Affix {0} was not used in procedure {1}");
       public static readonly Note LocalNotReferenced                = new(NoteType.Info   , 202, "Local {0} was not used in procedure {1}");

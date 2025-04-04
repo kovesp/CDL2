@@ -5,8 +5,8 @@
 MODULE quicksort.
    LAYER base.
       SECTION arithmetic.
-         ABSTR incr, decr, greater, less, less or equal,add, halve, make, random.
-         EXT make, random, incr, less or equal.
+         ABSTR incr, decr, greater, less, less or equal, add, halve, make, random.
+         EXT make, random, incr, less or equal, subtract.
 
          TEST choose +>a+>limit+c>+>inc =
             "$L" c " = " a " + " inc
@@ -70,7 +70,7 @@ MODULE quicksort.
       ENDSEC arithmetic.
       SECTION data.
          ABSTR lwb, upb, smaller element, swap element, get element, set element, dump data.
-         INV make, less or equal, random, incr, show msg no newline.
+         INV make, less or equal, random, incr, subtract, show msg no newline.
 
          # The lower and upper bounds of the array. #
          CONST lwb=0, upb=100.
@@ -103,8 +103,12 @@ MODULE quicksort.
          # The range of random numbers. #
          CONST min random=0, max random=200.
 
+         # The size of the list to be sorted as a variable. Just to excercise VARs.
+         VAR data size.
+
          # Fill the array with random integers. #
          ACTION initialize data -i -r:
+            subtract+upb+lwb+data size, incr+data size,
             make+i+lwb,
             (less or equal+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
             +).

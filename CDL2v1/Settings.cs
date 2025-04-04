@@ -65,7 +65,7 @@ namespace CDL2v1 {
       public static bool TryGetSettingValue(string name,out string value) {
          if (Instance.SettingsDict.TryGetValue(name, out ISetting? setting)) {
             if (setting is Setting<string> sSetting) {
-               value = sSetting.Value;
+               value = sSetting.Value!;
                return true;
             }
             if (setting is Setting<bool> bSetting) {
