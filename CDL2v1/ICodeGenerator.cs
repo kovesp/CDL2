@@ -242,8 +242,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="count"></param>
       /// <param name="kind">CONST, VAR, LIST, MACRO, PROCEDURE</param>
-      void GenerateObjectSectionStart(Func<int> count, string kind);
-      void GenerateObjectSectionEnd(Func<int> count, string kind);
+      void GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items, string kind) where T : NamedElement;
+      void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items, string kind) where T : NamedElement;
       #endregion Object Sections
 
       #region Data Declarations
@@ -513,10 +513,10 @@ namespace CDL2v1 {
       void GenerateCallStart(Algorithm called, Procedure proc, bool firstCall = false);
       void GenerateCallEnd(Algorithm call, Procedure proc, bool firstCall = false);
       void GenerateCallArgString(string value);
-      void GenerateCallArgReferenceAffix(Affix calledAffix, Affix a);
+      void GenerateCallArgReferenceAffix(Affix calledAffix, Affix a, bool needFinalization);
       void GenerateCallArgReferenceLocal(Affix calledAffix, Local lo);
       void GenerateCallArgReferenceConst(Affix calledAffix, Const c);
-      void GenerateCallArgReferenceVar(Affix calledAffix, Var v);
+      void GenerateCallArgReferenceVar(Affix calledAffix, Var v, bool needFinalization);
       #endregion Calls
 
       #endregion Procedures

@@ -73,7 +73,7 @@ MODULE quicksort.
          INV make, less or equal, random, incr, subtract, show msg no newline.
 
          # The lower and upper bounds of the array. #
-         CONST lwb=0, upb=100.
+         CONST lwb=1, upb=100.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
