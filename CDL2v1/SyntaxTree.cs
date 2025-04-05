@@ -601,7 +601,7 @@ namespace CDL2v1 {
       /// <summary>
       /// True if the procedure is an Action or Function that has only a single alternative (which is a sequence of calls none of which can fail ... which will be guarenteed by the sematic analyzer)
       /// </summary>
-      public bool IsVerySimple => AlwaysSucceeds && group.alternatives.Count == 1;
+      public bool IsVerySimple => AlwaysSucceeds && group.alternatives.Count == 1 && HasNoGroups;
       /// <summary>
       /// Can have alternatives, but there are mo groups except for the primary one.
       /// It can also fail.

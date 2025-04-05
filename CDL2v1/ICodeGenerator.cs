@@ -242,8 +242,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="count"></param>
       /// <param name="kind">CONST, VAR, LIST, MACRO, PROCEDURE</param>
-      void GenerateObjectSectionStart(Func<int> count, string kind);
-      void GenerateObjectSectionEnd(Func<int> count, string kind);
+      void GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items, string kind) where T : NamedElement;
+      void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items, string kind) where T : NamedElement;
       #endregion Object Sections
 
       #region Data Declarations
@@ -489,7 +489,8 @@ namespace CDL2v1 {
       /// <param name="proc"></param>
       /// <param name="group">The immediate group containing the operator.</param>
       /// <param name="label">The label to be repeated, or Anon to repeat the enclosing group.</param>
-      void GenerateRepeat(Procedure proc, Group group, ID label);
+      /// <param name="canFail">True if the alternative that ends with this repeat can fail.</param>
+      void GenerateRepeat(Procedure proc, Group group, ID label,bool canFail);
       /// <summary>
       /// Exit the current procedure with a fail. This can only occur in a TEST/PREDICATE.
       /// </summary>
@@ -513,10 +514,10 @@ namespace CDL2v1 {
       void GenerateCallStart(Algorithm called, Procedure proc, bool firstCall = false);
       void GenerateCallEnd(Algorithm call, Procedure proc, bool firstCall = false);
       void GenerateCallArgString(string value);
-      void GenerateCallArgReferenceAffix(Affix calledAffix, Affix a);
+      void GenerateCallArgReferenceAffix(Affix calledAffix, Affix a, bool needFinalization);
       void GenerateCallArgReferenceLocal(Affix calledAffix, Local lo);
       void GenerateCallArgReferenceConst(Affix calledAffix, Const c);
-      void GenerateCallArgReferenceVar(Affix calledAffix, Var v);
+      void GenerateCallArgReferenceVar(Affix calledAffix, Var v, bool needFinalization);
       #endregion Calls
 
       #endregion Procedures

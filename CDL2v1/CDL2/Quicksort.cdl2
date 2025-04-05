@@ -38,7 +38,7 @@ MODULE quicksort.
          CONST ten=10.
          VAR var.
 
-         # Test of builin parsing.
+         # Test of builtin parsing.
          FUNCTION parse prolog:
             BUILTIN is option value+"Prolog Syntax"+"MProlog", parse mprolog;
             BUILTIN is option value+"Prolog Syntax"+"SWI", parse swiprolog;
@@ -50,7 +50,7 @@ MODULE quicksort.
          # This proc cannot fail.          
          TEST test+>a+>b>+c>:
             wants less test, less+a+b, make+c+a;
-            eq+a+b, add+a+ten+c,actiontest;
+            eq+a+b, add+a+ten+c,action test;
             add+b+ten+var, incr+b, make+c+b.
          # This proc tries to use a fail.
          FUNCTION illegal fail operator: eq+var+ten, -.
@@ -73,7 +73,7 @@ MODULE quicksort.
          INV make, less or equal, random, incr, subtract, show msg no newline.
 
          # The lower and upper bounds of the array. #
-         CONST lwb=0, upb=100.
+         CONST lwb=1, upb=100.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
@@ -96,7 +96,7 @@ MODULE quicksort.
             data ".Item(" p "," data ".Item(" q "))".
 
          ACTION dump list = 
-            "Write-Host " data.
+            "Write-Host " data ".Array".
          ACTION dump data*msg:
             show msg no newline+msg, dump list.
 
@@ -119,7 +119,7 @@ MODULE quicksort.
          EXT show msg, show msg no newline.
 
          ACTION show msg*string = "Write-Host " string.
-         ACTION show msg no newline*string = "Write-Host -NoNewline" string.
+         ACTION show msg no newline*string = "Write-Host -NoNewline " string.
       ENDSEC messages.
    ENDLAY base.
    ### Note between Layers.
@@ -127,12 +127,14 @@ MODULE quicksort.
    LAYER sort.
       SECTION sorter.
          INV lwb, upb, less, make, add, halve, incr, decr, swap element, smaller element, dump data, show msg.
+
          ACTION quicksort +>from +>to -p -q:
             less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
             +.
+
          # Split the array into two parts. #
          # The first part contains elements less than or equal to the pivot. #
-         ACTION split+>i+>j+p>+q> - m:
+         ACTION split +>i +>j +p> +q> - m:
             make + p + i, make + q + j, add + i + j + m, halve + m,
             (again:
                ### Notes can be placed almost anywhere.
@@ -145,7 +147,7 @@ MODULE quicksort.
             ).
 
          FUNCTION move p up+>j+>p>+>m:
-            less+p+j;
+            less+j+p;
             smaller element+m+p;
             incr+p, *.
 

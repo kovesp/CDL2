@@ -57,13 +57,13 @@ namespace CDL2v1 {
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
 
-            GenerateObjects(ReachableObjects.OfType<Const>(),                                      GenerateConstant);
-            GenerateObjects(ReachableObjects.OfType<Var>(),                                        GenerateVar);
-            GenerateObjects(ReachableObjects.OfType<LIST>(),                                       GenerateList);
+            GenerateObjects<Const>(ReachableObjects.OfType<Const>(),                                        GenerateConstant);
+            GenerateObjects<Var>(ReachableObjects.OfType<Var>(),                                            GenerateVar);
+            GenerateObjects<LIST>(ReachableObjects.OfType<LIST>(),                                          GenerateList);
 
-            GenerateObjects(ReachableObjects.OfType<Macro>(),                                      GenerateMacro);
-            GenerateObjects(ReachableObjects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic),   GenerateProcedure);
-            GenerateObjects(ReachableObjects.OfType<Procedure>().Where(proc=> proc.IsSynthetic),   GenerateProcedure, "Synthetic Procedure");
+            GenerateObjects<Macro>(ReachableObjects.OfType<Macro>(),                                        GenerateMacro);
+            GenerateObjects<Procedure>(ReachableObjects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic), GenerateProcedure);
+            GenerateObjects<Procedure>(ReachableObjects.OfType<Procedure>().Where(proc=> proc.IsSynthetic), GenerateProcedure, "Synthetic Procedure");
 
             cg.GenerateProgramEnd(program);
 
@@ -150,13 +150,13 @@ namespace CDL2v1 {
       /// <param id="container"></param>
       private void GenerateSection(Section section) {
          cg.GenerateSectionStart(section);
-         GenerateObjects(section.Constants,              GenerateConstant);
-         GenerateObjects(section.Variables,              GenerateVar);
-         GenerateObjects(section.Lists,                  GenerateList);
+         GenerateObjects<Const>(section.Constants,                   GenerateConstant);
+         GenerateObjects<Var>(section.Variables,                     GenerateVar);
+         GenerateObjects<LIST>(section.Lists,                        GenerateList);
 
-         GenerateObjects(section.Macros,                 GenerateMacro);
-         GenerateObjects(section.NonSyntheticProcedures, GenerateProcedure);
-         GenerateObjects(section.SyntheticProcedures,    GenerateProcedure, "Synthetic Procedure");
+         GenerateObjects<Macro>(section.Macros,                      GenerateMacro);
+         GenerateObjects<Procedure>(section.NonSyntheticProcedures,  GenerateProcedure);
+         GenerateObjects<Procedure>(section.SyntheticProcedures,     GenerateProcedure, "Synthetic Procedure");
 
          cg.GenerateSectionEnd(section);
       }
@@ -172,12 +172,12 @@ namespace CDL2v1 {
 
       private void GenerateVar(Var v,int maxNameLength) => cg.GenerateVar(v);
 
-      private void GenerateObjects<T>(IEnumerable<T> items, Action<T,int> generate, string? specialType = null) where T: NamedElement {
+      private void GenerateObjects<T>(IEnumerable<NamedElement> items, Action<T,int> generate, string? specialType = null) where T : NamedElement {
          if (items.Any()) {
             int maxNameLength = items.Select(item=>item.id.InternalName.Length).Max();
-            cg.GenerateObjectSectionStart(items.Count, specialType ?? typeof(T).Name);
+            cg.GenerateObjectSectionStart<T>(items, specialType ?? typeof(T).Name);
             foreach (T item in items) generate(item,maxNameLength);
-            cg.GenerateObjectSectionEnd(items.Count, typeof(T).Name);
+            cg.GenerateObjectSectionEnd<T>(items, typeof(T).Name);
          }
       }
 
@@ -328,7 +328,7 @@ namespace CDL2v1 {
 
       private void GenerateAlternative(Procedure proc,Group group,int i) {
          cg.GenerateAlternativeStart(proc,group,i);
-         List<Call> calls = proc.group.alternatives[i].calls;
+         List<Call> calls = group.alternatives[i].calls;
          bool removeAlternative = calls.Count > 0 && calls[0].IsConditionalCompilationOff;
          if (removeAlternative) {
             cg.GenerateComment($"Alternative removed by conditional compilation set by {calls[0].Called}");
@@ -350,7 +350,7 @@ namespace CDL2v1 {
                case LCT.Fail: cg.GenerateFail(proc, group); break;
                case LCT.Succeed: cg.GenerateSucceed(proc, group); break;
                case LCT.Abort: cg.GenerateAbort(proc, group); break;
-               case LCT.Repeat: cg.GenerateRepeat(proc, group, group.alternatives[i].lastCall.label!); break;
+               case LCT.Repeat: cg.GenerateRepeat(proc, group, group.alternatives[i].lastCall.label!,canFail); break;
                case LCT.Group: GenerateGroup(proc, group.alternatives[i].lastCall.group!); break;
                case LCT.None: break; // Used in the alternative generated for Section Ludes.
                default:
@@ -372,10 +372,10 @@ namespace CDL2v1 {
          if (call.Called is not null) {
             cg.GenerateCallStart(call.Called!, proc, canFail);
             if (call.args.Count > 0) {
-               GenerateActualArg(proc, call.Called!.affixes[0], call.args[0]);
+               GenerateActualArg(proc, call, call.Called!.affixes[0], call.args[0]);
                for (int i = 1; i < call.args.Count; i++) {
                   cg.GenerateActualArgSeparator();
-                  GenerateActualArg(proc, call.Called.affixes[i], call.args[i]);
+                  GenerateActualArg(proc, call, call.Called.affixes[i], call.args[i]);
                }
             }
             cg.GenerateCallEnd(call.Called!, proc, canFail);
@@ -384,7 +384,7 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateActualArg(Procedure proc,Affix calledAffix,IActualArg arg) {
+      private void GenerateActualArg(Procedure proc, Call call, Affix calledAffix, IActualArg arg) {
          switch (arg) {
             case STRING s:
                Debug.Assert(calledAffix.affixType == AT.str,$"GenerateCallStart: String argument for non-string affix {calledAffix}");
@@ -394,11 +394,11 @@ namespace CDL2v1 {
                cg.GenerateCallArgReferenceConst(calledAffix, c);
                break;
             case Var v:
-               cg.GenerateCallArgReferenceVar(calledAffix, v);
+               cg.GenerateCallArgReferenceVar(calledAffix, v, needFinalization: call.Called!.NeedsFinalization);
                break;
             case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
                if (proc.TryGetAffix(id,out Affix procAffix)) {
-                  cg.GenerateCallArgReferenceAffix(calledAffix,procAffix);
+                  cg.GenerateCallArgReferenceAffix(calledAffix, procAffix, needFinalization: call.CanFail);
                } else if (proc.TryGetLocal(id,out Local local)) {
                   cg.GenerateCallArgReferenceLocal(calledAffix,local);
                } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out ICDL2DataObject? dataRef)) {
@@ -406,7 +406,7 @@ namespace CDL2v1 {
                      Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");
                      cg.GenerateCallArgReferenceConst(calledAffix,c);
                   } else if (dataRef is Var v) {
-                     cg.GenerateCallArgReferenceVar(calledAffix,v);
+                     cg.GenerateCallArgReferenceVar(calledAffix, v, needFinalization: call.Called!.NeedsFinalization);
                   } else {
                      throw new NotImplementedException($"GenerateCallStart: Reference to wrong element type {dataRef}");
                   }
@@ -414,7 +414,7 @@ namespace CDL2v1 {
                   throw new NotImplementedException($"GenerateCallStart: Unresolved reference to {id}");
                }
                break;
-            case Affix a:  cg.GenerateCallArgReferenceAffix(calledAffix,a); break;
+            case Affix a:  cg.GenerateCallArgReferenceAffix(calledAffix, a, needFinalization: call.Called!.NeedsFinalization); break;
             case Local lo: cg.GenerateCallArgReferenceLocal(calledAffix,lo); break;
             default:
                throw new NotImplementedException($"GenerateCallStart: Unknown argument type {arg.GetType()}");
