@@ -361,3 +361,4 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsdCDL2/*.ps1
+/CDL2v1/CDL2/Quicksort.ps1
