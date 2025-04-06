@@ -675,8 +675,8 @@ namespace CDL2v1 {
       /// </summary>
       public readonly bool IsBuiltin = builtin;
 
-      public bool IsConditionalCompilationOff => IsConditionalCompilation(on: true);
-      public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: false);
+      public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
+      public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: true);
       private bool IsConditionalCompilation(bool on) {
          if (Called != null) {
             return called!.IsConditionalCompilation(on);
@@ -823,7 +823,7 @@ namespace CDL2v1 {
       override public string ToString() => $"VAR {id.Name}";
    }
    [Serializable]
-   public class Const(ID id,Section section) : DeclaredCDL2Object(id,section,null), IConstElement, IMacroElement, IProvidedElement, ICDL2DataObject, ILocalCDL2Object, IActualArg {
+   public class Const(ID id,Section section) : DeclaredCDL2Object(id,section,null), IConstElement, IMacroElement, IProvidedElement, ICDL2DataObject, ILocalCDL2Object, ILocalCDL2DataObject, IActualArg {
       public SE SE => SE.Const;
       public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
       // override public string ToString() => $"CONST {id.id}={string.Join("",elements)}";

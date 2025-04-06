@@ -42,8 +42,7 @@ namespace CDL2v1 {
 class BoundedArray {
    [int]$LowerBound
    [int]$UpperBound
-   [Array]$Array
-   
+   [Array]$Array   
 
    BoundedArray([int]$lowerBound, [int]$upperBound) {
        if ($upperBound - $lowerBound -lt 0) {
@@ -60,12 +59,10 @@ class BoundedArray {
          throw [System.IndexOutOfRangeException]::new(""Index: $index, LowerBound: $($this.LowerBound), UpperBound: $($this.UpperBound)"")
        }
    }
-   # These do NOT create arg [] indexer
    [<%3%>]Item([int]$index) {
       $this.CheckIndex($index)
       return $this.Array[$index - $this.LowerBound]
    }
-
    [void]Item([int]$index, [<%3%>]$value) {
       $this.CheckIndex($index)
       $this.Array[$index - $this.LowerBound] = $value
@@ -359,7 +356,7 @@ function Remove-Const([string[]]$names) {
                   emitter.Emitnl("if ($__b) { return }");
                }
             }
-         } else if (group.alternatives[^1].CanFail) {
+         } else if (group.alternatives[i].CanFail) {
             if (proc.NeedsFinalization) {
                Debug.Assert(proc.CanFail, $"{proc} needs finalization but cannot fail???");
                emitter.Emitnl("break");
@@ -452,7 +449,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateNewline() => Newline();
       void ICodeGenerator.GenerateComment(string comment) => GenerateComment(comment);
       void ICodeGenerator.GenerateComment(PrettyPrinter pp) => emitter.Emit(pp.Emitter.Content);
-      void ICodeGenerator.GenerateSourceComment() => emitter.Emit(sourceEmitter.Content);
+      void ICodeGenerator.GenerateSourceComment() => emitter.NlEmit("\n",sourceEmitter.Content);
       string ICodeGenerator.FileExtension { get; } = ".ps1";
 
       private readonly EmitterString sourceEmitter = new(prefix:"# ");

@@ -20,11 +20,18 @@ namespace CDL2v1 {
    /// <param id="cg"></param>
    [Serializable]
    public class CodeGenerator(ICodeGenerator cg) {
+      /// <summary>
+      /// Target specific code gnerator to use.
+      /// </summary>
       private readonly ICodeGenerator cg = cg;
 
       private static readonly List<RW> ludeTypes = [ RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
 
-      private readonly PrettyPrinter sourceCommentPrinter = new(cg.SourceEmitter);
+      /// <summary>
+      /// Used to add the CDL2 code to each generated algorithm.
+      /// Will not include the CDL2 comments and Notes associated with CDL2 objects.
+      /// </summary>
+      private readonly PrettyPrinter sourceCommentPrinter = new(cg.SourceEmitter,includeComments:false);
 
       /// <summary>
       /// Generate code for the unit and all its modulesWithLudes.
@@ -54,8 +61,7 @@ namespace CDL2v1 {
          if (!isSeparate) {
             // Generate an integrated program ignoring module boundaries of all objects reachable from the program's ludes.
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
-            sourceCommentPrinter.Print(program);
-            cg.GenerateSourceComment();
+
 
             GenerateObjects<Const>(ReachableObjects.OfType<Const>(),                                        GenerateConstant);
             GenerateObjects<Var>(ReachableObjects.OfType<Var>(),                                            GenerateVar);
@@ -67,10 +73,11 @@ namespace CDL2v1 {
 
             cg.GenerateProgramEnd(program);
 
+            sourceCommentPrinter.Print(program);
+            cg.GenerateSourceComment();
+            // Place the program's ludes first, so that they are at the top of the generated code.
             cg.GenerateComment("Program Ludes");
             foreach (RW ludeType in ludeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
-            //cg.GenerateComment("Program Ludes");
-            //GenerateProgramLudes(program);
          } else {
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
             sourceCommentPrinter.Print(program);
@@ -275,8 +282,7 @@ namespace CDL2v1 {
          if (!alg.IsSynthetic) {
             sourceCommentPrinter.Print(alg);
             cg.GenerateSourceComment();
-         }
-         else {
+         } else {
             cg.GenerateComment(alg.ToString());
          }
       }
@@ -313,20 +319,22 @@ namespace CDL2v1 {
          } else if (proc.IsSimple) {
             // A sequence of alternatives, no groups or repeats.
             cg.GenerateComment("Simple body");
-           
-            for (int i = 0; i < proc.group.alternatives.Count ; i++) {
-               GenerateAlternative(proc,proc.group,i);
-            }
+            GenerateAlternatives(proc, proc.group);
          } else {
             cg.GenerateComment("General body");
-
-            for (int i = 0 ; i < proc.group.alternatives.Count ; i++) {
-               GenerateAlternative(proc,proc.group,i);
-            }
+            GenerateAlternatives(proc, proc.group);
          }
       }
 
-      private void GenerateAlternative(Procedure proc,Group group,int i) {
+      private void GenerateAlternatives(Procedure proc, Group group) {
+         bool generateFollowingAlternatives = true;
+         for (int i = 0 ; i < group.alternatives.Count && generateFollowingAlternatives ; i++) {
+            generateFollowingAlternatives = GenerateAlternative(proc, group, i);
+         }
+      }
+
+      private bool GenerateAlternative(Procedure proc,Group group,int i) {
+         bool generateFollowingAlternatives = true;
          cg.GenerateAlternativeStart(proc,group,i);
          List<Call> calls = group.alternatives[i].calls;
          bool removeAlternative = calls.Count > 0 && calls[0].IsConditionalCompilationOff;
@@ -335,12 +343,15 @@ namespace CDL2v1 {
          } else {
             bool canFail = false;
             foreach (Call call in group.alternatives[i].calls) {
-               if (call.IsConditionalCompilationOn) continue;   // No need to generate code for this call;
+               if (call.IsConditionalCompilationOn) {
+                  generateFollowingAlternatives = false; // Supress all later alternatives (in the current group).
+                  continue;   // No need to generate code for this call;
+               }
                if (call.IsConditionalCompilationOff) {
                   // Skip the rest of the alternative.
                   if (proc.CanFail) cg.GenerateAlternativeFail();
                   cg.GenerateAlternativeEnd(proc, group, i,removed:true);
-                  return;
+                  return generateFollowingAlternatives;
                }
                GenerateCall(proc, call, canFail);
                canFail = canFail || call.CanFail;
@@ -357,14 +368,14 @@ namespace CDL2v1 {
                   throw new NotImplementedException($"GenerateAlternative: Unknown last call type {group.alternatives[i].lastCall.type}");
             }
          }
-         cg.GenerateAlternativeEnd(proc, group, i, removed:removeAlternative);
+         // If conditional compilation removes later alternatives pretend that this was the last one.
+         cg.GenerateAlternativeEnd(proc, group, generateFollowingAlternatives ? i : group.alternatives.Count -1, removed:removeAlternative);
+         return generateFollowingAlternatives;
       }
 
       private void GenerateGroup(Procedure proc,Group group) {
          cg.GenerateGroupStart(proc,group);
-         for (int i = 0 ; i < group.alternatives.Count ; i++) {
-            GenerateAlternative(proc,group,i);
-         }
+         GenerateAlternatives(proc, group);
          cg.GenerateGroupEnd(proc,group);
       }
 

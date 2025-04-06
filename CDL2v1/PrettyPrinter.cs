@@ -33,6 +33,8 @@ namespace CDL2v1 {
    
       public readonly EmitterBase Emitter;
 
+      private bool IncludeComments = true;
+
 
       /// <summary>
       /// Perform action with an increased indent level.
@@ -153,11 +155,12 @@ namespace CDL2v1 {
       ///   or simpler
       ///    PrettyPrinter pp = new("output.txt");
       /// </example>
-      public PrettyPrinter(int width,int indent,int maxIndentIncrement,EmitterBase emitter) {
+      public PrettyPrinter(int width,int indent,int maxIndentIncrement,EmitterBase emitter,bool includeComments=true) {
          this.LineLength = width;
          this.IndentMultiplier = indent;
          this.MaxIndentIncrement = maxIndentIncrement;
          this.Emitter = emitter;
+         this.IncludeComments = includeComments;
          emitter.IndentWidth = this.IndentMultiplier;
          emitter.LineLength = this.LineLength;
          emitter.IndentLevel = 0;
@@ -173,7 +176,7 @@ namespace CDL2v1 {
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified Emitter.
       /// </summary>
       /// <param id="Emitter"></param>
-      public PrettyPrinter(EmitterBase emitter) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter) { }
+      public PrettyPrinter(EmitterBase emitter,bool includeComments=true) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter,includeComments) { }
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file id.
       /// </summary>
@@ -623,20 +626,22 @@ namespace CDL2v1 {
       private void PrintComment(Alternative element) => PrintComment(null,element.Notes);
 
       private void PrintComment(string? comments,Notes notes) {
-         if (comments != null) Emitnl(comments.Decorate(Emitter,SE.Comment));
-         foreach (Note note in notes) {
-            if (note.Type == NoteType.Note) {
-               NlEmitnl(note.Text.Decorate(Emitter,SE.Comment));
-               Emitnl(RW.NOTE,Token.TokenType2Glyph[TT.END]);
-            } else {
-               Emitnl(string.Concat("#",Note.Marker,(note.Type.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "),note.Text)
-                  .Decorate(Emitter,note.Type switch {
-                     NoteType.Error    => SE.NoteError,
-                     NoteType.Warning  => SE.NoteWarning,
-                     NoteType.Info     => SE.NoteInfo,
-                     NoteType.Note     => SE.Comment,
-                     _ => SE.Comment
-                  }));
+         if (IncludeComments) {
+            if (comments != null) Emitnl(comments.Decorate(Emitter, SE.Comment));
+            foreach (Note note in notes) {
+               if (note.Type == NoteType.Note) {
+                  NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));
+                  Emitnl(RW.NOTE, Token.TokenType2Glyph[TT.END]);
+               } else {
+                  Emitnl(string.Concat("#", Note.Marker, (note.Type.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
+                     .Decorate(Emitter, note.Type switch {
+                        NoteType.Error => SE.NoteError,
+                        NoteType.Warning => SE.NoteWarning,
+                        NoteType.Info => SE.NoteInfo,
+                        NoteType.Note => SE.Comment,
+                        _ => SE.Comment
+                     }));
+               }
             }
          }
       }
