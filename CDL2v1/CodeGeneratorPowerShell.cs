@@ -340,6 +340,7 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i, bool removed) {
          bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
+         bool lastAlternativeOfGroup = group.alternatives.Count == i + 1;
          if (notLastAlternativeOfProc) {
             if (removed) {
                // Just fall through to the next alternative
@@ -350,9 +351,15 @@ function Remove-Const([string[]]$names) {
                // Just fall through: the repeat took the true branch
             } else {
                if (proc.CanFail) {
-                  emitter.Emitnl("if ($__b) { return $true }");
-               }
-               else {
+                  
+                  if (lastAlternativeOfGroup) {
+                     emitter.Emitnl("return $true");
+                  } else {
+                     emitter.Emitnl("if ($__b) { return $true }");
+                  }
+               } else if (lastAlternativeOfGroup) {
+                  emitter.Emitnl("return");
+               } else { 
                   emitter.Emitnl("if ($__b) { return }");
                }
             }

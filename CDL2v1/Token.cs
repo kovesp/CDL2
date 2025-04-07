@@ -87,7 +87,7 @@ namespace CDL2v1 {
          IdRE = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*",RegexOptions.Compiled);
          StringRE = new Regex(@"^"".*?(?:$"".*?)*""",RegexOptions.Compiled);
          CommentRE = new Regex(@"^(?m:#((?:##)?.*?)?(?:#|$))",RegexOptions.Compiled);
-         IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?\d+)",RegexOptions.Compiled);
+         IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",RegexOptions.Compiled);
          FloatRE = new Regex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled);
          // Must match all occurrences anywhere in a string
          StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys)}])",RegexOptions.Compiled);
@@ -180,7 +180,7 @@ namespace CDL2v1 {
                type = TokenType.INT;
                TokenString = text;
                try {
-                  intValue = long.Parse(text,text.StartsWith("0x") ? NumberStyles.HexNumber : NumberStyles.Integer,CultureInfo.InvariantCulture);
+                  intValue = long.Parse(text.Replace("_",""),text.StartsWith("0x") ? NumberStyles.HexNumber : NumberStyles.Integer,CultureInfo.InvariantCulture);
                } catch {
                   type = TokenType.ERROR;
                }

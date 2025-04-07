@@ -36,8 +36,10 @@ namespace CDL2v1 {
       /// <param name="insertions"></param>
       protected void AddNote(NamedElement subject, Note note, params object[] insertions) {
          subject.AddNote(PhaseName, note, insertions);
-         if (note.Type == NoteType.Warning) Warnings++;
-         if (note.Type == NoteType.Error) Errors++;
+         if (note.Type == NoteType.Warning)
+            Warnings++;
+         if (note.Type == NoteType.Error)
+            Errors++;
       }
 
       /// <summary>
@@ -46,21 +48,21 @@ namespace CDL2v1 {
       /// Otherwisw return false.
       /// </summary>
       /// <returns></returns>
-      public bool AbortCompilation() {         
+      public bool AbortCompilation() {
          bool stop = Errors > 0 && !Settings.SettingValue<bool>("AllowErrors");
          string? message = null;
          if (stop) {
             message = $"{PhaseName}: Compilation aborted due to errors";
          } else {
             stop = Warnings > 0 && Settings.SettingValue<bool>("StopOnWarnings");
-            if (stop) message = $"{PhaseName}: Compilation aborted due to warnings";
+            if (stop)
+               message = $"{PhaseName}: Compilation aborted due to warnings";
          }
 
          if (stop) {
             ReportNoteCounts(message);
             return true;
-         }
-         else {
+         } else {
             return false;
          }
       }
@@ -72,16 +74,29 @@ namespace CDL2v1 {
       /// <param name="message">Optional termination message.</param>
       /// <returns></returns>
       public void ReportNoteCounts(string? message = null) {
-         Log(0, $"{PhaseName,-16}: {Errors.Plural("error")}, {Warnings.Plural("warning")}");
+         IEnumerable<Note> myNotes = Database.Instance.ElementsWithNotes.SelectMany(elem => elem.Notes).Where(note => PhaseName == PhaseName);
+         IEnumerable<Note> myErrors = myNotes.Where(note => note.Type == NoteType.Error);
+         IEnumerable<Note> myWarnings = myNotes.Where(note => note.Type == NoteType.Warning);
+
+         Log(0, $"{PhaseName,-16}: {myErrors.Count().Plural("error")}, {myWarnings.Count().Plural("warning")}");
          if (message != null) Log(0, message);
-         foreach (NoteType type in new List<NoteType>() { NoteType.Error, NoteType.Warning }) {
-            foreach (NamedElement element in Database.Instance.ElementsWithNotes) {
-               foreach (Note note in element.Notes.Where(note => note.Type == type && note.PhaseName == PhaseName)) {
-                  string head = $"{PhaseName,-16}: {note.Type,-7} {note.Number:D3}";
-                  Log(0, $"{head} {element.FQDN()}\n {new string(' ', head.Length)}{note.Text}");
-               }
+
+         ReportByType(myErrors);
+         ReportByType(myWarnings);
+
+         void ReportByType(IEnumerable<Note> list) {
+            foreach (Note note in list) {
+               string head = $"{PhaseName,-16}: {note.Type,-7} {note.Number:D3}";
+               Debug.Assert(note.Owner != null, "ReportNoteCounts: Note Owner is null");
+               Log(0, $"{head} {note.Owner.FQDN()}\n {new string(' ', head.Length)}{note.Text}");
             }
          }
+         //   foreach (NoteType type in new List<NoteType>() { NoteType.Error, NoteType.Warning }) {
+         //   foreach (NamedElement element in Database.Instance.ElementsWithNotes) {
+         //      foreach (Note note in element.Notes.Where(note => note.Type == type && note.PhaseName == PhaseName)) {
+         //      }
+         //   }
+         //}
       }
    }
 
@@ -125,28 +140,28 @@ namespace CDL2v1 {
                   Parser.Parse(sourceTokens);
                }
             }
-            if (Parser.AbortCompilation()) return;
+            if (Parser.AbortCompilation())
+               return;
 
 
             Program? MainProgram = null;
             string? ProgramName = Settings.SettingValue<string>("ProgramName");
             if (ProgramName == "" && Database.Instance.FirstProgram != null) {
                MainProgram = Database.Instance.FirstProgram;
-            }
-            else if (ProgramName != null && ProgramName != "") {
+            } else if (ProgramName != null && ProgramName != "") {
                MainProgram = Database.Instance.FindProgramByName(ProgramName);
                if (MainProgram is null) {
                   if (Database.Instance.FirstProgram != null) {
                      MainProgram = Database.Instance.FirstProgram;
                      ReportError($"Program {ProgramName} not found, using {MainProgram.id} instead.");
-                  }
-                  else {
+                  } else {
                      ReportError("No program found");
                   }
                }
             }
             if (MainProgram != null) {
-               if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4) ID.Dump();
+               if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4)
+                  ID.Dump();
 
                // Perform semantic checks
                SemanticAnalyzer = new SemanticAnalyzer(this);
@@ -164,14 +179,11 @@ namespace CDL2v1 {
                   EmitterBase emitter;
                   if (PrettyPrint == null) {
                      emitter = new EmitterDebug();
-                  }
-                  else if (Regex.IsMatch(PrettyPrint, @"^w(?:indow)$", RegexOptions.IgnoreCase)) {
+                  } else if (Regex.IsMatch(PrettyPrint, @"^w(?:indow)$", RegexOptions.IgnoreCase)) {
                      emitter = new EmitterWindow();
-                  }
-                  else if (PrettyPrint.IsValidFileName()) {  // Must be placed after check for window
+                  } else if (PrettyPrint.IsValidFileName()) {  // Must be placed after check for window
                      emitter = new EmitterFile(PrettyPrint);
-                  }
-                  else {
+                  } else {
                      emitter = new EmitterDebug();
                   }
                   new PrettyPrinter(emitter).Print(Database.Instance.Programs, Database.Instance.Modules);
@@ -179,8 +191,7 @@ namespace CDL2v1 {
                }
 
                if (!Settings.SettingValue<bool>("ParseOnly")) {
-                  ICodeGenerator ? cg = CreateCodeGenerator(Settings.SettingValue<string>("Target")!);
-                  /// TODO: Add a command line option to specify the CG output file (or default it with the appropriate extension <see cref="ICodeGenerator.FileExtension"/>
+                  ICodeGenerator? cg = CreateCodeGenerator(Settings.SettingValue<string>("Target")!);
 
                   Debug.Assert(MainProgram != null);
 
@@ -191,12 +202,12 @@ namespace CDL2v1 {
                      codeGenerator = new CodeGenerator(cg);
                      codeGenerator.GenerateCode(MainProgram, emitter);
                      emitter.Close();
-                  }
-                  else {
+                  } else {
                      ReportError("No target code generator");
-                  }               }
+                  }
+               }
                Parser.ReportNoteCounts();
-               Log(0,"");
+               Log(0, "");
                SemanticAnalyzer.ReportNoteCounts();
             }
          }
@@ -211,8 +222,7 @@ namespace CDL2v1 {
             if (type != null && typeof(ICodeGenerator).IsAssignableFrom(type)) {
                return Activator.CreateInstance(type, dataType) as ICodeGenerator;
             }
-         }
-         catch (Exception ex) {
+         } catch (Exception ex) {
             ReportError($"Error creating code generator for target {target} with Data type {dataType}: {ex.Message}");
          }
          return null;

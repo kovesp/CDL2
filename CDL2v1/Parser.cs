@@ -18,7 +18,6 @@ using System.Threading.Tasks;
 using static CDL2v1.Logger;
 
 namespace CDL2v1 {
-   public class Notes : List<Note> { }
    public class Parser : CompilationPhase {
       /// <summary>
       /// The object being compiled. Used mainly for error reporting.

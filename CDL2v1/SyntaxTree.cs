@@ -87,14 +87,15 @@ namespace CDL2v1 {
       public readonly string Text;
       public readonly int Number;
       public readonly string PhaseName;
+      public NamedElement? Owner = null;
       public Note(NoteType type, int number, string text, string phaseName = "") { 
          Type = type;
          Text = text;
          Number = number;
          PhaseName = phaseName;
       }
-      public Note(Note template, string phaseName, params object[] args) 
-         : this(template.Type, template.Number, string.Format(template.Text, [.. args.Select(arg=>arg is Affix aff ? aff.id : arg is Local loc ? loc.id : arg)]), phaseName) { }
+      public Note(Note template, string phaseName, NamedElement owner, params object[] args)
+         : this(template.Type, template.Number, string.Format(template.Text, [.. args.Select(arg => arg is Affix aff ? aff.id : arg is Local loc ? loc.id : arg)]), phaseName) => Owner = owner;
 
       public static readonly string Marker = " >>> ";
 
@@ -140,6 +141,8 @@ namespace CDL2v1 {
       public override string ToString() => $"{Type} {Number}: {Text}";
    }
 
+   public class Notes : List<Note> { }
+
    /// <summary>
    /// Base class for all elements that have names in the syntax tree.
    /// </summary>
@@ -172,7 +175,7 @@ namespace CDL2v1 {
       public Notes Notes { get; set; } = [];
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
       public void AddNote(string phase, Note note, params object[] insertions) {
-         Notes.Add(new Note(note, phase, insertions));
+         Notes.Add(new Note(note, phase, this, insertions));
          Database.Instance.ElementsWithNotes.Add(this);
       }
       public void AddNotes(string phase, Notes? notes) => notes?.ForEach(note => AddNote(phase, note));
@@ -683,7 +686,7 @@ namespace CDL2v1 {
          } else if (IsBuiltin && Builtin.IsTest(this)) {
             return on == Builtin.EvalTest(this);
          } else {
-            return ! on;
+            return !on;
          }
       }
 

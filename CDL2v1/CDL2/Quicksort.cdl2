@@ -69,11 +69,11 @@ MODULE quicksort.
          FUNCTION random+>min+>max+r> =: r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
       SECTION data.
-         ABSTR lwb, upb, smaller element, swap element, get element, set element, dump data, is data sorted macro.
+         ABSTR lwb, upb, smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
          INV make, less or equal, random, incr, subtract, show msg, show msg no newline.
 
          # The lower and upper bounds of the array. #
-         CONST lwb=1, upb=100.
+         CONST lwb=1, upb=1_000.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
@@ -101,7 +101,7 @@ MODULE quicksort.
          CONST max size of list to show=50.
          ACTION dump data*msg:
             show msg no newline+msg,
-               (le+data size+max size of list to show, dump list;
+               (less or equal+data size+max size of list to show, dump list;
                 show msg+"too many elements to show.").
 
          TEST is data sorted macro -i -r =
@@ -116,6 +116,9 @@ MODULE quicksort.
 
          # The size of the list to be sorted as a variable. Just to excercise VARs.
          VAR data size.
+
+         # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
+         FUNCTION get data size +size>: make+size+data size.
 
          # Fill the array with random integers. #
          ACTION initialize data -i -r:
@@ -134,10 +137,11 @@ MODULE quicksort.
             "$l Write-Host -ForegroundColor Blue ('Elapsed time: {0:N0} miliseconds' -f [int](($$script:stop-$$script:start).TotalMicroseconds/1000))".
       ENDSEC timer.
       SECTION messages.
-         ABSTR show msg, show msg no newline.
-         EXT show msg, show msg no newline.
+         ABSTR show msg, show msg no newline, show number.
+         EXT show msg, show msg no newline, show number.
 
          ACTION show msg*string = "Write-Host " string.
+         ACTION show number +>number = "Write-Host -NoNewline ('{0:N0}' -f " number ")".
          ACTION show msg no newline*string = "Write-Host -NoNewline " string.
       ENDSEC messages.
    ENDLAY base.
@@ -145,8 +149,8 @@ MODULE quicksort.
    NOTE.
    LAYER sort.
       SECTION sorter.
-         INV lwb, upb, less, make, add, halve, incr, decr, swap element, get element, smaller element, dump data, 
-            show msg, show msg no newline, is data sorted macro, less or equal, start timer, stop timer, show elapsed time.
+         INV lwb, upb, less, make, add, halve, incr, decr, swap element, get element, smaller element, dump data, get data size,
+            show msg, show msg no newline, show number, is data sorted macro, less or equal, start timer, stop timer, show elapsed time.
 
          ACTION quicksort +>from +>to -p -q:
             less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
@@ -193,11 +197,12 @@ MODULE quicksort.
             is data sorted, show msg no newline+which, show msg+" data is sorted.";
             show msg no newline+which, show msg+" data is not sorted.".
 
-         ACTION run demo:
-            show msg+"Running quicksort ...", 
+         ACTION run demo -data size:
+            get data size+data size,
+            show msg no new line+"Running quicksort on list of ", show number+data size, show msg+" elements.",
             start timer, quicksort+lwb+upb, stop timer,
             show elapsed time,
-            show show msg+"Done.".
+            show msg+"Done.".
 
       ENDSEC sorter.
       PRELUDE dump data+"Data before sorting: ", verify data sorted+"Random".
