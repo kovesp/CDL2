@@ -448,7 +448,8 @@ namespace CDL2v1 {
       /// <param name="group"></param>
       /// <param name="i"></param>
       /// <param name="removed">Set if the alternative tail was skipped due to conditional compilation.</param>
-      void GenerateAlternativeEnd(Procedure proc, Group group, int i,bool removed=false);
+      /// <param name="singleCallInAlternative"></param>
+      void GenerateAlternativeEnd(Procedure proc, Group group, int i, bool removed = false, bool singleCallInAlternative=false);
       /// <summary>
       /// Generates the fail required when the rest of an alternative is discarded due to conditional compilation.
       /// </summary>
@@ -472,16 +473,6 @@ namespace CDL2v1 {
       #endregion Groups
 
       #region Calls
-      /// <summary>
-      /// This is called for each call in a procedure.
-      /// </summary>
-      /// <param name="call"></param>
-      void GenerateCallStart(Call call);
-      /// <summary>
-      /// This is called at the end of a call in a procedure.
-      /// </summary>
-      /// <param name="call"></param>
-      void GenerateCallEnd(Call call);
 
       /// <summary>
       /// Generate code for the repeat operator.
@@ -511,8 +502,8 @@ namespace CDL2v1 {
       void GenerateAbort(Procedure proc, Group group);
 
       void GenerateActualArgSeparator();
-      void GenerateCallStart(Algorithm called, Procedure proc, bool firstCall = false);
-      void GenerateCallEnd(Algorithm call, Procedure proc, bool firstCall = false);
+      void GenerateCallStart(Algorithm called, Procedure proc, bool firstCall = false, bool onlyCallInAlternative = false,bool lastAlternative = false);
+      void GenerateCallEnd(Algorithm call, Procedure proc, bool firstCall = false, bool onlyCallInAlternative = false,bool lastAlternative=false);
       void GenerateCallArgString(string value);
       void GenerateCallArgReferenceAffix(Affix calledAffix, Affix a, bool needFinalization);
       void GenerateCallArgReferenceLocal(Affix calledAffix, Local lo);

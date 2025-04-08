@@ -623,14 +623,9 @@ namespace CDL2v1 {
       /// <summary>
       /// The procedure ha no repeats.
       /// </summary>
-      public bool HasNoRepeat => HasNoRepeats(group);
-      private static bool HasNoRepeats(Group group) {
-         foreach (Alternative alternative in group.alternatives) {
-            if (alternative.lastCall.type == LCT.Repeat) return false;
-            if (alternative.lastCall.type == LCT.Group && !HasNoRepeats(alternative.lastCall.group!)) return false;
-         }
-         return true;
-      }
+      public bool HasRepeat => group.HasRepeats();
+      public bool HasNoRepeat => ! HasRepeat;
+
       /// <summary>
       /// None of the alternatives in the primary group ends with a group.
       /// </summary>
@@ -762,7 +757,20 @@ namespace CDL2v1 {
    public class Group(ID? label,List<Alternative> alternatives,Group? parent,bool synthetic) 
          : NamedElement(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
       public List<Alternative> alternatives = alternatives;
-      public new readonly Group? Parent = parent;      
+      public new readonly Group? Parent = parent;
+
+      /// <summary>
+      /// The group has no repeats.
+      /// </summary>
+      public bool HasRepeat => HasRepeats();
+      public bool HasNoRepeat => ! HasRepeat;
+      public bool HasRepeats() {
+         foreach (Alternative alternative in alternatives) {
+            if (alternative.lastCall.type == LCT.Repeat) return true;
+            //if (alternative.lastCall.type == LCT.Group && alternative.lastCall.group!.HasRepeats()) return true;
+         }
+         return false;
+      }
    }
 
 

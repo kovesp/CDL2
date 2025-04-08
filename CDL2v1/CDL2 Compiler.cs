@@ -23,9 +23,9 @@ namespace CDL2v1 {
       }
 
       public string PhaseName { get; }
-      public int Errors { get; protected set; } = 0;
-      public int Warnings { get; protected set; } = 0;
-      void ResetNotes() => Errors = Warnings = 0;
+      private IEnumerable<Note> Notes => Database.Instance.ElementsWithNotes.SelectMany(elem => elem.Notes).Where(note => note.PhaseName == PhaseName);
+      private IEnumerable<Note> Errors => Notes.Where(note => note.Type == NoteType.Error);
+      private IEnumerable<Note> Warnings => Notes.Where(note => note.Type == NoteType.Warning);
 
       /// <summary>
       /// Add a note to given subject. Increment counters.
@@ -34,27 +34,21 @@ namespace CDL2v1 {
       /// <param name="subject"></param>
       /// <param name="note"></param>
       /// <param name="insertions"></param>
-      protected void AddNote(NamedElement subject, Note note, params object[] insertions) {
-         subject.AddNote(PhaseName, note, insertions);
-         if (note.Type == NoteType.Warning)
-            Warnings++;
-         if (note.Type == NoteType.Error)
-            Errors++;
-      }
+      protected void AddNote(NamedElement subject, Note note, params object[] insertions) => subject.AddNote(PhaseName, note, insertions);
 
       /// <summary>
-      /// Report errors and warnings for a phas.
+      /// Report errors and warnings for this phase.
       /// List them if any, and return true.
       /// Otherwisw return false.
       /// </summary>
       /// <returns></returns>
       public bool AbortCompilation() {
-         bool stop = Errors > 0 && !Settings.SettingValue<bool>("AllowErrors");
+         bool stop = Errors.Any() && !Settings.SettingValue<bool>("AllowErrors");
          string? message = null;
          if (stop) {
             message = $"{PhaseName}: Compilation aborted due to errors";
          } else {
-            stop = Warnings > 0 && Settings.SettingValue<bool>("StopOnWarnings");
+            stop = Warnings.Any() && Settings.SettingValue<bool>("StopOnWarnings");
             if (stop)
                message = $"{PhaseName}: Compilation aborted due to warnings";
          }
@@ -74,29 +68,19 @@ namespace CDL2v1 {
       /// <param name="message">Optional termination message.</param>
       /// <returns></returns>
       public void ReportNoteCounts(string? message = null) {
-         IEnumerable<Note> myNotes = Database.Instance.ElementsWithNotes.SelectMany(elem => elem.Notes).Where(note => PhaseName == PhaseName);
-         IEnumerable<Note> myErrors = myNotes.Where(note => note.Type == NoteType.Error);
-         IEnumerable<Note> myWarnings = myNotes.Where(note => note.Type == NoteType.Warning);
-
-         Log(0, $"{PhaseName,-16}: {myErrors.Count().Plural("error")}, {myWarnings.Count().Plural("warning")}");
+         Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error")}, {Warnings.Count().Plural("warning")}");
          if (message != null) Log(0, message);
 
-         ReportByType(myErrors);
-         ReportByType(myWarnings);
+         ReportByType(Errors);
+         ReportByType(Warnings);
 
-         void ReportByType(IEnumerable<Note> list) {
+         static void ReportByType(IEnumerable<Note> list) {
             foreach (Note note in list) {
-               string head = $"{PhaseName,-16}: {note.Type,-7} {note.Number:D3}";
+               string head = $"{note.Type,-7} {note.Number:D3}";
                Debug.Assert(note.Owner != null, "ReportNoteCounts: Note Owner is null");
-               Log(0, $"{head} {note.Owner.FQDN()}\n {new string(' ', head.Length)}{note.Text}");
+               Log(0, $"   {head} {note.Owner.FQDN()}\n    {new string(' ', head.Length)}{note.Text}");
             }
          }
-         //   foreach (NoteType type in new List<NoteType>() { NoteType.Error, NoteType.Warning }) {
-         //   foreach (NamedElement element in Database.Instance.ElementsWithNotes) {
-         //      foreach (Note note in element.Notes.Where(note => note.Type == type && note.PhaseName == PhaseName)) {
-         //      }
-         //   }
-         //}
       }
    }
 

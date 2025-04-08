@@ -350,14 +350,14 @@ namespace CDL2v1 {
                if (call.IsConditionalCompilationOff) {
                   // Skip the rest of the alternative.
                   if (proc.CanFail) cg.GenerateAlternativeFail();
-                  cg.GenerateAlternativeEnd(proc, group, i,removed:true);
+                  cg.GenerateAlternativeEnd(proc, group, i, removed: true);
                   return generateFollowingAlternatives;
                }
                GenerateCall(proc, call, canFail);
                canFail = canFail || call.CanFail;
             }
             switch (group.alternatives[i].lastCall.type) {
-               case LCT.Standard: GenerateCall(proc, group.alternatives[i].lastCall.call!, canFail); break;
+               case LCT.Standard: GenerateCall(proc, group.alternatives[i].lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:group.alternatives.Count == i+1); break;
                case LCT.Fail: cg.GenerateFail(proc, group); break;
                case LCT.Succeed: cg.GenerateSucceed(proc, group); break;
                case LCT.Abort: cg.GenerateAbort(proc, group); break;
@@ -369,7 +369,7 @@ namespace CDL2v1 {
             }
          }
          // If conditional compilation removes later alternatives pretend that this was the last one.
-         cg.GenerateAlternativeEnd(proc, group, generateFollowingAlternatives ? i : group.alternatives.Count -1, removed:removeAlternative);
+         cg.GenerateAlternativeEnd(proc, group, generateFollowingAlternatives ? i : group.alternatives.Count - 1, removed: removeAlternative, singleCallInAlternative: calls.Count == 0);
          return generateFollowingAlternatives;
       }
 
@@ -379,9 +379,9 @@ namespace CDL2v1 {
          cg.GenerateGroupEnd(proc,group);
       }
 
-      private void GenerateCall(Procedure proc,Call call,bool canFail = false) {
+      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false) {
          if (call.Called is not null) {
-            cg.GenerateCallStart(call.Called!, proc, canFail);
+            cg.GenerateCallStart(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);
             if (call.args.Count > 0) {
                GenerateActualArg(proc, call, call.Called!.affixes[0], call.args[0]);
                for (int i = 1; i < call.args.Count; i++) {
@@ -389,7 +389,7 @@ namespace CDL2v1 {
                   GenerateActualArg(proc, call, call.Called.affixes[i], call.args[i]);
                }
             }
-            cg.GenerateCallEnd(call.Called!, proc, canFail);
+            cg.GenerateCallEnd(call.Called!, proc, canFail, onlyCallInAlternative,lastAlternative);
          } else {
             cg.GenerateComment($"Call to undefined algorithm {call} skipped.");
          }
