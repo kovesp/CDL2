@@ -394,7 +394,7 @@ function Remove-Const([string[]]$names) {
             emitter.IndentLevel--;
             emitter.Emitnl("}");
          }
-         ifDepth.SetTop(0);
+         ifDepth.ResetTop();
          GenerateComment($"End Alternative {i+1}");
          //if (group.alternatives.Count == i + 1 && group.alternatives[i].CanFail) emitter.Emitnl("break");
       }
