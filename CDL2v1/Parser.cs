@@ -321,16 +321,16 @@ namespace CDL2v1 {
                // If we have a last call, then we should NOT have see a separator
                ReportError("Unexpected ,");
             } else if (tokens.Optional(RW.BUILTIN) && tokens.Optional(out ID id)) {
-               calls.Add(ParseCall(id, proc,builtin:true));
-            } else if (tokens.Optional(out id)) {              
+               calls.Add(ParseCall(id, proc, builtin: true));
+            } else if (tokens.Optional(out id)) {
                calls.Add(ParseCall(id, proc));
             } else if (tokens.Optional(TT.SUCCEED)) {
                lastCall = new LastCall(LCT.Succeed);
             } else if (tokens.Optional(TT.FAIL)) {
                lastCall = new LastCall(LCT.Fail);
-               if (! proc.CanFail) {
+               if (!proc.CanFail) {
                   AddNote(proc, Note.IllegalFailOperator, proc.algorithmType);
-                  ReportError($"{proc} contains fail operator",supressErrorAction:true);
+                  ReportError($"{proc} contains fail operator", supressErrorAction: true);
                }
 
             } else if (tokens.Optional(TT.ABORT)) {
@@ -348,7 +348,7 @@ namespace CDL2v1 {
                      g = g.Parent;
                   }
                   if (!found && label != proc.id) { // The label can be the ContainingProc id
-                     AddNote(proc,Note.LabelNotFound,label.Name);
+                     AddNote(proc, Note.LabelNotFound, label.Name);
                      ReportError($"Label {label} not found in group hierarchy");
                   }
                   lastCall = new LastCall(label);
@@ -357,7 +357,10 @@ namespace CDL2v1 {
                   lastCall = new LastCall(LCT.Repeat);
                }
             } else if (tokens.Optional(TT.GRPOPEN)) {
-               lastCall = ParseGroup(proc,containingGroup:group);
+               lastCall = ParseGroup(proc, containingGroup: group);
+            } else if (tokens.IsNext(TT.END) || tokens.IsNext(TT.ALTSEP)) {
+               // The last item in an alternative can be empty which is equivalent to a succeed and is represented as such.
+               lastCall = new LastCall(LCT.Succeed);
             } else {
                ReportError("Expected ID, +, -, ?, or *");
             }

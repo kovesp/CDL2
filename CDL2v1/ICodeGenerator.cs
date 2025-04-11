@@ -354,8 +354,8 @@ namespace CDL2v1 {
       /// This is calledat the end of the algorithm to finalize the affixes and variables.
       /// </summary>
       /// <param name="algorithm"></param>
-      /// <param name="IsNeeded"></param>
-      void GenerateAffixAndVariableFinalizationStart(Algorithm algorithm, bool IsNeeded);
+      /// 
+      void GenerateAffixAndVariableFinalizationStart(Algorithm algorithm);
       /// <summary>
       /// This is called for each affix and each variable referenced in the algorithm.
       /// </summary>
@@ -367,8 +367,8 @@ namespace CDL2v1 {
       /// This is called at the end of the finalization of affixes and variables.
       /// </summary>
       /// <param name="algorithm"></param>
-      /// <param name="IsNeeded"></param>
-      void GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm, bool IsNeeded);
+      /// 
+      void GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm);
       #endregion Algorithm Common
 
       #region Macros
@@ -447,9 +447,10 @@ namespace CDL2v1 {
       /// <param name="proc"></param>
       /// <param name="group"></param>
       /// <param name="i"></param>
+      /// <param name="terminated"></param>
       /// <param name="removed">Set if the alternative tail was skipped due to conditional compilation.</param>
       /// <param name="singleCallInAlternative"></param>
-      void GenerateAlternativeEnd(Procedure proc, Group group, int i, bool removed = false, bool singleCallInAlternative=false);
+      void GenerateAlternativeEnd(Procedure proc, Group group, int i, bool terminated, bool removed = false, bool singleCallInAlternative = false);
       /// <summary>
       /// Generates the fail required when the rest of an alternative is discarded due to conditional compilation.
       /// </summary>

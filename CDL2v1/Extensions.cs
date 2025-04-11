@@ -27,12 +27,13 @@ namespace CDL2v1 {
    }
 
    /// <summary>
-   /// A stack of int-s whose top element can be incremented and decrmented.
+   /// A stack of int-s whose top element can be modified and compared to an int.
    /// </summary>
    public class ModifiableStack : Stack<int> {
-      public ModifiableStack() : base() { }
-      public ModifiableStack(int capacity) : base(capacity) { }
-      public ModifiableStack(IEnumerable<int> collection) : base(collection) { }
+      public ModifiableStack(int minimum=0) : base() => Minimum = minimum;
+      public ModifiableStack(int capacity,int minimum) : base(capacity) => Minimum = minimum;
+      public ModifiableStack(IEnumerable<int> collection,int minimum=0) : base(collection) => Minimum = minimum;
+      private readonly int Minimum;
 
       /// <summary>
       /// Increment the top elment of the stack.
@@ -44,14 +45,23 @@ namespace CDL2v1 {
          return stack;
       }
       /// <summary>
-      /// Decrement the top element of the stack, but do not allow it to go below 0.
+      /// Decrement the top element of the stack, but do not allow it to go below Minimum.
       /// </summary>
       /// <param name="stack"></param>
       /// <returns></returns>
       public static ModifiableStack operator --(ModifiableStack stack) {
-         if (stack.Peek() > 0) stack.Push(stack.Pop() - 1);
+         if (stack.Peek() > 0) stack.Push(Math.Max(stack.Minimum,stack.Pop() - 1));
          return stack;
       }
+      public static ModifiableStack operator +(ModifiableStack stack,int v) {
+         if (stack.Peek() > 0) stack.Push(Math.Max(stack.Minimum, stack.Pop() + v));
+         return stack;
+      }
+      public static ModifiableStack operator -(ModifiableStack stack, int v) {
+         if (stack.Peek() > 0) stack.Push(Math.Max(stack.Minimum,stack.Pop() - v));
+         return stack;
+      }
+
       /// <summary>
       /// Compare the top element of the stack with a value.
       /// </summary>
@@ -61,36 +71,66 @@ namespace CDL2v1 {
       /// <exception cref="InvalidOperationException"></exception>
       public static bool operator >=(ModifiableStack stack, int value) {
          if (stack.Count == 0) {
-            throw new InvalidOperationException("Cannot compare an empty stack.");
+            throw new InvalidOperationException("Cannot compare to empty stack.");
          }
          return stack.Peek() >= value;
       }
-      /// <summary>
-      /// Compare the top element of the stack with a value.
-      /// </summary>
-      /// <param name="stack"></param>
-      /// <param name="value"></param>
-      /// <returns></returns>
-      /// <exception cref="InvalidOperationException"></exception>
+      public static bool operator >(ModifiableStack stack, int value) {
+         if (stack.Count == 0) {
+            throw new InvalidOperationException("Cannot compare to empty stack.");
+         }
+         return stack.Peek() > value;
+      }
       public static bool operator <=(ModifiableStack stack, int value) {
          if (stack.Count == 0) {
-            throw new InvalidOperationException("Cannot compare an empty stack.");
+            throw new InvalidOperationException("Cannot compare to empty stack.");
          }
          return stack.Peek() <= value;
 
       }
+      public static bool operator <(ModifiableStack stack, int value) {
+         if (stack.Count == 0) {
+            throw new InvalidOperationException("Cannot compare to empty stack.");
+         }
+         return stack.Peek() < value;
+      }
+      public static bool operator ==(ModifiableStack stack, int value) {
+         if (stack.Count == 0) {
+            throw new InvalidOperationException("Cannot compare to empty stack.");
+         }
+         return stack.Peek() == value;
+      }
+      public static bool operator !=(ModifiableStack stack, int value) {
+         if (stack.Count == 0) {
+            throw new InvalidOperationException("Cannot compare to empty stack.");
+         }
+         return stack.Peek() != value;
+      }
+      public override bool Equals(object? obj) {
+         if (obj is ModifiableStack stack) {
+            return this.SequenceEqual(stack);
+         }
+         return false;
+      }
+      public override int GetHashCode() {
+         int hash = 17;
+         foreach (int i in this) {
+            hash = hash * 31 + i.GetHashCode();
+         }
+         return hash;
+      }
       /// <summary>
       /// Set the top element of the stack to a value.
       /// </summary>
-      /// <param name="v">The value >= 0 to set, default is 0.</param>
-      internal void SetTop(int v=0) {
+      /// <param name="v">The value >= Minimum to set, default is 0.</param>
+      internal void SetTop(int? v=null) {
          if (Count > 0) Pop();
-         Push(Math.Min(0,v));
+         Push(Math.Max(Minimum,v??Minimum));
       }
       /// <summary>
       /// Reset the top element of the stack to 0.
       /// </summary>
-      internal void ResetTop() => SetTop(0);
+      internal void ResetTop() => SetTop();
    }
 
    public static class Extensions {

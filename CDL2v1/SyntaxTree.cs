@@ -181,7 +181,7 @@ namespace CDL2v1 {
          string layerName = Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
          string moduleName = Parent!.Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
          string objectName = id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
-         return $"{moduleName}{separator}{layerName}{separator}{sectionName}{separator}{objectName}";
+         return $"{moduleName}{separator}{layerName}{separator}{sectionName}{(IsSynthetic?separator+separator:separator)}{objectName}";
       }
       /// <summary>
       /// Element display name, i.e. MOD mod LAY lay SEC sec obj.
@@ -611,10 +611,12 @@ namespace CDL2v1 {
       public override bool IsConditionalCompilationOn => CanFail && group.alternatives.Count == 1 && group.alternatives[0].calls.Count == 0 && group.alternatives[0].lastCall.type == LCT.Succeed;
 
       /// <summary>
-      /// The procedure ha no repeats.
+      /// The procedure has repeats.
       /// </summary>
       public bool HasRepeat => group.HasAnAnonymousRepeat();
       public bool HasNoRepeat => ! HasRepeat;
+
+      public bool NeedsWrapper => repeatsProcedure || NeedsFinalization || HasRepeat;
 
       /// <summary>
       /// None of the alternatives in the primary group ends with a group.

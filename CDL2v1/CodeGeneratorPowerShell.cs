@@ -112,18 +112,27 @@ function Remove-Const([string[]]$names) {
       #endregion Programs, Modules, Layers, Sections
 
       #region Predlude, Postlude, Root
+      /// <summary>
+      /// Generates the start of the program lude.
+      /// Notice the extra _ added befure the ludeType. this ensures that there is no name clash with algorithm names.
+      /// For example the could be a procdure called "root" in MOD m LAY l SEC s. This would have the name m_l_s_root in the genrated code.
+      /// The synthetic procedure for the section ROOT would be called  m_l_s_ROOT which in PowerShell is the same. So we add the extra _.
+      /// </summary>
+      /// <param name="ludetype"></param>
+      /// <param name="program"></param>
       void ICodeGenerator.GenerateProgramLudeStart(RW ludetype, Program program) {
-         GenerateComment($"{program.TypeShortName}_{program.id.Name.AsIdentifier(camelCase: true)}_{ludetype}");
+         GenerateComment($"{program.TypeShortName}_{program.id.Name.AsIdentifier(camelCase: true)}__{ludetype}");
          emitter.IndentLevel++;
       }
+
       void ICodeGenerator.GenerateProgramLude(RW ludeType, Program program, Module module)
-         => emitter.Emitnl($"{module.TypeShortName}_{module.id.Name.AsIdentifier(camelCase: true)}_{ludeType}");
+         => emitter.Emitnl($"{module.TypeShortName}_{module.id.Name.AsIdentifier(camelCase: true)}__{ludeType}");
       void ICodeGenerator.GenerateProgramLudeEnd(RW ludeType, Program program) {
          emitter.IndentLevel--;
       }
 
       void ICodeGenerator.GenerateModuleLudeStart(RW ludetype, Module module, bool wrapped) {
-         string moduleName = $"{module.TypeShortName}_{module.id.Name.AsIdentifier(camelCase: true)}_{ludetype}";
+         string moduleName = $"{module.TypeShortName}_{module.id.Name.AsIdentifier(camelCase: true)}__{ludetype}";
          if (wrapped) {
             emitter.Emitnl($"function {moduleName} {{");
          } else {
@@ -237,21 +246,10 @@ function Remove-Const([string[]]$names) {
                break;
          }
       }
-      void ICodeGenerator.GenerateAffixAndVariableInitializationStart(Algorithm alg) { }
-
-      void ICodeGenerator.GenerateAffixAndVariableInitializationEnd(Algorithm alg) { }
-      void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm, bool IsNeeded) {
-         if (IsNeeded && algorithm.CanFail) {
-            emitter.Emitnl("if ($__b) {");
-            emitter.IndentLevel++;
-         }
-      }
-      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm, bool IsNeeded) {
-         if (IsNeeded && algorithm.CanFail) {
-            emitter.IndentLevel--;
-            emitter.Emitnl("}");
-         }
-      }
+      void ICodeGenerator.GenerateAffixAndVariableInitializationStart(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("Initialization"); }
+      void ICodeGenerator.GenerateAffixAndVariableInitializationEnd(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("End Initialization"); }
+      void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("Finalization"); }
+      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("End Finalization"); }
 
       void ICodeGenerator.GenerateAffixAndVariableFinalizer(Algorithm alg, IFailureProtected var, bool isVar) {
          switch (var is Affix affix ? affix.affixDir : AD.transput) {
@@ -323,24 +321,31 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
          ifDepth.Pop();
-         if (proc.CanFail) emitter.Emitnl("return $false");
+         emitter.Emitnl(proc.CanFail ? "return $true" : "return");
          emitter.IndentLevel--;
          emitter.NlEmitnl("}");
       }
       void ICodeGenerator.GenerateProcedureBodyStart(Procedure proc,PBT bodyType) {
-         if (proc.repeatsProcedure) emitter.Emit(":",proc.id.InternalName," ");
-         //TODO: The needs finalization test for enclosing do { } while ($true) is likely wrong.
-         if (proc.NeedsFinalization || proc.HasRepeat) emitter.Emitnl("do {");
+         if (proc.NeedsWrapper) {
+            emitter.Emit(":", proc.id.InternalName, " do {");
+            emitter.IndentLevel++;
+         }
       }
+
+      private static bool NeedsWrapper(Procedure proc) => proc.repeatsProcedure || proc.NeedsFinalization || proc.HasRepeat;
+
       void ICodeGenerator.GenerateProcedureBodyEnd(Procedure proc,PBT bodyType) {
-         if (proc.NeedsFinalization) emitter.Emitnl("break");
-         if (proc.NeedsFinalization || proc.HasRepeat) emitter.Emitnl("} while ($true)");
+         if (proc.NeedsWrapper) {
+            emitter.Emitnl(proc.CanFail ? "return $false" : "return");
+            emitter.IndentLevel--;
+            emitter.Emitnl("} while ($true)");
+         }
       }
       #region Alternatives
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) {
          GenerateComment($"Alternative {i+1}");
       }
-      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc, Group group, int i, bool removed, bool singleCallInAlternative) {
+      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc, Group group, int i, bool terminated, bool removed, bool singleCallInAlternative) {
          //bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
          //bool lastAlternativeOfGroup = group.alternatives.Count == i + 1;
          //if (notLastAlternativeOfProc) {
@@ -388,13 +393,13 @@ function Remove-Const([string[]]$names) {
          //   emitter.Emitnl("return");
          //}
          //emitter.IndentLevel--;
-         if (group.alternatives[i].lastCall.type != LCT.Group && group.alternatives[i].lastCall.type != LCT.Repeat && !removed) 
-            emitter.Emitnl(proc.CanFail ? "return $true" : "return");
-         while (--ifDepth >= 0) {
+         if (group.alternatives[i].lastCall.type != LCT.Group && group.alternatives[i].lastCall.type != LCT.Repeat && !removed)
+         if (!terminated) emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.id.InternalName}" : "return $true") : "return");            
+         while (ifDepth > 0) {
             emitter.IndentLevel--;
+            ifDepth--;
             emitter.Emitnl("}");
          }
-         ifDepth.ResetTop();
          GenerateComment($"End Alternative {i+1}");
          //if (group.alternatives.Count == i + 1 && group.alternatives[i].CanFail) emitter.Emitnl("break");
       }
@@ -477,7 +482,7 @@ function Remove-Const([string[]]$names) {
          => emitter.Emitnl("continue",label != ID.AnonID? label.InternalName : "");
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (!proc.IsVerySimple) {
-            emitter.Emitnl(proc.CanFail ? "if ($__b) { return $false }" : "return");
+            emitter.Emitnl(proc.CanFail ? "return $false" : "return");
          }
       }
       void ICodeGenerator.GenerateSucceed(Procedure proc, Group group) {

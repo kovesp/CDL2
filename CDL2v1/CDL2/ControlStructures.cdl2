@@ -26,18 +26,31 @@ MODULE m.
          FUNCTION f7a = "".
          FUNCTION f8a = "". 
 
-         TEST conditional: +.
+         ACTION action = "".
 
-         TEST test:
-             t1,f1,f2,t2,f3,f4,t3,f5,f6;
+         FUNCTION make+x>+>y= "".
+
+         CONST one = 1.
+
+         VAR v.
+
+         TEST conditional: .
+
+         TEST test+x>:
+             t1,f1,f2,t2,f3,f4,t3,f5,f6,make+x+one;
              t4,f7,(
                 t1a,f1a,f2a,t2a,f3a,f4a,t3a,f5a,*;
                 t3a,f6a);
              conditional, f7a, f8a;
              t4, f8.
+         
+         PREDICATE testa+>x+>y> -l:
+            t1, action, make+v+y, make+y+x;
+            t2, action,?;
+            t3.
 
-         FUNCTION root:
-            test;
+         ACTION root:
+            test, testa;
             +.
 
       ENDSEC s.

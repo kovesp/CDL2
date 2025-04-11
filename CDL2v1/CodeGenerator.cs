@@ -248,13 +248,12 @@ namespace CDL2v1 {
       }
 
       private void FinalizeAffixesAndVariables(Algorithm algorithm,IEnumerable<Var> variables) {
-         bool needed = algorithm.NeedsFinalization;
-         cg.GenerateAffixAndVariableFinalizationStart(algorithm,needed);
-         if (needed) {
+         cg.GenerateAffixAndVariableFinalizationStart(algorithm);
+         if (algorithm.NeedsFinalization) {
             foreach (Affix affix in algorithm.affixes) cg.GenerateAffixAndVariableFinalizer(algorithm, affix);
             foreach (Var var in variables) cg.GenerateAffixAndVariableFinalizer(algorithm, var, isVar: true);
          }
-         cg.GenerateAffixAndVariableFinalizationEnd(algorithm,needed);
+         cg.GenerateAffixAndVariableFinalizationEnd(algorithm);
       }
 
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
@@ -270,7 +269,7 @@ namespace CDL2v1 {
          cg.GenerateAlgorithmHeaderEnd(alg);
 
          cg.GenerateAffixAndVariableInitializationStart(alg);
-         if (alg.CanFail) {
+         if (alg.NeedsFinalization) {
             foreach (Affix affix in alg.affixes) cg.GenerateAffixAndVariableInitializer(alg, affix);
             foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg, var, isVar: true);
          }
@@ -338,6 +337,7 @@ namespace CDL2v1 {
          cg.GenerateAlternativeStart(proc,group,i);
          List<Call> calls = group.alternatives[i].calls;
          bool removeAlternative = calls.Count > 0 && calls[0].IsConditionalCompilationOff;
+         bool terminated = false;
          if (removeAlternative) {
             cg.GenerateComment($"Alternative removed by conditional compilation set by {calls[0].Called}");
          } else {
@@ -350,17 +350,18 @@ namespace CDL2v1 {
                if (call.IsConditionalCompilationOff) {
                   // Skip the rest of the alternative.
                   if (proc.CanFail) cg.GenerateAlternativeFail();
-                  cg.GenerateAlternativeEnd(proc, group, i, removed: true);
+                  cg.GenerateAlternativeEnd(proc, group, i, false, removed: true);
                   return generateFollowingAlternatives;
                }
                GenerateCall(proc, call, canFail);
                canFail = canFail || call.CanFail;
             }
+            
             switch (group.alternatives[i].lastCall.type) {
                case LCT.Standard: GenerateCall(proc, group.alternatives[i].lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:group.alternatives.Count == i+1); break;
-               case LCT.Fail: cg.GenerateFail(proc, group); break;
+               case LCT.Fail: cg.GenerateFail(proc, group); terminated = true; break;
                case LCT.Succeed: cg.GenerateSucceed(proc, group); break;
-               case LCT.Abort: cg.GenerateAbort(proc, group); break;
+               case LCT.Abort: cg.GenerateAbort(proc, group); terminated = true; break;
                case LCT.Repeat: cg.GenerateRepeat(proc, group, group.alternatives[i].lastCall.label!,canFail); break;
                case LCT.Group: GenerateGroup(proc, group.alternatives[i].lastCall.group!); break;
                case LCT.None: break; // Used in the alternative generated for Section Ludes.
@@ -369,7 +370,7 @@ namespace CDL2v1 {
             }
          }
          // If conditional compilation removes later alternatives pretend that this was the last one.
-         cg.GenerateAlternativeEnd(proc, group, generateFollowingAlternatives ? i : group.alternatives.Count - 1, removed: removeAlternative, singleCallInAlternative: calls.Count == 0);
+         cg.GenerateAlternativeEnd(proc, group, generateFollowingAlternatives ? i : group.alternatives.Count - 1, terminated, removed: removeAlternative, singleCallInAlternative: calls.Count == 0);
          return generateFollowingAlternatives;
       }
 
