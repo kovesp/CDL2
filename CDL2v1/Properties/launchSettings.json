@@ -19,6 +19,11 @@
       "commandName": "Project",
       "commandLineArgs": "--sources Quicksort.cdl2 -v3 -d3",
       "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
+    },
+    "ControlStructures": {
+      "commandName": "Project",
+      "commandLineArgs": "--sources ControlStructures.cdl2 -v3 -d3 --allow-errors\r\n",
+      "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
     }
   }
 }

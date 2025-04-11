@@ -13,6 +13,7 @@ using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Controls;
 using System.Xml.Linq;
 
 namespace CDL2v1 {
@@ -316,9 +317,13 @@ function Remove-Const([string[]]$names) {
       #endregion Macros
 
       #region Procedures
-      void ICodeGenerator.GenerateProcedureStart(Procedure code) { }
+      private ModifiableStack ifDepth = [];
+      void ICodeGenerator.GenerateProcedureStart(Procedure code) {
+         ifDepth.Push(0);
+      }
       void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
-         if (proc.CanFail) emitter.Emitnl("return $__b");
+         ifDepth.Pop();
+         if (proc.CanFail) emitter.Emitnl("return $false");
          emitter.IndentLevel--;
          emitter.NlEmitnl("}");
       }
@@ -326,66 +331,72 @@ function Remove-Const([string[]]$names) {
          if (proc.repeatsProcedure) emitter.Emit(":",proc.id.InternalName," ");
          //TODO: The needs finalization test for enclosing do { } while ($true) is likely wrong.
          if (proc.NeedsFinalization || proc.HasRepeat) emitter.Emitnl("do {");
-         emitter.IndentLevel++;
       }
       void ICodeGenerator.GenerateProcedureBodyEnd(Procedure proc,PBT bodyType) {
          if (proc.NeedsFinalization) emitter.Emitnl("break");
-         emitter.IndentLevel--;
          if (proc.NeedsFinalization || proc.HasRepeat) emitter.Emitnl("} while ($true)");
       }
       #region Alternatives
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) {
          GenerateComment($"Alternative {i+1}");
-         emitter.IndentLevel++;
       }
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc, Group group, int i, bool removed, bool singleCallInAlternative) {
-         bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
-         bool lastAlternativeOfGroup = group.alternatives.Count == i + 1;
-         if (notLastAlternativeOfProc) {
-            if (removed) {
-               // Just fall through to the next alternative
-            } else if (proc.NeedsFinalization) {
-               Debug.Assert(proc.CanFail, $"{proc} needs finalization but cannot fail???");
-               emitter.Emitnl("if ($__b) { break }");
-            } else if (group.alternatives[i].lastCall.type == LCT.Repeat) {
-               // Just fall through: the repeat took the true branch
-            } else {
-               if (proc.CanFail) {
-                  if (lastAlternativeOfGroup) {
-                     emitter.Emitnl("return $true");
-                  } else if (singleCallInAlternative) {
-                     // fall trough to the next alternative
-                  } else {
-                     emitter.Emitnl("if ($__b) { return $true }");
-                  }
-               } else if (lastAlternativeOfGroup) {
-                  emitter.Emitnl("return");
-               } else { 
-                  emitter.Emitnl("if ($__b) { return }");
-               }
-            }
-         } else if (group.alternatives[i].CanFail) {
-            if (proc.NeedsFinalization) {
-               Debug.Assert(proc.CanFail, $"{proc} needs finalization but cannot fail???");
-               emitter.Emitnl("break");
-            } else if (proc.CanFail) {
-               if (singleCallInAlternative) {
+         //bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
+         //bool lastAlternativeOfGroup = group.alternatives.Count == i + 1;
+         //if (notLastAlternativeOfProc) {
+         //   if (removed) {
+         //      // Just fall through to the next alternative
+         //   } else if (proc.NeedsFinalization) {
+         //      Debug.Assert(proc.CanFail, $"{proc} needs finalization but cannot fail???");
+         //      emitter.Emitnl("if ($__b) { break }");
+         //   } else if (group.alternatives[i].lastCall.type == LCT.Repeat) {
+         //      // Just fall through: the repeat took the true branch
+         //   } else {
+         //      if (proc.CanFail) {
+         //         if (lastAlternativeOfGroup) {
+         //            emitter.Emitnl("return $true");
+         //         } else if (singleCallInAlternative) {
+         //            // fall trough to the next alternative
+         //         } else {
+         //            emitter.Emitnl("if ($__b) { return $true }");
+         //         }
+         //      } else if (lastAlternativeOfGroup) {
+         //         emitter.Emitnl("return");
+         //      } else { 
+         //         emitter.Emitnl("if ($__b) { return }");
+         //      }
+         //   }
+         //} else if (group.alternatives[i].CanFail) {
+         //   if (proc.NeedsFinalization) {
+         //      Debug.Assert(proc.CanFail, $"{proc} needs finalization but cannot fail???");
+         //      emitter.Emitnl("break");
+         //   } else if (proc.CanFail) {
+         //      if (singleCallInAlternative) {
 
-               } else {
-                  emitter.Emitnl("return $__b");
-               }
-            } else {
-               emitter.Emitnl("return");
-            }
-         } else if (proc.NeedsFinalization) {
-            Debug.Assert(proc.CanFail, $"{proc} needs finalization but cannot fail???");
-            emitter.Emitnl("$__b = $true; break");
-         } else if (proc.CanFail) {
-            emitter.Emitnl("return $true");
-         } else {
-            emitter.Emitnl("return");
+         //      } else {
+         //         emitter.Emitnl("return $__b");
+         //      }
+         //   } else {
+         //      emitter.Emitnl("return");
+         //   }
+         //} else if (proc.NeedsFinalization) {
+         //   Debug.Assert(proc.CanFail, $"{proc} needs finalization but cannot fail???");
+         //   emitter.Emitnl("$__b = $true; break");
+         //} else if (proc.CanFail) {
+         //   emitter.Emitnl("return $true");
+         //} else {
+         //   emitter.Emitnl("return");
+         //}
+         //emitter.IndentLevel--;
+         if (group.alternatives[i].lastCall.type != LCT.Group && group.alternatives[i].lastCall.type != LCT.Repeat && !removed) 
+            emitter.Emitnl(proc.CanFail ? "return $true" : "return");
+         while (--ifDepth >= 0) {
+            emitter.IndentLevel--;
+            emitter.Emitnl("}");
          }
-         emitter.IndentLevel--;
+         ifDepth.SetTop(0);
+         GenerateComment($"End Alternative {i+1}");
+         //if (group.alternatives.Count == i + 1 && group.alternatives[i].CanFail) emitter.Emitnl("break");
       }
       /// <summary>
       /// Generates the fail required when the rest of an alternative is discarded due to conditional compilation.
@@ -395,13 +406,19 @@ function Remove-Const([string[]]$names) {
 
       #region Groups
       void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
+         GenerateComment("Group");
          if (!group.IsSynthetic) emitter.Emit(":",group.id.InternalName," ");
-         if (group.HasRepeat || !group.IsSynthetic) emitter.Emitnl("do {");
+         if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("do {");
+         ifDepth.Push(0);
          emitter.IndentLevel++;
       }
       void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
+         bool hasDo = group.HasAnonymousRepeat || !group.IsSynthetic;
+         if (hasDo) emitter.Emitnl("break");
          emitter.IndentLevel--;
-         if (group.HasRepeat || !group.IsSynthetic) emitter.Emitnl("} while ($true)");
+         ifDepth.Pop();
+         if (hasDo) emitter.Emitnl("} while ($true)");
+         GenerateComment("End Group");
       }
       #endregion Groups
 
@@ -409,30 +426,39 @@ function Remove-Const([string[]]$names) {
       //void ICodeGenerator.GenerateCallEnd(Call call) => throw new NotImplementedException();
       //void ICodeGenerator.GenerateCallStart(Call call) => throw new NotImplementedException();
       void ICodeGenerator.GenerateActualArgSeparator() => emitter.Emit(" ");
+
       void ICodeGenerator.GenerateCallStart(Algorithm called,Procedure proc,bool canFail, bool onlyCallInAlternative,bool lastAlternative) {
-         if (onlyCallInAlternative && called.CanFail) {
-            if (lastAlternative) {
-               emitter.Emit("return ");
-            } else {
-               emitter.Emit("if (");
-            }           
-         } else if (!proc.IsVerySimple) {
-            if (canFail) emitter.Emit("if ($__b) { ");
-            if (called.CanFail) {
-               if (canFail) {
-                  emitter.Emit("$__b = ");
-               } else {
-                  emitter.Emit("[bool]$__b = ");
-               }
-            }
+         //if (onlyCallInAlternative && called.CanFail) {
+         //   if (lastAlternative) {
+         //      emitter.Emit("return ");
+         //   } else {
+         //      emitter.Emit("if (");
+         //   }           
+         //} else if (!proc.IsVerySimple) {
+         //   if (canFail) emitter.Emit("if ($__b) { ");
+         //   if (called.CanFail) {
+         //      if (canFail) {
+         //         emitter.Emit("$__b = ");
+         //      } else {
+         //         emitter.Emit("[bool]$__b = ");
+         //      }
+         //   }
+         //}
+         if (called.CanFail) {
+            emitter.Emit("if (");
+            ifDepth++;
+            emitter.IndentLevel++;
          }
          emitter.Emit(PSName(called)," ");
       }
       void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,bool canFail, bool onlyCallInAlternative,bool lastAlternative) {
-         if (onlyCallInAlternative && called.CanFail) {
-            if (!lastAlternative) emitter.Emitnl(") { return $true }");
-         } else if (canFail && !proc.IsVerySimple) {
-            emitter.Emit(" }");
+         //if (onlyCallInAlternative && called.CanFail) {
+         //   if (!lastAlternative) emitter.Emitnl(") { return $true }");
+         //} else if (canFail && !proc.IsVerySimple) {
+         //   emitter.Emit(" }");
+         //}
+         if (called.CanFail) {
+            emitter.Emit(") {");
          }
          Newline();
       }
@@ -447,18 +473,19 @@ function Remove-Const([string[]]$names) {
 
       void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label, bool canFail)
          // TODO: Needs more work to ensure labels are unique within arg proc
-         => emitter.Emitnl(canFail ? "if ($__b) { continue " : "continue",label != ID.AnonID ? label.InternalName : "",canFail ? " }" : "");
+         //=> emitter.Emitnl(canFail ? "if ($__b) { continue " : "continue",label != ID.AnonID ? label.InternalName : "",canFail ? " }" : "");
+         => emitter.Emitnl("continue",label != ID.AnonID? label.InternalName : "");
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (!proc.IsVerySimple) {
             emitter.Emitnl(proc.CanFail ? "if ($__b) { return $false }" : "return");
          }
       }
       void ICodeGenerator.GenerateSucceed(Procedure proc, Group group) {
-         if (proc.CanFail) {
-            emitter.Emitnl("return $true");
-         } else {
-            emitter.Emitnl("return");
-         }
+         //if (proc.CanFail) {
+         //   emitter.Emitnl("return $true");
+         //} else {
+         //   emitter.Emitnl("return");
+         //}
       }
       void ICodeGenerator.GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit 1");
       #endregion Calls

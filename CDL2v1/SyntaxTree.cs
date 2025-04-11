@@ -23,16 +23,6 @@ using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CDL2v1 {
-   [Serializable]
-   public class Set<T> : HashSet<T> {
-      public Set() { }
-      public Set(ICollection<T> collection) : base(collection) { }
-
-      public Set(IEnumerable<T> enumerable) {
-         foreach (T item in enumerable) Add(item);
-      }
-   }
-
    // Marker interfaces to allow lists to be composed of permissible elements.
    public interface IMacroElement { }
    public interface IConstElement { }
@@ -623,7 +613,7 @@ namespace CDL2v1 {
       /// <summary>
       /// The procedure ha no repeats.
       /// </summary>
-      public bool HasRepeat => group.HasRepeats();
+      public bool HasRepeat => group.HasAnAnonymousRepeat();
       public bool HasNoRepeat => ! HasRepeat;
 
       /// <summary>
@@ -759,15 +749,16 @@ namespace CDL2v1 {
       public List<Alternative> alternatives = alternatives;
       public new readonly Group? Parent = parent;
 
+      public bool HasAnonymousRepeat => HasAnAnonymousRepeat();
+      public bool HasNoAnonymousRepeat => ! HasAnonymousRepeat;
       /// <summary>
-      /// The group has no repeats.
+      /// The group has an alternative which has at least one anonymous repeat operator.
+      /// Required for target languages (e.g., PowerShell) that have to use a loop to simulate goto-s.
+      /// Only anonymous repeat operators are considered because labeled repeats are handle when the label is placed.
       /// </summary>
-      public bool HasRepeat => HasRepeats();
-      public bool HasNoRepeat => ! HasRepeat;
-      public bool HasRepeats() {
+      public bool HasAnAnonymousRepeat() {
          foreach (Alternative alternative in alternatives) {
-            if (alternative.lastCall.type == LCT.Repeat) return true;
-            //if (alternative.lastCall.type == LCT.Group && alternative.lastCall.group!.HasRepeats()) return true;
+            if (alternative.lastCall.type == LCT.Repeat && alternative.lastCall.label! == ID.AnonID) return true;
          }
          return false;
       }

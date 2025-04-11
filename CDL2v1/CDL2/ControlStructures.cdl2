@@ -1,0 +1,51 @@
+MODULE m.
+   LAYER l.
+      SECTION s.
+         TEST t1 = "".
+         TEST t2 = "".
+         TEST t3 = "".
+         TEST t4 = "".
+         FUNCTION f1 = "".
+         FUNCTION f2 = "".
+         FUNCTION f3 = "".
+         FUNCTION f4 = "".
+         FUNCTION f5 = "".
+         FUNCTION f6 = "".
+         FUNCTION f7 = "".
+         FUNCTION f8 = "".
+         TEST t1a = "".
+         TEST t2a = "".
+         TEST t3a = "".
+         TEST t4a = "".
+         FUNCTION f1a = "".
+         FUNCTION f2a = "".
+         FUNCTION f3a = "".
+         FUNCTION f4a = "".
+         FUNCTION f5a = "".
+         FUNCTION f6a = "".
+         FUNCTION f7a = "".
+         FUNCTION f8a = "". 
+
+         TEST conditional: +.
+
+         TEST test:
+             t1,f1,f2,t2,f3,f4,t3,f5,f6;
+             t4,f7,(
+                t1a,f1a,f2a,t2a,f3a,f4a,t3a,f5a,*;
+                t3a,f6a);
+             conditional, f7a, f8a;
+             t4, f8.
+
+         FUNCTION root:
+            test;
+            +.
+
+      ENDSEC s.
+      ROOT root.
+   ENDLAY l.
+ENDMOD m.
+ROOT s.
+PROGRAM p.
+   PART m.
+   ROOT m.
+ENDPROG p.

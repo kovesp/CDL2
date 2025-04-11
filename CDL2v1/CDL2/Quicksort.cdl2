@@ -73,7 +73,7 @@ MODULE quicksort.
          INV make, less or equal, random, incr, subtract, show msg, show msg no newline.
 
          # The lower and upper bounds of the array. #
-         CONST lwb=1, upb=1_000.
+         CONST lwb=1, upb=10.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
@@ -98,7 +98,8 @@ MODULE quicksort.
          ACTION dump list = 
             "Write-Host " data ".Array".
 
-         CONST max size of list to show=50.
+         CONST max size of list to show=100.
+
          ACTION dump data*msg:
             show msg no newline+msg,
                (less or equal+data size+max size of list to show, dump list;

@@ -11,8 +11,54 @@ using System.IO;
 using System.Diagnostics;
 using System.Windows.Media;
 using System.Reflection.Emit;
+using System.Diagnostics.Metrics;
+using System.Xml.Serialization;
+using System.Windows;
 
 namespace CDL2v1 {
+   
+   [Serializable]
+   public class Set<T> : HashSet<T> {
+      public Set() { }
+      public Set(ICollection<T> collection) : base(collection) { }
+
+      public Set(IEnumerable<T> enumerable) {
+         foreach (T item in enumerable) Add(item);
+      }
+   }
+
+   public class ModifiableStack : Stack<int> {
+      public ModifiableStack() : base() { }
+      public ModifiableStack(int capacity) : base(capacity) { }
+      public ModifiableStack(IEnumerable<int> collection) : base(collection) { }
+
+      public static ModifiableStack operator ++(ModifiableStack stack) {
+         stack.Push(stack.Pop() + 1);
+         return stack;
+      }
+      public static ModifiableStack operator --(ModifiableStack stack) {
+         stack.Push(stack.Pop() - 1);
+         return stack;
+      }
+      public static bool operator >=(ModifiableStack stack, int value) {
+         if (stack.Count == 0) {
+            throw new InvalidOperationException("Cannot compare an empty stack.");
+         }
+         return stack.Peek() >= value;
+      }
+      public static bool operator <=(ModifiableStack stack, int value) {
+         if (stack.Count == 0) {
+            throw new InvalidOperationException("Cannot compare an empty stack.");
+         }
+         return stack.Peek() <= value;
+
+      }
+      internal void SetTop(int v) {
+         if (Count > 0) Pop();
+         Push(v);
+      }
+   }
+
    public static class Extensions {
       public static bool IsValidFileName(this string? fileName) {
          if (string.IsNullOrWhiteSpace(fileName)) {
@@ -98,6 +144,7 @@ namespace CDL2v1 {
          return (Color)ColorConverter.ConvertFromString(hex);
       }
       public static string ToHex(this Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+
 
       public static Set<T> ToSet<T>(this IEnumerable<T> enumerable) => [.. enumerable];
 

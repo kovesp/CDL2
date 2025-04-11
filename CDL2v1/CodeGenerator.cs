@@ -501,31 +501,32 @@ namespace CDL2v1 {
             if (called.IsConditionalCompilationOn) return true;   // Ignore
             if (called.IsConditionalCompilationOff) return false; // Skip the rest of the alternative.
 
-            if (ReachableObjects.Add(called)) {
-               for (int i = 0; i<call.args.Count; i++) {
-                  IActualArg arg = call.args[i];
-                  Affix affix = called.affixes[i];
-                  switch (arg) {
-                     case Const c:
-                        CollectReachableObjects(c);
-                        break;
-                     case Var v:
-                        ReachableObjects.Add(v);
-                        if (affix.IsInput) ReadVars.Add(v);
-                        break;
-                     case ID id:
-                        if (call.Called.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
-                           if (obj is Const c) {
-                              CollectReachableObjects(c);
-                           } else if (obj is Var v) {
-                              ReachableObjects.Add(v);
-                           }
-                        } else {
-                           throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
+            // Collect objects referrenced in actual args
+            for (int i = 0; i<call.args.Count; i++) {
+               IActualArg arg = call.args[i];
+               Affix affix = called.affixes[i];
+               switch (arg) {
+                  case Const c:
+                     CollectReachableObjects(c);
+                     break;
+                  case Var v:
+                     ReachableObjects.Add(v);
+                     if (affix.IsInput) ReadVars.Add(v);
+                     break;
+                  case ID id:
+                     if (call.Called.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
+                        if (obj is Const c) {
+                           CollectReachableObjects(c);
+                        } else if (obj is Var v) {
+                           ReachableObjects.Add(v);
                         }
-                        break;
-                  }
+                     } else {
+                        throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
+                     }
+                     break;
                }
+            }
+            if (ReachableObjects.Add(called)) {
                if (called is Macro macro) {
                   CollectReachableObjects(macro);
                } else {
