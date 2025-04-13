@@ -19,10 +19,8 @@ namespace CDL2v1 {
    ///   
    /// Tokens must be constructed using <see cref="TryCreateToken(ref string, out Token)"/>.
    /// </summary>
-   public class Token {
-      // The aliases are meant to be used in the parser to make the code more readable.
-
-      
+   public partial class Token {
+      // The aliases are meant to be used in the parser to make the code more readable.      
       public static readonly ReservedWord[] UnitStarters = [ReservedWord.MODULE,ReservedWord.LAYER,ReservedWord.SECTION,ReservedWord.PROGRAM];
       public static readonly ReservedWord[] UnitEnders = [ReservedWord.ENDMOD,ReservedWord.ENDLAY,ReservedWord.ENDSEC,ReservedWord.ENDPROG];
 
@@ -36,17 +34,24 @@ namespace CDL2v1 {
       // Reserved words that can have comments attached.
       private static readonly Set<RW> CommentableReservedWords = [];
 
-      private static readonly Regex GlyphRE;
-      private static readonly Regex ReservedWordRE;
-      private static readonly Regex StringEscapeRE;
-      private static readonly Regex IdRE;
-      private static readonly Regex StringRE;
-      private static readonly Regex CommentRE;
-      private static readonly Regex IntRE;
-      private static readonly Regex FloatRE;
-
       public static readonly Token ErrorToken;
       public static readonly Token ACTIONToken;
+
+      // RE-s that have to be initialized in the static constructor becasue they make use of dynamic data
+      private static readonly Regex GlyphRE_;
+      private static readonly Regex ReservedWordRE_;
+      private static readonly Regex IdRE_;
+      private static readonly Regex StringEscapeRE_;
+
+      [GeneratedRegex(@"^"".*?(?:$"".*?)*""",                  RegexOptions.Compiled)]private static partial Regex StringRE();
+      [GeneratedRegex(@"^(?m:#((?:##)?.*?)?(?:#|$))",          RegexOptions.Compiled)]private static partial Regex CommentRE();
+      [GeneratedRegex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",       RegexOptions.Compiled)]private static partial Regex IntRE();
+      [GeneratedRegex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?", RegexOptions.Compiled)]private static partial Regex FloatRE();
+      [GeneratedRegex(@"\s+",                                  RegexOptions.Compiled)]private static partial Regex ReduceWhitespaceRE();
+      private static Regex GlyphRE() => GlyphRE_; // Lazy initialization of the regex to avoid static constructor issues.
+      private static Regex ReservedWordRE() => ReservedWordRE_; // Lazy initialization of the regex to avoid static constructor issues.
+      private static Regex IdRE() => IdRE_; // Lazy initialization of the regex to avoid static constructor issues.
+      private static Regex StringEscapeRE() => StringEscapeRE_; // Lazy initialization of the regex to avoid static constructor issues.
 
       static Token() {
          // Place multi-character glyphs first to ensure they match before any single character contained in them.
@@ -79,18 +84,12 @@ namespace CDL2v1 {
          };
          Escape2Char.Values.Distinct().ToList().ForEach(v => Char2Escape[v] = Escape2Char.First(kvp => kvp.Value == v).Key.ToUpper());
 
-
-         // Must match at the beginning of the input
-         GlyphRE = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})",RegexOptions.Compiled);
-         ReservedWordRE = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})",RegexOptions.Compiled);
+         GlyphRE_        = new Regex(@$"^({string.Join("|", Glyph2TokenType.Keys.Select(Regex.Escape))})", RegexOptions.Compiled);
+         ReservedWordRE_ = new Regex(@$"^(?:{string.Join("|", Enum.GetNames(typeof(ReservedWord)))})", RegexOptions.Compiled);
          // Allows annotation symbols to precede and follow the ID; these are removed.
-         IdRE = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*",RegexOptions.Compiled);
-         StringRE = new Regex(@"^"".*?(?:$"".*?)*""",RegexOptions.Compiled);
-         CommentRE = new Regex(@"^(?m:#((?:##)?.*?)?(?:#|$))",RegexOptions.Compiled);
-         IntRE = new Regex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",RegexOptions.Compiled);
-         FloatRE = new Regex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled);
+         IdRE_           = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*", RegexOptions.Compiled);
          // Must match all occurrences anywhere in a string
-         StringEscapeRE = new Regex(@$"\$([{string.Join("",Escape2Char.Keys)}])",RegexOptions.Compiled);
+         StringEscapeRE_ = new Regex(@$"\$([{string.Join("", Escape2Char.Keys)}])", RegexOptions.Compiled);
 
          ErrorToken = new Token();
          ACTIONToken = new Token(TokenClass.ResWord,"ACTION");
@@ -147,12 +146,12 @@ namespace CDL2v1 {
                break;
             case TokenClass.String:
                type = TokenType.STRING;
-               StringValue = StringEscapeRE.Replace(text.Trim('"'),match => Escape2Char[match.Groups[1].Value]);
+               StringValue = StringEscapeRE().Replace(text.Trim('"'),match => Escape2Char[match.Groups[1].Value]);
                break;
             case TokenClass.ID:
                type = TokenType.ID;
-               TokenString = Regex.Replace(text,@"\s+"," ").Trim();  // Reduce all white space to a single space
-               StringValue = Regex.Replace(text,@"\s+","");
+               TokenString = ReduceWhitespaceRE().Replace(text, " ").Trim();  // Reduce all white space to a single space
+               StringValue = ReduceWhitespaceRE().Replace(text,"");
                break;
             case TokenClass.ResWord:
                type = TokenType.RESWORD;
@@ -233,16 +232,16 @@ namespace CDL2v1 {
             if (string.IsNullOrEmpty(input)) return false;
 
             // Collect comments into a list
-            Match match = CommentRE.Match(input);
+            Match match = CommentRE().Match(input);
             if (match.Success) {
                input = input[match.Length..].TrimStart();
                if (! match.Groups[^1].Value.StartsWith(Note.Marker)) collectedComments.Add(match.Groups[^1].Value);
                continue;
             }
 
-            if (HandleMatch(StringRE,TokenClass.String,ref input,out token)) return true;
-            if (HandleMatch(ReservedWordRE,TokenClass.ResWord,ref input,out token)) return true;
-            if (HandleMatch(IdRE,TokenClass.ID,ref input,out token)) {
+            if (HandleMatch(StringRE(),TokenClass.String,ref input,out token)) return true;
+            if (HandleMatch(ReservedWordRE(),TokenClass.ResWord,ref input,out token)) return true;
+            if (HandleMatch(IdRE(),TokenClass.ID,ref input,out token)) {
                Debug.Assert(token.StringValue != null,"ID token has no string value");
                // Guarantee that all IDs with the same string value (i.e., ignoring spaces) are the same.
                if (IDTokens.TryGetValue(token.StringValue,out Token? idToken)) {
@@ -252,9 +251,9 @@ namespace CDL2v1 {
                }
                return true;
             }
-            if (HandleMatch(IntRE,TokenClass.Int,ref input,out token)) return true;
-            if (HandleMatch(FloatRE,TokenClass.Float,ref input,out token)) return true;
-            if (HandleMatch(GlyphRE,TokenClass.Glyph,ref input,out token)) return true; // Must be placed after Int & Float as they may start with + or -
+            if (HandleMatch(IntRE(),TokenClass.Int,ref input,out token)) return true;
+            if (HandleMatch(FloatRE(),TokenClass.Float,ref input,out token)) return true;
+            if (HandleMatch(GlyphRE(),TokenClass.Glyph,ref input,out token)) return true; // Must be placed after Int & Float as they may start with + or -
             return false;
          }
       }
@@ -300,5 +299,7 @@ namespace CDL2v1 {
       internal static Token From(RW rw) => new(TokenClass.ID,rw.ToString());
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);
+
+      
    }
 }

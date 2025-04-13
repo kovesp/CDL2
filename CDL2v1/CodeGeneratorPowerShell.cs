@@ -18,7 +18,7 @@ using System.Xml.Linq;
 
 namespace CDL2v1 {
    [Serializable]
-   internal class CodeGeneratorPowerShell : ICodeGenerator {
+   internal partial class CodeGeneratorPowerShell : ICodeGenerator {
       #region Instance and Static Varibles, Constructors
       EmitterBase emitter = new EmitterSink();
       private readonly string DataType;
@@ -324,7 +324,7 @@ function Remove-Const([string[]]$names) {
          }
          if (macro.NeedsFinalization) emitter.IndentLevel--;
       }
-      private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => Regex.IsMatch(str.value, @"(?<!['""])(?:\n|;)(?![^'""]*['""])",RegexOptions.Compiled));
+      private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => MultipleStatementRegex().IsMatch(str.value));
 
       #endregion Macros
 
@@ -557,6 +557,8 @@ function Remove-Const([string[]]$names) {
 
       private static readonly Random Random = new();
       private static string RandomInitialValue => Random.Next(0, int.MaxValue).ToString()+"  <# Random value to catch uninitialized VARs, LOCALs, and output AFFIXes #>";
+
+      [GeneratedRegex(@"(?<!['""])(?:\n|;)(?![^'""]*['""])", RegexOptions.Compiled)]private static partial Regex MultipleStatementRegex();
       #endregion Helpers
    }
 }
