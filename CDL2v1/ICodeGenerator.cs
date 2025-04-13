@@ -447,10 +447,10 @@ namespace CDL2v1 {
       /// <param name="proc"></param>
       /// <param name="group"></param>
       /// <param name="i"></param>
-      /// <param name="terminated"></param>
+      /// <param name="alternative"></param>
       /// <param name="removed">Set if the alternative tail was skipped due to conditional compilation.</param>
-      /// <param name="singleCallInAlternative"></param>
-      void GenerateAlternativeEnd(Procedure proc, Group group, int i, bool terminated, bool removed = false, bool singleCallInAlternative = false);
+      /// 
+      void GenerateAlternativeEnd(Procedure proc, Group group, int i, Alternative alternative, bool removed = false);
       /// <summary>
       /// Generates the fail required when the rest of an alternative is discarded due to conditional compilation.
       /// </summary>

@@ -34,7 +34,7 @@ MODULE m.
 
          VAR v.
 
-         TEST conditional: .
+         TEST conditional: -.
 
          TEST test+x>:
              t1,f1,f2,t2,f3,f4,t3,f5,f6,make+x+one;

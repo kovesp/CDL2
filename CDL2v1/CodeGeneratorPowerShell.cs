@@ -88,12 +88,26 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateProgramStart(Program program,EmitterBase emitter,bool isSeparate) {
          this.emitter = emitter;
          emitter.Emitnl(string.Format(ProgramHeader,CDL2.Version,program.id.Name,DateTime.Now,DataType));
-         if (program != null) EmitUnitStartComment(program);
+         if (program != null) {
+            EmitUnitStartComment(program);
+            emitter.Emitnl("try {");
+            emitter.IndentLevel++;
+         }
       }
       void ICodeGenerator.GenerateProgramPart(Program program,ID mod,bool isSeparate) { }
 
       void ICodeGenerator.GenerateProgramEnd(Program program,bool isSeparate) {
-         if (program != null) EmitUnitEndComment(program);
+         if (program != null) {
+            emitter.IndentLevel--;
+            emitter.Emitnl("} catch {");
+            emitter.IndentLevel++;
+            emitter.Emitnl("Write-Host \"Error Message: $($_.Exception.Message)\" -ForegroundColor Red");
+            emitter.Emitnl("Write-Host \"Stack Trace:\" -ForegroundColor Yellow");
+            emitter.Emitnl("Write-Host $_.ScriptStackTrace -ForegroundColor Yellow");
+            emitter.IndentLevel--;
+            emitter.Emitnl("}");
+            EmitUnitEndComment(program);
+         }
       }
       void ICodeGenerator.GenerateModuleStart(Module module,bool isSeparate,string? target) {
          if (isSeparate) {
@@ -321,13 +335,13 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
          ifDepth.Pop();
-         emitter.Emitnl(proc.CanFail ? "return $true" : "return");
+         emitter.Emitnl(proc.CanFail ? "return $false" : "return");
          emitter.IndentLevel--;
          emitter.NlEmitnl("}");
       }
       void ICodeGenerator.GenerateProcedureBodyStart(Procedure proc,PBT bodyType) {
          if (proc.NeedsWrapper) {
-            emitter.Emit(":", proc.id.InternalName, " do {");
+            emitter.Emitnl(":", proc.id.InternalName, " do {");
             emitter.IndentLevel++;
          }
       }
@@ -342,10 +356,8 @@ function Remove-Const([string[]]$names) {
          }
       }
       #region Alternatives
-      void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) {
-         GenerateComment($"Alternative {i+1}");
-      }
-      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc, Group group, int i, bool terminated, bool removed, bool singleCallInAlternative) {
+      void ICodeGenerator.GenerateAlternativeStart(Procedure proc, Group group, int i) => GenerateComment($"Alternative {i}");
+      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc, Group group, int i, Alternative alternative, bool removed) {
          //bool notLastAlternativeOfProc = group != proc.group || group.alternatives.Count != i + 1;
          //bool lastAlternativeOfGroup = group.alternatives.Count == i + 1;
          //if (notLastAlternativeOfProc) {
@@ -393,14 +405,14 @@ function Remove-Const([string[]]$names) {
          //   emitter.Emitnl("return");
          //}
          //emitter.IndentLevel--;
-         if (group.alternatives[i].lastCall.type != LCT.Group && group.alternatives[i].lastCall.type != LCT.Repeat && !removed)
-         if (!terminated) emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.id.InternalName}" : "return $true") : "return");            
+         if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
+            emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.id.InternalName}" : "return $true") : "return");            
          while (ifDepth > 0) {
             emitter.IndentLevel--;
             ifDepth--;
             emitter.Emitnl("}");
          }
-         GenerateComment($"End Alternative {i+1}");
+         GenerateComment($"End Alternative {i}");
          //if (group.alternatives.Count == i + 1 && group.alternatives[i].CanFail) emitter.Emitnl("break");
       }
       /// <summary>
@@ -479,7 +491,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label, bool canFail)
          // TODO: Needs more work to ensure labels are unique within arg proc
          //=> emitter.Emitnl(canFail ? "if ($__b) { continue " : "continue",label != ID.AnonID ? label.InternalName : "",canFail ? " }" : "");
-         => emitter.Emitnl("continue",label != ID.AnonID? label.InternalName : "");
+         => emitter.Emitnl("continue ",label != ID.AnonID? label.InternalName : "");
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (!proc.IsVerySimple) {
             emitter.Emitnl(proc.CanFail ? "return $false" : "return");

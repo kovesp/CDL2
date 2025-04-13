@@ -73,7 +73,7 @@ MODULE quicksort.
          INV make, less or equal, random, incr, subtract, show msg, show msg no newline.
 
          # The lower and upper bounds of the array. #
-         CONST lwb=1, upb=10.
+         CONST lwb=1, upb=1_000.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
@@ -181,18 +181,20 @@ MODULE quicksort.
             smaller element+q+m;
             decr+q, *.
 
-         TEST is data sorted procedure -i -j -ei -ej:
+         TEST is data unsorted procedure +unsorted at>  -i -j -ei -ej:
             make+i+lwb, make+j+i, incr+j,
                (next: less+i+upb, get element+i+ei, get element+j+ej,
-                 (less or equal+ei+ej, incr+i, incr+j, *next;
-                  -);
-                +).  
+                  (less or equal+ei+ej, incr+i, incr+j, *next;
+                   make+unsorted at+i
+                  )
+               ).  
                 
-         TEST use macro for sortedness test: +.
+         TEST use macro for sortedness test: -.
 
          TEST is data sorted:
             use macro for sortedness test, is data sorted macro;
-            is data sorted procedure.
+            is data unsorted procedure , -;
+            +.
 
          ACTION verify data sorted * which:
             is data sorted, show msg no newline+which, show msg+" data is sorted.";

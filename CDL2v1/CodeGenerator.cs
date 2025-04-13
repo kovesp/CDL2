@@ -71,13 +71,11 @@ namespace CDL2v1 {
             GenerateObjects<Procedure>(ReachableObjects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic), GenerateProcedure);
             GenerateObjects<Procedure>(ReachableObjects.OfType<Procedure>().Where(proc=> proc.IsSynthetic), GenerateProcedure, "Synthetic Procedure");
 
-            cg.GenerateProgramEnd(program);
-
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
-            // Place the program's ludes first, so that they are at the top of the generated code.
             cg.GenerateComment("Program Ludes");
             foreach (RW ludeType in ludeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
+            cg.GenerateProgramEnd(program);
          } else {
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
             sourceCommentPrinter.Print(program);
@@ -294,7 +292,7 @@ namespace CDL2v1 {
             cg.GenerateProcedureStart(proc);
             GenerateAlgorithmHeader(proc, variables);
             cg.GenerateProcedureBodyStart(proc, proc.ProcedureBodyType);
-            GenerateProcedureBody(proc);
+            GenerateAlternatives(proc, proc.group);
             cg.GenerateProcedureBodyEnd(proc, proc.ProcedureBodyType);
             FinalizeAffixesAndVariables(proc, variables);
             cg.GenerateProcedureEnd(proc);
@@ -302,76 +300,80 @@ namespace CDL2v1 {
       }
 
       private void GenerateProcedureBody(Procedure proc) {
-         if (proc.IsVerySimple) {
-            // Just a sequence of calls none of which can fail.
-            cg.GenerateComment("Very simple body");
-            Debug.Assert(proc.group.alternatives.Count == 1,$"GenerateProcedureBody: Expected single alternative, found {proc.group.alternatives.Count}");
-            foreach (Call call in proc.group.alternatives[0].calls) {
-               if (call.Called!.IsConditionalCompilationOn) continue;   // No need to generate code for this call;
-               if (call.IsConditionalCompilationOff) {
-                  if (proc.CanFail) cg.GenerateAlternativeFail();
-                  return;    // No need to generate code for the rest of the proc's single alternative.
-               }
-               GenerateCall(proc, call);
-            }
-            if (proc.group.alternatives[0].lastCall.type == LCT.Standard) GenerateCall(proc,proc.group.alternatives[0].lastCall.call!);
-         } else if (proc.IsSimple) {
-            // A sequence of alternatives, no groups or repeats.
-            cg.GenerateComment("Simple body");
-            GenerateAlternatives(proc, proc.group);
-         } else {
-            cg.GenerateComment("General body");
-            GenerateAlternatives(proc, proc.group);
-         }
+         //if (proc.IsVerySimple) {
+         //   // Just a sequence of calls none of which can fail.
+         //   cg.GenerateComment("Very simple body");
+         //   Debug.Assert(proc.group.alternatives.Count == 1,$"GenerateProcedureBody: Expected single alternative, found {proc.group.alternatives.Count}");
+         //   GenerateAlternatives(proc, proc.group);
+         //   //foreach (Call call in proc.group.alternatives[0].calls) {
+         //   //   if (call.Called!.IsConditionalCompilationOn) continue;   // No need to generate code for this call;
+         //   //   if (call.IsConditionalCompilationOff) {
+         //   //      if (proc.CanFail) cg.GenerateAlternativeFail();
+         //   //      return;    // No need to generate code for the rest of the proc's single alternative.
+         //   //   }
+         //   //   GenerateCall(proc, call);
+         //   //}
+         //   //if (proc.group.alternatives[0].lastCall.type == LCT.Standard) GenerateCall(proc,proc.group.alternatives[0].lastCall.call!);
+         //} else if (proc.IsSimple) {
+         //   // A sequence of alternatives, no groups or repeats.
+         //   cg.GenerateComment("Simple body");
+         //   GenerateAlternatives(proc, proc.group);
+         //} else {
+         //   cg.GenerateComment("General body");
+         //   GenerateAlternatives(proc, proc.group);
+         //}
+         GenerateAlternatives(proc, proc.group);
       }
-
+      /// <summary>
+      /// Generate the alternatives for a procedure.
+      /// This method manages the conditional compilation of the alternatives based on whether the first call in the altarnative is conditional compilation on or off.
+      /// If it is off, then no code is generated for that alternative.
+      /// If it is on, then that alternative is generated, but all later alternatives are skipped.
+      /// </summary>
+      /// <param name="proc"></param>
+      /// <param name="group"></param>
       private void GenerateAlternatives(Procedure proc, Group group) {
-         bool generateFollowingAlternatives = true;
-         for (int i = 0 ; i < group.alternatives.Count && generateFollowingAlternatives ; i++) {
-            generateFollowingAlternatives = GenerateAlternative(proc, group, i);
+         bool supressRest = false;
+         bool removed;
+         
+         int i = 1;
+         foreach (Alternative alternative in group.alternatives) {   
+            cg.GenerateAlternativeStart(proc, group, i);
+            removed = false;
+            if (supressRest) {
+               cg.GenerateComment($"Alternative supressed by previous conditional compilation ON");
+               removed = true;
+            } else if (alternative.IsConditionalCompilationOff) {           // Ignore this alternative
+               cg.GenerateComment($"Alternative removed by conditional compilation OFF");
+               removed = true;
+            } else {          
+               supressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
+               GenerateAlternative(proc, group, alternative, supressRest || group.alternatives.Count == i);
+            }
+            cg.GenerateAlternativeEnd(proc, group, i, alternative, removed);
+
+            i++;
          }
       }
 
-      private bool GenerateAlternative(Procedure proc,Group group,int i) {
-         bool generateFollowingAlternatives = true;
-         cg.GenerateAlternativeStart(proc,group,i);
-         List<Call> calls = group.alternatives[i].calls;
-         bool removeAlternative = calls.Count > 0 && calls[0].IsConditionalCompilationOff;
-         bool terminated = false;
-         if (removeAlternative) {
-            cg.GenerateComment($"Alternative removed by conditional compilation set by {calls[0].Called}");
-         } else {
-            bool canFail = false;
-            foreach (Call call in group.alternatives[i].calls) {
-               if (call.IsConditionalCompilationOn) {
-                  generateFollowingAlternatives = false; // Supress all later alternatives (in the current group).
-                  continue;   // No need to generate code for this call;
-               }
-               if (call.IsConditionalCompilationOff) {
-                  // Skip the rest of the alternative.
-                  if (proc.CanFail) cg.GenerateAlternativeFail();
-                  cg.GenerateAlternativeEnd(proc, group, i, false, removed: true);
-                  return generateFollowingAlternatives;
-               }
-               GenerateCall(proc, call, canFail);
-               canFail = canFail || call.CanFail;
-            }
-            
-            switch (group.alternatives[i].lastCall.type) {
-               case LCT.Standard: GenerateCall(proc, group.alternatives[i].lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:group.alternatives.Count == i+1); break;
-               case LCT.Fail: cg.GenerateFail(proc, group); terminated = true; break;
-               case LCT.Succeed: cg.GenerateSucceed(proc, group); break;
-               case LCT.Abort: cg.GenerateAbort(proc, group); terminated = true; break;
-               case LCT.Repeat: cg.GenerateRepeat(proc, group, group.alternatives[i].lastCall.label!,canFail); break;
-               case LCT.Group: GenerateGroup(proc, group.alternatives[i].lastCall.group!); break;
-               case LCT.None: break; // Used in the alternative generated for Section Ludes.
-               default:
-                  throw new NotImplementedException($"GenerateAlternative: Unknown last call type {group.alternatives[i].lastCall.type}");
-            }
+      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast) {
+         List<Call> calls = alternative.calls;
+         bool canFail = false;
+         foreach (Call call in calls) {
+            GenerateCall(proc, call, canFail);
+            canFail = canFail || call.CanFail;
+         }            
+         switch (alternative.lastCall.type) {
+            case LCT.Standard: GenerateCall(proc, alternative.lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:isLast); break;
+            case LCT.Fail: cg.GenerateFail(proc, group); break;
+            case LCT.Succeed: cg.GenerateSucceed(proc, group); break;
+            case LCT.Abort: cg.GenerateAbort(proc, group); break;
+            case LCT.Repeat: cg.GenerateRepeat(proc, group, alternative.lastCall.label!,canFail); break;
+            case LCT.Group: GenerateGroup(proc, alternative.lastCall.group!); break;
+            case LCT.None: break; // Used in the alternative generated for Section Ludes.
+            default:
+               throw new NotImplementedException($"GenerateAlternative: Unknown last call type {alternative.lastCall.type}");
          }
-         // If conditional compilation removes later alternatives pretend that this was the last one.
-         cg.GenerateAlternativeEnd(proc, group, generateFollowingAlternatives ? i : group.alternatives.Count - 1, terminated, removed: removeAlternative, singleCallInAlternative: calls.Count == 0);
-         return generateFollowingAlternatives;
       }
 
       private void GenerateGroup(Procedure proc,Group group) {
@@ -381,6 +383,7 @@ namespace CDL2v1 {
       }
 
       private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false) {
+         if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          if (call.Called is not null) {
             cg.GenerateCallStart(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);
             if (call.args.Count > 0) {

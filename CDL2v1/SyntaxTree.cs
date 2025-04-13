@@ -743,6 +743,18 @@ namespace CDL2v1 {
       public bool IsConditionalOff = false;
 
       public bool CanFail => calls.Any(call => call.CanFail) || (lastCall.type == LCT.Standard && lastCall.call!.CanFail);
+      private Call? FirstCall() {
+         if (calls.Count > 0) return calls[0];
+         if (lastCall.type == LCT.Standard) return lastCall.call;
+         return null;
+      }
+      /// <summary>
+      /// True if the alternative terminates the algorithm, i.e., its last call is a fail or abort.
+      /// No need to check for succeed becasue that is just normal alternative completion.
+      /// </summary>
+      public bool Terminates => lastCall.type == LCT.Fail || lastCall.type == LCT.Abort;
+      public bool IsConditionalCompilationOn => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOn;
+      public bool IsConditionalCompilationOff => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOff;
    }
    // Note that the id in this case is the label.
    [Serializable]
@@ -764,6 +776,7 @@ namespace CDL2v1 {
          }
          return false;
       }
+      public override string ToString() => $"GRP {id.Name} {alternatives.Count.Plural("ALT")}";
    }
 
 
