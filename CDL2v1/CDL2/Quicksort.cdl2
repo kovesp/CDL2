@@ -4,6 +4,17 @@
 
 MODULE quicksort.
    LAYER base.
+      SECTION parametrization.
+         ABSTR lwb, upb.
+         EXT lwb, upb, max size of list to show, min random, max random.
+
+         # The lower and upper bounds of the data array. #
+         CONST lwb=1, upb=100.
+         CONST max size of list to show=100.
+
+         # The range of random numbers. #
+         CONST min random=0, max random=200.
+      ENDSEC parametrization.
       SECTION arithmetic.
          ABSTR incr, decr, greater, less, less or equal, add, halve, make, random.
          EXT make, random, incr, less or equal, subtract.
@@ -69,11 +80,9 @@ MODULE quicksort.
          FUNCTION random+>min+>max+r> =: r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
       SECTION data.
-         ABSTR lwb, upb, smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
-         INV make, less or equal, random, incr, subtract, show msg, show msg no newline.
-
-         # The lower and upper bounds of the array. #
-         CONST lwb=1, upb=1_000.
+         ABSTR smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
+         INV lwb, upb, make, less or equal, random, incr, subtract, show msg, show msg no newline, max size of list to show,
+             min random, max random.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
@@ -98,8 +107,6 @@ MODULE quicksort.
          ACTION dump list = 
             "Write-Host " data ".Array".
 
-         CONST max size of list to show=100.
-
          ACTION dump data*msg:
             show msg no newline+msg,
                (less or equal+data size+max size of list to show, dump list;
@@ -111,9 +118,6 @@ MODULE quicksort.
             "$l    if (" data ".Item(" i ") -gt " data ".Item(" i " + 1)) { " r " = 0; break }"
             "$l }"
             "$l [bool]" r.
-
-         # The range of random numbers. #
-         CONST min random=0, max random=200.
 
          # The size of the list to be sorted as a variable. Just to excercise VARs.
          VAR data size.
@@ -191,9 +195,9 @@ MODULE quicksort.
                 
          TEST use macro for sortedness test: -.
 
-         TEST is data sorted:
+         PREDICATE is data sorted -where:
             use macro for sortedness test, is data sorted macro;
-            is data unsorted procedure , -;
+            is data unsorted procedure+where, show msg no newline+"Unsorted at ", show number+where, show msg+".", -;
             +.
 
          ACTION verify data sorted * which:
@@ -204,8 +208,7 @@ MODULE quicksort.
             get data size+data size,
             show msg no new line+"Running quicksort on list of ", show number+data size, show msg+" elements.",
             start timer, quicksort+lwb+upb, stop timer,
-            show elapsed time,
-            show msg+"Done.".
+            show elapsed time.
 
       ENDSEC sorter.
       PRELUDE dump data+"Data before sorting: ", verify data sorted+"Random".

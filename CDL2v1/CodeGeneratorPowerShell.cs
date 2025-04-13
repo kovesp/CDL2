@@ -335,7 +335,7 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
          ifDepth.Pop();
-         emitter.Emitnl(proc.CanFail ? "return $false" : "return");
+         emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "return $true" : "return $false" : "return");
          emitter.IndentLevel--;
          emitter.NlEmitnl("}");
       }
@@ -481,8 +481,20 @@ function Remove-Const([string[]]$names) {
       }
 
       void ICodeGenerator.GenerateCallArgString(string value) => emitter.Emit($"\"{value}\"");
-      void ICodeGenerator.GenerateCallArgReferenceAffix(Affix calledAffix, Affix arg, bool needFinalization) 
-         => emitter.Emit(PSVar(arg, needFinalization ? "_": "",isRef: ! arg.IsOutput && calledAffix.IsOutput));
+      void ICodeGenerator.GenerateCallArgReferenceAffix(Affix calledAffix, Affix arg, bool needFinalization) {
+         Debug.Assert(!(arg.IsInputOnly && calledAffix.IsOutput), $"Illegal Affix {arg} in call to {calledAffix}");
+              if ( needFinalization && calledAffix.IsInputOnly && arg.IsInputOnly)  emitter.Emit(PSVar(arg, prefix: "",  suffix:"",        isRef: false));
+         else if ( needFinalization && calledAffix.IsInputOnly && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "_", suffix: "",       isRef: false));
+         else if ( needFinalization && calledAffix.IsOutput    && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "_", suffix: "",       isRef: true));
+         else if (!needFinalization && calledAffix.IsInputOnly && arg.IsInputOnly)  emitter.Emit(PSVar(arg, prefix: "",  suffix: "",       isRef: false));
+         else if (!needFinalization && calledAffix.IsInputOnly && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "",  suffix: ".Value", isRef: false));
+         else if (!needFinalization && calledAffix.IsOutput    && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "",  suffix: "",       isRef: false));
+         else if (                     calledAffix.IsString    && arg.IsString)     emitter.Emit(PSVar(arg, prefix: "",  suffix: "",       isRef: false));
+         else if (                     calledAffix.IsString    && arg.IsInputOnly)  emitter.Emit(PSVar(arg, prefix: "",  suffix: "",       isRef: false));
+         else if (                     calledAffix.IsString    && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "",  suffix: ".Value", isRef: false));
+      }
+      //=> emitter.Emit(PSVar(arg, needFinalization ? "_": "",isRef: ! arg.IsOutput && calledAffix.IsOutput));
+      //=> emitter.Emit(PSVar(arg, prefix:needFinalization ? "_" : "",suffix:arg.IsOutput?".Value":"", isRef: calledAffix.IsOutput));
       void ICodeGenerator.GenerateCallArgReferenceLocal(Affix calledAffix,Local lo) => emitter.Emit(PSVar(lo,isRef: calledAffix.IsOutput));
       void ICodeGenerator.GenerateCallArgReferenceConst(Affix calledAffix,Const c) => emitter.Emit(PSVar(c));
       void ICodeGenerator.GenerateCallArgReferenceVar(Affix calledAffix, Var v, bool needFinalization) 

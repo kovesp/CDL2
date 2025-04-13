@@ -54,7 +54,7 @@ namespace CDL2v1 {
          }
 
          if (stop) {
-            ReportNoteCounts(message);
+            ReportNoteCounts(null,message);
             return true;
          } else {
             return false;
@@ -67,18 +67,21 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="message">Optional termination message.</param>
       /// <returns></returns>
-      public void ReportNoteCounts(string? message = null) {
+      public void ReportNoteCounts(Reachable? reachable,string? message = null) {
          Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error")}, {Warnings.Count().Plural("warning")}");
          if (message != null) Log(0, message);
 
          ReportByType(Errors);
          ReportByType(Warnings);
 
-         static void ReportByType(IEnumerable<Note> list) {
+         void ReportByType(IEnumerable<Note> list) {
             foreach (Note note in list) {
-               string head = $"{note.Type,-7} {note.Number:D3}";
                Debug.Assert(note.Owner != null, "ReportNoteCounts: Note Owner is null");
-               Log(0, $"   {head} {note.Owner.FQDN()}\n    {new string(' ', head.Length)}{note.Text}");
+               // Report messages only for reachable objects
+               if (reachable is null || (note.Owner is ICDL2Object obj && reachable.Objects.Contains(obj))) {
+                  string head = $"{note.Type,-7} {note.Number:D3}";
+                  Log(0, $"   {head} {note.Owner.FQDN()}\n    {new string(' ', head.Length)}{note.Text}");
+               }
             }
          }
       }
@@ -105,6 +108,7 @@ namespace CDL2v1 {
       }
 
       public Parser? Parser;
+      public Reachable Reachable = new();
       public SemanticAnalyzer? SemanticAnalyzer;
       public CodeGenerator? codeGenerator;
 
@@ -144,8 +148,9 @@ namespace CDL2v1 {
                }
             }
             if (MainProgram != null) {
-               if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4)
-                  ID.Dump();
+               if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4)               ID.Dump();
+
+              
 
                // Perform semantic checks
                SemanticAnalyzer = new SemanticAnalyzer(this);
@@ -157,6 +162,8 @@ namespace CDL2v1 {
                if (SemanticAnalyzer.AbortCompilation()) return;
 
                if (Settings.SettingValue<bool>("SaveDB")) Database.Save("CDL2v1");
+
+               Reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
 
                string? PrettyPrint = Settings.SettingValue<string>("PrettyPrint");
                if (PrettyPrint != "" && (Database.Instance.Programs.Count > 0 || Database.Instance.Modules.Count > 0)) {
@@ -183,16 +190,16 @@ namespace CDL2v1 {
                      string targetFileName = Path.ChangeExtension(args[0], cg.FileExtension);
                      EmitterBase emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true };
                      Log(0, $"Generating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
-                     codeGenerator = new CodeGenerator(cg);
+                     codeGenerator = new CodeGenerator(cg,Reachable);
                      codeGenerator.GenerateCode(MainProgram, emitter);
                      emitter.Close();
                   } else {
                      ReportError("No target code generator");
                   }
                }
-               Parser.ReportNoteCounts();
+               Parser.ReportNoteCounts(Reachable);
                Log(0, "");
-               SemanticAnalyzer.ReportNoteCounts();
+               SemanticAnalyzer.ReportNoteCounts(Reachable);
             }
          }
       }

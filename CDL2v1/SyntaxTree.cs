@@ -230,6 +230,7 @@ namespace CDL2v1 {
          { RW.ROOT,[] },
          { RW.POSTLUDE,[] }
       };
+      public static readonly List<RW> LudeTypes = [RW.PRELUDE, RW.ROOT, RW.POSTLUDE];
 
       public Container? Child(ID id) => Children.FirstOrDefault(child => child.id == id);
 
@@ -462,6 +463,7 @@ namespace CDL2v1 {
       public bool HasEffect => algorithmType == RW.PREDICATE || algorithmType == RW.ACTION;
       public bool HasNoEffect => !HasEffect;
       public bool NeedsFinalization => CanFail && (affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
+      public bool IsInlineMacro => bodyType == TT.MACROBODY;
       /// <summary>
       /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
       /// </summary>

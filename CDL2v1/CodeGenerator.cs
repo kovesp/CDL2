@@ -19,13 +19,12 @@ namespace CDL2v1 {
    /// </summary>
    /// <param id="cg"></param>
    [Serializable]
-   public class CodeGenerator(ICodeGenerator cg) {
+   public class CodeGenerator(ICodeGenerator cg,Reachable reachable) {
       /// <summary>
       /// Target specific code gnerator to use.
       /// </summary>
       private readonly ICodeGenerator cg = cg;
-
-      private static readonly List<RW> ludeTypes = [ RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
+      private readonly Reachable Reachable = reachable;
 
       /// <summary>
       /// Used to add the CDL2 code to each generated algorithm.
@@ -33,24 +32,22 @@ namespace CDL2v1 {
       /// </summary>
       private readonly PrettyPrinter sourceCommentPrinter = new(cg.SourceEmitter,includeComments:false);
 
+
+
       /// <summary>
       /// Generate code for the unit and all its modulesWithLudes.
-      /// If there is a unit, then use its Ludes. Otherwise, use the Ludes from all modulesWithLudes.
+      /// If there is argAffix unit, then use its Ludes. Otherwise, use the Ludes from all modulesWithLudes.
       /// </summary>
       /// <param id="modulesWithLudes"></param>
       /// <param id="Emitter"></param>
       /// <param id="isSeparate"></param>
       public void GenerateCode(Program program, EmitterBase emitter, bool isSeparate = false) {
-         Logger.Log(0,$"Collecting objects reachable from {program} ...");
-         CollectReachableObjects(program); // Collect all the objects reachable from the program's ludes.
-         string CountObjects(Type type) => ReachableObjects.Where(obj => obj.GetType() == type).Count().Plural(type.Name);
-         Logger.Log(0, $"{CountObjects(typeof(Const))}, {CountObjects(typeof(Var))}, {CountObjects(typeof(LIST))}, {CountObjects(typeof(Macro))}, {CountObjects(typeof(Procedure))} collected");
-         foreach (Var var in ReachableObjects.OfType<Var>()) {
-            if (AmbigousVars.Contains(var)) {
+         foreach (Var var in Reachable.Objects.OfType<Var>()) {
+            if (Reachable.AmbigousVars.Contains(var)) {
                // We know the variable was written to, but we can't tell whther it was read (becasue it was only referenced in an ACTION/PREDICATE macro).
                var.AddNote("CodeGeneration", Note.VariableMayNotHaveBeenRead, var);
                Logger.ReportError($"Variable {var} may not have been read. It was only referenced in an ACTION/PREDICATE macro.");
-            } else if (!ReadVars.Contains(var)) {
+            } else if (!Reachable.ReadVars.Contains(var)) {
                // It must have been written, but not read.
                var.AddNote("CodeGeneration", Note.VariableNotRead, var);
                Logger.ReportError($"Variable {var} was written to, but never read.");
@@ -63,18 +60,18 @@ namespace CDL2v1 {
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
 
 
-            GenerateObjects<Const>(ReachableObjects.OfType<Const>(),                                        GenerateConstant);
-            GenerateObjects<Var>(ReachableObjects.OfType<Var>(),                                            GenerateVar);
-            GenerateObjects<LIST>(ReachableObjects.OfType<LIST>(),                                          GenerateList);
+            GenerateObjects<Const>(Reachable.Objects.OfType<Const>(),                                        GenerateConstant);
+            GenerateObjects<Var>(Reachable.Objects.OfType<Var>(),                                            GenerateVar);
+            GenerateObjects<LIST>(Reachable.Objects.OfType<LIST>(),                                          GenerateList);
 
-            GenerateObjects<Macro>(ReachableObjects.OfType<Macro>(),                                        GenerateMacro);
-            GenerateObjects<Procedure>(ReachableObjects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic), GenerateProcedure);
-            GenerateObjects<Procedure>(ReachableObjects.OfType<Procedure>().Where(proc=> proc.IsSynthetic), GenerateProcedure, "Synthetic Procedure");
+            GenerateObjects<Macro>(Reachable.Objects.OfType<Macro>(),                                        GenerateMacro);
+            GenerateObjects<Procedure>(Reachable.Objects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic), GenerateProcedure);
+            GenerateObjects<Procedure>(Reachable.Objects.OfType<Procedure>().Where(proc=> proc.IsSynthetic), GenerateProcedure, "Synthetic Procedure");
 
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
             cg.GenerateComment("Program Ludes");
-            foreach (RW ludeType in ludeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
+            foreach (RW ludeType in Container.LudeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
             cg.GenerateProgramEnd(program);
          } else {
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
@@ -89,7 +86,7 @@ namespace CDL2v1 {
       }
 
       private void GenerateProgramLudes(Program program) {
-         foreach (RW ludeType in ludeTypes) {
+         foreach (RW ludeType in Container.LudeTypes) {
             IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.Modules[id]).Where(mod => mod.Ludes[ludeType].Count > 0);
             if (modulesWithLudes.Any()) {
                cg.GenerateProgramLudeStart(ludeType, program);
@@ -100,7 +97,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Generate code for a module. It is up to the specific code generator to determine whether this code goes into a separate file or not.
+      /// Generate code for argAffix module. It is up to the specific code generator to determine whether this code goes into argAffix separate file or not.
       /// </summary>
       /// <param id="module"></param>
       private void GenerateModule(Module module, bool isSeparate) {
@@ -123,7 +120,7 @@ namespace CDL2v1 {
 
          foreach (Layer layer in module.Children.Cast<Layer>()) GenerateLayer(layer);
 
-         foreach (RW ludeType in ludeTypes) GenerateModuleLude(ludeType, module, wrapped: true);
+         foreach (RW ludeType in Container.LudeTypes) GenerateModuleLude(ludeType, module, wrapped: true);
 
          cg.GenerateModuleEnd(module, isSeparate);
       }
@@ -138,7 +135,7 @@ namespace CDL2v1 {
       }
 
       /// <summary> 
-      /// Generate proc for a layer. Typically there is no target proc associated with this.
+      /// Generate proc for argAffix layer. Typically there is no target proc associated with this.
       /// </summary>
       /// <param id="layer"></param>
       private void GenerateLayer(Layer layer) {
@@ -148,9 +145,9 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Generate a container. Again, there will likely be no target proc associated with a container itself.
+      /// Generate argAffix container. Again, there will likely be no target proc associated with argAffix container itself.
       /// So generate proc for each routine and for the Ludes.
-      /// A lude is just proc with a special id
+      /// A lude is just proc with argAffix special id
       /// </summary>
       /// <param id="container"></param>
       private void GenerateSection(Section section) {
@@ -210,39 +207,55 @@ namespace CDL2v1 {
          Section section = (Section)macro.Parent!;
          IEnumerable<Var> variables = macro.GetReferencedVariables();
          cg.GenerateMacroStart(macro);
-         GenerateAlgorithmHeader(macro,variables);
+         GenerateAlgorithmHeader(macro, variables);
+
+         GenerateMacroBody(macro, section);
+         FinalizeAffixesAndVariables(macro, variables);
+         cg.GenerateMacroEnd(macro);
+      }
+
+      private void GenerateMacroBody(Macro macro, Section section,List<IActualArg>? args=null) {
+         Dictionary<Affix,IActualArg> subst = args is null ? [] : macro.affixes.Zip(args, (key, value) => new { key, value }).ToDictionary(x => x.key, x => x.value);
 
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
          foreach (IMacroElement elem in macro.elements) {
-            switch (elem) {
-               case INT i: cg.GenerateMacroElementInt(i.value); break;
-               case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
-               case STRING s: cg.GenerateMacroElementString(s.value, macro.CanFail, first); break;
-               case ID id:
-                  // This should be a reference to a Const, Var or List, so check which one
-                  if (section.TryGetDeclaration(id,out ILocalCDL2DataObject? obj)) {
-                     switch (obj) {
-                        case Const c: cg.GenerateMacroElementConst(c); break;
-                        case Var v:   cg.GenerateMacroElementVar(v, macro.CanFail);   break;
-                        case LIST l:  cg.GenerateMacroElementList(l);  break;
-                        default:
-                           throw new NotImplementedException($"GenerateMacro: Reference to wrong element type {obj}");
-                     }
-                  } else {
-                     throw new NotImplementedException($"GenerateMacro: Unresolved reference to {id}");
-                  }
-                  break;
-               case Affix aff: cg.GenerateMacroElementAffix(aff, macro.CanFail); break;
-               case Local loc: cg.GenerateMacroElementLocal(loc); break;
-               default:
-                  throw new NotImplementedException($"GenerateMacro: Unknown element type {elem.GetType()}");
-            }
+            GenerateMacroElement(macro, section, subst, first, elem);
             first = false;
          }
          cg.GenerateMacroBodyEnd(macro);
-         FinalizeAffixesAndVariables(macro,variables);
-         cg.GenerateMacroEnd(macro);
+      }
+
+      private void GenerateMacroElement(Macro macro, Section section, Dictionary<Affix, IActualArg> subst, bool first, IMacroElement elem) {
+         switch (elem) {
+            case INT i: cg.GenerateMacroElementInt(i.value); break;
+            case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
+            case STRING s: cg.GenerateMacroElementString(s.value, macro.CanFail, first); break;
+            case ID id:
+               // This should be argAffix reference to argAffix Const, Var or List, so check which one
+               if (section.TryGetDeclaration(id, out ILocalCDL2DataObject? obj)) {
+                  switch (obj) {
+                     case Const c: cg.GenerateMacroElementConst(c); break;
+                     case Var v: cg.GenerateMacroElementVar(v, macro.CanFail); break;
+                     case LIST l: cg.GenerateMacroElementList(l); break;
+                     default:
+                        throw new NotImplementedException($"GenerateMacro: Reference to wrong element type {obj}");
+                  }
+               } else {
+                  throw new NotImplementedException($"GenerateMacro: Unresolved reference to {id}");
+               }
+               break;
+            case Affix aff:
+               if (subst.TryGetValue(aff, out IActualArg? arg)) {
+                  GenerateMacroElement(macro, section, subst, first, (IMacroElement)arg);
+               } else {
+                  cg.GenerateMacroElementAffix(aff, macro.CanFail);
+               }
+               break;
+            case Local loc: cg.GenerateMacroElementLocal(loc); break;
+            default:
+               throw new NotImplementedException($"GenerateMacro: Unknown element type {elem.GetType()}");
+         }
       }
 
       private void FinalizeAffixesAndVariables(Algorithm algorithm,IEnumerable<Var> variables) {
@@ -299,33 +312,9 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateProcedureBody(Procedure proc) {
-         //if (proc.IsVerySimple) {
-         //   // Just a sequence of calls none of which can fail.
-         //   cg.GenerateComment("Very simple body");
-         //   Debug.Assert(proc.group.alternatives.Count == 1,$"GenerateProcedureBody: Expected single alternative, found {proc.group.alternatives.Count}");
-         //   GenerateAlternatives(proc, proc.group);
-         //   //foreach (Call call in proc.group.alternatives[0].calls) {
-         //   //   if (call.Called!.IsConditionalCompilationOn) continue;   // No need to generate code for this call;
-         //   //   if (call.IsConditionalCompilationOff) {
-         //   //      if (proc.CanFail) cg.GenerateAlternativeFail();
-         //   //      return;    // No need to generate code for the rest of the proc's single alternative.
-         //   //   }
-         //   //   GenerateCall(proc, call);
-         //   //}
-         //   //if (proc.group.alternatives[0].lastCall.type == LCT.Standard) GenerateCall(proc,proc.group.alternatives[0].lastCall.call!);
-         //} else if (proc.IsSimple) {
-         //   // A sequence of alternatives, no groups or repeats.
-         //   cg.GenerateComment("Simple body");
-         //   GenerateAlternatives(proc, proc.group);
-         //} else {
-         //   cg.GenerateComment("General body");
-         //   GenerateAlternatives(proc, proc.group);
-         //}
-         GenerateAlternatives(proc, proc.group);
-      }
+      private void GenerateProcedureBody(Procedure proc) => GenerateAlternatives(proc, proc.group);
       /// <summary>
-      /// Generate the alternatives for a procedure.
+      /// Generate the alternatives for argAffix procedure.
       /// This method manages the conditional compilation of the alternatives based on whether the first call in the altarnative is conditional compilation on or off.
       /// If it is off, then no code is generated for that alternative.
       /// If it is on, then that alternative is generated, but all later alternatives are skipped.
@@ -362,7 +351,7 @@ namespace CDL2v1 {
          foreach (Call call in calls) {
             GenerateCall(proc, call, canFail);
             canFail = canFail || call.CanFail;
-         }            
+         }
          switch (alternative.lastCall.type) {
             case LCT.Standard: GenerateCall(proc, alternative.lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:isLast); break;
             case LCT.Fail: cg.GenerateFail(proc, group); break;
@@ -385,15 +374,19 @@ namespace CDL2v1 {
       private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          if (call.Called is not null) {
-            cg.GenerateCallStart(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);
-            if (call.args.Count > 0) {
-               GenerateActualArg(proc, call, call.Called!.affixes[0], call.args[0]);
-               for (int i = 1; i < call.args.Count; i++) {
-                  cg.GenerateActualArgSeparator();
-                  GenerateActualArg(proc, call, call.Called.affixes[i], call.args[i]);
+            if (call.Called.IsInlineMacro) {
+               GenerateMacroBody((call.Called as Macro)!, (Section)call.Called.Parent!,call.args);
+            } else {
+               cg.GenerateCallStart(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);
+               if (call.args.Count > 0) {
+                  GenerateActualArg(proc, call, call.Called!.affixes[0], call.args[0]);
+                  for (int i = 1 ; i < call.args.Count ; i++) {
+                     cg.GenerateActualArgSeparator();
+                     GenerateActualArg(proc, call, call.Called.affixes[i], call.args[i]);
+                  }
                }
+               cg.GenerateCallEnd(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);
             }
-            cg.GenerateCallEnd(call.Called!, proc, canFail, onlyCallInAlternative,lastAlternative);
          } else {
             cg.GenerateComment($"Call to undefined algorithm {call} skipped.");
          }
@@ -411,7 +404,7 @@ namespace CDL2v1 {
             case Var v:
                cg.GenerateCallArgReferenceVar(calledAffix, v, needFinalization: call.Called!.NeedsFinalization);
                break;
-            case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
+            case ID id: // May be a reference to an affix or local of the calling proc or argAffix const, or argAffix var.
                if (proc.TryGetAffix(id,out Affix procAffix)) {
                   cg.GenerateCallArgReferenceAffix(calledAffix, procAffix, needFinalization: call.CanFail);
                } else if (proc.TryGetLocal(id,out Local local)) {
@@ -429,186 +422,12 @@ namespace CDL2v1 {
                   throw new NotImplementedException($"GenerateCallStart: Unresolved reference to {id}");
                }
                break;
-            case Affix a:  cg.GenerateCallArgReferenceAffix(calledAffix, a, needFinalization: call.Called!.NeedsFinalization); break;
+            case Affix argAffix:  cg.GenerateCallArgReferenceAffix(calledAffix, argAffix,proc.NeedsFinalization); break;
             case Local lo: cg.GenerateCallArgReferenceLocal(calledAffix,lo); break;
             default:
                throw new NotImplementedException($"GenerateCallStart: Unknown argument type {arg.GetType()}");
          }
       }
 
-      private void DumpReachableObjects(Program prog) {
-         Debug.WriteLine($"Reachable Objects for {prog}:");
-         foreach (string objectName in ReachableObjects.Select(obj=> ((NamedElement)obj).FQDN()).ToImmutableSortedSet()) { 
-            Debug.WriteLine($"   {objectName}");
-         }
-         Debug.WriteLine("End of reachable objects.");
-      }
-
-      private readonly Set<ICDL2Object> ReachableObjects = [];
-      private readonly Set<Var> ReadVars = [];     // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
-      private readonly Set<Var> AmbigousVars = []; //
-      private void CollectReachableObjects(Program prog) {
-         foreach (RW ludeType in ludeTypes) {
-            foreach (ID id in prog.Ludes[ludeType]) {
-               if (Database.Instance.Modules.TryGetValue(id, out Module? module)) {
-                  CollectReachableObjects(ludeType,module);
-               }
-            }
-         }
-
-      }
-      private void CollectReachableObjects(RW Ludetype, Module module) {
-         foreach (Section? section in module.Ludes[Ludetype].Select(id => module.Section(id))) {
-            if (section is not null) CollectReachableObjects(Ludetype, section); 
-         }
-      }
-      private void CollectReachableObjects(RW ludetype, Section section) {
-         // Section ludes contain teh single entry of a synthetic procedure that is the lude
-         // So we need to collect all the objects in the section that are reachable from this lude.
-         Debug.Assert(section.Ludes[ludetype].Count == 1, $"CollectReachableObjects: Expected single lude in {section}");
-         if (section.TryGetDeclaration(section.Ludes[ludetype][0], out Procedure? proc)) {
-            if (ReachableObjects.Add(proc!)) CollectReachableObjects(proc!.group);
-         } else {
-            throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludetype][0]} in {section}");
-         }
-      }
-      private void CollectReachableObjects(Group proc) {
-         // Collect all the objects reachable from this group.
-         foreach (Alternative alt in proc.alternatives) CollectReachableObjects(alt);
-      }
-      
-      private void CollectReachableObjects(Alternative alt) {
-         foreach (Call call in alt.calls) {
-            if (!CollectReachableObjects(call)) return; // Skip the rest of the alternative.
-         }
-         switch (alt.lastCall.type) {
-            case LCT.Standard:
-               if (alt.lastCall.call is not null) CollectReachableObjects(alt.lastCall.call);
-               break;
-            case LCT.Group:
-               if (alt.lastCall.group is not null) CollectReachableObjects(alt.lastCall.group);
-               break;
-         }
-      }
-
-      /// <summary>
-      /// Return false if the rest of the alternative contining the call is to be ignored.
-      /// </summary>
-      /// <param name="call"></param>
-      /// <returns></returns>
-      private bool CollectReachableObjects(Call call) {
-         if (call.Called is not null) {
-            Algorithm called = call.Called;
-            if (called is ImportedAlgorithm importedAlg) {
-               // TODO: Find imported algorithm and assign it to called.
-            }
-            if (called.IsConditionalCompilationOn) return true;   // Ignore
-            if (called.IsConditionalCompilationOff) return false; // Skip the rest of the alternative.
-
-            // Collect objects referrenced in actual args
-            for (int i = 0; i<call.args.Count; i++) {
-               IActualArg arg = call.args[i];
-               Affix affix = called.affixes[i];
-               switch (arg) {
-                  case Const c:
-                     CollectReachableObjects(c);
-                     break;
-                  case Var v:
-                     ReachableObjects.Add(v);
-                     if (affix.IsInput) ReadVars.Add(v);
-                     break;
-                  case ID id:
-                     if (call.Called.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
-                        if (obj is Const c) {
-                           CollectReachableObjects(c);
-                        } else if (obj is Var v) {
-                           ReachableObjects.Add(v);
-                        }
-                     } else {
-                        throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
-                     }
-                     break;
-               }
-            }
-            if (ReachableObjects.Add(called)) {
-               if (called is Macro macro) {
-                  CollectReachableObjects(macro);
-               } else {
-                  Debug.Assert(called is Procedure, $"CollectReachableObjects: Unknown call type {called}");
-                  CollectReachableObjects(((Procedure)called).group);
-               }
-            }
-         }
-         return true;
-      }
-      private void CollectReachableObjects(Const constant) {
-         if (ReachableObjects.Add(constant)) {
-            foreach (IConstElement elem in constant.elements) {
-               switch (elem) {
-                  case ID id:
-                     if (((Section)constant.Parent!).TryGetDeclaration(id, out ICDL2DataObject? obj)) {
-                        if (obj is Const c) CollectReachableObjects(c);
-                     } else {
-                        throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
-                     }
-                     break;
-               }
-            }
-         }
-      }
-      private void CollectReachableObjects(Macro macro) {
-         foreach (IMacroElement element in macro.elements) {
-            switch (element) {
-               case Affix:
-               case Local:
-                  break;
-               case ID id:
-                  if (macro.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
-                     switch (obj) {
-                        case ImportedConst ic:
-                           // TODO: Find imported constant.
-                           break;
-                        case Const c:
-                           CollectReachableObjects(c);
-                           break;
-                        case Var v:
-                           ReachableObjects.Add(v);
-                           break;
-                        case LIST l:
-                           CollectReachableObjects(macro, l);
-                           break;
-                     }
-                  }
-                  break;
-               case ImportedConst ic:
-                  // TODO: Find imported constant.
-                  break;
-               case Const c:
-                  CollectReachableObjects(c);
-                  break;
-               case Var v:
-                  ReachableObjects.Add(v);
-                  if (macro.HasNoEffect) {
-                     // Assume the variable is read. Because (1) it can't be written, otherwise it would not meet the macro contract and (2) it is referenced so it must be read.
-                     // OTOH, with ACTIONs/PREDICATEs we can't tell.
-                     ReadVars.Add(v);
-                     AmbigousVars.Remove(v);
-                  } else if (! ReadVars.Contains(v)){
-                     AmbigousVars.Add(v);
-                  }
-                  break;
-               case LIST l:
-                  CollectReachableObjects(macro, l);
-                  break;
-            }
-         }
-      }
-
-      private void CollectReachableObjects(Macro macro, LIST list) {
-         if (ReachableObjects.Add(list)) {
-            if (macro.Section.TryGetDeclaration(list.lwb, out ICDL2DataObject? lwbObj) && lwbObj is Const lwb) CollectReachableObjects(lwb);
-            if (macro.Section.TryGetDeclaration(list.upb, out ICDL2DataObject? upbObj) && lwbObj is Const upb) CollectReachableObjects(upb);
-         }
-      }
    }
 }
