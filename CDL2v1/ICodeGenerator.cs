@@ -408,13 +408,13 @@ namespace CDL2v1 {
       /// <param name="value"></param>
       /// <param name="canFail"></param>
       /// <param name="firstElement"></param>
-      void GenerateMacroElementString(string value, bool canFail, bool firstElement);
+      void GenerateMacroElementString(string value, bool firstElement,bool quoted);
       /// <summary>
       /// This is called for each reference in a const, macro or proc that is a constant.
       /// </summary>
       /// <param name="constant"></param>
       void GenerateMacroElementConst(Const constant);
-      void GenerateMacroElementVar(Var var, bool macroCanFail);
+      void GenerateMacroElementVar(Var var, bool macroCanFail, bool inlined = false);
       void GenerateMacroElementList(LIST list);
       void GenerateMacroElementAffix(Affix affix, bool macroCanFail);
       void GenerateMacroElementLocal(Local local);

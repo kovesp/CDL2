@@ -204,7 +204,7 @@ namespace CDL2v1 {
       }
 
       private void GenerateMacro(Macro macro,int _) {
-         if (macro.IsInlineMacro) {
+         if (!Settings.SettingValue<bool>("NoMacroInlining") && macro.IsInlineMacro) {
             GenerateAlgorithmComment(macro);
             cg.GenerateComment("Macro inlined");
          } else {
@@ -213,31 +213,31 @@ namespace CDL2v1 {
             cg.GenerateMacroStart(macro);
             GenerateAlgorithmHeader(macro, variables);
 
-            GenerateMacroBody(macro, section);
+            GenerateMacroBody(macro);
             FinalizeAffixesAndVariables(macro, variables);
             cg.GenerateMacroEnd(macro);
          }
       }
 
-      private void GenerateMacroBody(Macro macro, Section section,List<IActualArg>? args=null) {
+      private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null) {
          Dictionary<Affix,IActualArg> subst = args is null ? [] : macro.affixes.Zip(args, (key, value) => new { key, value }).ToDictionary(x => x.key, x => x.value);
 
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
          foreach (IMacroElement elem in macro.elements) {
-            GenerateMacroElement(macro, section, subst, first, elem);
+            GenerateMacroElement(macro, macro.Section,callingProc, subst, first, elem);
             first = false;
          }
          cg.GenerateMacroBodyEnd(macro);
       }
 
-      private void GenerateMacroElement(Macro macro, Section section, Dictionary<Affix, IActualArg> subst, bool first, IMacroElement elem) {
+      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, Dictionary<Affix, IActualArg> subst, bool first, IMacroElement elem) {
          switch (elem) {
             case INT i: cg.GenerateMacroElementInt(i.value); break;
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
-            case STRING s: cg.GenerateMacroElementString(s.value, macro.CanFail, first); break;
+            case STRING s: cg.GenerateMacroElementString(s.value, firstElement:first, quoted:false); break;
             case ID id:
-               // This should be argAffix reference to argAffix Const, Var or List, so check which one
+               // This should be a reference to a Const, Var or List, so check which one
                if (section.TryGetDeclaration(id, out ILocalCDL2DataObject? obj)) {
                   switch (obj) {
                      case Const c: cg.GenerateMacroElementConst(c); break;
@@ -252,12 +252,13 @@ namespace CDL2v1 {
                break;
             case Affix aff:
                if (subst.TryGetValue(aff, out IActualArg? arg)) {
+                  Debug.Assert(callingProc is not null, $"GenerateMacro: Calling procedure is null for inlined macro {macro}");
                   switch (arg) {
-                     case Var vv: cg.GenerateMacroElementVar(vv, macro.CanFail); break;
+                     case Var   vv: cg.GenerateMacroElementVar(vv, callingProc.CanFail, inlined: true); break;
                      case Const cc: cg.GenerateMacroElementConst(cc); break;
                      case Local ll: cg.GenerateMacroElementLocal(ll); break;
-                     case Affix aa: cg.GenerateMacroElementAffix(aa, macro.CanFail); break;
-                     case STRING s: cg.GenerateMacroElementString(s.value,macro.CanFail,false); break;
+                     case Affix aa: cg.GenerateMacroElementAffix(aa, callingProc.CanFail); break;
+                     case STRING s: cg.GenerateMacroElementString(s.value, firstElement:false,quoted:true); break;
                      default: Debugger.Break(); break;
                   }
                } else {
@@ -385,9 +386,9 @@ namespace CDL2v1 {
       private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          if (call.Called is not null) {
-            if (call.Called is Macro macro && macro.IsInlineMacro) {
+            if (!Settings.SettingValue<bool>("NoMacroInlining") && call.Called is Macro macro && macro.IsInlineMacro) {
                cg.GenerateMacroInlineStart(macro);
-               GenerateMacroBody(macro,macro.Section,call.args);
+               GenerateMacroBody(macro, proc, call.args);
                cg.GenerateMacroInlineEnd(macro);
             } else {
                cg.GenerateCallStart(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);

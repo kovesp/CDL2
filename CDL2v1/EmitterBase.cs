@@ -131,6 +131,9 @@ namespace CDL2v1 {
       /// <param id="code"></param>
       /// <returns>True if a new line was written.</returns>
       public void Emitnl(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: true,honorLineLength: true,extraSpace: false,code);
+      public void EmitnlOption() {
+         if (CurrentLine.Trim().Length > 0) WriteWithIndent(nlbefore: false, nlafter: true, honorLineLength: true, extraSpace: false, []);
+      }
 
       /// <summary>
       /// Like <see cref="Emit(int, object[])"/> with a new line added at the beginning.
