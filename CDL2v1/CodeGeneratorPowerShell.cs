@@ -186,16 +186,12 @@ function Remove-Const([string[]]$names) {
       #endregion Object Sections
 
       #region Data Declarations
-#if WantsRealConstants
-      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit("Set-Variable -Option Constant -Name '", PSName(c), "' -Value ");
-#else
       /// <summary>
       /// Generates the start of arg constant declaration.
       /// Use this version to get constants that can be modifieed
       /// </summary>
       /// <param name="c"></param>
       void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c), " = 0; Set-Const '",PSVarPrefix(PSVarType.Const),PSName(c),"' ");
-#endif
 
 
       // Set-Variable -Name MyConstant -Value 42 -Option Constant
@@ -324,7 +320,8 @@ function Remove-Const([string[]]$names) {
          }
          if (macro.NeedsFinalization) emitter.IndentLevel--;
       }
-      private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => MultipleStatementRegex().IsMatch(str.value));
+      void ICodeGenerator.GenerateMacroInlineStart(Macro macro) { }
+      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) => Newline();
 
       #endregion Macros
 
@@ -445,22 +442,6 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateActualArgSeparator() => emitter.Emit(" ");
 
       void ICodeGenerator.GenerateCallStart(Algorithm called,Procedure proc,bool canFail, bool onlyCallInAlternative,bool lastAlternative) {
-         //if (onlyCallInAlternative && called.CanFail) {
-         //   if (lastAlternative) {
-         //      emitter.Emit("return ");
-         //   } else {
-         //      emitter.Emit("if (");
-         //   }           
-         //} else if (!proc.IsVerySimple) {
-         //   if (canFail) emitter.Emit("if ($__b) { ");
-         //   if (called.CanFail) {
-         //      if (canFail) {
-         //         emitter.Emit("$__b = ");
-         //      } else {
-         //         emitter.Emit("[bool]$__b = ");
-         //      }
-         //   }
-         //}
          if (called.CanFail) {
             emitter.Emit("if (");
             ifDepth++;
@@ -565,7 +546,7 @@ function Remove-Const([string[]]$names) {
       private static string PSName(DeclaredCDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
       private static string PSName(Affix affix) => affix.id.Name.AsIdentifier(camelCase: true);
       private static string PSName(Local local) => local.id.Name.AsIdentifier(camelCase: true);
-
+      private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => MultipleStatementRegex().IsMatch(str.value));
 
       private static readonly Random Random = new();
       private static string RandomInitialValue => Random.Next(0, int.MaxValue).ToString()+"  <# Random value to catch uninitialized VARs, LOCALs, and output AFFIXes #>";

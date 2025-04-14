@@ -204,14 +204,19 @@ namespace CDL2v1 {
       }
 
       private void GenerateMacro(Macro macro,int _) {
-         Section section = (Section)macro.Parent!;
-         IEnumerable<Var> variables = macro.GetReferencedVariables();
-         cg.GenerateMacroStart(macro);
-         GenerateAlgorithmHeader(macro, variables);
+         if (macro.IsInlineMacro) {
+            GenerateAlgorithmComment(macro);
+            cg.GenerateComment("Macro inlined");
+         } else {
+            Section section = (Section)macro.Parent!;
+            IEnumerable<Var> variables = macro.GetReferencedVariables();
+            cg.GenerateMacroStart(macro);
+            GenerateAlgorithmHeader(macro, variables);
 
-         GenerateMacroBody(macro, section);
-         FinalizeAffixesAndVariables(macro, variables);
-         cg.GenerateMacroEnd(macro);
+            GenerateMacroBody(macro, section);
+            FinalizeAffixesAndVariables(macro, variables);
+            cg.GenerateMacroEnd(macro);
+         }
       }
 
       private void GenerateMacroBody(Macro macro, Section section,List<IActualArg>? args=null) {
@@ -247,7 +252,14 @@ namespace CDL2v1 {
                break;
             case Affix aff:
                if (subst.TryGetValue(aff, out IActualArg? arg)) {
-                  GenerateMacroElement(macro, section, subst, first, (IMacroElement)arg);
+                  switch (arg) {
+                     case Var vv: cg.GenerateMacroElementVar(vv, macro.CanFail); break;
+                     case Const cc: cg.GenerateMacroElementConst(cc); break;
+                     case Local ll: cg.GenerateMacroElementLocal(ll); break;
+                     case Affix aa: cg.GenerateMacroElementAffix(aa, macro.CanFail); break;
+                     case STRING s: cg.GenerateMacroElementString(s.value,macro.CanFail,false); break;
+                     default: Debugger.Break(); break;
+                  }
                } else {
                   cg.GenerateMacroElementAffix(aff, macro.CanFail);
                }
@@ -276,8 +288,7 @@ namespace CDL2v1 {
                cg.GenerateAffixSeparator();
                cg.GenerateAffix(affix, affix.affixDir, alg.CanFail);
             }
-         }
-         cg.GenerateAlgorithmHeaderEnd(alg);
+         }         cg.GenerateAlgorithmHeaderEnd(alg);
 
          cg.GenerateAffixAndVariableInitializationStart(alg);
          if (alg.NeedsFinalization) {
@@ -374,8 +385,10 @@ namespace CDL2v1 {
       private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          if (call.Called is not null) {
-            if (call.Called.IsInlineMacro) {
-               GenerateMacroBody((call.Called as Macro)!, (Section)call.Called.Parent!,call.args);
+            if (call.Called is Macro macro && macro.IsInlineMacro) {
+               cg.GenerateMacroInlineStart(macro);
+               GenerateMacroBody(macro,macro.Section,call.args);
+               cg.GenerateMacroInlineEnd(macro);
             } else {
                cg.GenerateCallStart(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);
                if (call.args.Count > 0) {
