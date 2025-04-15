@@ -605,12 +605,9 @@ namespace CDL2v1 {
       /// <param id="interfaceType"></param>
       /// <param id="idList">The container interface list.</param>
       /// <returns></returns>
-      private bool ParseInterfaceList(RW interfaceType,ICollection<ID> idList,Dictionary<ID,Section>? propagationDictionary = null) {
-         if (tokens.Consume(interfaceType)) {
+      private void ParseInterfaceList(RW interfaceType,ICollection<ID> idList,Dictionary<ID,Section>? propagationDictionary = null) {
+         while (tokens.Consume(interfaceType)) {
             ParseIDList(interfaceType,idList,propagationDictionary);
-            return true;
-         } else {
-            return false;
          }
       }
 

@@ -66,21 +66,28 @@ MODULE quicksort.
          # This proc tries to use a fail.
          FUNCTION illegal fail operator: eq+var+ten, -.
 
-         TEST lt+>a+>b = a " -lt " b.
-         TEST eq+>a+>b = a " -eq " b.
-
          TEST gt+>a+>b : lt+b+a.
          TEST ne+>a+>b : eq+a+b,- ; +.
          TEST ge+>a+>b : eq+a+b ; gt+a+b.
          TEST le+>a+>b : eq+a+b ; lt+a+b. 
+         TEST lt+>a+>b = a " -lt " b.
+         TEST eq+>a+>b = a " -eq " b.
          TEST greater+>a+>b : gt+a+b.
          TEST less+>a+>b : lt+a+b.
          TEST less or equal+>a+>b : le+a+b.
 
          FUNCTION random+>min+>max+r> = r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
+      SECTION touch.
+         ABSTR touch in, touch out, touch trans.
+
+         FUNCTION touch in+>v = "".
+         FUNCTION touch out+v> = "".
+         FUNCTION touch trans+>v> = "".
+      ENDSEC touch.
       SECTION data.
          ABSTR smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
+         ABSTR initialize data, sort data.
          INV lwb, upb, make, less or equal, random, incr, subtract, show msg, show msg no newline, max size of list to show,
              min random, max random.
 
@@ -118,6 +125,9 @@ MODULE quicksort.
             "$l    if (" data ".Item(" i ") -gt " data ".Item(" i " + 1)) { " r " = 0; break }"
             "$l }"
             "$l [bool]" r.
+         
+         # Sort the array using the built-in sort method. For execution time comparison. #
+         ACTION sort data = "[Array]::Sort(" data ".Array)".  
 
          # The size of the list to be sorted as a variable. Just to excercise VARs.
          VAR data size.
@@ -155,7 +165,9 @@ MODULE quicksort.
    LAYER sort.
       SECTION sorter.
          INV lwb, upb, less, make, add, halve, incr, decr, swap element, get element, smaller element, dump data, get data size,
-            show msg, show msg no newline, show number, is data sorted macro, less or equal, start timer, stop timer, show elapsed time.
+            show msg, show msg no newline, show number, is data sorted macro, less or equal, start timer, stop timer, show elapsed time,
+         INV touch in, touch out.
+         INV initialize data, sort data.
 
          ACTION quicksort +>from +>to -p -q:
             less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
@@ -193,10 +205,10 @@ MODULE quicksort.
                   )
                ).  
                 
-         TEST use macro for sortedness test: -.
+         TEST use macro for sortedness test: +.
 
          PREDICATE is data sorted -where:
-            use macro for sortedness test, is data sorted macro;
+            use macro for sortedness test, touch out+where, touch in+where, is data sorted macro;
             is data unsorted procedure+where, show msg no newline+"Unsorted at ", show number+where, show msg+".", -;
             +.
 
@@ -205,23 +217,24 @@ MODULE quicksort.
             show msg no newline+which, show msg+" data is not sorted.".
 
          ACTION run demo -data size:
+            dump data+"Data before sorting: ", verify data sorted+"Random",
             get data size+data size,
             show msg no new line+"Running quicksort on list of ", show number+data size, show msg+" elements.",
-            start timer, quicksort+lwb+upb, stop timer,
-            show elapsed time.
+            start timer, quicksort+lwb+upb, stop timer, show elapsed time,
+            dump data+"Data after sorting: ", verify data sorted+"Quicksorted",
+
+            initialize data,
+            show msg+"Running .NET sort on list.",
+            start timer, sort data, stop timer, show elapsed time.
 
       ENDSEC sorter.
-      PRELUDE dump data+"Data before sorting: ", verify data sorted+"Random".
       ROOT run demo.
-      POSTLUDE dump data+"Data after sorting: ", verify data sorted+"Quicksorted".
    ENDLAY sort.
 ENDMOD quicksort.
-PRELUDE data, sorter.
+PRELUDE data.
 ROOT sorter.
-POSTLUDE sorter.
 PROGRAM sort.
    PART quicksort.
    PRELUDE quicksort.
    ROOT quicksort.
-   POSTLUDE quicksort.
 ENDPROG sort.

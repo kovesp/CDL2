@@ -453,10 +453,6 @@ namespace CDL2v1 {
       /// <param name="removed">Set if the alternative tail was skipped due to conditional compilation.</param>
       /// 
       void GenerateAlternativeEnd(Procedure proc, Group group, int i, Alternative alternative, bool removed = false);
-      /// <summary>
-      /// Generates the fail required when the rest of an alternative is discarded due to conditional compilation.
-      /// </summary>
-      void GenerateAlternativeFail();
 
       #endregion Alternatives
 
