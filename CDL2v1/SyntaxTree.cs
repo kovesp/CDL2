@@ -38,6 +38,7 @@ namespace CDL2v1 {
       Container? Parent { get; set; }      // null for the Program and Modules.
       string? Comments { get; set; }
       Notes Notes { get; set; }
+      string FQDN();
    }
    /// <summary>
    /// Any CDL2 object: Algorithm, Const, Var, LIST.
@@ -126,6 +127,7 @@ namespace CDL2v1 {
 
       public static readonly Note AffixNotRefeenced                 = new(NoteType.Info   , 201, "Affix {0} was not used in procedure {1}");
       public static readonly Note LocalNotReferenced                = new(NoteType.Info   , 202, "Local {0} was not used in procedure {1}");
+      public static readonly Note UnreferenceObject                 = new(NoteType.Info   , 203, "Object is defined but not used in program");
 
 
       public override string ToString() => $"{Type} {Number}: {Text}";

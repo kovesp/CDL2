@@ -6,7 +6,7 @@ MODULE quicksort.
    LAYER base.
       SECTION parametrization.
          ABSTR lwb, upb.
-         EXT lwb, upb, max size of list to show, min random, max random.
+         EXT lwb, upb, max size of list to show, min random, max random, use macros.
 
          # The lower and upper bounds of the data array. #
          CONST lwb=1, upb=1_000.
@@ -14,10 +14,13 @@ MODULE quicksort.
 
          # The range of random numbers. #
          CONST min random=0, max random=200.
+
+         TEST use macros: +.
       ENDSEC parametrization.
       SECTION arithmetic.
          ABSTR incr, decr, greater, less, less or equal, add, halve, make, random.
          EXT make, random, incr, less or equal, subtract.
+         INV use macros.
 
          TEST choose +>a+>limit+c>+>inc =
             "$L" c " = " a " + " inc
@@ -69,12 +72,16 @@ MODULE quicksort.
          TEST gt+>a+>b : lt+b+a.
          TEST ne+>a+>b : eq+a+b,- ; +.
          TEST ge+>a+>b : eq+a+b ; gt+a+b.
-         TEST le+>a+>b : eq+a+b ; lt+a+b. 
+
+         TEST le+>a+>b: use macros, le macro+a+b; eq+a+b ; lt+a+b.
+         TEST le macro+>a+>b = a " -le " b.
+         TEST less+>a+>b : lt+a+b.
+
          TEST lt+>a+>b = a " -lt " b.
          TEST eq+>a+>b = a " -eq " b.
          TEST greater+>a+>b : gt+a+b.
-         TEST less+>a+>b : lt+a+b.
-         TEST less or equal+>a+>b : le+a+b.
+         
+         TEST less or equal+>a+>b: le+a+b.
 
          FUNCTION random+>min+>max+r> = r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
@@ -102,8 +109,9 @@ MODULE quicksort.
 
          TEST smaller element +>p+>q = 
             data ".Item(" p ") -lt " data ".Item(" q ")".
-         ACTION swap element +>p+>q -t:
-            get element+p+t, set element to+p+q, set element+q+t.
+         ACTION swap element +>i+>j =
+            #get element+p+t, set element to+p+q, set element+q+t.#
+            data ".Swap(" i "," j ")".
          FUNCTION get element +>i+v> = 
             v " = " data ".Item(" i ")".
          ACTION set element +>i+>v = 

@@ -26,6 +26,7 @@ namespace CDL2v1 {
       private IEnumerable<Note> Notes => Database.Instance.ElementsWithNotes.SelectMany(elem => elem.Notes).Where(note => note.PhaseName == PhaseName);
       private IEnumerable<Note> Errors => Notes.Where(note => note.Type == NoteType.Error);
       private IEnumerable<Note> Warnings => Notes.Where(note => note.Type == NoteType.Warning);
+      private IEnumerable<Note> Infos => Notes.Where(note => note.Type == NoteType.Info);
 
       /// <summary>
       /// Add a note to given subject. Increment counters.
@@ -68,17 +69,18 @@ namespace CDL2v1 {
       /// <param name="message">Optional termination message.</param>
       /// <returns></returns>
       public void ReportNoteCounts(Reachable? reachable,string? message = null) {
-         Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error")}, {Warnings.Count().Plural("warning")}");
+         Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error")}, {Warnings.Count().Plural("warning")}, {Infos.Count().Plural("info message")}");
          if (message != null) Log(0, message);
 
          ReportByType(Errors);
          ReportByType(Warnings);
+         ReportByType(Infos,all:true);
 
-         void ReportByType(IEnumerable<Note> list) {
+         void ReportByType(IEnumerable<Note> list,bool all=false) {
             foreach (Note note in list) {
                Debug.Assert(note.Owner != null, "ReportNoteCounts: Note Owner is null");
                // Report messages only for reachable objects
-               if (reachable is null || (note.Owner is ICDL2Object obj && reachable.Objects.Contains(obj))) {
+               if (all || reachable is null || (note.Owner is ICDL2Object obj && reachable.Objects.Contains(obj))) {
                   string head = $"{note.Type,-7} {note.Number:D3}";
                   Log(0, $"   {head} {note.Owner.FQDN()}\n    {new string(' ', head.Length)}{note.Text}");
                }
@@ -150,20 +152,22 @@ namespace CDL2v1 {
             if (MainProgram != null) {
                if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4)               ID.Dump();
 
-              
+            
 
                // Perform semantic checks
                SemanticAnalyzer = new SemanticAnalyzer(this);
                if (Database.Instance.Programs.Count >= 1) {
                   // TODO: If errors are found, null out the program object.
+
                   SemanticAnalyzer.Analyze(MainProgram);
+                  Reachable.CollectAllObjects(MainProgram);       // Collect all the objects in the modules comprising the program, so we can report unused objects.
+                  Reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
+                  SemanticAnalyzer.AnalyzeUnused(MainProgram, Reachable);
                }
 
                if (SemanticAnalyzer.AbortCompilation()) return;
 
                if (Settings.SettingValue<bool>("SaveDB")) Database.Save("CDL2v1");
-
-               Reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
 
                string? PrettyPrint = Settings.SettingValue<string>("PrettyPrint");
                if (PrettyPrint != "" && (Database.Instance.Programs.Count > 0 || Database.Instance.Modules.Count > 0)) {

@@ -53,20 +53,24 @@ class BoundedArray {
        $this.UpperBound = $upperBound
        $this.Array = [<%3%>[]]::new($upperBound - $lowerBound + 1)
    }
-   [void]CheckIndex([int]$index) {
-      if ($this.LowerBound -le $index -and $index -le $this.UpperBound) {
-         return
-      } else {
-         throw [System.IndexOutOfRangeException]::new(""Index: $index, LowerBound: $($this.LowerBound), UpperBound: $($this.UpperBound)"")
-       }
+   [void]CheckIndex([int[]]$indices) {
+      foreach ($index in $indices) {
+         if (!($this.LowerBound -le $index -and $index -le $this.UpperBound)) {
+            throw [System.IndexOutOfRangeException]::new(""Index: $index, LowerBound: $($this.LowerBound), UpperBound: $($this.UpperBound)"")
+         }
+      }
    }
    [<%3%>]Item([int]$index) {
       $this.CheckIndex($index)
       return $this.Array[$index - $this.LowerBound]
    }
-   [void]Item([int]$index, [<%3%>]$value) {
+   [void]Item([int]$index,[<%3%>]$value) {
       $this.CheckIndex($index)
       $this.Array[$index - $this.LowerBound] = $value
+   }
+   [void]Swap([int]$i,[int]$j) {
+      $this.CheckIndex(($i,$j))
+      $this.Array[$i - $this.LowerBound], $this.Array[$j - $this.LowerBound] = $this.Array[$j - $this.LowerBound], $this.Array[$i - $this.LowerBound]
    }
 }
 

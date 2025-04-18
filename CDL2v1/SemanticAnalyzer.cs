@@ -70,6 +70,15 @@ namespace CDL2v1 {
          Log(0,$"Analyzing MAIN {mainProgram.ContainerName}");
       }
 
+      public void AnalyzeUnused(Program mainProgram, Reachable Reachable) {
+         foreach (ICDL2Object obj in Reachable.AllObjects) {
+            if (Reachable.Objects.Contains(obj)) {
+               obj.Notes.Remove(Note.UnreferenceObject);
+            } else if (obj is NamedElement elem) {
+               AddNote(elem, new Note(Note.UnreferenceObject,PhaseName,obj.Parent));
+            }
+         }
+      }
 
       private void AnalyzeProgram(Program program) {
          Log(0,$"Analyzing {program.ContainerName}");

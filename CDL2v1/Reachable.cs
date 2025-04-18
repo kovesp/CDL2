@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -23,10 +24,27 @@ namespace CDL2v1 {
          }
          private set;
       } = [];
+      public Set<ICDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
       public Set<ICDL2Object> ReadVars { get;  private set; } = [];
       public Set<ICDL2Object> AmbigousVars { get; private set; } = [];
       
+      public void CollectAllObjects(Program prog) {
+         AllObjects = [];
+         foreach (Module? mod in prog.Parts.Select(id => Database.Instance.Modules.TryGetValue(id,out Module? mod)?mod:null)) {
+            if (mod is not null) {
+               foreach (Layer lay in mod.Children.Cast<Layer>()) {
+                  foreach (Section sec in lay.Children.Cast<Section>()) {
+                     foreach (ICDL2Object obj in sec.declarations.Values) {
+                        AllObjects.Add(obj);
+                     }
+                  }
+               }
+            }
+         }
+         Logger.Log(0, $"Collected {AllObjects.Count} objects from {prog}.");
+      }
+
       public void CollectReachableObjects(Program prog) {
          Objects = [];
          ReadVars = [];
