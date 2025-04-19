@@ -54,6 +54,38 @@ MODULE m.
             +.
 
       ENDSEC s.
+      SECTION other tests.
+         ACTION action test: +.
+
+         ### A constant note.
+         NOTE.
+         CONST ten=10.
+         VAR var.
+
+         # Test of builtin parsing.
+         FUNCTION parse prolog:
+            BUILTIN is option value+"Prolog Syntax"+"MProlog", parse mprolog;
+            BUILTIN is option value+"Prolog Syntax"+"SWI", parse swiprolog;
+            +.
+
+         ### Procedures for testing the Semantic analyzer
+         # Conditional compilation flag.
+         TEST wants less test: -.
+         # This proc cannot fail.          
+         TEST test+>a+>b>+c>:
+            wants less test, less+a+b, make+c+a;
+            eq+a+b, add+a+ten+c,action test;
+            add+b+ten+var, incr+b, make+c+b.
+         # This proc tries to use a fail.
+         FUNCTION illegal fail operator: eq+var+ten, -.
+
+         TEST choose +>a+>limit+c>+>inc =
+            "$L" c " = " a " + " inc
+            "$L" a " -gt " limit.
+         # Return the test result as 0 or 1
+         FUNCTION choose func +>a+>limit+c>+>inc+res> =
+            c " = " a " + " inc
+            "$L" res " = [int](" a " -gt " limit ")".      ENDSEC other tests.
       ROOT root.
    ENDLAY l.
 ENDMOD m.

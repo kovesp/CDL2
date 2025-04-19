@@ -7,6 +7,7 @@ using System.CodeDom;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
@@ -51,6 +52,11 @@ namespace CDL2v1 {
       public SemanticAnalyzer(CDL2 compiler) : base(compiler) { }
 
       /// <summary>
+      /// Maps all identifiers exported by the modules in the program to the exporting module.
+      /// </summary>
+      private readonly Dictionary<ID, Section> Exports = [];
+
+      /// <summary>
       /// Analyze the given program.
       /// </summary>
       /// <param name="MainProgram"></param>
@@ -62,7 +68,43 @@ namespace CDL2v1 {
          AnalyzeMainProgram(MainProgram);
 
          foreach (Module module in Database.Instance.Modules.Values) {
-            AnalyzeModule(module);
+            AnalyzeModule(MainProgram, module);
+         }
+         // Now verify that each import has a corresponding export and that the specs match.
+         // Notice that the affix names don't have to match, but the diretions do.
+         // If resolved, add the object to the resolved imports of the module.
+         foreach (Module? module in MainProgram.Parts.Select(id => Database.Instance.Modules[id])) {
+            module.resolvedImports.Clear();  // valid only for the current run of the Semantic Analyzer.
+            foreach (ID elemid in module.imports.Keys) {
+               if (Exports.TryGetValue(elemid,out Section? exporter)) {
+                  ICDL2Object exported = exporter.declarations[elemid];
+                  ICDL2Object imported = module.imports[elemid].declarations[elemid];
+                  bool resolved = true;
+                  // Check that the import mathces the export
+                  if (imported is ImportedConst _ && exported is Algorithm alg) {
+                     AddNote(MainProgram,Note.ImpexMismatch, imported, exported, $"CONST vs. {alg.algorithmType}");
+                     resolved = false;
+                  } else if (imported is ImportedAlgorithm impalg && exported is Algorithm expalg) {
+                     if (impalg.affixes.Count != expalg.affixes.Count) {
+                        AddNote(MainProgram, Note.ImpexMismatch, imported, exported,"Affix count mismatch");
+                        resolved = false;
+                     } else {
+                        for (int i = 0 ; i < impalg.affixes.Count ; i++) {
+                           if (impalg.affixes[i].affixDir != expalg.affixes[i].affixDir) {
+                              AddNote(MainProgram, Note.ImpexMismatch, imported, exported, $"Affix direction mismatch, {impalg.affixes[i]} vs. {expalg.affixes[i]}");
+                              resolved = false;
+                           }
+                        }
+                     }
+                  } else {
+                     AddNote(MainProgram, Note.ImpexMismatch, imported, exported, $"{((Algorithm)imported).algorithmType} vs. CONST");
+                     resolved = false;
+                  }
+                  if (resolved) module.resolvedImports[elemid] = (exported as IImpexElement)!;
+               } else {
+                  AddNote(MainProgram, Note.MissingImport, module.imports[elemid]);
+               }
+            }
          }
       }
 
@@ -84,9 +126,23 @@ namespace CDL2v1 {
          Log(0,$"Analyzing {program.ContainerName}");
       }
 
-      private void AnalyzeModule(Module module) {
+      /// <summary>
+      /// Analyze a module.
+      /// Notice that a check is made to ensure that all objects are exported from a single module. As a result, the exports table can be used to resolve imports.
+      /// </summary>
+      /// <param name="prog"></param>
+      /// <param name="module"></param>
+      private void AnalyzeModule(Program prog,Module module) {
          Log(1,$"Analyzing {module.ContainerName}");
-         foreach (Layer layer in module.Children) {
+         foreach (ID elemid in module.exports.Keys) {
+            if (Exports.TryGetValue(elemid, out Section? value)) {
+               AddNote(prog, Note.DuplicateExport, elemid,module.exports[elemid], value);
+            } else {
+               Exports[elemid] = module.exports[elemid];
+            }
+         }
+
+         foreach (Layer layer in module.Children.Cast<Layer>()) {
             AnalyzeLayer(layer);
          }
       }
@@ -148,7 +204,7 @@ namespace CDL2v1 {
          //      if (container.Symbols[id] is Undeclared) {
          //         ReportError(container,$"{kind} {id} is Instance");
          //      } else if (container.Symbols[id] is not IProvidedElement) {
-         //         ReportError(container,$"{kind} {id} is not one of {{{string.Join(",",Section.ProvidedElementImplementors.Select(type => type.PhaseName))}}}");
+         //         ReportError(container,$"{kind} {id} is not one of {{{string.Join(",",SectionById.ProvidedElementImplementors.Select(type => type.PhaseName))}}}");
          //      }
          //   } else {
          //      ReportError(container,$"{kind} {id} not found");

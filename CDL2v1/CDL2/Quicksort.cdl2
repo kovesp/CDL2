@@ -2,33 +2,13 @@
 # Ignore Spelling: ENDMOD ENDLAY ENDSEC quicksort incr msg 
 # cspell:ignore ENDMOD ENDLAY ENDSEC ENDPROG decr ABSTR incr decr
 
-MODULE quicksort.
-   LAYER base.
-      SECTION parametrization.
-         ABSTR lwb, upb.
-         EXT lwb, upb, max size of list to show, min random, max random, use macros.
-
-         # The lower and upper bounds of the data array. #
-         CONST lwb=1, upb=1_000.
-         CONST max size of list to show=100.
-
-         # The range of random numbers. #
-         CONST min random=0, max random=200.
-
-         TEST use macros: +.
-      ENDSEC parametrization.
+MODULE powershell kernel.
+   LAYER kernel.
       SECTION arithmetic.
-         ABSTR incr, decr, greater, less, less or equal, add, halve, make, random.
-         EXT make, random, incr, less or equal, subtract.
-         INV use macros.
-
-         TEST choose +>a+>limit+c>+>inc =
-            "$L" c " = " a " + " inc
-            "$L" a " -gt " limit.
-         # Return the test result as 0 or 1
-         FUNCTION choose func +>a+>limit+c>+>inc+res> =
-            c " = " a " + " inc
-            "$L" res " = [int](" a " -gt " limit ")".
+         EXPORT incr, decr, incr with, decr with.
+         EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
+         EXPORT make, random.
+         EXPORT gt, lt, ge, le, eq, ne.
 
          FUNCTION incr+>a> = a "++".
          FUNCTION decr+>a> = a "--".
@@ -45,45 +25,68 @@ MODULE quicksort.
          FUNCTION halve +>a> = a " /= 2".
          FUNCTION make +a>+>b = a " = " b.
 
-         ACTION action test: +.
-
-         ### A constant note.
-         NOTE.
-         CONST ten=10.
-         VAR var.
-
-         # Test of builtin parsing.
-         FUNCTION parse prolog:
-            BUILTIN is option value+"Prolog Syntax"+"MProlog", parse mprolog;
-            BUILTIN is option value+"Prolog Syntax"+"SWI", parse swiprolog;
-            +.
-
-         ### Procedures for testing the Semantic analyzer
-         # Conditional compilation flag.
-         TEST wants less test: -.
-         # This proc cannot fail.          
-         TEST test+>a+>b>+c>:
-            wants less test, less+a+b, make+c+a;
-            eq+a+b, add+a+ten+c,action test;
-            add+b+ten+var, incr+b, make+c+b.
-         # This proc tries to use a fail.
-         FUNCTION illegal fail operator: eq+var+ten, -.
-
-         TEST gt+>a+>b : lt+b+a.
-         TEST ne+>a+>b : eq+a+b,- ; +.
-         TEST ge+>a+>b : eq+a+b ; gt+a+b.
-
-         TEST le+>a+>b: use macros, le macro+a+b; eq+a+b ; lt+a+b.
-         TEST le macro+>a+>b = a " -le " b.
-         TEST less+>a+>b : lt+a+b.
-
-         TEST lt+>a+>b = a " -lt " b.
          TEST eq+>a+>b = a " -eq " b.
-         TEST greater+>a+>b : gt+a+b.
-         
-         TEST less or equal+>a+>b: le+a+b.
+         TEST ne+>a+>b = a " -ne " b.
+         TEST gt+>a+>b = a " -gt " b.
+         TEST ge+>a+>b = a " -ge " b.
+         TEST lt+>a+>b = a " -lt " b.
+         TEST le+>a+>b = a " -le " b.
 
          FUNCTION random+>min+>max+r> = r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
+      ENDSEC arithmetic.
+   ENDLAY kernel.
+ENDMOD powershell kernel.
+
+MODULE quicksort.
+   LAYER base.
+      SECTION parametrization.
+         ABSTR lwb, upb.
+         EXT lwb, upb, max size of list to show, min random, max random.
+
+         # The lower and upper bounds of the data array. #
+         CONST lwb=1, upb=1_000.
+         CONST max size of list to show=100.
+
+         # The range of random numbers. #
+         CONST min random=0, max random=200.
+      ENDSEC parametrization.
+
+      SECTION arithmetic.
+         ABSTR incr, decr, greater, less, less or equal, add, halve, make, random.
+         EXT make, random, incr, less or equal, subtract.
+
+         IMPORT incr, decr, incr with, decr with.
+         IMPORT add, subtract, multiply, divide, remainder, modulo, halve.
+         IMPORT make, random.
+         IMPORT gt, lt, ge, le, eq, ne.
+
+         FUNCTION incr+>a>.
+         FUNCTION decr+>a>.
+         FUNCTION incr with +>a>+>b.
+         FUNCTION decr with +>a>+>b.
+
+         FUNCTION add +>a+>b+c>.
+         FUNCTION subtract +>a+>b+c>.
+         FUNCTION multiply +>a+>b+c>.
+         FUNCTION divide +>a+>b+c>.
+         FUNCTION remainder +>a+>b+c>.
+         FUNCTION modulo +>a+>b+c>.
+
+         FUNCTION halve +>a>.
+         FUNCTION make +a>+>b.
+
+         TEST gt+>a+>b.
+         TEST ne+>a+>b.
+         TEST ge+>a+>b.
+         TEST le+>a+>b.
+         TEST lt+>a+>b.
+         TEST eq+>a+>b.
+
+         TEST greater+>a+>b: gt+a+b.         
+         TEST less or equal+>a+>b: le+a+b.
+         TEST less+>a+>b: lt+a+b.
+
+         FUNCTION random+>min+>max+r>.
       ENDSEC arithmetic.
       SECTION touch.
          ABSTR touch in, touch out, touch trans.
@@ -242,7 +245,7 @@ ENDMOD quicksort.
 PRELUDE data.
 ROOT sorter.
 PROGRAM sort.
-   PART quicksort.
+   PART powershell kernel, quicksort.
    PRELUDE quicksort.
    ROOT quicksort.
 ENDPROG sort.

@@ -72,9 +72,10 @@ namespace CDL2v1 {
          Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error")}, {Warnings.Count().Plural("warning")}, {Infos.Count().Plural("info message")}");
          if (message != null) Log(0, message);
 
+         NoteType messages = Settings.SettingValue<NoteType>("Messages")!;
          ReportByType(Errors);
-         ReportByType(Warnings);
-         ReportByType(Infos,all:true);
+         if (messages == NoteType.Warning || messages == NoteType.Info)  ReportByType(Warnings);
+         if (messages == NoteType.Info) ReportByType(Infos,all:true);
 
          void ReportByType(IEnumerable<Note> list,bool all=false) {
             foreach (Note note in list) {

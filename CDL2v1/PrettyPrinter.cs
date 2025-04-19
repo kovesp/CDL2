@@ -251,7 +251,7 @@ namespace CDL2v1 {
          if (container is Section section) {
             if (section.Ludes[ludeType].Count != 0) {
                Emit(ludeType.Decorate(Emitter,SE.ReservedWord)," ");
-               // Section Ludes are stored as ids of a generated Procedure item.
+               // SectionById Ludes are stored as ids of a generated Procedure item.
                if (section.TryGetLocalDeclaration(section.Ludes[ludeType].First(),out Procedure? proc)) { // This should always be the case
                   Print(proc!.group.alternatives.First(),section);
                   EmitSeparatorWithNL(TT.END);
@@ -417,7 +417,7 @@ namespace CDL2v1 {
          // This is safe, because the MaxIndentIncrement limits the extra indent.
          if (!firstInAlternative && Emitter.WillKeepTogetherNotFitOnCurrentLine()) Emitter.ExtraIndent++;
          //static bool TryFindInvocationType(ID id,ref AlgorithmNameType callDecorator,AlgorithmNameType callAttribute,Layer layer) {
-         //   foreach (Section container in layer.Children.Cast<Section>()) {
+         //   foreach (SectionById container in layer.Children.Cast<SectionById>()) {
          //      if (container.import.Contains(id)) {
          //         callDecorator |= AlgorithmNameType.Imported;
          //         return true;

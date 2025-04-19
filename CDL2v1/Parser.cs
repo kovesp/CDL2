@@ -65,7 +65,7 @@ namespace CDL2v1 {
       public  Program?          currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
       private Module?           currentModule;     // The current module being parsed. Should be the same as currentObject.Module.
       private Layer?            currentLayer;      // The current layer being parsed. Should be the same as currentObject.Layer.
-      private Section?          currentSection;    // The current container being parsed. Should be the same as currentObject.Section.
+      private Section?          currentSection;    // The current container being parsed. Should be the same as currentObject.SectionById.
       public  CompilationObject currentObject;     // The object being compiled. Used mainly for error reporting.
 
       public Parser(CDL2 compiler) : base(compiler) => currentObject = new CompilationObject(this);
@@ -246,7 +246,7 @@ namespace CDL2v1 {
                algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
                if (!currentSection.import.Contains(id)) {
                   AddNote(algorithm,Note.AlgorithmStubNotImported,algorithm.id.Name,currentSection.id.Name);
-                  ReportError($"{algType} {id} is not exported but has no body.");
+                  ReportError($"{algType} {id} has no body but is not imported.");
                }
             } else {
                Set<Local>? locals = ParseLocals();
@@ -264,12 +264,16 @@ namespace CDL2v1 {
                      ParseMacroBody((Macro)algorithm);
                   }
                }
+               Debug.Assert(algorithm != null);
+               if (currentSection.import.Contains(id)) {
+                  AddNote(algorithm,Note.ImportedAlgorithmHasBody,algorithm.id.Name,currentSection.id.Name);
+                  ReportError($"{algType} {id} is imported but has locals or a body.");
+               }
             }
-            Debug.Assert(algorithm != null);
-            if (currentSection.import.Contains(id)) {
-               AddNote(algorithm,Note.ImportedAlgorithmHasBody,algorithm.id.Name,currentSection.id.Name);
-               ReportError($"{algType} {id} is imported but has locals or a body.");
-            }
+
+            Debug.Assert((algorithm is ImportedAlgorithm                &&  currentSection.import.Contains(algorithm.id)) ||
+                        ((algorithm is Procedure || algorithm is Macro) && !currentSection.import.Contains(algorithm.id)),
+                         $"{algorithm} has an invalid import status");
             currentSection.declarations[id] = algorithm;
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
@@ -595,7 +599,7 @@ namespace CDL2v1 {
          ParseInterfaceList(RW.EXPORT,currentSection.export,currentModule.exports);
          // Required interfaces
          ParseInterfaceList(RW.INV,currentSection.inv);
-         ParseInterfaceList(RW.IMPORT,currentSection.import);
+         ParseInterfaceList(RW.IMPORT,currentSection.import,currentModule.imports);
       }
 
       /// <summary>
@@ -628,7 +632,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse a Section lude. This is an alternative (i.e., a sequence of calls, without the other serializationOptions for the last call) terminated by a period.
+      /// Parse a SectionById lude. This is an alternative (i.e., a sequence of calls, without the other serializationOptions for the last call) terminated by a period.
       /// It will be stored as a Procedure. The ID will be SectionName_LudeType. 
       /// </summary>
       /// <param id="parser"></param>

@@ -26,7 +26,7 @@ namespace CDL2v1 {
    ///               GenerateImport                                  for each import
    ///            GenerateImpExEnd                                   at the end of imports and exports
    ///            GenerateLayerStart                                 for each layer
-   ///               GenerateSectionStart                            for each Section
+   ///               GenerateSectionStart                            for each SectionById
    ///                  GenerateObjectSectionStart                     start of data declarations
    ///                     GenerateConstantStart                     for each constant, followed by the elements of the constant
    ///                        GenerateConstElementInt                   for integer constant elements
@@ -34,7 +34,7 @@ namespace CDL2v1 {
    ///                        GenerateConstElementString                for string constant elements
    ///                        GenerateMacroElementVar                      for references to other constants
    ///                     GenerateConstantEnd
-   ///                  GenerateObjectSectionEnd                       end of data Section
+   ///                  GenerateObjectSectionEnd                       end of data SectionById
    ///                  GenerateObjectSectionStart
    ///                     GenerateVar                               for each variable
    ///                  GenerateObjectSectionEnd 
@@ -93,8 +93,8 @@ namespace CDL2v1 {
    ///                     GenerateProcedureBodyEnd
    ///                     ------------------------------------------algorithm finalization, same as for macros
    ///                     GenerateProcedureEnd
-   ///                  GenerateObjectSectionEnd                     end of object declaration Section
-   ///               GenerateSectionEnd                              at the end of the Section
+   ///                  GenerateObjectSectionEnd                     end of object declaration SectionById
+   ///               GenerateSectionEnd                              at the end of the SectionById
    ///            GenerateLayerEnd                                   at the end of the layer
    ///         GenerateModuleEnd                                     at the end of the module
    /// </remarks>
@@ -154,12 +154,12 @@ namespace CDL2v1 {
       void GenerateLayerEnd(Layer layer);
 
       /// <summary>
-      /// This is called at the start of a Section.
+      /// This is called at the start of a SectionById.
       /// </summary>
       /// <param name="section"></param>
       void GenerateSectionStart(Section section);
       /// <summary>
-      /// This is called at the end of a Section.
+      /// This is called at the end of a SectionById.
       /// </summary>
       /// <param name="section"></param>
       void GenerateSectionEnd(Section section);
@@ -238,7 +238,7 @@ namespace CDL2v1 {
 
       #region Object Sections
       /// <summary>
-      /// Starts a Section of the given kind.
+      /// Starts a SectionById of the given kind.
       /// </summary>
       /// <param name="count"></param>
       /// <param name="kind">CONST, VAR, LIST, MACRO, PROCEDURE</param>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -64,12 +65,12 @@ namespace CDL2v1 {
       }
       public void CollectReachableObjects(Module module) => throw new NotImplementedException($"CollectReachableObjects: Not yet implemented for modules.");
       private void CollectReachableObjects(RW Ludetype, Module module) {
-         foreach (Section? section in module.Ludes[Ludetype].Select(id => module.Section(id))) {
+         foreach (Section? section in module.Ludes[Ludetype].Select(id => module.SectionById(id))) {
             if (section is not null) CollectReachableObjects(Ludetype, section);
          }
       }
       private void CollectReachableObjects(RW ludetype, Section section) {
-         // Section ludes contain teh single entry of argAffix synthetic procedure that is the lude
+         // SectionById ludes contain teh single entry of argAffix synthetic procedure that is the lude
          // So we need to collect all the objects in the section that are reachable from this lude.
          Debug.Assert(section.Ludes[ludetype].Count == 1, $"CollectReachableObjects: Expected single lude in {section}");
          if (section.TryGetDeclaration(section.Ludes[ludetype][0], out Procedure? proc)) {
@@ -116,6 +117,9 @@ namespace CDL2v1 {
                IActualArg arg = call.args[i];
                Affix affix = called.affixes[i];
                switch (arg) {
+                  case ImportedConst ic:
+                     if (ic.Module.resolvedImports.TryGetValue(ic.id, out IImpexElement? elem) && elem is Const rc) CollectReachableObjects(rc);
+                     break;
                   case Const c:
                      CollectReachableObjects(c);
                      break;
@@ -127,6 +131,8 @@ namespace CDL2v1 {
                      if (call.Called.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
                         if (obj is Const c) {
                            CollectReachableObjects(c);
+                        } else if (obj is ImportedConst ic1 && ic1.Module.resolvedImports.TryGetValue(ic1.id, out IImpexElement? elem1) && elem1 is Const rc1) {
+                           CollectReachableObjects(rc1);
                         } else if (obj is Var v) {
                            Objects.Add(v);
                         }
@@ -139,6 +145,12 @@ namespace CDL2v1 {
             if (Objects.Add(called)) {
                if (called is Macro macro) {
                   CollectReachableObjects(macro);
+               } else if (called is ImportedAlgorithm impalg && called.Module.resolvedImports.TryGetValue(impalg.id,out IImpexElement? elem)) {
+                  if (elem is Macro macro1) {
+                     CollectReachableObjects(macro1);
+                  } else if (elem is Algorithm alg) {
+                     CollectReachableObjects(((Procedure)alg).group);
+                  }
                } else {
                   Debug.Assert(called is Procedure, $"CollectReachableObjects: Unknown call type {called}");
                   CollectReachableObjects(((Procedure)called).group);

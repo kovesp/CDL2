@@ -45,7 +45,7 @@ namespace CDL2v1 {
       }
       public static ID From(string name) => new(name);
       /// <summary>
-      /// Used to create the Procedures for Section Ludes.
+      /// Used to create the Procedures for SectionById Ludes.
       /// </summary>
       /// <param id="container"></param>
       /// <param id="ludeType">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>

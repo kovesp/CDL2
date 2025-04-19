@@ -126,7 +126,7 @@ namespace CDL2v1 {
       }
 
       private void GenerateModuleLude(RW ludeType, Module module, bool wrapped) {
-         IEnumerable<Section?> SectionsWithLudes = module.Ludes[ludeType].Select(id => module.Section(id)).Where(sec => sec?.Ludes[ludeType].Count > 0) ?? [];
+         IEnumerable<Section?> SectionsWithLudes = module.Ludes[ludeType].Select(id => module.SectionById(id)).Where(sec => sec?.Ludes[ludeType].Count > 0) ?? [];
          if (SectionsWithLudes.Any()) {
             cg.GenerateModuleLudeStart(ludeType, module, wrapped: wrapped);
             foreach (Section? section in SectionsWithLudes) cg.GenerateModuleLude(ludeType, module, section!);
@@ -371,7 +371,7 @@ namespace CDL2v1 {
             case LCT.Abort: cg.GenerateAbort(proc, group); break;
             case LCT.Repeat: cg.GenerateRepeat(proc, group, alternative.lastCall.label!,canFail); break;
             case LCT.Group: GenerateGroup(proc, alternative.lastCall.group!); break;
-            case LCT.None: break; // Used in the alternative generated for Section Ludes.
+            case LCT.None: break; // Used in the alternative generated for SectionById Ludes.
             default:
                throw new NotImplementedException($"GenerateAlternative: Unknown last call type {alternative.lastCall.type}");
          }
