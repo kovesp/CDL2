@@ -1,5 +1,7 @@
 ﻿// Ignore Spelling: Transput CDL abstr ext inv ludes lude lwb upb FQN
 
+using Microsoft.Windows.Themes;
+
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
@@ -17,6 +19,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using System.Windows.Navigation;
 using System.Xml.Linq;
 
 using static System.Net.Mime.MediaTypeNames;
@@ -27,11 +30,12 @@ namespace CDL2v1 {
    public interface IMacroElement { }
    public interface IConstElement { }
    public interface IInterfaceElement { }
-   public interface IProvidedElement : IInterfaceElement { }
-   public interface IRequiredElement : IInterfaceElement { }
-   public interface  IImpexElement : IInterfaceElement { }     // ImpexElement is an interface for all elements that can be imported or exported (Const & Algorithm)
+   public interface IProvidable : IInterfaceElement { }
+   public interface IImportable : IProvidable { }
+   public interface IExportable : IProvidable { }
+
    public interface IActualArg {
-      ID id { get; }
+      ID Id { get; }
    }
    public interface INamedElement {
       bool HasCommentOrNote { get; }
@@ -87,7 +91,7 @@ namespace CDL2v1 {
          PhaseName = phaseName;
       }
       public Note(Note template, string phaseName, NamedElement owner, params object[] args)
-         : this(template.Type, template.Number, string.Format(template.Text, [.. args.Select(arg => arg is Affix aff ? aff.id : arg is Local loc ? loc.id : arg)]), phaseName) => Owner = owner;
+         : this(template.Type, template.Number, string.Format(template.Text, [.. args.Select(arg => arg is Affix aff ? aff.Id : arg is Local loc ? loc.Id : arg)]), phaseName) => Owner = owner;
 
       public static readonly string Marker = " >>> ";
 
@@ -108,10 +112,10 @@ namespace CDL2v1 {
       public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix {0} that has not been set passed as input in {1}");
       public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local {0} that has not been set passed as input in {1}");
       public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local {0} whose value has not been read passed to output in {1}");
-      public static readonly Note AlgorithmStubNotImported          = new(NoteType.Error  , 018, "Algorithm stub is not imported");
-      public static readonly Note ConstantStubNotImported           = new(NoteType.Error  , 019, "Constant stub is not imported");
-      public static readonly Note ImportedAlgorithmHasBody          = new(NoteType.Error  , 020, "Imported Algorithm has body");
-      public static readonly Note ImportedConstantHasBody           = new(NoteType.Error  , 021, "Imported Constant has body");
+      public static readonly Note MissingImportSpec                 = new(NoteType.Error,   018, "{0} is imported in section {1} but has no specificaion");
+      public static readonly Note ObjectNotImported                 = new(NoteType.Error  , 019, "{0} has no body but is not imported");
+      public static readonly Note ObjectImportedButHasBody          = new(NoteType.Error  , 020, "{0} is imported but has a body");
+
       public static readonly Note InvalidInputArg                   = new(NoteType.Error  , 022, "Only CONST, VAR, AFFIX (input or transput) or LOCAL may be passed to an input affix {0}");
       public static readonly Note InvalidOutputArg                  = new(NoteType.Error  , 023, "Only VAR, AFFIX (output or transput) or LOCAL may be passed to an output affix {0}");
       public static readonly Note InvalidStringArg                  = new(NoteType.Error  , 024, "Only CONST, literal string, or string affix can be passed to {1}, not {0}");
@@ -121,6 +125,8 @@ namespace CDL2v1 {
       public static readonly Note DuplicateExport                   = new(NoteType.Error,   029, "{0} exported by {1} was also exported by {2}");
       public static readonly Note MissingImport                     = new(NoteType.Error,   030, "{0} is imported but was not exported by any program part");
       public static readonly Note ImpexMismatch                     = new(NoteType.Error,   031, "Import {0} does not match export {1} ({2})");
+      public static readonly Note InterfaceElementMissing           = new(NoteType.Error,   032, "{0} is in {1} list, but not declared in section");
+
 
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix {0} whose value has not been read passed to output in {1}");
@@ -142,21 +148,45 @@ namespace CDL2v1 {
    /// <summary>
    /// Base class for all elements that have names in the syntax tree.
    /// </summary>
-   /// <param id="id"></param>
+   /// <param Id="Id"></param>
    [Serializable]
-   public class NamedElement(ID id,bool synthetic = false) : INamedElement {
-      public ID id { get; } = id;
+   public abstract class NamedElement(ID id,bool synthetic = false) : INamedElement {
+      public ID Id { get; } = id;
       /// <summary>
       /// True if the object is synthetic, i.e., generated by the parser.
       /// Objects that can be synthetic:
-      ///  - Procedures: generated for SectionById ludes.
+      ///  - Procedures: generated for Section ludes.
       ///  - Groups: indicating that their label is generated.
       /// </summary>
       public bool IsSynthetic { get; } = synthetic;
+      /// <summary>
+      /// The container which contains this object.
+      /// The following have a non-null Parent:
+      ///   Layer     -> Module
+      ///   Section   -> Layer
+      ///   Algorithm -> Section (Macro, Procedure, ImportedAlgorithm)
+      ///   LIST      -> Section
+      ///   Var       -> Section
+      ///   Const     -> Section (ImportedConst)
+      ///   
+      /// The Parent is null for:
+      ///   Program
+      ///   Module
+      ///   Group
+      ///   Affix
+      ///   L
+      /// </summary>
       public Container? Parent { get; set; }      // null for the Program and Modules.
 
-      public Section? Section => this is Section ? (Section)this : (Parent as Section)!;
-      public Module? Module => Section?.Parent?.Parent as Module;
+      /// <summary>
+      /// The section which contains this object.
+      /// Valid (non-null) only for Section and objects that are contained in a section. <see cref="Parent"/>.
+      /// </summary>
+      public Section? Section => this is Section section ? section : this is DeclaredCDL2Object decl ? decl.Parent as Section : null;
+      /// <summary>
+      /// The module that contains this object or null.
+      /// </summary>
+      public Module? Module => this is Layer layer ? layer?.Parent as Module : Section?.Parent?.Parent as Module;
 
       /// <summary>
       /// Contains the objects that reference this object.
@@ -165,10 +195,11 @@ namespace CDL2v1 {
       ///  - Vars:  Algorithms.
       ///  - LISTs: Macros.
       ///  - Algorithms: Algorithms.
+      ///  TODO: Not currently used.
       /// </summary>
-      public Set<ICDL2Object> Refeences = [];
+      public Set<ICDL2Object> References { get; } = [];
 
-      override public string ToString() => $"{TypeShortName} {id.Name}";
+      override public string ToString() => $"{TypeShortName} {Id.Name}";
       public virtual string TypeShortName => GetType().Name.ToUpper()[..3];
       public string? Comments { get; set; }
       public Notes Notes { get; set; } = [];
@@ -186,10 +217,10 @@ namespace CDL2v1 {
       /// <param name="separator"></param>
       /// <returns></returns>
       public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
-         string sectionName = Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string layerName = Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string moduleName = Parent!.Parent!.Parent!.id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string objectName = id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
+         string sectionName = Parent!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string layerName = Parent!.Parent!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string moduleName = Parent!.Parent!.Parent!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string objectName = Id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
          return $"{moduleName}{separator}{layerName}{separator}{sectionName}{(IsSynthetic?separator+separator:separator)}{objectName}";
       }
       /// <summary>
@@ -211,11 +242,11 @@ namespace CDL2v1 {
    [Serializable]
    public abstract class Container : NamedElement {
       /// <summary>
-      /// The Children of the container. Layers are ordered, hence the list.
+      /// The Container children of the container. Layers are ordered, hence the list.
       /// </summary>
       [JsonInclude]
       public List<Container> Children = [];
-      /// <param id="id"></param>
+      /// <param Id="Id"></param>
       public Container(ID id,string? comments,Notes? notes) : base(id) {
          Comments = comments;
          AddNotes("Parser", notes);
@@ -232,7 +263,7 @@ namespace CDL2v1 {
       }
 
       // The Ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
-      // SectionById Ludes will be generated as Procedures and given the id of the lude type (which are not legal as a CDL2 id).
+      // SectionById Ludes will be generated as Procedures and given the Id of the lude type (which are not legal as a CDL2 Id).
       [JsonInclude]
       public Dictionary<RW,List<ID>> Ludes { get; } = new() {
          { RW.PRELUDE,[] },
@@ -241,7 +272,7 @@ namespace CDL2v1 {
       };
       public static readonly List<RW> LudeTypes = [RW.PRELUDE, RW.ROOT, RW.POSTLUDE];
 
-      public Container? Child(ID id) => Children.FirstOrDefault(child => child.id == id);
+      public Container? Child(ID id) => Children.FirstOrDefault(child => child.Id == id);
 
       /// <summary>
       /// Sets the LudeParser action for the container. The default is to do nothing.
@@ -249,7 +280,7 @@ namespace CDL2v1 {
       public Action<Parser,RW,Container> LudeParser = (parser,ludeType,container) => { };
 
       /// <summary>
-      /// The short id of the container with its type. Used in the ToString method.
+      /// The short Id of the container with its type. Used in the ToString method.
       /// </summary>
       public string ContainerName = string.Empty;
    }
@@ -263,15 +294,15 @@ namespace CDL2v1 {
       /// <summary>
       /// Get the modules that have the given lude type.
       /// </summary>
-      /// <param id="ludeType"></param>
+      /// <param Id="ludeType"></param>
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
       public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => Database.Instance.Modules[id]);
-
       public Set<ID> Parts { get; } = [];
+      public IEnumerable<Module> Modules => Parts.Select(id => Database.Instance.Modules[id]);
       /// <summary>
       /// Program Ludes are a list of module IDs.
       /// </summary>
-      /// <param id="id"></param>
+      /// <param Id="Id"></param>
       public Program(ID id,string? comments,Notes notes) : base(id,null,comments,notes) {
          LudeParser = Parser.ParseLudeOfIDs;
          Database.Instance.FirstProgram ??= this;
@@ -281,21 +312,21 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a module in the syntax tree.
    /// </summary>
-   /// <param id="id"></param>
+   /// <param Id="Id"></param>
    [Serializable]
    public class Module : Container {
-      public readonly Dictionary<ID,Section> imports = [];        // Imports are specified in sections, but are propagated up the module level.
-      public readonly Dictionary<ID,Section> exports = [];        // Exports are specified in sections, but are propagated up the module level.
+      public readonly Dictionary<ID,DeclaredCDL2Object> imports = [];       // Imports are specified in sections, but are propagated up the module level.
+      public readonly Dictionary<ID,DeclaredCDL2Object> exports = [];        // Exports are specified in sections, but are propagated up the module level.
       /// <summary>
       /// Resolved imports are the imports that have been resolved to their definitions by the semantic analyzer.
       /// Reconstiotuted each time the semantic analyzer is run.
       /// </summary>
-      public readonly Dictionary<ID, IImpexElement> resolvedImports = [];
+      public readonly Dictionary<ID, IImportable> resolvedImports = [];
 
       /// <summary>
       /// Module Ludes are a list of container IDs.
       /// </summary>
-      /// <param id="id"></param>
+      /// <param Id="Id"></param>
       public Module(ID id,string? comments,Notes notes) : base(id,null,comments,notes) {
          LudeParser = Parser.ParseLudeOfIDs;
          Comments = comments;
@@ -304,7 +335,7 @@ namespace CDL2v1 {
       public Section? SectionById(ID id) {
          foreach (Container layer in Children) {
             foreach (Container section in layer.Children) {
-               if (id == section.id) return (Section)section;
+               if (id == section.Id) return (Section)section;
             }
          }
          return null;
@@ -315,22 +346,28 @@ namespace CDL2v1 {
    /// Represents a layer in the syntax tree.
    /// Notice that layers don't have Ludes.
    /// </summary>
-   /// <param id="id"></param>
-   /// <param id="module"></param>
+   /// <param Id="Id"></param>
+   /// <param Id="module"></param>
    /// <param PhaseName="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
    [Serializable]
    public class Layer(ID id,Module module,Layer? ancestor,string? comments = null,Notes? notes=null) : Container(id,module,comments,notes) {
+      /// <summary>
+      /// The ancestor of a layer is the previous layer in the layer list of the containing module.
+      /// </summary>
       public readonly Layer? Ancestor = ancestor;
-      public readonly Dictionary<ID,Section> ext = [];
-      public readonly Dictionary<ID,Section> abstr = [];
+
+      /// <summary>
+      /// The visible objects in this layer, i.e, the extebsions in the sections of this layer and the abstractions in the sections of the ancestor.
+      /// </summary>
+      public readonly Dictionary<ID, IProvidable> visible = []; 
 
    }
 
    /// <summary>
    /// Represents a container in the syntax tree.
    /// </summary>
-   /// <param id="id"></param>
-   /// <param id="layer"></param>
+   /// <param Id="Id"></param>
+   /// <param Id="layer"></param>
    [Serializable]
    public class Section : Container {
       /// <summary>
@@ -343,18 +380,18 @@ namespace CDL2v1 {
       public readonly Set<ID> import = [];
 
       /// <summary>
-      /// Hold the declarations of the SectionById. The key is the ID of the declaration.
+      /// Holds the Declarations of the SectionById. The key is the ID of the declaration.
       /// </summary>
-      public readonly Dictionary<ID,ICDL2Object> declarations = [];
+      public readonly Dictionary<ID,DeclaredCDL2Object> Declarations = [];
       /// <summary>
       /// Acts a cache for <see cref="TryGetDeclaration{T}(ID,out T)"/>."/>
       /// </summary>
-      public readonly Dictionary<ID,ICDL2Object> resolvedDeclarations = [];
-      public IEnumerable<Const> Constants => declarations.Values.OfType<Const>();
-      public IEnumerable<Var> Variables => declarations.Values.OfType<Var>();
-      public IEnumerable<LIST> Lists => declarations.Values.OfType<LIST>();
-      public IEnumerable<Macro> Macros => declarations.Values.OfType<Macro>();
-      public IEnumerable<Procedure> Procedures => declarations.Values.OfType<Procedure>();
+      private readonly Dictionary<ID, DeclaredCDL2Object> resolvedDeclarations = [];
+      public IEnumerable<Const> Constants => Declarations.Values.OfType<Const>();
+      public IEnumerable<Var> Variables => Declarations.Values.OfType<Var>();
+      public IEnumerable<LIST> Lists => Declarations.Values.OfType<LIST>();
+      public IEnumerable<Macro> Macros => Declarations.Values.OfType<Macro>();
+      public IEnumerable<Procedure> Procedures => Declarations.Values.OfType<Procedure>();
 
       /// <summary>
       /// The non-synthetic procedures.
@@ -367,15 +404,15 @@ namespace CDL2v1 {
       /// Sections have Ludes each of which contains the ID of an publicly generated CODE FUNCTION or ACTION which consist of a single alternative.
       /// TODO: Ensure that the generated CODE is correctly typed and that only ACTIONs and/or FUNCTIONs are called.
       /// </summary>
-      /// <param id="id"></param>
-      /// <param id="layer"></param>
+      /// <param Id="Id"></param>
+      /// <param Id="layer"></param>
       public Section(ID id,Layer layer,string? comments = null,Notes? notes = null) : base(id,layer,comments,notes) => LudeParser = Parser.ParseLudeOfCalls;
 
       public static Type[] ProvidedElementImplementors;
-      static Section() => ProvidedElementImplementors = [.. Extensions.GetImplementorsOfInterface<IProvidedElement>()];
+      static Section() => ProvidedElementImplementors = [.. Extensions.GetImplementorsOfInterface<IProvidable>()];
 
       /// <summary>
-      /// Get the declaration with the given ID. If the declaration is not found in this SectionById, it must be an inv and is looked for in the
+      /// Get the declaration with the given ID. If the declaration is not found in this Section, it must be an inv and is looked for in the
       /// containing layer's extensions and the previous layer's abstractions.
       /// Assumes that semantic analysis has been done and that the declaration is found.
       /// </summary>
@@ -383,22 +420,22 @@ namespace CDL2v1 {
       /// <typeparam name="T">The type of the requested object which must be an ICDL2Object.</typeparam>
       /// <returns>The declaration if found. </returns>
       /// 
-      public bool TryGetDeclaration<T>(ID id,out T? declaration) where T : ICDL2Object {
+      public bool TryGetDeclaration<T>(ID id,out T? declaration) where T : DeclaredCDL2Object {
          if (resolvedDeclarations.TryGetValue(id,out ICDL2Object? cached) && cached is T resolved) {
             declaration = resolved;
             return true; // Found in the cache
-         } else if (TryGetLocalDeclaration(id,out ILocalCDL2Object? obj) && obj is T local) {
+         } else if (TryGetLocalDeclaration(id,out DeclaredCDL2Object? obj) && obj is T local) {
             declaration = local;
             resolvedDeclarations[id] = local; // Cache the result to avoid checking in both declaration and resolvedDeclaration.
             return true; // Found locally
          } else if (inv.Contains(id)) {
             Debug.Assert(Parent != null && Parent is Layer,$"Parent of {this} is null or not a Layer");
             Layer layer = (Layer)Parent;
-            if (layer.ext.TryGetValue(id,out Section? declaringSection) && declaringSection.declarations[id] is T extended) {
+            if (layer.ext.TryGetValue(id,out Section? declaringSection) && declaringSection.Declarations[id] is T extended) {
                declaration = extended;
                resolvedDeclarations[id] = extended;
                return true;
-            } else if (layer.Ancestor != null && layer.Ancestor.abstr.TryGetValue(id,out declaringSection) && declaringSection.declarations[id] is T abstracted) {
+            } else if (layer.Ancestor != null && layer.Ancestor.abstr.TryGetValue(id,out declaringSection) && declaringSection.Declarations[id] is T abstracted) {
                declaration = abstracted;
                resolvedDeclarations[id] = abstracted;
                return true;
@@ -407,8 +444,16 @@ namespace CDL2v1 {
          declaration = default;
          return false;
       }
-      public bool TryGetLocalDeclaration<T>(ID id,out T? declaration) where T : ILocalCDL2Object {
-         if (declarations.TryGetValue(id,out ICDL2Object? obj) && obj is T local) {
+      public DeclaredCDL2Object GetFullyResolvedDeclaration(ID id) {
+         if (TryGetDeclaration(id, out DeclaredCDL2Object? cached)) {
+            if ((cached is ImportedConst || cached is ImportedAlgorithm) && Module!.resolvedImports.TryGetValue(id,out IImportable? imported)) return imported;
+            return cached!;
+         }
+         throw new Exception($"Could not find declaration {id} in {this}");
+      }
+      public IEnumerable<ICDL2Object> FullyResolvedDeclarations => resolvedDeclarations.Keys.Select(id=>GetFullyResolvedDeclaration(id));
+      public bool TryGetLocalDeclaration<T>(ID id,out T? declaration) where T : DeclaredCDL2Object {
+         if (Declarations.TryGetValue(id,out DeclaredCDL2Object? obj) && obj is T local) {
             declaration = local;
             return true;
          }
@@ -420,25 +465,38 @@ namespace CDL2v1 {
    // ---------------------------------------------------------------------------------------------------
 
    /// <summary>
-   /// Represents an algorithm in the syntax tree. Concretely it is either a Macro or Procedure. 
+   /// This is the base class of all CDL2 objects that can be declared.
+   /// Algorithm (Macro, Porcedure, ImportedAlgorithm), Const (ImportedConst), Var and LIST.
    /// </summary>
    [Serializable]
-   public class DeclaredCDL2Object : NamedElement {
+   public abstract class DeclaredCDL2Object : NamedElement {
       public DeclaredCDL2Object(ID id,Section section,string? comments,bool synthetic = false) : base(id,synthetic) {
          Parent = section;
          Comments = comments;
       }
+      public virtual bool IsImported => false;
+
+      /// <summary>
+      /// Given that objects have to be unique by name within a section and extended/abstracted objects within a layer, objects with the same Id are considered the same.
+      /// </summary>
+      /// <param name="obj"></param>
+      /// <returns></returns>
+      public override bool Equals(object? obj) => obj is DeclaredCDL2Object @object && EqualityComparer<ID>.Default.Equals(Id, @object.Id);
+      public override int GetHashCode() => HashCode.Combine(Id);
+
+      public static bool operator ==(DeclaredCDL2Object? left, DeclaredCDL2Object? right) => EqualityComparer<DeclaredCDL2Object>.Default.Equals(left, right);
+      public static bool operator !=(DeclaredCDL2Object? left, DeclaredCDL2Object? right) => !(left == right);
    }
    /// <summary>
    /// Represents the common properties of Algorithms (Macros and Procedures).
    /// </summary>
    [Serializable]
-   public abstract class Algorithm : DeclaredCDL2Object, IProvidedElement, ILocalCDL2Object, IImpexElement {
+   public abstract class Algorithm : DeclaredCDL2Object, IProvidable, ILocalCDL2Object, IImportable, IExportable {
       // public readonly SectionById container = container;
       public          RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
       public readonly TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
       public readonly List<Affix> affixes;         // The affixes of this algorithm. A List because they are ordered.       
-      public readonly Set<Local> locals;           // The declarations variables of this algorithm.
+      public readonly Set<Local> locals;           // The Declarations variables of this algorithm.
 
       public SE SE => SE.AlgorithmName;
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
@@ -469,7 +527,7 @@ namespace CDL2v1 {
             return ds;
          }
       }
-      public string AlgorithmName => $"{algorithmType} {id}";
+      public string AlgorithmName => $"{algorithmType} {Id}";
 
       public bool CanFail => algorithmType == RW.TEST || algorithmType == RW.PREDICATE;
       public bool AlwaysSucceeds => !CanFail;
@@ -485,12 +543,12 @@ namespace CDL2v1 {
       public virtual bool IsConditionalCompilationOff => false;
       public virtual bool IsConditionalCompilationOn => false;
       public bool IsConditionalCompilation(bool? on=null) => on is null ? IsConditionalCompilationOn || IsConditionalCompilationOff : (bool)on ? IsConditionalCompilationOn : IsConditionalCompilationOff;
-      public bool TryGetAffix(ID id,out Affix affix) => (affix = affixes.FirstOrDefault(affix => affix.id == id,Affix.Default)) != Affix.Default;
-      public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.id == id,Local.Default)) != Local.Default;
+      public bool TryGetAffix(ID id,out Affix affix) => (affix = affixes.FirstOrDefault(affix => affix.Id == id,Affix.Default)) != Affix.Default;
+      public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.Id == id,Local.Default)) != Local.Default;
 
       public override string ToString() {
          StringBuilder buffer = new();
-         buffer.Append($"{TypeShortName} {id.Name}");
+         buffer.Append($"{TypeShortName} {Id.Name}");
          foreach (Affix affix in affixes) {
             buffer.Append(Token.TokenType2Glyph[affix.IsString ? TT.STRINGAFFIXSEP : TT.AFFIXSEP]);
             buffer.Append(affix);
@@ -510,13 +568,13 @@ namespace CDL2v1 {
       //         SectionById SectionById = Parent as SectionById;
       //         Debug.Assert(SectionById != null);
 
-      //         if (SectionById.inv.Contains(id)) { // More complicated then declarations. Need to find the container the algorithm is abstracted or extended from
+      //         if (SectionById.inv.Contains(Id)) { // More complicated then Declarations. Need to find the container the algorithm is abstracted or extended from
       //                                         // Examine siblings to find the container the algorithm is extended from.
       //            Layer currentLayer = SectionById.Parent as Layer;
       //            Debug.Assert(currentLayer != null);
       //            foreach (SectionById sibling in currentLayer.Children.Where(sec => sec != SectionById).Cast<SectionById>()) {
-      //               if (sibling.ext.Contains(id)) {
-      //                  if (sibling.import.Contains(id)) return new SA(Prefix1: AS.Ext,Prefix2: AS.ImportExport);
+      //               if (sibling.ext.Contains(Id)) {
+      //                  if (sibling.import.Contains(Id)) return new SA(Prefix1: AS.Ext,Prefix2: AS.ImportExport);
       //                  return new SA(Prefix1: AS.Ext);
       //               }
       //            }
@@ -528,18 +586,18 @@ namespace CDL2v1 {
       //               if (currentLayerPosition > 0) {
       //                  Container layerBelow = moduleLayers[currentLayerPosition - 1];
       //                  foreach (SectionById ancestor in layerBelow.Children.Cast<SectionById>()) {
-      //                     if (ancestor.abstr.Contains(id)) {
-      //                        if (ancestor.import.Contains(id)) return new SA(Prefix1: AS.Abstr,Prefix2: AS.ImportExport);
+      //                     if (ancestor.abstr.Contains(Id)) {
+      //                        if (ancestor.import.Contains(Id)) return new SA(Prefix1: AS.Abstr,Prefix2: AS.ImportExport);
       //                        return new SA(Prefix1: AS.Abstr);
       //                     }
       //                  }
       //               }
       //               return new SA(Prefix1: AS.Inv);   // Only possible in a partially analyzed context.
-      //            } else { // declarations
-      //               bool exported = SectionById.export.Contains(id);
-      //               bool imported = SectionById.import.Contains(id);
-      //               bool abstr = SectionById.abstr.Contains(id);
-      //               bool ext = SectionById.ext.Contains(id);
+      //            } else { // Declarations
+      //               bool exported = SectionById.export.Contains(Id);
+      //               bool imported = SectionById.import.Contains(Id);
+      //               bool abstr = SectionById.abstr.Contains(Id);
+      //               bool ext = SectionById.ext.Contains(Id);
       //               if (imported) {
       //                  if (abstr && ext) return new SA(Prefix1: AS.ImportExport,Suffix1: AS.AbstrExt);
       //                  if (abstr) return new SA(Prefix1: AS.ImportExport,Suffix1: AS.Abstr);
@@ -574,20 +632,21 @@ namespace CDL2v1 {
    /// An imported algorithm is a reference to an algorithm in another module. Thus it has only a header and no body.
    /// </summary>
    [Serializable]
-   public class ImportedAlgorithm(ID id,List<Affix> formals,Token algorithmType,Section section) : Algorithm(id,formals,[],algorithmType,TT.NOBODY,section) {
+   public class ImportedAlgorithm(ID id,List<Affix> formals,Token algorithmType,Section section) : Algorithm(id,formals,[],algorithmType,TT.NOBODY,section), IImportable {
       public override IEnumerable<Var> GetReferencedVariables() => [];
       public override string ToString() => "IMPORTED "+ base.ToString();
+      public override bool IsImported => true;
    }
 
    /// <summary>
    /// Represents a macro in the syntax tree.
    /// </summary>
-   /// <param id="id"></param>
-   /// <param id="affixes"></param>
-   /// <param id="locals"></param>
-   /// <param id="algorithmType"></param>
-   /// <param id="bodyType"></param>
-   /// <param id="container"></param>
+   /// <param Id="Id"></param>
+   /// <param Id="affixes"></param>
+   /// <param Id="locals"></param>
+   /// <param Id="algorithmType"></param>
+   /// <param Id="bodyType"></param>
+   /// <param Id="container"></param>
    [Serializable]
    public class Macro(ID id,List<Affix> formals,Set<Local> locals,Token algorithmType,TT bodyType,Section section) : Algorithm(id,formals,locals,algorithmType,bodyType,section) {
       public List<IMacroElement> elements = [];
@@ -597,12 +656,12 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a code in the syntax tree.
    /// </summary>
-   /// <param id="id"></param>
-   /// <param id="affixes"></param>
-   /// <param id="locals"></param>
-   /// <param id="algorithmType"></param>
-   /// <param id="bodyType"></param>
-   /// <param id="SectionById"></param>
+   /// <param Id="Id"></param>
+   /// <param Id="affixes"></param>
+   /// <param Id="locals"></param>
+   /// <param Id="algorithmType"></param>
+   /// <param Id="bodyType"></param>
+   /// <param Id="SectionById"></param>
    [Serializable]
    public class Procedure(ID id,List<Affix> formals,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
          : Algorithm(id,formals,locals,algorithmType,bodyType,section,synthetic) {
@@ -693,7 +752,7 @@ namespace CDL2v1 {
          }
       }
 
-      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}{(args.Count>0?"+":"")}{string.Join("+",args.Select(arg=>arg.id))}";
+      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}{(args.Count>0?"+":"")}{string.Join("+",args.Select(arg=>arg.Id))}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
       private Algorithm? called = null;
@@ -722,7 +781,7 @@ namespace CDL2v1 {
    /// Repeat - * with a reference to the group that is repeated possibly using the label
    /// Group - a nested group.
    /// </summary>
-   /// <param id="type"></param>   
+   /// <param Id="type"></param>   
    [Serializable]
    public class LastCall(LCT type) {
 
@@ -772,7 +831,7 @@ namespace CDL2v1 {
       public bool IsConditionalCompilationOn => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOn;
       public bool IsConditionalCompilationOff => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOff;
    }
-   // Note that the id in this case is the label.
+   // Note that the Id in this case is the label.
    [Serializable]
    public class Group(ID? label,List<Alternative> alternatives,Group? parent,bool synthetic) 
          : NamedElement(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
@@ -792,7 +851,7 @@ namespace CDL2v1 {
          }
          return false;
       }
-      public override string ToString() => $"GRP {id.Name} {alternatives.Count.Plural("ALT")}";
+      public override string ToString() => $"GRP {Id.Name} {alternatives.Count.Plural("ALT")}";
    }
 
 
@@ -824,7 +883,7 @@ namespace CDL2v1 {
       }
 
       private ID fakeID;
-      public ID id => fakeID;
+      public ID Id => fakeID;
 
       private static string EscapedCDL2(string str) {
          StringBuilder sb = new();
@@ -847,24 +906,25 @@ namespace CDL2v1 {
 
       public SE SE => SE.List;
 
-      override public string ToString() => $"LIST {id}({lwb}:{upb})";
+      override public string ToString() => $"LIST {Id}({lwb}:{upb})";
    }
    [Serializable]
    public class Var(ID id,Section section) : DeclaredCDL2Object(id,section,null), IFailureProtected, IMacroElement, ILocalCDL2DataObject, IActualArg {
       public SE SE => SE.Var;
 
-      override public string ToString() => $"VAR {id.Name}";
+      override public string ToString() => $"VAR {Id.Name}";
    }
    [Serializable]
    public class Const(ID id,Section section) : DeclaredCDL2Object(id,section,null), 
-         IConstElement, IMacroElement, IProvidedElement, ICDL2DataObject, ILocalCDL2Object, ILocalCDL2DataObject, IActualArg, IImpexElement {
+         IConstElement, IMacroElement, IProvidable, ICDL2DataObject, ILocalCDL2Object, ILocalCDL2DataObject, IActualArg, IImportable {
       public SE SE => SE.Const;
       public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
    }
 
    [Serializable]
-   public class ImportedConst(ID id,Section section) : Const(id,section) {
+   public class ImportedConst(ID id,Section section) : Const(id,section), IImportable {
       public override string ToString() => "IMPORTED " + base.ToString();
+      public override bool IsImported => true;
    }
 
 
@@ -873,9 +933,9 @@ namespace CDL2v1 {
    /// Represents a formal argument in an algorithm.
    /// It is just an ID with annotations. An arg is considered to be equal to another arg or ID if the names are the same.
    /// </summary>
-   /// <param id="id"></param>
-   /// <param id="dir"></param>
-   /// <param id="type"></param>
+   /// <param Id="Id"></param>
+   /// <param Id="dir"></param>
+   /// <param Id="type"></param>
    [Serializable]
    public class Affix(ID id,AffixDir dir,AffixType type) : NamedElement(id), IFailureProtected, IMacroElement  {
       public static readonly Affix Default = new (ID.AnonID,AffixDir.NONE,AffixType.std);
@@ -891,10 +951,10 @@ namespace CDL2v1 {
 
      public SE SyntaxElement => IsString ? SE.StringAffix : IsTransput ? SE.TransputAffix : IsInput ? SE.InputAffix : SE.OutputAffix;
 
-      public override bool Equals(object? obj) => obj is Affix affix && EqualityComparer<ID>.Default.Equals(id,affix.id);
-      public override int GetHashCode() => HashCode.Combine(id);
+      public override bool Equals(object? obj) => obj is Affix affix && EqualityComparer<ID>.Default.Equals(Id,affix.Id);
+      public override int GetHashCode() => HashCode.Combine(Id);
 
-      override public string ToString() => affixType == AffixType.std ? $"{(IsInput ? ">" : "")}{id}{(IsOutput ? ">" : "")}" : $"*{id}";
+      override public string ToString() => affixType == AffixType.std ? $"{(IsInput ? ">" : "")}{Id}{(IsOutput ? ">" : "")}" : $"*{Id}";
 
       public static bool operator ==(Affix? left,Affix? right) => EqualityComparer<Affix>.Default.Equals(left,right);
       public static bool operator !=(Affix? left,Affix? right) => !(left == right);
@@ -904,7 +964,7 @@ namespace CDL2v1 {
    public class Local(ID id) : NamedElement(id), IMacroElement, IActualArg {
       public static readonly Local Default = new(ID.AnonID);
 
-      override public string ToString() => $"-{id.Name}";
+      override public string ToString() => $"-{Id.Name}";
    }
 
    [Serializable]

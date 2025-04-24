@@ -16,16 +16,16 @@ namespace CDL2v1 {
       [JsonInclude]
       public string Name = string.Empty;
 
-      public ID id => this;
+      public ID Id => this;
 
       public static void Dump() {
          Debug.WriteLine("ID Dump:\n--------");
          List<ID> sortedIDs = [.. Database.Instance.UniqueIDs.Values
                                      .OrderBy(id => id.Name)
-                                     //.ThenBy (id => id.PhaseName)
+                                     //.ThenBy (Id => Id.PhaseName)
                                      ];
          int maxNameLength = sortedIDs.Select(id => id.Name.Length).Max();
-         // int maxTypeLength = sortedIDs.Select(id => id.TargetType.Length).Max();
+         // int maxTypeLength = sortedIDs.Select(Id => Id.TargetType.Length).Max();
          foreach (ID id in sortedIDs) Debug.WriteLine(id.ToString(/*maxNameLength/*,maxTypeLength*/));
          Debug.WriteLine("--------");
       }
@@ -33,7 +33,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Returns the ID for the given token. If the ID does not exist, it is created.
       /// </summary>
-      /// <param id="token"></param>
+      /// <param Id="token"></param>
       /// <returns></returns>
       public static ID From(Token token) {
          Debug.Assert(token.type == TT.ID && token.StringValue != null,"CreateID: Token is not an ID type or StringValue is null");
@@ -47,8 +47,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Used to create the Procedures for SectionById Ludes.
       /// </summary>
-      /// <param id="container"></param>
-      /// <param id="ludeType">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>
+      /// <param Id="container"></param>
+      /// <param Id="ludeType">The reserved word representing the lude: PRELUDE, ROOT, POSTLUDE.</param>
       /// <returns></returns>
       public static ID From(RW ludeType) => From(ludeType.ToString());
 
@@ -64,7 +64,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Renames an ID.
-      /// This allows changing the PhaseName of an ID without changing the ID itself, in particular where spaces are in the id.
+      /// This allows changing the PhaseName of an ID without changing the ID itself, in particular where spaces are in the Id.
       /// </summary>
       /// <param PhaseName="newName"></param>
       public void Rename(string newName) {

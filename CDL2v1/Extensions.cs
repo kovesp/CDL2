@@ -291,7 +291,7 @@ namespace CDL2v1 {
       //internal static string Decorate(this string str,EmitterBase Emitter,SE element) =>str.Decorate(Emitter,element);
       internal static string Decorate(this Token token,EmitterBase emitter,SE element) => token.TokenString.Decorate(emitter,element);
       internal static string Decorate(this ID id,EmitterBase emitter,SE element) 
-         => /*id.Comments!.Decorate(Emitter,SE.Comment) +*/ id.Name.Decorate(emitter,element);
+         => /*Id.Comments!.Decorate(Emitter,SE.Comment) +*/ id.Name.Decorate(emitter,element);
       internal static string Decorate(this long i,EmitterBase emitter) => i.ToString().Decorate(emitter,SE.Number);
       internal static string Decorate(this double d,EmitterBase emitter) => d.ToString().Decorate(emitter,SE.Number);
       internal static string Decorate(this ID algorithmId,EmitterBase emitter,PrettyPrinter.Decoration decoration) => algorithmId.ToString().Decorate(emitter,SE.AlgorithmName,decoration);

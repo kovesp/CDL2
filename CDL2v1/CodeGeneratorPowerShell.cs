@@ -91,7 +91,7 @@ function Remove-Const([string[]]$names) {
       #region Programs, Modules, Layers, Sections
       void ICodeGenerator.GenerateProgramStart(Program program,EmitterBase emitter,bool isSeparate) {
          this.emitter = emitter;
-         emitter.Emitnl(string.Format(ProgramHeader,CDL2.Version,program.id.Name,DateTime.Now,DataType));
+         emitter.Emitnl(string.Format(ProgramHeader,CDL2.Version,program.Id.Name,DateTime.Now,DataType));
          if (program != null) {
             EmitUnitStartComment(program);
             emitter.Emitnl("try {");
@@ -117,7 +117,7 @@ function Remove-Const([string[]]$names) {
          if (isSeparate) {
             // Changes the target file name to be the module name with the extension. Ignored by emitters except for the file Emitter.
             // This causes the file Emitter to close the current file and switch to the new file.
-            emitter.Target = Path.Combine(Path.GetDirectoryName(emitter.Target)??"",module.id.InternalName+((ICodeGenerator)this).FileExtension);
+            emitter.Target = Path.Combine(Path.GetDirectoryName(emitter.Target)??"",module.Id.InternalName+((ICodeGenerator)this).FileExtension);
          }
          EmitUnitStartComment(module);
       }
@@ -139,18 +139,18 @@ function Remove-Const([string[]]$names) {
       /// <param name="ludetype"></param>
       /// <param name="program"></param>
       void ICodeGenerator.GenerateProgramLudeStart(RW ludetype, Program program) {
-         GenerateComment($"{program.TypeShortName}_{program.id.Name.AsIdentifier(camelCase: true)}__{ludetype}");
+         GenerateComment($"{program.TypeShortName}_{program.Id.Name.AsIdentifier(camelCase: true)}__{ludetype}");
          emitter.IndentLevel++;
       }
 
       void ICodeGenerator.GenerateProgramLude(RW ludeType, Program program, Module module)
-         => emitter.Emitnl($"{module.TypeShortName}_{module.id.Name.AsIdentifier(camelCase: true)}__{ludeType}");
+         => emitter.Emitnl($"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: true)}__{ludeType}");
       void ICodeGenerator.GenerateProgramLudeEnd(RW ludeType, Program program) {
          emitter.IndentLevel--;
       }
 
       void ICodeGenerator.GenerateModuleLudeStart(RW ludetype, Module module, bool wrapped) {
-         string moduleName = $"{module.TypeShortName}_{module.id.Name.AsIdentifier(camelCase: true)}__{ludetype}";
+         string moduleName = $"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: true)}__{ludetype}";
          if (wrapped) {
             emitter.Emitnl($"function {moduleName} {{");
          } else {
@@ -159,7 +159,7 @@ function Remove-Const([string[]]$names) {
          emitter.IndentLevel++;
       }
       void ICodeGenerator.GenerateModuleLude(RW ludeType, Module module, Section section)
-         => emitter.Emitnl(section.SyntheticProcedures.Where(p=>p.id.InternalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true, literalObjectName:true)!);
+         => emitter.Emitnl(section.SyntheticProcedures.Where(p=>p.Id.InternalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true, literalObjectName:true)!);
       void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType, Module module, bool wrapped) {
          emitter.IndentLevel--;
          if (wrapped) emitter.Emitnl("}");
@@ -172,8 +172,8 @@ function Remove-Const([string[]]$names) {
       #region Impport/Export
       void ICodeGenerator.GenerateImpExStart(Module module) { }
       void ICodeGenerator.GenerateImpExEnd(Module module) { }
-      void ICodeGenerator.GenerateExport(IProvidedElement export) { }
-      void ICodeGenerator.GenerateImport(IProvidedElement import) { }
+      void ICodeGenerator.GenerateExport(IProvidable export) { }
+      void ICodeGenerator.GenerateImport(IProvidable import) { }
       #endregion Import/Export
 
       #region Object Sections
@@ -344,7 +344,7 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateProcedureBodyStart(Procedure proc,PBT bodyType) {
          if (proc.NeedsWrapper) {
-            emitter.Emitnl(":", proc.id.InternalName, " do {");
+            emitter.Emitnl(":", proc.Id.InternalName, " do {");
             emitter.IndentLevel++;
          }
       }
@@ -362,7 +362,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc, Group group, int i) => GenerateComment($"Alternative {i}");
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc, Group group, int i, Alternative alternative, bool removed) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
-            emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.id.InternalName}" : "return $true") : "return");            
+            emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.Id.InternalName}" : "return $true") : "return");            
          while (ifDepth > 0) {
             emitter.IndentLevel--;
             ifDepth--;
@@ -376,7 +376,7 @@ function Remove-Const([string[]]$names) {
       #region Groups
       void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
          GenerateComment("Group");
-         if (!group.IsSynthetic) emitter.Emit(":",group.id.InternalName," ");
+         if (!group.IsSynthetic) emitter.Emit(":",group.Id.InternalName," ");
          if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("do {");
          ifDepth.Push(0);
          emitter.IndentLevel++;
@@ -491,8 +491,8 @@ function Remove-Const([string[]]$names) {
       private static string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(local),PSVarType.Local,prefix,suffix,isRef);
 
       private static string PSName(DeclaredCDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
-      private static string PSName(Affix affix) => affix.id.Name.AsIdentifier(camelCase: true);
-      private static string PSName(Local local) => local.id.Name.AsIdentifier(camelCase: true);
+      private static string PSName(Affix affix) => affix.Id.Name.AsIdentifier(camelCase: true);
+      private static string PSName(Local local) => local.Id.Name.AsIdentifier(camelCase: true);
       private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => MultipleStatementRegex().IsMatch(str.value));
 
       private static readonly Random Random = new();

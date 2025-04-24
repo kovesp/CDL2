@@ -143,7 +143,7 @@ namespace CDL2v1 {
       /// Write the item to the window.
       /// The text may contain sequences of <spam fg="colorName" style="Normal|Bold|Italic|BoldItalic">text</span>.
       /// </summary>
-      /// <param id="item"></param>
+      /// <param Id="item"></param>
       protected override void WriteLine(string item) {
          int lastIndex = 0;
 

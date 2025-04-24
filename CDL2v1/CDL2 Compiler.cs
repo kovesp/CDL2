@@ -144,7 +144,7 @@ namespace CDL2v1 {
                if (MainProgram is null) {
                   if (Database.Instance.FirstProgram != null) {
                      MainProgram = Database.Instance.FirstProgram;
-                     ReportError($"Program {ProgramName} not found, using {MainProgram.id} instead.");
+                     ReportError($"Program {ProgramName} not found, using {MainProgram.Id} instead.");
                   } else {
                      ReportError("No program found");
                   }

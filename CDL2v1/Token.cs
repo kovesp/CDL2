@@ -59,11 +59,11 @@ namespace CDL2v1 {
             { "=:", TokenType.MACROPROCBODY },     // Indicates a macro body that should NOT be in-lined (the default for = is to in-line).
             { ":=", TokenType.INLINECODEBODY },    // Indicates a ContainingProc body that should be in-lined.
             { "+",  TokenType.PLUS },              // Used as affixes (argument) separator and as the succeed operator.
-            { "-",  TokenType.MINUS },             // Used as declarations variable separator and as the fail operator.
+            { "-",  TokenType.MINUS },             // Used as Declarations variable separator and as the fail operator.
             { "*",  TokenType.STAR },              // Repeat from group start operator and string parameter.
             { "?",  TokenType.ABORT },             // Terminate the program.
             { ">",  TokenType.AFFIXDIR },          // Used to indicated the argument direction, as >in, out>, or >in-out>.
-            { ",",  TokenType.SEP },               // Used in interface lists, CONST and VAR declarations, and as call separators.
+            { ",",  TokenType.SEP },               // Used in interface lists, CONST and VAR Declarations, and as call separators.
             { ";",  TokenType.ALTSEP },            // Separates alternatives.
             { "(",  TokenType.GRPOPEN },           // Starts a group and a LIST bound.
             { ")",  TokenType.GRPCLOSE },          // Ends a group and a LIST bound.
@@ -106,7 +106,7 @@ namespace CDL2v1 {
       public readonly TokenType type;
       // Depending on the type, one of the following may be populated:
       //    RESWORD: reservedWordValue is the enum of the reserved word
-      //    ID:      StringValue is the identifier id
+      //    ID:      StringValue is the identifier Id
       //    INT:     intValue is the long
       //    STRING:  StringValue is the string
       //    FLOAT:   floatValue is the double
@@ -195,12 +195,12 @@ namespace CDL2v1 {
       /// Match an RE that describes a class of tokens to the beginning of input. If it matches, construct the token and return true.
       /// The last group in the match captures the token. If it does not have groups, the entire match is the token.
       /// </summary>
-      /// <param id="regex">The RE that describes a token of the given class.</param>
-      /// <param id="tokenClass">The class of the token.</param>
-      /// <param id="input">The input string. If a token is found the characters consumed are removed.</param>
-      /// <param id="token">The token that was found. If none, it will be ErrorToken.</param>
+      /// <param Id="regex">The RE that describes a token of the given class.</param>
+      /// <param Id="tokenClass">The class of the token.</param>
+      /// <param Id="input">The input string. If a token is found the characters consumed are removed.</param>
+      /// <param Id="token">The token that was found. If none, it will be ErrorToken.</param>
       /// <returns>True if a token was found.</returns>
-      /// <param id="fileName"></param><param id="lineNumber"></param>
+      /// <param Id="fileName"></param><param Id="lineNumber"></param>
       private static bool HandleMatch(Regex regex,TokenClass tokenClass,ref string input,out Token token) {
          Match match = regex.Match(input);
          if (match.Success) {
@@ -220,10 +220,10 @@ namespace CDL2v1 {
       /// Return true, if a valid token was found.
       /// This is the only way to construct tokens, as all constructors are private.
       /// </summary>
-      /// <param id="input">The input string. Consumed characters are removed.</param>
-      /// <param id="token">The token that was found.</param>
-      /// <param id="fileName">The id of the file being tokenized.</param>
-      /// <param id="lineNumber">The line number of the token.</param>
+      /// <param Id="input">The input string. Consumed characters are removed.</param>
+      /// <param Id="token">The token that was found.</param>
+      /// <param Id="fileName">The Id of the file being tokenized.</param>
+      /// <param Id="lineNumber">The line number of the token.</param>
       /// <returns>true if the staring started with a valid token.</returns>
       public static bool TryCreateToken(ref string input,out Token token,string fileName,ref int lineNumber) {
          while (true) {
@@ -286,13 +286,13 @@ namespace CDL2v1 {
       }; 
       public override int GetHashCode() => HashCode.Combine(type,reservedWordValue,StringValue,intValue,floatValue);
       /// <summary>
-      /// Return the token as a id. If the token is an ID, the id is returned.
+      /// Return the token as a Id. If the token is an ID, the Id is returned.
       /// - Runs of spaces and non-letters are replaced with the replacement string.
-      /// - If the token is not an ID, the token type is prepended to the id.
-      /// - The id is lowercased.
+      /// - If the token is not an ID, the token type is prepended to the Id.
+      /// - The Id is lowercased.
       /// </summary>
-      /// <param id="spaceReplacement"></param>
-      /// <returns>The normalized id.</returns>
+      /// <param Id="spaceReplacement"></param>
+      /// <returns>The normalized Id.</returns>
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
       internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
          => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier(camelCase:camelCase)}";

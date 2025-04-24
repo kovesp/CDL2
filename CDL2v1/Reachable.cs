@@ -30,20 +30,18 @@ namespace CDL2v1 {
       public Set<ICDL2Object> ReadVars { get;  private set; } = [];
       public Set<ICDL2Object> AmbigousVars { get; private set; } = [];
       
-      public void CollectAllObjects(Program prog) {
+      public void CollectAllObjects(Program program) {
          AllObjects = [];
-         foreach (Module? mod in prog.Parts.Select(id => Database.Instance.Modules.TryGetValue(id,out Module? mod)?mod:null)) {
-            if (mod is not null) {
-               foreach (Layer lay in mod.Children.Cast<Layer>()) {
-                  foreach (Section sec in lay.Children.Cast<Section>()) {
-                     foreach (ICDL2Object obj in sec.declarations.Values) {
-                        AllObjects.Add(obj);
-                     }
+         foreach (Module module in program.Modules) {
+            foreach (Layer layer in module.Children.Cast<Layer>()) {
+               foreach (Section section in layer.Children.Cast<Section>()) {
+                  foreach (ICDL2Object cdl2object in section.FullyResolvedDeclarations) {
+                     AllObjects.Add(cdl2object);
                   }
                }
             }
          }
-         Logger.Log(0, $"Collected {AllObjects.Count} objects from {prog}.");
+         Logger.Log(0, $"Collected {AllObjects.Count} objects from {program}.");
       }
 
       public void CollectReachableObjects(Program prog) {
@@ -73,8 +71,8 @@ namespace CDL2v1 {
          // SectionById ludes contain teh single entry of argAffix synthetic procedure that is the lude
          // So we need to collect all the objects in the section that are reachable from this lude.
          Debug.Assert(section.Ludes[ludetype].Count == 1, $"CollectReachableObjects: Expected single lude in {section}");
-         if (section.TryGetDeclaration(section.Ludes[ludetype][0], out Procedure? proc)) {
-            if (Objects.Add(proc!)) CollectReachableObjects(proc!.group);
+         if (section.GetFullyResolvedDeclaration(section.Ludes[ludetype][0]) is Procedure proc) {
+            if (Objects.Add(proc!)) CollectReachableObjects(proc.group);
          } else {
             throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludetype][0]} in {section}");
          }
@@ -99,7 +97,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Return false if the rest of the alternative contining the call is to be ignored.
+      /// Return false if the rest of the alternative containing the call is to be ignored.
       /// </summary>
       /// <param name="call"></param>
       /// <returns></returns>
@@ -107,7 +105,7 @@ namespace CDL2v1 {
          if (call.Called is not null) {
             Algorithm called = call.Called;
             if (called is ImportedAlgorithm importedAlg) {
-               // TODO: Find imported algorithm and assign it to called.
+               called = (called.Module!.resolvedImports[importedAlg.Id] as Algorithm)!;
             }
             if (called.IsConditionalCompilationOn) return true;   // Ignore
             if (called.IsConditionalCompilationOff) return false; // Skip the rest of the alternative.
@@ -117,9 +115,6 @@ namespace CDL2v1 {
                IActualArg arg = call.args[i];
                Affix affix = called.affixes[i];
                switch (arg) {
-                  case ImportedConst ic:
-                     if (ic.Module.resolvedImports.TryGetValue(ic.id, out IImpexElement? elem) && elem is Const rc) CollectReachableObjects(rc);
-                     break;
                   case Const c:
                      CollectReachableObjects(c);
                      break;
@@ -131,7 +126,7 @@ namespace CDL2v1 {
                      if (call.Called.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
                         if (obj is Const c) {
                            CollectReachableObjects(c);
-                        } else if (obj is ImportedConst ic1 && ic1.Module.resolvedImports.TryGetValue(ic1.id, out IImpexElement? elem1) && elem1 is Const rc1) {
+                        } else if (obj is ImportedConst ic1 && ic1.Module.resolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
                            CollectReachableObjects(rc1);
                         } else if (obj is Var v) {
                            Objects.Add(v);
@@ -145,12 +140,6 @@ namespace CDL2v1 {
             if (Objects.Add(called)) {
                if (called is Macro macro) {
                   CollectReachableObjects(macro);
-               } else if (called is ImportedAlgorithm impalg && called.Module.resolvedImports.TryGetValue(impalg.id,out IImpexElement? elem)) {
-                  if (elem is Macro macro1) {
-                     CollectReachableObjects(macro1);
-                  } else if (elem is Algorithm alg) {
-                     CollectReachableObjects(((Procedure)alg).group);
-                  }
                } else {
                   Debug.Assert(called is Procedure, $"CollectReachableObjects: Unknown call type {called}");
                   CollectReachableObjects(((Procedure)called).group);
@@ -160,6 +149,7 @@ namespace CDL2v1 {
          return true;
       }
       private void CollectReachableObjects(Const constant) {
+         if (constant is ImportedConst) constant = (constant.Module!.resolvedImports[constant.Id] as Const)!;
          if (Objects.Add(constant)) {
             foreach (IConstElement elem in constant.elements) {
                switch (elem) {
@@ -183,9 +173,6 @@ namespace CDL2v1 {
                case ID id:
                   if (macro.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
                      switch (obj) {
-                        case ImportedConst ic:
-                           // TODO: Find imported constant.
-                           break;
                         case Const c:
                            CollectReachableObjects(c);
                            break;
@@ -197,9 +184,6 @@ namespace CDL2v1 {
                            break;
                      }
                   }
-                  break;
-               case ImportedConst ic:
-                  // TODO: Find imported constant.
                   break;
                case Const c:
                   CollectReachableObjects(c);
@@ -223,7 +207,7 @@ namespace CDL2v1 {
       }
       private void CollectReachableObjects(Macro macro, LIST list) {
          if (Objects.Add(list)) {
-            if (macro.Section.TryGetDeclaration(list.lwb, out ICDL2DataObject? lwbObj) && lwbObj is Const lwb) CollectReachableObjects(lwb);
+            if (macro.Section!.TryGetDeclaration(list.lwb, out ICDL2DataObject? lwbObj) && lwbObj is Const lwb) CollectReachableObjects(lwb);
             if (macro.Section.TryGetDeclaration(list.upb, out ICDL2DataObject? upbObj) && lwbObj is Const upb) CollectReachableObjects(upb);
          }
       }

@@ -27,7 +27,7 @@ namespace CDL2v1 {
    ///            GenerateImpExEnd                                   at the end of imports and exports
    ///            GenerateLayerStart                                 for each layer
    ///               GenerateSectionStart                            for each SectionById
-   ///                  GenerateObjectSectionStart                     start of data declarations
+   ///                  GenerateObjectSectionStart                     start of data Declarations
    ///                     GenerateConstantStart                     for each constant, followed by the elements of the constant
    ///                        GenerateConstElementInt                   for integer constant elements
    ///                        GenerateConstElementFloat                 for float constant elements
@@ -220,15 +220,15 @@ namespace CDL2v1 {
       /// <param name="module"></param>
       void GenerateImpExStart(Module module);
       /// <summary>
-      /// For each export. Note that IProvidedElement is either an Algorithm or a Const.
+      /// For each export. Note that IProvidable is either an Algorithm or a Const.
       /// </summary>
       /// <param name="export"></param>
-      void GenerateExport(IProvidedElement export);
+      void GenerateExport(IProvidable export);
       /// <summary>
-      /// For each import. Note that IProvidedElement is either an Algorithm or a Const.
+      /// For each import. Note that IProvidable is either an Algorithm or a Const.
       /// </summary>
       /// <param name="import"></param>
-      void GenerateImport(IProvidedElement import);
+      void GenerateImport(IProvidable import);
       /// <summary>
       /// This is called at the end of imports and exports.
       /// </summary>

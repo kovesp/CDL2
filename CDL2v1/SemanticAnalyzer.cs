@@ -21,6 +21,7 @@ namespace CDL2v1 {
    /// - An algorithm has an effect if it modifies the state of the system. This could be a variable, or a list or any other thing that changes
    ///   things (this can only happen via macros).
    /// - Modifying affixes is not considered an effect.
+   /// 
    /// - Algorithms of the type ACTION and PREDICATE must have an effect. This cannot be verified for macros, but is verified for PROCEDUREs
    /// - An algorithm of the type FUNCTION or TEST cannot have an effect. This cannot be verified for macros, but is verified for PROCEDUREs
    /// - TESTs and PREDICATEs may fail. The analyzer verifies that PROCEDURES of this kind can indeed fail.
@@ -44,7 +45,7 @@ namespace CDL2v1 {
    /// 
    /// 
    /// 1. Verify that all referenced objects are declared and accessible.
-   /// 2. Verify that there are no duplicate declarations.
+   /// 2. Verify that there are no duplicate Declarations.
    /// 3. Verify the above rules.
    /// </summary>
    [Serializable]
@@ -71,14 +72,14 @@ namespace CDL2v1 {
             AnalyzeModule(MainProgram, module);
          }
          // Now verify that each import has a corresponding export and that the specs match.
-         // Notice that the affix names don't have to match, but the diretions do.
+         // Notice that the affix names don't have to match, but the directions do.
          // If resolved, add the object to the resolved imports of the module.
-         foreach (Module? module in MainProgram.Parts.Select(id => Database.Instance.Modules[id])) {
+         foreach (Module module in MainProgram.Modules) {
             module.resolvedImports.Clear();  // valid only for the current run of the Semantic Analyzer.
             foreach (ID elemid in module.imports.Keys) {
                if (Exports.TryGetValue(elemid,out Section? exporter)) {
-                  ICDL2Object exported = exporter.declarations[elemid];
-                  ICDL2Object imported = module.imports[elemid].declarations[elemid];
+                  ICDL2Object exported = exporter.Declarations[elemid];
+                  ICDL2Object imported = module.imports[elemid].Declarations[elemid];
                   bool resolved = true;
                   // Check that the import mathces the export
                   if (imported is ImportedConst _ && exported is Algorithm alg) {
@@ -100,7 +101,7 @@ namespace CDL2v1 {
                      AddNote(MainProgram, Note.ImpexMismatch, imported, exported, $"{((Algorithm)imported).algorithmType} vs. CONST");
                      resolved = false;
                   }
-                  if (resolved) module.resolvedImports[elemid] = (exported as IImpexElement)!;
+                  if (resolved) module.resolvedImports[elemid] = (exported as IImportable)!;
                } else {
                   AddNote(MainProgram, Note.MissingImport, module.imports[elemid]);
                }
@@ -134,6 +135,12 @@ namespace CDL2v1 {
       /// <param name="module"></param>
       private void AnalyzeModule(Program prog,Module module) {
          Log(1,$"Analyzing {module.ContainerName}");
+
+         foreach (Layer layer in module.Children.Cast<Layer>()) {
+            AnalyzeLayer(layer);
+         }
+
+
          foreach (ID elemid in module.exports.Keys) {
             if (Exports.TryGetValue(elemid, out Section? value)) {
                AddNote(prog, Note.DuplicateExport, elemid,module.exports[elemid], value);
@@ -142,9 +149,7 @@ namespace CDL2v1 {
             }
          }
 
-         foreach (Layer layer in module.Children.Cast<Layer>()) {
-            AnalyzeLayer(layer);
-         }
+
       }
 
       private void AnalyzeLayer(Layer layer) {
@@ -156,28 +161,24 @@ namespace CDL2v1 {
 
       private void AnalyzeSection(Section section) {
          Log(1,$"Analyzing {section.ContainerName}");
-         Log(2,$"Analyzing provided interfaces");
-         AnalyzeProvidedInterfaces(section,RW.ABSTR,section.abstr);
-         AnalyzeProvidedInterfaces(section,RW.EXT,section.ext);
-         AnalyzeProvidedInterfaces(section,RW.EXPORT,section.export);
+         Log(2,$"Analyzing interfaces");
+         AnalyzeProvidedInterfaces(section, RW.EXT, section.ext);
+         AnalyzeProvidedInterfaces(section, RW.ABSTR, section.abstr);
+         AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export);
+         // Ensure that exports are only from one section in a module.
+         foreach (ID elemid in section.export) {
+            Debug.Assert(section.Declarations.ContainsKey(elemid), $"Exported element {elemid} not found in section {section.ContainerName}");
+            if (section.Module!.exports.ContainsKey(elemid)) {
+               AddNote(section, Note.DuplicateExport, elemid);
+            } else {
+               section.Module.exports[elemid] = section.Declarations[elemid];
+            }
+          }
+
          AnalyzeInvs(section);
          AnalyzeImports(section);
 
-         // Build refeences from macros defined in this section.
-         //foreach (Macro m in section.Macros) {
-         //   foreach (IMacroElement elem in m.elements) {
-         //      if (elem is ID id) {
-         //         if (section.TryGetDeclaration(id, out ICDL2Object? obj)) {
-         //            m.AddReference(obj);
-         //         } else {
-         //            m.AddReference(id);
-         //         }
-         //      }
-         //   }
-         //}
-
-
-         foreach (Algorithm algorithm in section.declarations.Values.Where(obj => obj is Algorithm algorithm).Cast<Algorithm>()) {
+         foreach (Algorithm algorithm in section.Declarations.Values.Where(obj => obj is Algorithm algorithm).Cast<Algorithm>()) {
             Log(2,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
             if (algorithm is Procedure procedure) {
                AnalyzeProcedure(procedure,section);
@@ -188,28 +189,76 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeImports(Section section) {
-         // IMPORT items must be EXPORT items in some container of known modules. In addition, there must be a corresponding VAR, LIST, CONST, MACRO or CODE
-         // declaration in this container as follows:
-         //    - VAR, LIST, CONST: just a id
-         //    - CDOE, MACRO: just the proc header without the locals with no body.
+         // Verify that elements in the imports list are specified.
+         foreach (ID elemid in section.import) {
+            if (section.Declarations.TryGetValue(elemid, out DeclaredCDL2Object? obj)) {
+               if (obj is not IImportable) {
+                  AddNote(obj, Note.ObjectImportedButHasBody, obj);
+               } else {
+                  // Add the import to the module's imports so it can be verified later.
+                  // The import can appear in multiple sections, but then all specifications must be the same.
+                  if (section.Module!.imports.TryGetValue(elemid, out DeclaredCDL2Object? imported)) {
+                     CheckSameImportSpec(obj, obj, imported);
+                  } else {
+                     section.Module.imports[elemid] = obj;
+                  }
+               }
+            } else {
+               AddNote(section,Note.MissingImportSpec, elemid,section);
+            }
+         }
+         // Verify that elements that have no body are imported.
+         foreach (DeclaredCDL2Object obj in section.Declarations.Values.OfType<IImportable>().Cast<DeclaredCDL2Object>()) {
+            if (!section.import.Contains(obj.Id)) {
+               AddNote(obj, Note.ObjectNotImported, obj);
+            }
+         }
+      }
+
+      /// <summary>
+      /// Compare obj1 to obj2.
+      /// If they are both imported constants return true.
+      /// If they are both imported algorithms, then their affix counts ahd directions must match.
+      /// If there is any mismatch attach an apropriate note or notes to the first object
+      /// </summary>
+      /// <param name="obj1"></param>
+      /// <param name="obj2"></param>
+      /// <returns></returns>
+      private void  CheckSameImportSpec(NamedElement problemObject, DeclaredCDL2Object obj1, DeclaredCDL2Object obj2) {
+         if (obj1 is ImportedConst && obj2 is ImportedConst) {
+         } else if (obj1 is ImportedAlgorithm alg1 && obj2 is ImportedAlgorithm alg2) {
+            if (alg1.affixes.Count != alg2.affixes.Count) {
+               AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "Affix count mismatch");
+            } else {
+               for (int i = 0 ; i < alg1.affixes.Count ; i++) {
+                  if (alg1.affixes[i].affixDir != alg2.affixes[i].affixDir) {
+                     AddNote(problemObject, Note.ImpexMismatch, alg1, alg2, $"Affix direction mismatch, {alg1.affixes[i]} vs. {alg2.affixes[i]}");
+                  }
+               }
+            }
+         } else {
+            AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "type mismatch, Agorithm vs. CONST");
+         }
       }
 
       private void AnalyzeInvs(Section section) {
          // INV items must be in some container in the current layer declared as EXT or in the current layer's Owner declared as ABSTR.
       }
 
-      private static void AnalyzeProvidedInterfaces(Section section,RW kind,Set<ID> set) {
-         //foreach (ID id in set) {
-         //   if (container.Symbols.ContainsKey(id)) {
-         //      if (container.Symbols[id] is Undeclared) {
-         //         ReportError(container,$"{kind} {id} is Instance");
-         //      } else if (container.Symbols[id] is not IProvidedElement) {
-         //         ReportError(container,$"{kind} {id} is not one of {{{string.Join(",",SectionById.ProvidedElementImplementors.Select(type => type.PhaseName))}}}");
-         //      }
-         //   } else {
-         //      ReportError(container,$"{kind} {id} not found");
-         //   }
-         //}
+      /// <summary>
+      /// Verify that the provied interfaces are valid within the section.
+      ///  -- No duplications: uniqeness is already guarenteed by the collection being a set.
+      ///  -- Each item in the list is declared in the same section.
+      /// </summary>
+      /// <param name="section"></param>
+      /// <param name="kind"></param>
+      /// <param name="set"></param>
+      private void AnalyzeProvidedInterfaces(Section section, RW kind, Set<ID> set) {
+         foreach (ID elemId in set) {
+            if (!section.Declarations.ContainsKey(elemId)) {
+               AddNote(section, Note.InterfaceElementMissing, elemId, kind);
+            }
+         }
       }
 
       private static void ReportError(Container unit,string message) => Logger.ReportError($"{unit.ContainerName}: {message}");
@@ -342,7 +391,7 @@ namespace CDL2v1 {
                            case Affix inputArg when inputArg.IsInput:   // Includes transput
                               break;
                            case Affix outputArg when outputArg.IsOutputOnly:
-                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.id,call);
+                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
                               break;
                            case Local local:
                               if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
@@ -383,7 +432,7 @@ namespace CDL2v1 {
                               break;
                            case Affix outputArg when outputArg.IsOutputOnly:
                               // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another set in info?
-                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.id,call);
+                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
                               else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg,call);
                               info.MakeReadable(outputArg);
                               info.MakeUnwritable(outputArg);

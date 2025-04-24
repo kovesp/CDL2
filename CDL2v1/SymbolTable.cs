@@ -38,7 +38,7 @@ namespace CDL2v1 {
       /// Check if the symbol table contains the given ID. If not, add an Undeclared to the symbol table.
       /// Used when a reference to an ID is encountered before the ID is declared.
       /// </summary>
-      /// <param id="token">An ID token.</param>
+      /// <param Id="token">An ID token.</param>
       /// <returns>The ID that was constructed from the token.</returns>
       public ID Reference(ID id) {
          if (!table.ContainsKey(id)) {          // If the ID is not in the symbol table
@@ -47,17 +47,17 @@ namespace CDL2v1 {
          return id;
       }
       /// <summary>
-      /// If the id is in the table, Return true if the id is Instance.
+      /// If the Id is in the table, Return true if the Id is Instance.
       /// If it is not in the table, insert is as undeclared and return true.
       /// </summary>
-      /// <param id="id"></param>
+      /// <param Id="Id"></param>
       /// <returns></returns>
       public bool IsUndeclared(ID id) => table[Reference(id)] is Undeclared;
       /// <summary>
       /// Check if the ID is declared in the symbol table. If is is not in the table, enter it as Instance.
       /// </summary>
-      /// <param id="id">The id to check.</param>
-      /// <param id="v">The declared element if found, Instance otherwise.</param>
+      /// <param Id="Id">The Id to check.</param>
+      /// <param Id="v">The declared element if found, Instance otherwise.</param>
       /// <returns></returns>
       public bool IsDeclared(ID id,out NamedElement? v) => table.TryGetValue(Reference(id),out v) && v is not Undeclared;
 

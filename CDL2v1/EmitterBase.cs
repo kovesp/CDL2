@@ -95,7 +95,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Perform action keeping produced output together on one line.
       /// </summary>
-      /// <param id="action"></param>
+      /// <param Id="action"></param>
       public void KeepTogether(Action action) {
          bool keepTogether = AggregateOutput;
          AggregateOutput = true;
@@ -111,7 +111,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Write the item to the target. Must be supplied by concrete subclasses.
       /// </summary>
-      /// <param id="item"></param>
+      /// <param Id="item"></param>
       protected abstract void WriteLine(string item);
 
       /// <summary>
@@ -123,12 +123,12 @@ namespace CDL2v1 {
       /// Emit code to the target.
       /// ToString is used on the objects.
       /// </summary>
-      /// <param id="code"></param>
+      /// <param Id="code"></param>
       public void Emit(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: false,honorLineLength: true,extraSpace: false,code);
       /// <summary>
       /// Like <see cref="Emitnl(object[])"/> with a new line added.
       /// </summary>
-      /// <param id="code"></param>
+      /// <param Id="code"></param>
       /// <returns>True if a new line was written.</returns>
       public void Emitnl(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: true,honorLineLength: true,extraSpace: false,code);
       public void EmitnlOption() {
@@ -138,22 +138,22 @@ namespace CDL2v1 {
       /// <summary>
       /// Like <see cref="Emit(int, object[])"/> with a new line added at the beginning.
       /// </summary>
-      /// <param id="indentLevel"></param>
-      /// <param id="code"></param>
+      /// <param Id="indentLevel"></param>
+      /// <param Id="code"></param>
       /// <returns>True if a new line was written.</returns>
       public void NlEmit(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: false,honorLineLength: true,extraSpace: false,code);
       /// <summary>
       /// Like <see cref="Emit(int, object[])"/> with a new line added at the beginning and end.
       /// </summary>
-      /// <param id="indentLevel"></param>
-      /// <param id="code"></param>
+      /// <param Id="indentLevel"></param>
+      /// <param Id="code"></param>
       /// <returns>True if a new line was written.</returns>
       public void NlEmitnl(params object[] code) => WriteWithIndent(nlbefore: true,nlafter: true,honorLineLength: true,extraSpace: false,code);
 
       /// <summary>
       /// Emit a string to the target without a new line.
       /// </summary>
-      /// <param id="s"></param>
+      /// <param Id="s"></param>
       internal void EmitIgnoreLineLength(string s,bool NL = false) => WriteWithIndent(nlbefore: false,nlafter: NL,honorLineLength: false,extraSpace: false,s);
 
       internal void EmitWithExtraSpace(bool extraSpace,object[] items) => WriteWithIndent(nlbefore: false,nlafter: false,honorLineLength: true,extraSpace: extraSpace,items);
@@ -161,10 +161,10 @@ namespace CDL2v1 {
       /// <summary>
       /// This is the method that actually writes the code to the target using the <see cref="Write(string)"/> method.
       /// </summary>
-      /// <param id="nlbefore"></param>
-      /// <param id="nlafter"></param> 
-      /// <param id="honorLineLength"></param> 
-      /// <param id="items"></param>
+      /// <param Id="nlbefore"></param>
+      /// <param Id="nlafter"></param> 
+      /// <param Id="honorLineLength"></param> 
+      /// <param Id="items"></param>
       /// <returns>True if a new line was written.</returns>
       protected void WriteWithIndent(bool nlbefore,bool nlafter,bool honorLineLength = true,bool extraSpace = false,params object[] items) {
          if (AggregateOutput) {

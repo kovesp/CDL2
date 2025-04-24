@@ -29,7 +29,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Check if the next token is one of the types in the list.
       /// </summary>
-      /// <param id="types"></param>
+      /// <param Id="types"></param>
       /// <returns></returns>
       public bool IsNext(List<TT> types) => IsNonEmpty() && types.Contains(tokens[0].type);
 
@@ -166,8 +166,8 @@ namespace CDL2v1 {
       /// <summary>
       /// Consume a unit start (MODULE, LAYER, SECTION, PROGRAM or end (ENDMOD, ENDLAY, ENDSEC, ENDPROG) reserved word and an ID and the ending period.
       /// </summary>
-      /// <param id="unit">The unit type reserved word.</param>
-      /// <param id="id">If stating a unit, the id is set, If ending a unit, it is verified that the id matches the one given in the unit close.</param>
+      /// <param Id="unit">The unit type reserved word.</param>
+      /// <param Id="Id">If stating a unit, the Id is set, If ending a unit, it is verified that the Id matches the one given in the unit close.</param>
       /// <returns></returns>
       public bool CanConsumeContainerDelimiter(RW unit,ref ID id,out string? comments) {
          Debug.Assert(Token.UnitStarters.Contains(unit) || Token.UnitEnders.Contains(unit));

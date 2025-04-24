@@ -17,7 +17,7 @@ namespace CDL2v1 {
    /// <summary>
    /// 
    /// </summary>
-   /// <param id="cg"></param>
+   /// <param Id="cg"></param>
    [Serializable]
    public class CodeGenerator(ICodeGenerator cg,Reachable reachable) {
       /// <summary>
@@ -38,9 +38,9 @@ namespace CDL2v1 {
       /// Generate code for the unit and all its modulesWithLudes.
       /// If there is argAffix unit, then use its Ludes. Otherwise, use the Ludes from all modulesWithLudes.
       /// </summary>
-      /// <param id="modulesWithLudes"></param>
-      /// <param id="Emitter"></param>
-      /// <param id="isSeparate"></param>
+      /// <param Id="modulesWithLudes"></param>
+      /// <param Id="Emitter"></param>
+      /// <param Id="isSeparate"></param>
       public void GenerateCode(Program program, EmitterBase emitter, bool isSeparate = false) {
          foreach (Var var in Reachable.Objects.OfType<Var>()) {
             if (Reachable.AmbigousVars.Contains(var)) {
@@ -77,11 +77,11 @@ namespace CDL2v1 {
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
-            foreach (ID mod in program.Parts) cg.GenerateProgramPart(program, mod, isSeparate);
+            foreach (ID modid in program.Parts) cg.GenerateProgramPart(program, modid, isSeparate);
 
             GenerateProgramLudes(program);
             cg.GenerateProgramEnd(program);
-            foreach (ID mod in program.Parts) GenerateModule(Database.Instance.Modules[mod], isSeparate: true);
+            foreach (Module mod in program.Modules) GenerateModule(mod, isSeparate: true);
          }
       }
 
@@ -99,11 +99,11 @@ namespace CDL2v1 {
       /// <summary>
       /// Generate code for argAffix module. It is up to the specific code generator to determine whether this code goes into argAffix separate file or not.
       /// </summary>
-      /// <param id="module"></param>
+      /// <param Id="module"></param>
       private void GenerateModule(Module module, bool isSeparate) {
-         void GenerateImpEx(Dictionary<ID, Section> impexList, Action<IProvidedElement> generateImpEx) {
+         void GenerateImpEx(Dictionary<ID, Section> impexList, Action<IProvidable> generateImpEx) {
             foreach (ID id in impexList.Keys) {
-               if (impexList[id].TryGetLocalDeclaration(id, out ILocalCDL2DataObject? obj) && obj is IProvidedElement impex) {
+               if (impexList[id].TryGetLocalDeclaration(id, out ILocalCDL2DataObject? obj) && obj is IProvidable impex) {
                   generateImpEx(impex);
                } else {
                   throw new NotImplementedException($"GenerateModule: Import/Export {id} not found in {module}");
@@ -137,7 +137,7 @@ namespace CDL2v1 {
       /// <summary> 
       /// Generate proc for argAffix layer. Typically there is no target proc associated with this.
       /// </summary>
-      /// <param id="layer"></param>
+      /// <param Id="layer"></param>
       private void GenerateLayer(Layer layer) {
          cg.GenerateLayerStart(layer);
          foreach (Section section in layer.Children.Cast<Section>()) GenerateSection(section);
@@ -147,9 +147,9 @@ namespace CDL2v1 {
       /// <summary>
       /// Generate argAffix container. Again, there will likely be no target proc associated with argAffix container itself.
       /// So generate proc for each routine and for the Ludes.
-      /// A lude is just proc with argAffix special id
+      /// A lude is just proc with argAffix special Id
       /// </summary>
-      /// <param id="container"></param>
+      /// <param Id="container"></param>
       private void GenerateSection(Section section) {
          cg.GenerateSectionStart(section);
          GenerateObjects<Const>(section.Constants,                   GenerateConstant);
@@ -176,7 +176,7 @@ namespace CDL2v1 {
 
       private void GenerateObjects<T>(IEnumerable<NamedElement> items, Action<T,int> generate, string? specialType = null) where T : NamedElement {
          if (items.Any()) {
-            int maxNameLength = items.Select(item=>item.id.InternalName.Length).Max();
+            int maxNameLength = items.Select(item=>item.Id.InternalName.Length).Max();
             cg.GenerateObjectSectionStart<T>(items, specialType ?? typeof(T).Name);
             foreach (T item in items) generate(item,maxNameLength);
             cg.GenerateObjectSectionEnd<T>(items, typeof(T).Name);
