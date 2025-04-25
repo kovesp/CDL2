@@ -62,9 +62,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="MainProgram"></param>
       internal void Analyze(Program MainProgram) {
-         foreach (Program program in Database.Instance.Programs.Values) {
-            AnalyzeProgram(program);
-         }
+         //foreach (Program program in Database.Instance.Programs.Values) {
+         //   AnalyzeProgram(program);
+         //}
 
          AnalyzeMainProgram(MainProgram);
 
@@ -139,43 +139,34 @@ namespace CDL2v1 {
          foreach (Layer layer in module.Children.Cast<Layer>()) {
             AnalyzeLayer(layer);
          }
-
-
-         foreach (ID elemid in module.exports.Keys) {
-            if (Exports.TryGetValue(elemid, out Section? value)) {
-               AddNote(prog, Note.DuplicateExport, elemid,module.exports[elemid], value);
-            } else {
-               Exports[elemid] = module.exports[elemid];
-            }
-         }
-
-
       }
 
       private void AnalyzeLayer(Layer layer) {
          Log(1,$"Analyzing {layer.ContainerName}");
-         foreach (Section section in layer.Children) {
+
+         foreach (Section section in layer.Children.Cast<Section>()) {
             AnalyzeSection(section);
+         }
+         // At thiis point Visible contains all the objects that are visible in the layer, i.e., that have been extended in this layers sections or abstracted from below.
+         // We can no check to see if everything invoked in this layer is in the visible dictionary. Note that there may be imported objects. Those will be linked up with
+         // exports when the program is analyzed.
+         foreach (Section section in layer.Children.Cast<Section>()) {
+            foreach (ID elemid in section.inv) {
+               if (!layer.Visible.ContainsKey(elemid)) {
+                  AddNote(section, Note.MissingInvoke, elemid, layer);
+               }
+            }
          }
       }
 
       private void AnalyzeSection(Section section) {
          Log(1,$"Analyzing {section.ContainerName}");
          Log(2,$"Analyzing interfaces");
-         AnalyzeProvidedInterfaces(section, RW.EXT, section.ext);
-         AnalyzeProvidedInterfaces(section, RW.ABSTR, section.abstr);
-         AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export);
-         // Ensure that exports are only from one section in a module.
-         foreach (ID elemid in section.export) {
-            Debug.Assert(section.Declarations.ContainsKey(elemid), $"Exported element {elemid} not found in section {section.ContainerName}");
-            if (section.Module!.exports.ContainsKey(elemid)) {
-               AddNote(section, Note.DuplicateExport, elemid);
-            } else {
-               section.Module.exports[elemid] = section.Declarations[elemid];
-            }
-          }
+         AnalyzeProvidedInterfaces(section, RW.EXT,   section.ext,   section.Layer!.Visible);
+         AnalyzeProvidedInterfaces(section, RW.ABSTR, section.abstr, section.Layer?.Successor?.Visible);
+         AnalyzeProvidedInterfaces(section, RW.EXPORT,section.export,section.Module!.exports);
 
-         AnalyzeInvs(section);
+         // Invocations are analyzed at the Layer level.
          AnalyzeImports(section);
 
          foreach (Algorithm algorithm in section.Declarations.Values.Where(obj => obj is Algorithm algorithm).Cast<Algorithm>()) {
@@ -241,21 +232,34 @@ namespace CDL2v1 {
          }
       }
 
-      private void AnalyzeInvs(Section section) {
-         // INV items must be in some container in the current layer declared as EXT or in the current layer's Owner declared as ABSTR.
-      }
-
       /// <summary>
       /// Verify that the provied interfaces are valid within the section.
-      ///  -- No duplications: uniqeness is already guarenteed by the collection being a set.
-      ///  -- Each item in the list is declared in the same section.
+      ///  -- No duplications: uniqeness is already guaranteed by the collection being a interfaceElements.
+      ///  -- Each item in the list is declared in the same section and is a Const or an Algorithm
+      ///  -- Does not already occur in the providables, which will be
+      ///     -- The current layer's Visible dictionary for kind = EXT
+      ///     -- The successor layer's Visible dictionary for kind = ABSTR. In this case it may be null if the layer is the last one.
+      ///        if null generate a warning.
+      ///     -- The module's exprots dictionary for kind = EXPORT
       /// </summary>
       /// <param name="section"></param>
       /// <param name="kind"></param>
-      /// <param name="set"></param>
-      private void AnalyzeProvidedInterfaces(Section section, RW kind, Set<ID> set) {
-         foreach (ID elemId in set) {
-            if (!section.Declarations.ContainsKey(elemId)) {
+      /// <param name="interfaceElements"></param>
+      /// <param name="providables"></param>
+      private void AnalyzeProvidedInterfaces(Section section, RW kind, Set<ID> interfaceElements, Dictionary<ID, IProvidable>? providables) {
+         if (providables == null && interfaceElements.Count > 0) AddNote(section, Note.AbstractionsInTopLayer);
+         foreach (ID elemId in interfaceElements) {
+            if (section.Declarations.TryGetValue(elemId,out DeclaredCDL2Object? decl)) {
+               if (providables is not null) {
+                  if (providables.TryGetValue(elemId, out IProvidable? prov)) {
+                     AddNote(section, Note.DuplicateInterfaceElement, elemId, kind, section,prov.Section!);
+                  } else if (decl is IProvidable providable) {
+                     providables[elemId] = providable;
+                  } else {
+                     AddNote(section, Note.InterfaceElementNotProvidable, elemId, kind, decl.TypeShortName);
+                  }
+               }
+            } else {
                AddNote(section, Note.InterfaceElementMissing, elemId, kind);
             }
          }
@@ -431,7 +435,7 @@ namespace CDL2v1 {
                               info.MakeUnwritable(transputArg);
                               break;
                            case Affix outputArg when outputArg.IsOutputOnly:
-                              // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another set in info?
+                              // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another interfaceElements in info?
                               if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
                               else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg,call);
                               info.MakeReadable(outputArg);
