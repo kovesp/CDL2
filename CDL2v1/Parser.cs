@@ -430,7 +430,7 @@ namespace CDL2v1 {
                   call.args.Add(affix);
                } else if (proc.TryGetLocal(id, out Local local)) {
                   call.args.Add(local);
-               } else if (parser.currentSection.resolvedDeclarations.TryGetValue(id, out ICDL2Object? obj)) {
+               } else if (parser.currentSection.Declarations.TryGetValue(id, out DeclaredCDL2Object? obj)) {
                   if (obj is Const c) {
                      call.args.Add(c);
                   } else if (obj is Var v) {

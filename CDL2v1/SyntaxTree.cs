@@ -31,6 +31,7 @@ namespace CDL2v1 {
    public interface IConstElement { }
    public interface IInterfaceElement { }
    public interface IProvidable : IInterfaceElement {
+      ID Id { get; }
       Section? Section { get; }
    }
    public interface IImportable : IProvidable { }
@@ -263,13 +264,13 @@ namespace CDL2v1 {
       }
 
       public Section? SectionById(ID id) {
-         foreach (Container layer in Children) {
-            foreach (Container section in layer.Children) {
-               if (id == section.Id) return (Section)section;
-            }
-         }
+         foreach (Section section in Sections) if (section.Id == id) return section;
          return null;
       }
+
+      public IEnumerable<Section> Sections => Children.OfType<Layer>().SelectMany(layer => layer.Children.OfType<Section>());
+
+      public IEnumerable<Layer> Layers => Children.OfType<Layer>();
    }
 
    /// <summary>

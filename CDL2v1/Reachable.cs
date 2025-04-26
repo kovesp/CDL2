@@ -25,7 +25,7 @@ namespace CDL2v1 {
          }
          private set;
       } = [];
-      public Set<ICDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
+      public Set<DeclaredCDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
       public Set<ICDL2Object> ReadVars { get;  private set; } = [];
       public Set<ICDL2Object> AmbigousVars { get; private set; } = [];
@@ -35,7 +35,7 @@ namespace CDL2v1 {
          foreach (Module module in program.Modules) {
             foreach (Layer layer in module.Children.Cast<Layer>()) {
                foreach (Section section in layer.Children.Cast<Section>()) {
-                  foreach (ICDL2Object cdl2object in section.FullyResolvedDeclarations) {
+                  foreach (DeclaredCDL2Object cdl2object in section.Declarations.Values) {
                      AllObjects.Add(cdl2object);
                   }
                }
@@ -71,7 +71,7 @@ namespace CDL2v1 {
          // SectionById ludes contain teh single entry of argAffix synthetic procedure that is the lude
          // So we need to collect all the objects in the section that are reachable from this lude.
          Debug.Assert(section.Ludes[ludetype].Count == 1, $"CollectReachableObjects: Expected single lude in {section}");
-         if (section.GetFullyResolvedDeclaration(section.Ludes[ludetype][0]) is Procedure proc) {
+         if (section.Declarations.TryGetValue(section.Ludes[ludetype][0],out DeclaredCDL2Object? obj) && obj is Procedure proc) {
             if (Objects.Add(proc!)) CollectReachableObjects(proc.group);
          } else {
             throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludetype][0]} in {section}");

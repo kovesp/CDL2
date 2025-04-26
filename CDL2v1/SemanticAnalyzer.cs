@@ -44,9 +44,13 @@ namespace CDL2v1 {
    ///   - If a is a string (i.e., *a), then x is a string ("...") or a string affix of the containing ContainingProc.
    /// 
    /// 
-   /// 1. Verify that all referenced objects are declared and accessible.
-   /// 2. Verify that there are no duplicate Declarations.
-   /// 3. Verify the above rules.
+   /// 1. Verify that all imports are consistent with exports in the modules in the program.
+   /// 2. Resolve all invocations to their corresponding extensions and abstractions.
+   /// 3. Perform local analysis to verify that
+   ///    a. References to other constants in a constants's elements are resolved.
+   ///    b. References in a macro's elements to constants, variables, lists, affixes and locals are resolved.
+   ///    c. References in procedures to constants, variables, affixes and locals are resolved.
+   ///    d. Procedures are consistent with respect to their declared type and dataflow rules are kept.
    /// </summary>
    [Serializable]
    public class SemanticAnalyzer : CompilationPhase {
@@ -62,49 +66,93 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="MainProgram"></param>
       internal void Analyze(Program MainProgram) {
-         //foreach (Program program in Database.Instance.Programs.Values) {
-         //   AnalyzeProgram(program);
-         //}
+         // Phase 1
+         AnalyzeImportsAndExports(MainProgram);
+
+         // Phase 2
+         AnalyzeInterfaces(MainProgram);
 
          AnalyzeMainProgram(MainProgram);
 
-         foreach (Module module in Database.Instance.Modules.Values) {
+         // TODO: have an option to analyze all modules in the database. Default is to analyze only parts.
+         foreach (Module module in MainProgram.Modules) {
             AnalyzeModule(MainProgram, module);
          }
+      }
+
+      /// <summary>
+      /// Analyze the imports of the given program.
+      /// Ensure that all imports used in the modules are found and are consistent with the exports.
+      /// </summary>
+      /// <param name="mainProgram"></param>
+      internal void AnalyzeImportsAndExports(Program mainProgram) {
+         Log(1,$"Analyzing imports and exports of {mainProgram}");
+         // Collect all the exports from the modules in the program.
+         foreach (Module module in mainProgram.Modules) {
+            AnalyzeExports(module);
+            foreach (IExportable export in module.exports.Values.Cast<IExportable>()) {
+               Exports[export.Id] = export;
+            }
+         }
          // Now verify that each import has a corresponding export and that the specs match.
-         // Notice that the affix names don't have to match, but the directions do.
-         // If resolved, add the object to the resolved imports of the module.
-         foreach (Module module in MainProgram.Modules) {
-            module.resolvedImports.Clear();  // valid only for the current run of the Semantic Analyzer.
-            foreach (IImportable importedElem in module.imports.Values) {
-               DeclaredCDL2Object imported = (DeclaredCDL2Object)importedElem;
-               if (Exports.TryGetValue(imported.Id,out IExportable? exportedElem)) {
-                  DeclaredCDL2Object exported = (DeclaredCDL2Object)exportedElem;
-                  
-                  bool resolved = true;
-                  // Check that the import mathces the export
-                  if (imported is ImportedConst _ && exported is Algorithm alg) {
-                     AddNote(MainProgram,Note.ImpexMismatch, imported, exported, $"CONST vs. {alg.algorithmType}");
-                     resolved = false;
-                  } else if (imported is ImportedAlgorithm impalg && exported is Algorithm expalg) {
-                     if (impalg.affixes.Count != expalg.affixes.Count) {
-                        AddNote(MainProgram, Note.ImpexMismatch, imported, exported,"Affix count mismatch");
-                        resolved = false;
-                     } else {
-                        for (int i = 0 ; i < impalg.affixes.Count ; i++) {
-                           if (impalg.affixes[i].affixDir != expalg.affixes[i].affixDir) {
-                              AddNote(MainProgram, Note.ImpexMismatch, imported, exported, $"Affix direction mismatch, {impalg.affixes[i]} vs. {expalg.affixes[i]}");
-                              resolved = false;
-                           }
+         foreach (Module module in mainProgram.Modules) {
+            // First collect all the imports in the sections into the imports table of the module.
+            // While doing this check for consistency in case an object is imported inot multiple sections.
+            foreach (Section section in module.Sections) {
+               foreach (ID elemid in section.import) {
+                  if (section.Declarations.TryGetValue(elemid, out DeclaredCDL2Object? obj)) {
+                     if (obj is IImportable imported) {
+                        if (module.imports.TryGetValue(elemid, out IImportable? importedObj)) {
+                           CheckImportConsistency(obj, obj, (DeclaredCDL2Object)importedObj);
+                        } else {
+                           module.imports[elemid] = imported;
                         }
+                     } else {
+                        AddNote(section, Note.InterfaceElementNotProvidable, obj);
                      }
                   } else {
-                     AddNote(MainProgram, Note.ImpexMismatch, imported, exported, $"{((Algorithm)imported).algorithmType} vs. CONST");
-                     resolved = false;
+                     AddNote(section, Note.InterfaceElementMissing, elemid, section);
                   }
-                  if (resolved) module.resolvedImports[exported.Id] = (exported as IImportable)!;
+               }
+            }
+            // Now check that all the imports are in the exports table of the program and are consistent with those exports.
+            foreach (DeclaredCDL2Object imported in module.imports.Values.Cast<DeclaredCDL2Object>()) {
+               if (Exports.TryGetValue(imported.Id, out IExportable? exported)) {
+                  CheckImportConsistency(imported,imported, (DeclaredCDL2Object)exported);
                } else {
-                  AddNote(MainProgram, Note.MissingImport, imported);
+                  AddNote(mainProgram, Note.MissingImport, imported);
+               }
+            }
+         }
+      }
+
+      /// <summary>
+      /// Construct the exports table for the given module and verify that each object is exported only once.
+      /// </summary>
+      /// <param name="module"></param>
+      private void AnalyzeExports(Module module) {
+         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, section.Module!.exports);
+      }
+
+      private void AnalyzeInterfaces(Program mainProgram) {
+         foreach (Module module in mainProgram.Modules) {
+            Log(2, $"Analyzing internal interfaces of {module}");
+            // Construct the Visible table of each layer in the module
+            foreach (Section section in module.Sections) {
+               AnalyzeProvidedInterfaces(section, RW.EXT, section.ext, section.Layer!.Visible);
+               AnalyzeProvidedInterfaces(section, RW.ABSTR, section.abstr, section.Layer?.Successor?.Visible);
+            }
+            // At this point Visible of each layer contains all the objects that are visible in the layer, i.e., that have been extended in this layer's sections
+            // or abstracted from below.
+            // We can now check to see if everything invoked in this layer is in the Visible dictionary. Note that there may be imported objects. Those will be linked up with
+            // exports prior to code generation.
+            foreach (Layer layer in module.Layers) {
+               foreach (Section section in layer.Children.Cast<Section>()) {
+                  foreach (ID elemid in section.inv) {
+                     if (!layer.Visible.ContainsKey(elemid)) {
+                        AddNote(section, Note.MissingInvoke, elemid, layer);
+                     }
+                  }
                }
             }
          }
@@ -136,40 +184,23 @@ namespace CDL2v1 {
       /// <param name="module"></param>
       private void AnalyzeModule(Program prog,Module module) {
          Log(1,$"Analyzing {module.ContainerName}");
-
          foreach (Layer layer in module.Children.Cast<Layer>()) {
             AnalyzeLayer(layer);
          }
       }
 
       private void AnalyzeLayer(Layer layer) {
-         Log(1,$"Analyzing {layer.ContainerName}");
-
+         Log(2,$"Analyzing {layer.ContainerName}");
          foreach (Section section in layer.Children.Cast<Section>()) {
             AnalyzeSection(section);
-         }
-         // At thiis point Visible contains all the objects that are visible in the layer, i.e., that have been extended in this layers sections or abstracted from below.
-         // We can no check to see if everything invoked in this layer is in the visible dictionary. Note that there may be imported objects. Those will be linked up with
-         // exports when the program is analyzed.
-         foreach (Section section in layer.Children.Cast<Section>()) {
-            foreach (ID elemid in section.inv) {
-               if (!layer.Visible.ContainsKey(elemid)) {
-                  AddNote(section, Note.MissingInvoke, elemid, layer);
-               }
-            }
          }
       }
 
       private void AnalyzeSection(Section section) {
-         Log(1,$"Analyzing {section.ContainerName}");
+         Log(3,$"Analyzing {section.ContainerName}");
          Log(2,$"Analyzing interfaces");
-         AnalyzeProvidedInterfaces(section, RW.EXT,   section.ext,   section.Layer!.Visible);
-         AnalyzeProvidedInterfaces(section, RW.ABSTR, section.abstr, section.Layer?.Successor?.Visible);
-         AnalyzeProvidedInterfaces(section, RW.EXPORT,section.export,section.Module!.exports);
 
-         // Invocations are analyzed at the Layer level.
-         AnalyzeImports(section);
-
+         // Analyze p[rocedures and macros.
          foreach (Algorithm algorithm in section.Declarations.Values.Where(obj => obj is Algorithm algorithm).Cast<Algorithm>()) {
             Log(2,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
             if (algorithm is Procedure procedure) {
@@ -180,32 +211,32 @@ namespace CDL2v1 {
          }
       }
 
-      private void AnalyzeImports(Section section) {
-         // Verify that elements in the imports list are specified.
-         foreach (ID elemid in section.import) {
-            if (section.Declarations.TryGetValue(elemid, out DeclaredCDL2Object? obj)) {
-               if (obj is not IImportable) {
-                  AddNote(obj, Note.ObjectImportedButHasBody, obj);
-               } else {
-                  // Add the import to the module's imports so it can be verified later.
-                  // The import can appear in multiple sections, but then all specifications must be the same.
-                  if (section.Module!.imports.TryGetValue(elemid, out IImportable? imported)) {
-                     CheckSameImportSpec(obj, obj, imported);
-                  } else {
-                     section.Module.imports[elemid] = (IImportable)obj;
-                  }
-               }
-            } else {
-               AddNote(section,Note.MissingImportSpec, elemid,section);
-            }
-         }
-         // Verify that elements that have no body are imported.
-         foreach (DeclaredCDL2Object obj in section.Declarations.Values.OfType<IImportable>().Cast<DeclaredCDL2Object>()) {
-            if (!section.import.Contains(obj.Id)) {
-               AddNote(obj, Note.ObjectNotImported, obj);
-            }
-         }
-      }
+      //private void AnalyzeImports(Section section) {
+      //   // Verify that elements in the imports list are specified.
+      //   foreach (ID elemid in section.import) {
+      //      if (section.Declarations.TryGetValue(elemid, out DeclaredCDL2Object? obj)) {
+      //         if (obj is not IImportable) {
+      //            AddNote(obj, Note.ObjectImportedButHasBody, obj);
+      //         } else {
+      //            // Add the import to the module's imports so it can be verified later.
+      //            // The import can appear in multiple sections, but then all specifications must be the same.
+      //            if (section.Module!.imports.TryGetValue(elemid, out IImportable? imported)) {
+      //               CheckImportConsistency(obj, obj, obj);
+      //            } else {
+      //               section.Module.imports[elemid] = (IImportable)obj;
+      //            }
+      //         }
+      //      } else {
+      //         AddNote(section,Note.MissingImportSpec, elemid,section);
+      //      }
+      //   }
+      //   // Verify that elements that have no body are imported.
+      //   foreach (DeclaredCDL2Object obj in section.Declarations.Values.OfType<IImportable>().Cast<DeclaredCDL2Object>()) {
+      //      if (!section.import.Contains(obj.Id)) {
+      //         AddNote(obj, Note.ObjectNotImported, obj);
+      //      }
+      //   }
+      //}
 
       /// <summary>
       /// Compare obj1 to obj2.
@@ -213,10 +244,11 @@ namespace CDL2v1 {
       /// If they are both imported algorithms, then their affix counts ahd directions must match.
       /// If there is any mismatch attach an apropriate note or notes to the first object
       /// </summary>
+      /// <param name="problemObject">If there are issues with the spec, attach the note to this object.</param>
       /// <param name="obj1"></param>
       /// <param name="obj2"></param>
       /// <returns></returns>
-      private void  CheckSameImportSpec(NamedElement problemObject, DeclaredCDL2Object obj1, IImportable obj2) {
+      private void  CheckImportConsistency(NamedElement problemObject, DeclaredCDL2Object obj1, DeclaredCDL2Object obj2) {
          if (obj1 is ImportedConst && obj2 is ImportedConst) {
          } else if (obj1 is ImportedAlgorithm alg1 && obj2 is ImportedAlgorithm alg2) {
             if (alg1.affixes.Count != alg2.affixes.Count) {
