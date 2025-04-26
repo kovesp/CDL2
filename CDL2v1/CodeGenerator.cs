@@ -97,17 +97,13 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Generate code for argAffix module. It is up to the specific code generator to determine whether this code goes into argAffix separate file or not.
+      /// Generate code for module. It is up to the specific code generator to determine whether this code goes into a separate file or not.
       /// </summary>
       /// <param Id="module"></param>
       private void GenerateModule(Module module, bool isSeparate) {
-         void GenerateImpEx(Dictionary<ID, Section> impexList, Action<IProvidable> generateImpEx) {
-            foreach (ID id in impexList.Keys) {
-               if (impexList[id].TryGetLocalDeclaration(id, out ILocalCDL2DataObject? obj) && obj is IProvidable impex) {
-                  generateImpEx(impex);
-               } else {
-                  throw new NotImplementedException($"GenerateModule: Import/Export {id} not found in {module}");
-               }
+         void GenerateImpEx<T>(Dictionary<ID,T> impexList, Action<T> generateImpEx) {
+            foreach (T impex in impexList.Values) {               
+                generateImpEx(impex);
             }
          }
 
@@ -238,7 +234,7 @@ namespace CDL2v1 {
             case STRING s: cg.GenerateMacroElementString(s.value, firstElement:first, quoted:false); break;
             case ID id:
                // This should be a reference to a Const, Var or List, so check which one
-               if (section.TryGetDeclaration(id, out ILocalCDL2DataObject? obj)) {
+               if (section.TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {
                   switch (obj) {
                      case Const c: cg.GenerateMacroElementConst(c); break;
                      case Var v: cg.GenerateMacroElementVar(v, macro.CanFail); break;
@@ -423,7 +419,7 @@ namespace CDL2v1 {
                   cg.GenerateCallArgReferenceAffix(calledAffix, procAffix, needFinalization: call.CanFail);
                } else if (proc.TryGetLocal(id,out Local local)) {
                   cg.GenerateCallArgReferenceLocal(calledAffix,local);
-               } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out ICDL2DataObject? dataRef)) {
+               } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out DeclaredCDL2Object? dataRef)) {
                   if (dataRef is Const c) {
                      Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");
                      cg.GenerateCallArgReferenceConst(calledAffix,c);

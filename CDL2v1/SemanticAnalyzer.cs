@@ -55,7 +55,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Maps all identifiers exported by the modules in the program to the exporting module.
       /// </summary>
-      private readonly Dictionary<ID, Section> Exports = [];
+      private readonly Dictionary<ID, IExportable> Exports = [];
 
       /// <summary>
       /// Analyze the given program.
@@ -76,10 +76,11 @@ namespace CDL2v1 {
          // If resolved, add the object to the resolved imports of the module.
          foreach (Module module in MainProgram.Modules) {
             module.resolvedImports.Clear();  // valid only for the current run of the Semantic Analyzer.
-            foreach (ID elemid in module.imports.Keys) {
-               if (Exports.TryGetValue(elemid,out Section? exporter)) {
-                  ICDL2Object exported = exporter.Declarations[elemid];
-                  ICDL2Object imported = module.imports[elemid].Declarations[elemid];
+            foreach (IImportable importedElem in module.imports.Values) {
+               DeclaredCDL2Object imported = (DeclaredCDL2Object)importedElem;
+               if (Exports.TryGetValue(imported.Id,out IExportable? exportedElem)) {
+                  DeclaredCDL2Object exported = (DeclaredCDL2Object)exportedElem;
+                  
                   bool resolved = true;
                   // Check that the import mathces the export
                   if (imported is ImportedConst _ && exported is Algorithm alg) {
@@ -101,9 +102,9 @@ namespace CDL2v1 {
                      AddNote(MainProgram, Note.ImpexMismatch, imported, exported, $"{((Algorithm)imported).algorithmType} vs. CONST");
                      resolved = false;
                   }
-                  if (resolved) module.resolvedImports[elemid] = (exported as IImportable)!;
+                  if (resolved) module.resolvedImports[exported.Id] = (exported as IImportable)!;
                } else {
-                  AddNote(MainProgram, Note.MissingImport, module.imports[elemid]);
+                  AddNote(MainProgram, Note.MissingImport, imported);
                }
             }
          }
@@ -188,10 +189,10 @@ namespace CDL2v1 {
                } else {
                   // Add the import to the module's imports so it can be verified later.
                   // The import can appear in multiple sections, but then all specifications must be the same.
-                  if (section.Module!.imports.TryGetValue(elemid, out DeclaredCDL2Object? imported)) {
+                  if (section.Module!.imports.TryGetValue(elemid, out IImportable? imported)) {
                      CheckSameImportSpec(obj, obj, imported);
                   } else {
-                     section.Module.imports[elemid] = obj;
+                     section.Module.imports[elemid] = (IImportable)obj;
                   }
                }
             } else {
@@ -215,7 +216,7 @@ namespace CDL2v1 {
       /// <param name="obj1"></param>
       /// <param name="obj2"></param>
       /// <returns></returns>
-      private void  CheckSameImportSpec(NamedElement problemObject, DeclaredCDL2Object obj1, DeclaredCDL2Object obj2) {
+      private void  CheckSameImportSpec(NamedElement problemObject, DeclaredCDL2Object obj1, IImportable obj2) {
          if (obj1 is ImportedConst && obj2 is ImportedConst) {
          } else if (obj1 is ImportedAlgorithm alg1 && obj2 is ImportedAlgorithm alg2) {
             if (alg1.affixes.Count != alg2.affixes.Count) {
@@ -359,7 +360,7 @@ namespace CDL2v1 {
                   for (int i = 0; i < call.args.Count; i++) {
                      if (arg[i] is ID id) {
                         // ID that was not resolved during parsing
-                        if (proc.Section.TryGetDeclaration(id, out ICDL2Object? obj)) {                           
+                        if (proc.Section.TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {                           
                            switch (obj) {
                               case Var var:
                                  arg[i] = var; break;

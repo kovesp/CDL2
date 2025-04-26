@@ -219,7 +219,7 @@ namespace CDL2v1 {
             if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(Emitter,SE.Comment)); }
             return count;
          }
-         void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : ICDL2DataObject {
+         void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : DeclaredCDL2Object {
             if (EmitCount(items, type.ToString()) > 0) {
                foreach (T item in items) {
                   if (item.HasCommentOrNote) PrintComment(item);
@@ -365,7 +365,7 @@ namespace CDL2v1 {
                   Emit(local.Id.Decorate(Emitter, SE.Local));
                   break;
                case ID id:
-                  if (section.TryGetDeclaration(id, out ICDL2Object? cdl2obj)) {
+                  if (section.TryGetDeclaration(id, out DeclaredCDL2Object? cdl2obj)) {
                      switch (cdl2obj) {
                         case Const constant:
                            Emit(id.Decorate(Emitter, SE.Const));
@@ -448,7 +448,7 @@ namespace CDL2v1 {
       /// <param name="decorate"></param>
       /// <returns></returns>
       private string DecoratedID(ID id,Section? section,bool decorate=true) {
-         if (decorate && (section?.TryGetDeclaration(id,out ICDL2Object? obj)??false)) {
+         if (decorate && (section?.TryGetDeclaration(id,out DeclaredCDL2Object? obj)??false)) {
             if (obj!.SE == SE.AlgorithmName) {
                return id.Decorate(Emitter,AlgorithmNameDecorators[((Algorithm)obj).NameType]);
             } else {

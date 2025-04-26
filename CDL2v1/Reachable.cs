@@ -123,7 +123,7 @@ namespace CDL2v1 {
                      if (affix.IsInput) ReadVars.Add(v);
                      break;
                   case ID id:
-                     if (call.Called.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
+                     if (call.Called.Section.TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {
                         if (obj is Const c) {
                            CollectReachableObjects(c);
                         } else if (obj is ImportedConst ic1 && ic1.Module.resolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
@@ -154,7 +154,7 @@ namespace CDL2v1 {
             foreach (IConstElement elem in constant.elements) {
                switch (elem) {
                   case ID id:
-                     if (((Section)constant.Parent!).TryGetDeclaration(id, out ICDL2DataObject? obj)) {
+                     if (((Section)constant.Parent!).TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {
                         if (obj is Const c) CollectReachableObjects(c);
                      } else {
                         throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
@@ -171,7 +171,7 @@ namespace CDL2v1 {
                case Local:
                   break;
                case ID id:
-                  if (macro.Section.TryGetDeclaration(id, out ICDL2DataObject? obj)) {
+                  if (macro.Section.TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {
                      switch (obj) {
                         case Const c:
                            CollectReachableObjects(c);
@@ -207,8 +207,8 @@ namespace CDL2v1 {
       }
       private void CollectReachableObjects(Macro macro, LIST list) {
          if (Objects.Add(list)) {
-            if (macro.Section!.TryGetDeclaration(list.lwb, out ICDL2DataObject? lwbObj) && lwbObj is Const lwb) CollectReachableObjects(lwb);
-            if (macro.Section.TryGetDeclaration(list.upb, out ICDL2DataObject? upbObj) && lwbObj is Const upb) CollectReachableObjects(upb);
+            if (macro.Section!.TryGetDeclaration(list.lwb, out Const? lwb)) CollectReachableObjects(lwb);
+            if (macro.Section.TryGetDeclaration(list.upb, out Const? upb)) CollectReachableObjects(upb);
          }
       }
    }

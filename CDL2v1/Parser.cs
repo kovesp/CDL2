@@ -234,7 +234,7 @@ namespace CDL2v1 {
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             Logger.Log(3,$"Parsing {algType} {id}");
             currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
-            if (currentSection.Declarations.TryGetValue(id,out ICDL2Object? value)) {
+            if (currentSection.Declarations.TryGetValue(id,out DeclaredCDL2Object? value)) {
                ReportError($"Algorithm {id} already declared in container {currentSection.Id} as {value.GetType().Name}");
                return;
             }
@@ -245,7 +245,7 @@ namespace CDL2v1 {
                // IMPORT declaration. Check if it is in the imports list.
                algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
                if (!currentSection.import.Contains(id)) {
-                  AddNote(algorithm,Note.AlgorithmStubNotImported,algorithm.Id.Name,currentSection.Id.Name);
+                  AddNote(algorithm,Note.ObjectNotImported,algorithm);
                   ReportError($"{algType} {id} has no body but is not imported.");
                }
             } else {
@@ -266,7 +266,7 @@ namespace CDL2v1 {
                }
                Debug.Assert(algorithm != null);
                if (currentSection.import.Contains(id)) {
-                  AddNote(algorithm,Note.ImportedAlgorithmHasBody,algorithm.Id.Name,currentSection.Id.Name);
+                  AddNote(algorithm,Note.ObjectNotImported,algorithm);
                   ReportError($"{algType} {id} is imported but has locals or a body.");
                }
             }
@@ -666,11 +666,11 @@ namespace CDL2v1 {
       /// <param Id="idList"></param>
       /// <param Id="idList2"></param>
       /// <param Id="processID"></param>
-      private void ParseIDDeclarationList(Dictionary<ID,ICDL2Object> idList,string comments,Func<ID,ICDL2Object?> processID,Notes notes) {
+      private void ParseIDDeclarationList(Dictionary<ID,DeclaredCDL2Object> idList,string comments,Func<ID,DeclaredCDL2Object?> processID,Notes notes) {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            ICDL2Object? CDL2Object = processID(id);            
+            DeclaredCDL2Object? CDL2Object = processID(id);            
             if (CDL2Object != null) {
                if (!idList.ContainsKey(id)) {
                   idList[id] = CDL2Object;

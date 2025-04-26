@@ -53,10 +53,7 @@ namespace CDL2v1 {
    public interface ICDL2Object : INamedElement {
       public SE SE { get; }
    }
-   /// <summary>
-   /// Any CDL2 data object: Const, Var, LIST.
-   /// </summary>
-   public interface ICDL2DataObject : ICDL2Object { }
+
    /// <summary>
    /// Any CDL2 object that is local to a SectionById: Algorithm, Var, LIST.
    /// </summary>
@@ -64,7 +61,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Any CDL2 data object that is local to a SectionById: Var, LIST.
    /// </summary>
-   public interface ILocalCDL2DataObject : ILocalCDL2Object, ICDL2DataObject { }
+   public interface ILocalCDL2DataObject : ILocalCDL2Object { }
    /// <summary>
    /// Represents a failure protected objects: output and transput affixes and variables. This means that if used in an algorithm that fails,
    /// any changes to the object is undone.
@@ -354,37 +351,47 @@ namespace CDL2v1 {
       /// <returns>The declaration if found. </returns>
       /// 
       public bool TryGetDeclaration<T>(ID id,out T? declaration) where T : DeclaredCDL2Object {
-         if (resolvedDeclarations.TryGetValue(id,out ICDL2Object? cached) && cached is T resolved) {
-            declaration = resolved;
-            return true; // Found in the cache
-         } else if (TryGetLocalDeclaration(id,out DeclaredCDL2Object? obj) && obj is T local) {
+         if (TryGetLocalDeclaration(id, out T? local)) {
             declaration = local;
-            resolvedDeclarations[id] = local; // Cache the result to avoid checking in both declaration and resolvedDeclaration.
             return true; // Found locally
-         } else if (inv.Contains(id)) {
-            Debug.Assert(Parent != null && Parent is Layer,$"Parent of {this} is null or not a Layer");
-            Layer layer = (Layer)Parent;
-            if (layer.ext.TryGetValue(id,out Section? declaringSection) && declaringSection.Declarations[id] is T extended) {
-               declaration = extended;
-               resolvedDeclarations[id] = extended;
-               return true;
-            } else if (layer.Ancestor != null && layer.Ancestor.abstr.TryGetValue(id,out declaringSection) && declaringSection.Declarations[id] is T abstracted) {
-               declaration = abstracted;
-               resolvedDeclarations[id] = abstracted;
-               return true;
-            }
+         } else if (Layer.Visible.TryGetValue(id, out IProvidable? visible) && visible is T visibleDeclaration) {
+            declaration = visibleDeclaration;
+            return true; // Found in the layer
+         } else {
+            throw new Exception($"Could not find declaration {id} in {this}");
+            //} else
+            //if (resolvedDeclarations.TryGetValue(id,out ICDL2Object? cached) && cached is T resolved) {
+            //   declaration = resolved;
+            //   return true; // Found in the cache
+            //} else if (TryGetLocalDeclaration(id,out DeclaredCDL2Object? obj) && obj is T local) {
+            //   declaration = local;
+            //   resolvedDeclarations[id] = local; // Cache the result to avoid checking in both declaration and resolvedDeclaration.
+            //   return true; // Found locally
+            //} else if (inv.Contains(id)) {
+            //   Debug.Assert(Parent != null && Parent is Layer,$"Parent of {this} is null or not a Layer");
+            //   Layer layer = (Layer)Parent;
+            //   if (layer.ext.TryGetValue(id,out Section? declaringSection) && declaringSection.Declarations[id] is T extended) {
+            //      declaration = extended;
+            //      resolvedDeclarations[id] = extended;
+            //      return true;
+            //   } else if (layer.Ancestor != null && layer.Ancestor.abstr.TryGetValue(id,out declaringSection) && declaringSection.Declarations[id] is T abstracted) {
+            //      declaration = abstracted;
+            //      resolvedDeclarations[id] = abstracted;
+            //      return true;
+            //   }
+            //}
+            //declaration = default;
+            //return false;
          }
-         declaration = default;
-         return false;
       }
-      public DeclaredCDL2Object GetFullyResolvedDeclaration(ID id) {
-         if (TryGetDeclaration(id, out DeclaredCDL2Object? cached)) {
-            if ((cached is ImportedConst || cached is ImportedAlgorithm) && Module!.resolvedImports.TryGetValue(id,out IImportable? imported)) return imported;
-            return cached!;
-         }
-         throw new Exception($"Could not find declaration {id} in {this}");
-      }
-      public IEnumerable<ICDL2Object> FullyResolvedDeclarations => resolvedDeclarations.Keys.Select(id=>GetFullyResolvedDeclaration(id));
+      //public DeclaredCDL2Object GetFullyResolvedDeclaration(ID id) {
+      //   if (TryGetDeclaration(id, out DeclaredCDL2Object? cached)) {
+      //      if ((cached is ImportedConst || cached is ImportedAlgorithm) && Module!.resolvedImports.TryGetValue(id,out IImportable? imported)) return imported;
+      //      return cached!;
+      //   }
+      //   throw new Exception($"Could not find declaration {id} in {this}");
+      //}
+      //public IEnumerable<ICDL2Object> FullyResolvedDeclarations => resolvedDeclarations.Keys.Select(id=>GetFullyResolvedDeclaration(id));
       public bool TryGetLocalDeclaration<T>(ID id,out T? declaration) where T : DeclaredCDL2Object {
          if (Declarations.TryGetValue(id,out DeclaredCDL2Object? obj) && obj is T local) {
             declaration = local;
@@ -407,7 +414,10 @@ namespace CDL2v1 {
          Parent = section;
          Comments = comments;
       }
+      public DeclaredCDL2Object(ID id) : base(id) { }
       public virtual bool IsImported => false;
+
+      public SE SE { get; }
 
       /// <summary>
       /// Given that objects have to be unique by name within a section and extended/abstracted objects within a layer, objects with the same Id are considered the same.
@@ -849,7 +859,7 @@ namespace CDL2v1 {
    }
    [Serializable]
    public class Const(ID id,Section section) : DeclaredCDL2Object(id,section,null), 
-         IConstElement, IMacroElement, IProvidable, ICDL2DataObject, ILocalCDL2Object, ILocalCDL2DataObject, IActualArg, IImportable {
+         IConstElement, IMacroElement, IProvidable, ILocalCDL2Object, ILocalCDL2DataObject, IActualArg, IImportable {
       public SE SE => SE.Const;
       public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
    }
@@ -901,7 +911,7 @@ namespace CDL2v1 {
    }
 
    [Serializable]
-   public class Undeclared() : NamedElement(ID.AnonID), ICDL2Object {
+   public class Undeclared() : DeclaredCDL2Object(ID.AnonID) {
       public SE SE => SE.Other;
       public readonly static Undeclared Instance = new();
    }
