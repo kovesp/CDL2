@@ -219,7 +219,7 @@ namespace CDL2v1 {
             if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(Emitter,SE.Comment)); }
             return count;
          }
-         void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : DeclaredCDL2Object {
+         void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : CDL2Object {
             if (EmitCount(items, type.ToString()) > 0) {
                foreach (T item in items) {
                   if (item.HasCommentOrNote) PrintComment(item);
@@ -365,7 +365,7 @@ namespace CDL2v1 {
                   Emit(local.Id.Decorate(Emitter, SE.Local));
                   break;
                case ID id:
-                  if (section.TryGetDeclaration(id, out DeclaredCDL2Object? cdl2obj)) {
+                  if (section.TryGetDeclaration(id, out CDL2Object? cdl2obj)) {
                      switch (cdl2obj) {
                         case Const constant:
                            Emit(id.Decorate(Emitter, SE.Const));
@@ -448,7 +448,7 @@ namespace CDL2v1 {
       /// <param name="decorate"></param>
       /// <returns></returns>
       private string DecoratedID(ID id,Section? section,bool decorate=true) {
-         if (decorate && (section?.TryGetDeclaration(id,out DeclaredCDL2Object? obj)??false)) {
+         if (decorate && (section?.TryGetDeclaration(id,out CDL2Object? obj)??false)) {
             if (obj!.SE == SE.AlgorithmName) {
                return id.Decorate(Emitter,AlgorithmNameDecorators[((Algorithm)obj).NameType]);
             } else {
@@ -582,7 +582,7 @@ namespace CDL2v1 {
       public void Print(Var var) => Emit(var.Id.Decorate(Emitter, SE.Var));
 
       // TODO Fix printing of comments and notes
-      private void PrintIDComment(DeclaredCDL2Object obj,SE type) {
+      private void PrintIDComment(CDL2Object obj,SE type) {
          if (obj.Comments != null || obj.Notes.Count > 0) {
             Emitter.Indented(
                () => {
@@ -622,7 +622,7 @@ namespace CDL2v1 {
       /// Print the comments for the element.
       /// </summary>
       /// <param name="element"></param>
-      private void PrintComment(INamedElement element) => PrintComment(element.Comments,element.Notes);
+      private void PrintComment(NamedElement element) => PrintComment(element.Comments,element.Notes);
       private void PrintComment(Alternative element) => PrintComment(null,element.Notes);
 
       private void PrintComment(string? comments,Notes notes) {

@@ -234,7 +234,7 @@ namespace CDL2v1 {
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             Logger.Log(3,$"Parsing {algType} {id}");
             currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
-            if (currentSection.Declarations.TryGetValue(id,out DeclaredCDL2Object? value)) {
+            if (currentSection.Declarations.TryGetValue(id,out CDL2Object? value)) {
                ReportError($"Algorithm {id} already declared in container {currentSection.Id} as {value.GetType().Name}");
                return;
             }
@@ -430,7 +430,7 @@ namespace CDL2v1 {
                   call.args.Add(affix);
                } else if (proc.TryGetLocal(id, out Local local)) {
                   call.args.Add(local);
-               } else if (parser.currentSection.Declarations.TryGetValue(id, out DeclaredCDL2Object? obj)) {
+               } else if (parser.currentSection.Declarations.TryGetValue(id, out CDL2Object? obj)) {
                   if (obj is Const c) {
                      call.args.Add(c);
                   } else if (obj is Var v) {
@@ -567,7 +567,7 @@ namespace CDL2v1 {
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
                ID id = ID.From(elemId);
-               if (currentSection.Declarations.TryGetValue(id,out DeclaredCDL2Object? value)) {
+               if (currentSection.Declarations.TryGetValue(id,out CDL2Object? value)) {
                   // The ID is already declared in this container. It can only be a constant or undeclared.
                   // That will be true even if it is invoked or imported.
                   Debug.Assert(value is Const || value is Undeclared);
@@ -666,11 +666,11 @@ namespace CDL2v1 {
       /// <param Id="idList"></param>
       /// <param Id="idList2"></param>
       /// <param Id="processID"></param>
-      private void ParseIDDeclarationList(Dictionary<ID,DeclaredCDL2Object> idList,string comments,Func<ID,DeclaredCDL2Object?> processID,Notes notes) {
+      private void ParseIDDeclarationList(Dictionary<ID,CDL2Object> idList,string comments,Func<ID,CDL2Object?> processID,Notes notes) {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            DeclaredCDL2Object? CDL2Object = processID(id);            
+            CDL2Object? CDL2Object = processID(id);            
             if (CDL2Object != null) {
                if (!idList.ContainsKey(id)) {
                   idList[id] = CDL2Object;

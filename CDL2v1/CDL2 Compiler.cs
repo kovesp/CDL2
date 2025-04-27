@@ -19,6 +19,7 @@ namespace CDL2v1 {
 
       public CompilationPhase(CDL2 compiler) {
          this.compiler = compiler;
+         compiler.CompilationPhase = this;
          PhaseName = GetType().Name;
       }
 
@@ -81,7 +82,7 @@ namespace CDL2v1 {
             foreach (Note note in list) {
                Debug.Assert(note.Owner != null, "ReportNoteCounts: Note Owner is null");
                // Report messages only for reachable objects
-               if (all || reachable is null || (note.Owner is ICDL2Object obj && reachable.Objects.Contains(obj))) {
+               if (all || reachable is null || (note.Owner is CDL2Object obj && reachable.Objects.Contains(obj))) {
                   string head = $"{note.Type,-7} {note.Number:D3}";
                   Log(0, $"   {head} {note.Owner.FQDN()}\n    {new string(' ', head.Length)}{note.Text}");
                }
@@ -101,6 +102,8 @@ namespace CDL2v1 {
       static CDL2() => Compiler = new CDL2();
       private CDL2() { }
       public static readonly CDL2 Compiler;
+
+      public CompilationPhase CompilationPhase;
 
       private static void Main(string[] args) {
          Log(0, $"CDL2 Compiler v{Version}");
@@ -195,7 +198,7 @@ namespace CDL2v1 {
                      string targetFileName = Path.ChangeExtension(args[0], cg.FileExtension);
                      EmitterBase emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true };
                      Log(0, $"Generating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
-                     codeGenerator = new CodeGenerator(cg,Reachable);
+                     codeGenerator = new CodeGenerator(cg, Reachable, Compiler);
                      codeGenerator.GenerateCode(MainProgram, emitter);
                      emitter.Close();
                   } else {

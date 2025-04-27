@@ -96,10 +96,10 @@ namespace CDL2v1 {
             // While doing this check for consistency in case an object is imported inot multiple sections.
             foreach (Section section in module.Sections) {
                foreach (ID elemid in section.import) {
-                  if (section.Declarations.TryGetValue(elemid, out DeclaredCDL2Object? obj)) {
+                  if (section.Declarations.TryGetValue(elemid, out CDL2Object? obj)) {
                      if (obj is IImportable imported) {
                         if (module.imports.TryGetValue(elemid, out IImportable? importedObj)) {
-                           CheckImportConsistency(obj, obj, (DeclaredCDL2Object)importedObj);
+                           CheckImportConsistency(obj, obj, (CDL2Object)importedObj);
                         } else {
                            module.imports[elemid] = imported;
                         }
@@ -112,9 +112,11 @@ namespace CDL2v1 {
                }
             }
             // Now check that all the imports are in the exports table of the program and are consistent with those exports.
-            foreach (DeclaredCDL2Object imported in module.imports.Values.Cast<DeclaredCDL2Object>()) {
+            // Also insert the target of the import into the resolvedimports table of the module
+            foreach (CDL2Object imported in module.imports.Values.Cast<CDL2Object>()) {
                if (mainProgram.Exports.TryGetValue(imported.Id, out IExportable? exported)) {
-                  CheckImportConsistency(imported,imported, (DeclaredCDL2Object)exported);
+                  CheckImportConsistency(imported,imported, (CDL2Object)exported);
+                  module.resolvedImports[imported.Id] = (IImportable)exported;
                } else {
                   AddNote(mainProgram, Note.MissingImport, imported);
                }
@@ -159,13 +161,16 @@ namespace CDL2v1 {
       }
 
       public void AnalyzeUnused(Program mainProgram, Reachable Reachable) {
-         foreach (ICDL2Object obj in Reachable.AllObjects) {
+         int unused = 0;
+         foreach (CDL2Object obj in Reachable.AllObjects) {
             if (Reachable.Objects.Contains(obj)) {
                obj.Notes.Remove(Note.UnreferenceObject);
-            } else if (obj is NamedElement elem) {
-               AddNote(elem, new Note(Note.UnreferenceObject,PhaseName,obj.Parent));
+            } else {
+               AddNote(obj, new Note(Note.UnreferenceObject,PhaseName,obj.Parent!));
+               unused++;
             }
          }
+         Log(0, $"There are {unused.Plural("unused object")} in the program");
       }
 
       private void AnalyzeProgram(Program program) {
@@ -210,7 +215,7 @@ namespace CDL2v1 {
       //private void AnalyzeImports(Section section) {
       //   // Verify that elements in the imports list are specified.
       //   foreach (ID elemid in section.import) {
-      //      if (section.Declarations.TryGetValue(elemid, out DeclaredCDL2Object? obj)) {
+      //      if (section.Declarations.TryGetValue(elemid, out CDL2Object? obj)) {
       //         if (obj is not IImportable) {
       //            AddNote(obj, Note.ObjectImportedButHasBody, obj);
       //         } else {
@@ -227,7 +232,7 @@ namespace CDL2v1 {
       //      }
       //   }
       //   // Verify that elements that have no body are imported.
-      //   foreach (DeclaredCDL2Object obj in section.Declarations.Values.OfType<IImportable>().Cast<DeclaredCDL2Object>()) {
+      //   foreach (CDL2Object obj in section.Declarations.Values.OfType<IImportable>().Cast<CDL2Object>()) {
       //      if (!section.import.Contains(obj.Id)) {
       //         AddNote(obj, Note.ObjectNotImported, obj);
       //      }
@@ -244,7 +249,7 @@ namespace CDL2v1 {
       /// <param name="obj1"></param>
       /// <param name="obj2"></param>
       /// <returns></returns>
-      private void  CheckImportConsistency(NamedElement problemObject, DeclaredCDL2Object obj1, DeclaredCDL2Object obj2) {
+      private void  CheckImportConsistency(NamedElement problemObject, CDL2Object obj1, CDL2Object obj2) {
          if (obj1 is ImportedConst && obj2 is ImportedConst) {
          } else if (obj1 is ImportedAlgorithm alg1 && obj2 is ImportedAlgorithm alg2) {
             if (alg1.affixes.Count != alg2.affixes.Count) {
@@ -278,7 +283,7 @@ namespace CDL2v1 {
       private void AnalyzeProvidedInterfaces(Section section, RW kind, Set<ID> interfaceElements, Dictionary<ID, IProvidable>? providables) {
          if (providables == null && interfaceElements.Count > 0) AddNote(section, Note.AbstractionsInTopLayer);
          foreach (ID elemId in interfaceElements) {
-            if (section.Declarations.TryGetValue(elemId,out DeclaredCDL2Object? decl)) {
+            if (section.Declarations.TryGetValue(elemId,out CDL2Object? decl)) {
                if (providables is not null) {
                   if (providables.TryGetValue(elemId, out IProvidable? prov)) {
                      AddNote(section, Note.DuplicateInterfaceElement, elemId, kind, section,prov.Section!);
@@ -388,7 +393,7 @@ namespace CDL2v1 {
                   for (int i = 0; i < call.args.Count; i++) {
                      if (arg[i] is ID id) {
                         // ID that was not resolved during parsing
-                        if (proc.Section.TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {                           
+                        if (proc.Section.TryGetDeclaration(id, out CDL2Object? obj)) {                           
                            switch (obj) {
                               case Var var:
                                  arg[i] = var; break;

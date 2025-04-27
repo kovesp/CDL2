@@ -477,7 +477,7 @@ function Remove-Const([string[]]$names) {
          PSVarType.Local => "L_",
          _ => throw new NotImplementedException(),
       };
-      private static PSVarType PSVarTypeOf(DeclaredCDL2Object obj) => obj switch {
+      private static PSVarType PSVarTypeOf(CDL2Object obj) => obj switch {
          Var => PSVarType.Var,
          LIST => PSVarType.List,
          Const => PSVarType.Const,
@@ -486,11 +486,11 @@ function Remove-Const([string[]]$names) {
 
       private static string PS_Var(string name,PSVarType type,string prefix = "",string suffix = "",bool isRef = false) 
          => $"{(isRef ? "([ref]" : "")}${prefix}{PSVarPrefix(type)}{name}{suffix}{(isRef ? ")" : "")}";
-      private static string PSVar(DeclaredCDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
+      private static string PSVar(CDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
       private static string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(affix),PSVarType.Affix,prefix,suffix,isRef);
       private static string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(local),PSVarType.Local,prefix,suffix,isRef);
 
-      private static string PSName(DeclaredCDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
+      private static string PSName(CDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
       private static string PSName(Affix affix) => affix.Id.Name.AsIdentifier(camelCase: true);
       private static string PSName(Local local) => local.Id.Name.AsIdentifier(camelCase: true);
       private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => MultipleStatementRegex().IsMatch(str.value));

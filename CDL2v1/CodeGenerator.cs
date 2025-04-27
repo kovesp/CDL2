@@ -19,7 +19,7 @@ namespace CDL2v1 {
    /// </summary>
    /// <param Id="cg"></param>
    [Serializable]
-   public class CodeGenerator(ICodeGenerator cg,Reachable reachable) {
+   public class CodeGenerator(ICodeGenerator cg, Reachable reachable, CDL2 compiler) : CompilationPhase(compiler) {
       /// <summary>
       /// Target specific code gnerator to use.
       /// </summary>
@@ -234,7 +234,7 @@ namespace CDL2v1 {
             case STRING s: cg.GenerateMacroElementString(s.value, firstElement:first, quoted:false); break;
             case ID id:
                // This should be a reference to a Const, Var or List, so check which one
-               if (section.TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {
+               if (section.TryGetDeclaration(id, out CDL2Object? obj)) {
                   switch (obj) {
                      case Const c: cg.GenerateMacroElementConst(c); break;
                      case Var v: cg.GenerateMacroElementVar(v, macro.CanFail); break;
@@ -419,7 +419,7 @@ namespace CDL2v1 {
                   cg.GenerateCallArgReferenceAffix(calledAffix, procAffix, needFinalization: call.CanFail);
                } else if (proc.TryGetLocal(id,out Local local)) {
                   cg.GenerateCallArgReferenceLocal(calledAffix,local);
-               } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out DeclaredCDL2Object? dataRef)) {
+               } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out CDL2Object? dataRef)) {
                   if (dataRef is Const c) {
                      Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");
                      cg.GenerateCallArgReferenceConst(calledAffix,c);

@@ -18,24 +18,24 @@ namespace CDL2v1 {
          Debug.WriteLine("End of reachable objects.");
       }
       private bool collecting = false;
-      public Set<ICDL2Object> Objects {
+      public Set<CDL2Object> Objects {
          get {
             Debug.Assert(collecting || field.Count != 0, "Must call CollectReachebleObjects(program/module)  before accessing Objects");
             return field;
          }
          private set;
       } = [];
-      public Set<DeclaredCDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
+      public Set<CDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
-      public Set<ICDL2Object> ReadVars { get;  private set; } = [];
-      public Set<ICDL2Object> AmbigousVars { get; private set; } = [];
+      public Set<ITrackedVar> ReadVars { get;  private set; } = [];
+      public Set<ITrackedVar> AmbigousVars { get; private set; } = [];
       
       public void CollectAllObjects(Program program) {
          AllObjects = [];
          foreach (Module module in program.Modules) {
             foreach (Layer layer in module.Children.Cast<Layer>()) {
                foreach (Section section in layer.Children.Cast<Section>()) {
-                  foreach (DeclaredCDL2Object cdl2object in section.Declarations.Values) {
+                  foreach (CDL2Object cdl2object in section.Declarations.Values) {
                      AllObjects.Add(cdl2object);
                   }
                }
@@ -49,7 +49,6 @@ namespace CDL2v1 {
          ReadVars = [];
          AmbigousVars = [];
          collecting = true;
-         Logger.Log(0, $"Collecting objects reachable from {prog} ...");
          foreach (RW ludeType in Container.LudeTypes) {
             foreach (ID id in prog.Ludes[ludeType]) {
                if (Database.Instance.Modules.TryGetValue(id, out Module? module)) {
@@ -59,7 +58,8 @@ namespace CDL2v1 {
          }
          collecting = false;
          string CountObjects(Type type) => Objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name);
-         Logger.Log(0, $"{CountObjects(typeof(Const))}, {CountObjects(typeof(Var))}, {CountObjects(typeof(LIST))}, {CountObjects(typeof(Macro))}, {CountObjects(typeof(Procedure))} collected.");
+         Logger.Log(0, $"Collected {Objects.Count.Plural("object")} reachable from {prog} ...");
+         Logger.Log(0, $"   {CountObjects(typeof(Const))}, {CountObjects(typeof(Var))}, {CountObjects(typeof(LIST))}, {CountObjects(typeof(Macro))}, {CountObjects(typeof(Procedure))}.");
       }
       public void CollectReachableObjects(Module module) => throw new NotImplementedException($"CollectReachableObjects: Not yet implemented for modules.");
       private void CollectReachableObjects(RW Ludetype, Module module) {
@@ -71,7 +71,7 @@ namespace CDL2v1 {
          // SectionById ludes contain teh single entry of argAffix synthetic procedure that is the lude
          // So we need to collect all the objects in the section that are reachable from this lude.
          Debug.Assert(section.Ludes[ludetype].Count == 1, $"CollectReachableObjects: Expected single lude in {section}");
-         if (section.Declarations.TryGetValue(section.Ludes[ludetype][0],out DeclaredCDL2Object? obj) && obj is Procedure proc) {
+         if (section.Declarations.TryGetValue(section.Ludes[ludetype][0],out CDL2Object? obj) && obj is Procedure proc) {
             if (Objects.Add(proc!)) CollectReachableObjects(proc.group);
          } else {
             throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludetype][0]} in {section}");
@@ -123,7 +123,7 @@ namespace CDL2v1 {
                      if (affix.IsInput) ReadVars.Add(v);
                      break;
                   case ID id:
-                     if (call.Called.Section.TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {
+                     if (call.Called.Section.TryGetDeclaration(id, out CDL2Object? obj)) {
                         if (obj is Const c) {
                            CollectReachableObjects(c);
                         } else if (obj is ImportedConst ic1 && ic1.Module.resolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
@@ -154,7 +154,7 @@ namespace CDL2v1 {
             foreach (IConstElement elem in constant.elements) {
                switch (elem) {
                   case ID id:
-                     if (((Section)constant.Parent!).TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {
+                     if (((Section)constant.Parent!).TryGetDeclaration(id, out CDL2Object? obj)) {
                         if (obj is Const c) CollectReachableObjects(c);
                      } else {
                         throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
@@ -171,7 +171,7 @@ namespace CDL2v1 {
                case Local:
                   break;
                case ID id:
-                  if (macro.Section.TryGetDeclaration(id, out DeclaredCDL2Object? obj)) {
+                  if (macro.Section.TryGetDeclaration(id, out CDL2Object? obj)) {
                      switch (obj) {
                         case Const c:
                            CollectReachableObjects(c);
