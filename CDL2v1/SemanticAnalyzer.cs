@@ -57,11 +57,6 @@ namespace CDL2v1 {
       public SemanticAnalyzer(CDL2 compiler) : base(compiler) { }
 
       /// <summary>
-      /// Maps all identifiers exported by the modules in the program to the exporting module.
-      /// </summary>
-      private readonly Dictionary<ID, IExportable> Exports = [];
-
-      /// <summary>
       /// Analyze the given program.
       /// </summary>
       /// <param name="MainProgram"></param>
@@ -88,10 +83,11 @@ namespace CDL2v1 {
       internal void AnalyzeImportsAndExports(Program mainProgram) {
          Log(1,$"Analyzing imports and exports of {mainProgram}");
          // Collect all the exports from the modules in the program.
+         mainProgram.Exports.Clear();
          foreach (Module module in mainProgram.Modules) {
             AnalyzeExports(module);
             foreach (IExportable export in module.exports.Values.Cast<IExportable>()) {
-               Exports[export.Id] = export;
+               mainProgram.Exports[export.Id] = export;
             }
          }
          // Now verify that each import has a corresponding export and that the specs match.
@@ -117,7 +113,7 @@ namespace CDL2v1 {
             }
             // Now check that all the imports are in the exports table of the program and are consistent with those exports.
             foreach (DeclaredCDL2Object imported in module.imports.Values.Cast<DeclaredCDL2Object>()) {
-               if (Exports.TryGetValue(imported.Id, out IExportable? exported)) {
+               if (mainProgram.Exports.TryGetValue(imported.Id, out IExportable? exported)) {
                   CheckImportConsistency(imported,imported, (DeclaredCDL2Object)exported);
                } else {
                   AddNote(mainProgram, Note.MissingImport, imported);

@@ -231,6 +231,10 @@ namespace CDL2v1 {
       public Set<ID> Parts { get; } = [];
       public IEnumerable<Module> Modules => Parts.Select(id => Database.Instance.Modules[id]);
       /// <summary>
+      /// Maps all identifiers exported by the modules in the program to the exporting module.
+      /// </summary>
+      public readonly Dictionary<ID, IExportable> Exports = [];
+      /// <summary>
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param Id="Id"></param>
@@ -431,6 +435,7 @@ namespace CDL2v1 {
       public static bool operator ==(DeclaredCDL2Object? left, DeclaredCDL2Object? right) => EqualityComparer<DeclaredCDL2Object>.Default.Equals(left, right);
       public static bool operator !=(DeclaredCDL2Object? left, DeclaredCDL2Object? right) => !(left == right);
    }
+
    /// <summary>
    /// Represents the common properties of Algorithms (Macros and Procedures).
    /// </summary>
