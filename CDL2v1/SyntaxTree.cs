@@ -728,7 +728,10 @@ namespace CDL2v1 {
       public readonly Notes Notes = notes;
       public bool IsConditionalOff = false;
 
-      public bool CanFail => calls.Any(call => call.CanFail) || (lastCall.type == LCT.Standard && lastCall.call!.CanFail);
+      public bool CanFail =>  calls.Any(call => call.CanFail) || 
+                              (lastCall.type == LCT.Standard && lastCall.call!.CanFail) || 
+                              lastCall.type == LCT.Fail || 
+                              (lastCall.type == LCT.Group && lastCall.group!.CanFail);
       private Call? FirstCall() {
          if (calls.Count > 0) return calls[0];
          if (lastCall.type == LCT.Standard) return lastCall.call;
@@ -751,6 +754,7 @@ namespace CDL2v1 {
 
       public bool HasAnonymousRepeat => HasAnAnonymousRepeat();
       public bool HasNoAnonymousRepeat => ! HasAnonymousRepeat;
+      public bool CanFail => alternatives.Any(alternative => alternative.lastCall.type == LastCallType.Fail) || alternatives.Last().CanFail;
       /// <summary>
       /// The group has an alternative which has at least one anonymous repeat operator.
       /// Required for target languages (e.g., PowerShell) that have to use a loop to simulate goto-s.

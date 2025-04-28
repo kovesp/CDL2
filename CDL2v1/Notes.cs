@@ -24,27 +24,29 @@ namespace CDL2v1 {
          PhaseName = phaseName;
       }
       public Note(Note template, string phaseName, NamedElement owner, params object[] args)
-         : this(template.Type, template.Number, string.Format(template.Text, [.. args.Select(arg => arg is Affix aff ? aff.Id : arg is Local loc ? loc.Id : arg)]), phaseName) => Owner = owner;
+         : this(template.Type, template.Number, 
+              string.Format(template.Text, [.. args.Select(arg => arg is Affix aff ? $"<{aff.Id}>" : arg is Local loc ? $"<{loc.Id}>" : $"<{arg}>")]), 
+              phaseName) => Owner = owner;
 
       public static readonly string Marker = " >>> ";
 
       public static readonly Note Defect                            = new(NoteType.Error  , 001, "Procedure has defect (has an effect tough tough declared as {0})");
       public static readonly Note Effect                            = new(NoteType.Error  , 002, "Procedure has effect tough declared as {0}");
       public static readonly Note CanFail                           = new(NoteType.Error  , 003, "Procedure can fail tough declared as {0}");
-      public static readonly Note CannotFail                        = new(NoteType.Error  , 004, "Procedure can not fail tough declared as {0}");
+      public static readonly Note CannotFail                        = new(NoteType.Error  , 004, "Procedure cannot fail tough declared as {0}");
       public static readonly Note LabelNotFound                     = new(NoteType.Error  , 005, "*{0}: label not found in Procedure");
       public static readonly Note DuplicateLabel                    = new(NoteType.Error  , 006, "{0}: duplicate label in Procedure");
       public static readonly Note IllegalFailOperator               = new(NoteType.Error  , 007, "Procedure has FAIL operator (-) tough declared as {0}");
       public static readonly Note UndeclaredAlgorithmCall           = new(NoteType.Error  , 008, "Call of undeclared Algorithm {0}");
       public static readonly Note ArgumentCountMismatch             = new(NoteType.Error  , 009, "Argument count mismatch. {0} has {1} affixes, but called with {2}");
-      public static readonly Note WrongTypeOfargumentForStringAffix = new(NoteType.Error  , 010, "Only a literal string or a CONST can be passed to a string affix for {0}");
-      public static readonly Note UninitializedOutputPassedAsInput  = new(NoteType.Error  , 011, "Output affix {0} that has not been set passed as input or transput in {1}");
-      public static readonly Note InputAffixPassedToOutput          = new(NoteType.Error  , 012, "Input affix {0} passed to output or transput in {0}");
-      public static readonly Note ConstPassedToOutput               = new(NoteType.Error  , 013, "CONST {0} passed to output or transput in {0}");
-      public static readonly Note ConstPassedToTransput             = new(NoteType.Error  , 014, "CONST {0} passed to transput in {1}");
-      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix {0} that has not been set passed as input in {1}");
-      public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local {0} that has not been set passed as input in {1}");
-      public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local {0} whose value has not been read passed to output in {1}");
+      public static readonly Note WrongTypeOfargumentForStringAffix = new(NoteType.Error  , 010, "Only a literal string or a CONST can be passed to a string affix for call {0}");
+      public static readonly Note UninitializedOutputPassedAsInput  = new(NoteType.Error  , 011, "Output affix {0} that has not been set passed as input or transput in call {1}");
+      public static readonly Note InputAffixPassedToOutput          = new(NoteType.Error  , 012, "Input affix {0} passed to output or transput in call {0}");
+      public static readonly Note ConstPassedToOutput               = new(NoteType.Error  , 013, "CONST {0} passed to output or transput in call {0}");
+      public static readonly Note ConstPassedToTransput             = new(NoteType.Error  , 014, "CONST {0} passed to transput in call {1}");
+      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix {0} that has not been set passed as input in call {1}");
+      public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local {0} that has not been set passed as input in call {1}");
+      public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local {0} whose value has not been read passed to output in call {1}");
       public static readonly Note MissingImportSpec                 = new(NoteType.Error  , 018, "{0} is imported in section {1} but has no specificaion");
       public static readonly Note ObjectNotImported                 = new(NoteType.Error  , 019, "{0} has no body but is not imported");
       public static readonly Note ObjectImportedButHasBody          = new(NoteType.Error  , 020, "{0} is imported but has a body");

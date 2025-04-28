@@ -160,10 +160,16 @@ namespace CDL2v1 {
          Log(0,$"Analyzing MAIN {mainProgram.ContainerName}");
       }
 
+      /// <summary>
+      /// Find objects that are declared but not used and mark them as such with an Info note.
+      /// Do not do this for any object that is exported from any module. 
+      /// </summary>
+      /// <param name="mainProgram"></param>
+      /// <param name="Reachable"></param>
       public void AnalyzeUnused(Program mainProgram, Reachable Reachable) {
          int unused = 0;
          foreach (CDL2Object obj in Reachable.AllObjects) {
-            if (Reachable.Objects.Contains(obj)) {
+            if (Reachable.Objects.Contains(obj) || mainProgram.Exports.ContainsKey(obj.Id)) {
                obj.Notes.Remove(Note.UnreferenceObject);
             } else {
                AddNote(obj, new Note(Note.UnreferenceObject,PhaseName,obj.Parent!));
@@ -212,33 +218,6 @@ namespace CDL2v1 {
          }
       }
 
-      //private void AnalyzeImports(Section section) {
-      //   // Verify that elements in the imports list are specified.
-      //   foreach (ID elemid in section.import) {
-      //      if (section.Declarations.TryGetValue(elemid, out CDL2Object? obj)) {
-      //         if (obj is not IImportable) {
-      //            AddNote(obj, Note.ObjectImportedButHasBody, obj);
-      //         } else {
-      //            // Add the import to the module's imports so it can be verified later.
-      //            // The import can appear in multiple sections, but then all specifications must be the same.
-      //            if (section.Module!.imports.TryGetValue(elemid, out IImportable? imported)) {
-      //               CheckImportConsistency(obj, obj, obj);
-      //            } else {
-      //               section.Module.imports[elemid] = (IImportable)obj;
-      //            }
-      //         }
-      //      } else {
-      //         AddNote(section,Note.MissingImportSpec, elemid,section);
-      //      }
-      //   }
-      //   // Verify that elements that have no body are imported.
-      //   foreach (CDL2Object obj in section.Declarations.Values.OfType<IImportable>().Cast<CDL2Object>()) {
-      //      if (!section.import.Contains(obj.Id)) {
-      //         AddNote(obj, Note.ObjectNotImported, obj);
-      //      }
-      //   }
-      //}
-
       /// <summary>
       /// Compare obj1 to obj2.
       /// If they are both imported constants return true.
@@ -251,7 +230,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       private void  CheckImportConsistency(NamedElement problemObject, CDL2Object obj1, CDL2Object obj2) {
          if (obj1 is ImportedConst && obj2 is ImportedConst) {
-         } else if (obj1 is ImportedAlgorithm alg1 && obj2 is ImportedAlgorithm alg2) {
+         } else if (obj1 is Algorithm alg1 && obj2 is Algorithm alg2) {
             if (alg1.affixes.Count != alg2.affixes.Count) {
                AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "Affix count mismatch");
             } else {
@@ -303,13 +282,42 @@ namespace CDL2v1 {
 
       private void AnalyzeMacro(Macro macro) {
       }
-      private class DataFlowInfo(Procedure proc) {
-         private readonly Set<Affix> readableAffixes     = proc.affixes.Where(affix => affix.IsInput).ToSet();
+      private class DataFlowInfo {
+         private readonly Procedure proc;
+         private readonly Set<Affix> readableAffixes     = [];
          private readonly Set<Local> readableLocals      = [];
-         private readonly Set<Affix> writableAffixes     = proc.affixes.Where(affix => affix.IsOutput).ToSet();
-         private readonly Set<Local> writableLocals      = [..proc.locals];
-         private readonly Set<Affix> neverWrittenAffixes = proc.affixes.Where(affix => affix.IsOutputOnly).ToSet();
-         private readonly Set<Local> neverWrittenLocals  = [..proc.locals ];
+         private readonly Set<Affix> writableAffixes     = [];
+         private readonly Set<Local> writableLocals      = [];
+         private readonly Set<Affix> neverWrittenAffixes = [];
+         private readonly Set<Local> neverWrittenLocals  = [];
+         public DataFlowInfo(Procedure proc) { this.proc = proc; Reset(VarSet.all); }
+
+         [Flags]
+         public enum VarSet {
+            
+            readableAffixes     =1,
+            readableLocals      =2,
+            writableAffixes     =4,
+            writableLocals      =8,
+            neverWrittenAffixes =16,
+            neverWrittenLocals  =32,
+
+            all = readableAffixes | readableLocals | writableAffixes | writableLocals | neverWrittenAffixes | neverWrittenLocals,
+         }
+         public void Reset(VarSet flags) {
+            void reset<T>(VarSet flag,Set<T> set,Set<T> values) {
+               if ((flags & flag) == flag) {
+                  set.Clear();
+                  foreach (T value in values) set.Add(value);
+               }
+            }
+            reset(VarSet.readableAffixes    ,readableAffixes    ,proc.affixes.Where(affix => affix.IsInput).ToSet());
+            reset(VarSet.readableLocals     ,readableLocals     ,[]);
+            reset(VarSet.writableAffixes    ,writableAffixes    ,proc.affixes.Where(affix => affix.IsOutput).ToSet());
+            reset(VarSet.writableLocals     ,writableLocals     ,[.. proc.locals]);
+            reset(VarSet.neverWrittenAffixes,neverWrittenAffixes,proc.affixes.Where(affix => affix.IsOutputOnly).ToSet());
+            reset(VarSet.neverWrittenLocals ,neverWrittenLocals ,[.. proc.locals]);
+         }
 
          public bool Readable(Affix affix)       => readableAffixes.Contains(affix);
          public bool Readable(Local local)       => readableLocals.Contains(local);
@@ -361,6 +369,7 @@ namespace CDL2v1 {
          bool missingDefinitions = false;
          foreach (Alternative alt in group.alternatives) {
             missingDefinitions = AnalyzeAlternative(proc, alt, info) || missingDefinitions;
+            // info.Reset(DataFlowInfo.VarSet.neverWrittenLocals | DataFlowInfo.VarSet.writableLocals | DataFlowInfo.VarSet.readableLocals);
          }
          return missingDefinitions;
       }
@@ -450,7 +459,7 @@ namespace CDL2v1 {
                               info.MakeUnwritable(outputArg);
                               break;
                            case Local local:
-                              if (info.Unwritable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local, call);
+                              if (!info.NeverWritten(local) && info.Unwritable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local, call);
                               info.MakeReadable(local);
                               info.MakeUnwritable(local);
                               break;
@@ -476,7 +485,7 @@ namespace CDL2v1 {
                               info.MakeUnwritable(outputArg);
                               break;
                            case Local local:
-                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
+                              if (info.NeverWritten(local) || info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
                               if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local,call);
                               info.MakeReadable(local);
                               info.MakeUnwritable(local);
@@ -510,7 +519,9 @@ namespace CDL2v1 {
             if (alternative.lastCall.type == LCT.Fail) return true;
             if (alternative.lastCall.type == LCT.Group && AnalyzeCanFail(alternative.lastCall.group!,section)) return true;
          }
-         LastCall lc = group.alternatives.Last().lastCall;
+         Alternative lastAlternative = group.alternatives.Last();
+         if (lastAlternative.CanFail) return true;
+         LastCall lc = lastAlternative.lastCall;
          return lc.type == LCT.Standard && lc.call!.CanFail;   // Group and Fail already handled above.
       }
 

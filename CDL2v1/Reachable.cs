@@ -107,8 +107,10 @@ namespace CDL2v1 {
             if (called is ImportedAlgorithm importedAlg) {
                called = (called.Module!.resolvedImports[importedAlg.Id] as Algorithm)!;
             }
-            if (called.IsConditionalCompilationOn) return true;   // Ignore
-            if (called.IsConditionalCompilationOff) return false; // Skip the rest of the alternative.
+            if (called.IsConditionalCompilation()) {
+               Objects.Add(called);
+               return called.IsConditionalCompilationOn;   // If false, skip the rest of the alternative.
+            }
 
             // Collect objects referrenced in actual args
             for (int i = 0 ; i < call.args.Count ; i++) {
