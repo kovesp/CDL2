@@ -355,8 +355,6 @@ namespace CDL2v1 {
             bool canFail = AnalyzeCanFail(proc.group, section);
             if (proc.CanFail && !canFail) {
                AddNote(proc, Note.CannotFail, proc.algorithmType);
-               //AddNote(proc,new(NoteType.Warning,"Test warning",108));
-               //AddNote(proc,new(NoteType.Info,"Test info",208));
                ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
             } else if (!proc.CanFail && canFail) {
                AddNote(proc, Note.CanFail, proc.algorithmType);
@@ -377,7 +375,7 @@ namespace CDL2v1 {
       private bool AnalyzeAlternative(Procedure proc, Alternative alt, DataFlowInfo info) {
          bool missingDefinitions = false;
          foreach (Call call in alt.calls) {
-            missingDefinitions = AnalyzeCall(call, proc, info) || missingDefinitions;            
+            missingDefinitions = AnalyzeCall(call, proc, info) || missingDefinitions;
          }
          if (alt.lastCall.type == LCT.Group) {
             missingDefinitions = AnalyzeGroup(proc, alt.lastCall.group!, info) || missingDefinitions;
@@ -385,121 +383,121 @@ namespace CDL2v1 {
             missingDefinitions = AnalyzeCall(alt.lastCall.call!, proc, info);
          }
          return missingDefinitions;
+      }
 
-         bool AnalyzeCall(Call call, Procedure proc, DataFlowInfo info) {
-            if (!call.IsBuiltin) {
-               if (call.Called is null) {
-                  proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
-                  return true;
-               } else if (call.Called.affixes.Count != call.args.Count) {
-                  proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.args.Count, call.Called.affixes.Count);
-                  return true;
-               } else if (call.args.Count == 0) {
-                  return false;
-               } else {
-                  List<Affix> affix = call.Called.affixes;
-                  List<IActualArg> arg = call.args;
-                  for (int i = 0; i < call.args.Count; i++) {
-                     if (arg[i] is ID id) {
-                        // ID that was not resolved during parsing
-                        if (proc.Section.TryGetDeclaration(id, out CDL2Object? obj)) {                           
-                           switch (obj) {
-                              case Var var:
-                                 arg[i] = var; break;
-                              case Const c:
-                                 arg[i] = c; break;
-                              default:
-                                 proc.AddNote(PhaseName, Note.InvalidArgumentType, arg[i],call);
-                                 break;
-                           }               
-                        } else {
-                           proc.AddNote(PhaseName, Note.UnresolvedArgument, arg[i],call);
-                           return true; // No point in continuing
-                        }
-                     }
-
-                     if (affix[i].IsString) {
-                        // The actual argument must be a constant, a string or a string affix of the containing procedure.
-                        switch (arg[i]) {
-                           case Const _:
-                           case Affix stringArg when stringArg.IsString:
-                           case STRING _:
-                              break;
+      private bool AnalyzeCall(Call call, Procedure proc, DataFlowInfo info) {
+         if (!call.IsBuiltin) {
+            if (call.Called is null) {
+               proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
+               return true;
+            } else if (call.Called.affixes.Count != call.args.Count) {
+               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.args.Count, call.Called.affixes.Count);
+               return true;
+            } else if (call.args.Count == 0) {
+               return false;
+            } else {
+               List<Affix> affix = call.Called.affixes;
+               List<IActualArg> arg = call.args;
+               for (int i = 0; i < call.args.Count; i++) {
+                  if (arg[i] is ID id) {
+                     // ID that was not resolved during parsing
+                     if (proc.Section.TryGetDeclaration(id, out CDL2Object? obj)) {                           
+                        switch (obj) {
+                           case Var var:
+                              arg[i] = var; break;
+                           case Const c:
+                              arg[i] = c; break;
                            default:
-                              proc.AddNote(PhaseName, Note.InvalidStringArg, arg[i], call);
+                              proc.AddNote(PhaseName, Note.InvalidArgumentType, arg[i],call);
                               break;
-                        }
-                     } else if (affix[i].IsInputOnly) {
-                        // The actual argument must be a constant, a variable, an input or transput affix of the containing procedure,
-                        // or a local or output affix that has already received a value.
-                        switch (arg[i]) {
-                           case Const _:
-                           case Var _:
-                           case Affix inputArg when inputArg.IsInput:   // Includes transput
-                              break;
-                           case Affix outputArg when outputArg.IsOutputOnly:
-                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
-                              break;
-                           case Local local:
-                              if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
-                              break;
-                           default:
-                              proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i], call);
-                              break;
-                        }
-                     } else if (affix[i].IsOutputOnly) {
-                        // The actual argument must be a variable, a local or an affix (output or transput) of the containing procedure.
-                        // The local or affix must have been read since it was last written (this is a warning).
-                        switch (arg[i]) {
-                           case Var _:
-                              break;
-                           case Affix outputArg when outputArg.IsOutput:   // Includes transput
-                              if (info.Unwritable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg, call);
-                              info.MakeReadable(outputArg);
-                              info.MakeUnwritable(outputArg);
-                              break;
-                           case Local local:
-                              if (!info.NeverWritten(local) && info.Unwritable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local, call);
-                              info.MakeReadable(local);
-                              info.MakeUnwritable(local);
-                              break;
-                           default:
-                              proc.AddNote(PhaseName, Note.InvalidOutputArg, arg[i], call);
-                              break;
-                        }
+                        }               
                      } else {
-                        Debug.Assert(affix[i].IsTransput, "Transput affix expected");
-                        // The actual argument must be a variable, a transput affix or a local or an output affix which has already been assigned a value of the containing procedure.
-                        switch (arg[i]) {
-                           case Var _:
-                              break;
-                           case Affix transputArg when transputArg.IsTransput:
-                              info.MakeReadable(transputArg);
-                              info.MakeUnwritable(transputArg);
-                              break;
-                           case Affix outputArg when outputArg.IsOutputOnly:
-                              // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another interfaceElements in info?
-                              if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
-                              else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg,call);
-                              info.MakeReadable(outputArg);
-                              info.MakeUnwritable(outputArg);
-                              break;
-                           case Local local:
-                              if (info.NeverWritten(local) || info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
-                              if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local,call);
-                              info.MakeReadable(local);
-                              info.MakeUnwritable(local);
-                              break;
-                           default:
-                              proc.AddNote(PhaseName, Note.InvalidTransputArg, arg[i], call);
-                              break;
-                        }
+                        proc.AddNote(PhaseName, Note.UnresolvedArgument, arg[i],call);
+                        return true; // No point in continuing
+                     }
+                  }
+
+                  if (affix[i].IsString) {
+                     // The actual argument must be a constant, a string or a string affix of the containing procedure.
+                     switch (arg[i]) {
+                        case Const _:
+                        case Affix stringArg when stringArg.IsString:
+                        case STRING _:
+                           break;
+                        default:
+                           proc.AddNote(PhaseName, Note.InvalidStringArg, arg[i], call);
+                           break;
+                     }
+                  } else if (affix[i].IsInputOnly) {
+                     // The actual argument must be a constant, a variable, an input or transput affix of the containing procedure,
+                     // or a local or output affix that has already received a value.
+                     switch (arg[i]) {
+                        case Const _:
+                        case Var _:
+                        case Affix inputArg when inputArg.IsInput:   // Includes transput
+                           break;
+                        case Affix outputArg when outputArg.IsOutputOnly:
+                           if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
+                           break;
+                        case Local local:
+                           if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
+                           break;
+                        default:
+                           proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i], call);
+                           break;
+                     }
+                  } else if (affix[i].IsOutputOnly) {
+                     // The actual argument must be a variable, a local or an affix (output or transput) of the containing procedure.
+                     // The local or affix must have been read since it was last written (this is a warning).
+                     switch (arg[i]) {
+                        case Var _:
+                           break;
+                        case Affix outputArg when outputArg.IsOutput:   // Includes transput
+                           if (info.Unwritable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg, call);
+                           info.MakeReadable(outputArg);
+                           info.MakeUnwritable(outputArg);
+                           break;
+                        case Local local:
+                           if (!info.NeverWritten(local) && info.Unwritable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local, call);
+                           info.MakeReadable(local);
+                           info.MakeUnwritable(local);
+                           break;
+                        default:
+                           proc.AddNote(PhaseName, Note.InvalidOutputArg, arg[i], call);
+                           break;
+                     }
+                  } else {
+                     Debug.Assert(affix[i].IsTransput, "Transput affix expected");
+                     // The actual argument must be a variable, a transput affix or a local or an output affix which has already been assigned a value of the containing procedure.
+                     switch (arg[i]) {
+                        case Var _:
+                           break;
+                        case Affix transputArg when transputArg.IsTransput:
+                           info.MakeReadable(transputArg);
+                           info.MakeUnwritable(transputArg);
+                           break;
+                        case Affix outputArg when outputArg.IsOutputOnly:
+                           // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another interfaceElements in info?
+                           if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
+                           else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg,call);
+                           info.MakeReadable(outputArg);
+                           info.MakeUnwritable(outputArg);
+                           break;
+                        case Local local:
+                           if (info.NeverWritten(local) || info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
+                           if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local,call);
+                           info.MakeReadable(local);
+                           info.MakeUnwritable(local);
+                           break;
+                        default:
+                           proc.AddNote(PhaseName, Note.InvalidTransputArg, arg[i], call);
+                           break;
                      }
                   }
                }
             }
-            return false;
          }
+         return false;
       }
 
       /// <summary>

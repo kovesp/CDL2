@@ -332,8 +332,8 @@ namespace CDL2v1 {
          if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
             called = algorithm;
             callDecorator = algorithm!.NameType;
-         } else {
-            ReportError($"Internal error: {call.id} has no container. Something wrong with semantic analysis?");
+         //} else {
+         //   ReportError($"Internal error: {call.id} has no container. Something wrong with semantic analysis?");
          }
          if (call.IsBuiltin) {
             EmitWithExtraSpace(extraSpace, RW.BUILTIN.Decorate(Emitter, SE.Builtin), " ", call.id.Decorate(Emitter, SE.Builtin));

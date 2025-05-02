@@ -2,6 +2,7 @@
 # Ignore Spelling: ENDMOD ENDLAY ENDSEC quicksort incr msg 
 # cspell:ignore ENDMOD ENDLAY ENDSEC ENDPROG decr ABSTR incr decr
 
+#--------------------------------------------------------------------------------------------------------------------------------#
 MODULE powershell kernel.
    LAYER kernel.
       SECTION arithmetic.
@@ -36,7 +37,7 @@ MODULE powershell kernel.
       ENDSEC arithmetic.
    ENDLAY kernel.
 ENDMOD powershell kernel.
-
+#--------------------------------------------------------------------------------------------------------------------------------#
 MODULE quicksort.
    LAYER base.
       SECTION parametrization.
@@ -95,9 +96,10 @@ MODULE quicksort.
          FUNCTION touch out+v> = "".
          FUNCTION touch trans+>v> = "".
       ENDSEC touch.
+
       SECTION data.
          ABSTR smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
-         ABSTR initialize data, sort data.
+         ABSTR sort data.
          INV lwb, upb, make, less or equal, random, incr, subtract, show msg, show msg no newline, max size of list to show,
              min random, max random.
 

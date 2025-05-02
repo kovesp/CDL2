@@ -339,7 +339,9 @@ namespace CDL2v1 {
          } else if (Layer!.Visible.TryGetValue(id, out IProvidable? visible) && visible is T visibleDeclaration) {
             declaration = visibleDeclaration;
          } else {
-            throw new Exception($"Could not find declaration {id} in {this}");
+            // Neither local nor invoked (not in Visible).
+            declaration = default;
+            return false;
          }
          Debug.Assert(declaration != null, $"Could not find declaration {id} in {this}");
          if (declaration.IsImported && CDL2.Compiler.CompilationPhase.PhaseName == typeof(CodeGenerator).Name) {
