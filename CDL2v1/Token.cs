@@ -159,7 +159,7 @@ namespace CDL2v1 {
                // Attach comments encountered before reserved words that can have comments.
                if (CommentableReservedWords.Contains(reservedWordValue.Value) && collectedComments.Count > 0) {
                   bool blockComment = collectedComments[0].StartsWith("##");
-                  IEnumerable<string> trimmedComments = collectedComments.Select(c => c.Trim('#',' '));
+                  IEnumerable<string> trimmedComments = collectedComments.Select(c => c.Trim('#', ' '));
                   int width = trimmedComments.Select(c => c.Length).Max();
                   string mark = blockComment ? "###" : "#";
                   StringBuilder sb = new();

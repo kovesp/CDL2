@@ -97,13 +97,13 @@ namespace CDL2v1 {
    /// </summary>
    [Serializable]
    public partial class CDL2 {
-      public static string Version = "1.0.0";
+      public static readonly string Version = "1.0.0";
 
       static CDL2() => Compiler = new CDL2();
       private CDL2() { }
       public static readonly CDL2 Compiler;
 
-      public CompilationPhase CompilationPhase;
+      public CompilationPhase? CompilationPhase;
 
       private static void Main(string[] args) {
          Log(0, $"CDL2 Compiler v{Version}");
@@ -154,9 +154,7 @@ namespace CDL2v1 {
                }
             }
             if (MainProgram != null) {
-               if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4)               ID.Dump();
-
-            
+               if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4)               ID.Dump();            
 
                // Perform semantic checks
                SemanticAnalyzer = new SemanticAnalyzer(this);
@@ -205,6 +203,7 @@ namespace CDL2v1 {
                      ReportError("No target code generator");
                   }
                }
+               Log(0, "");
                Parser.ReportNoteCounts(Reachable);
                Log(0, "");
                SemanticAnalyzer.ReportNoteCounts(Reachable);

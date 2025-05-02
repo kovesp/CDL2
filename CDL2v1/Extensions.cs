@@ -263,6 +263,8 @@ namespace CDL2v1 {
       /// <returns></returns>
       public static Set<T> ToSet<T>(this IEnumerable<T> enumerable) => [.. enumerable];
 
+      public static string WithSpace<T>(this T? obj) => obj == null ? "" : obj.ToString() + " ";
+
       /// <summary>
       /// Decorate a string with the given decoration.
       /// This means encpsulating the string in a span tag with the given style and the foreground and background colors.

@@ -1,7 +1,18 @@
 ﻿// Ignore Spelling: Transput CDL abstr ext inv ludes lude lwb upb FQN
 
+
+
 namespace CDL2v1 {
-   public class Notes : List<Note> { }
+   /// <summary>
+   /// Notes are used to annotate objects with error/warning/info messages.
+   /// A subclass of Set is used to avoid duplicate notes. For example, there may be multiple calls
+   /// to the same undefined algorithm within a procedure. In that case, the note is only added once.
+   /// </summary>
+   public class Notes : Set<Note> {
+      internal void ForEach(Action<Note> action) {
+         foreach (Note note in this) action(note);
+      }
+   }
 
    /// <summary>
    /// Notes can be attached to NamedElements. The primary use is annotate objects with error/warning/info messages.
@@ -11,7 +22,7 @@ namespace CDL2v1 {
    /// <param name="type"></param>
    /// <param name="text"></param>
    /// <param name="number"></param>
-   public class Note {
+   public class Note : IEquatable<Note?> {
       public readonly NoteType Type;
       public readonly string Text;
       public readonly int Number;
@@ -46,7 +57,7 @@ namespace CDL2v1 {
       public static readonly Note ConstPassedToTransput             = new(NoteType.Error  , 014, "CONST {0} passed to transput in call {1}");
       public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix {0} that has not been set passed as input in call {1}");
       public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local {0} that has not been set passed as input in call {1}");
-      public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local {0} whose value has not been read passed to output in call {1}");
+      public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local {0} whose action has not been read passed to output in call {1}");
       public static readonly Note MissingImportSpec                 = new(NoteType.Error  , 018, "{0} is imported in section {1} but has no specificaion");
       public static readonly Note ObjectNotImported                 = new(NoteType.Error  , 019, "{0} has no body but is not imported");
       public static readonly Note ObjectImportedButHasBody          = new(NoteType.Error  , 020, "{0} is imported but has a body");
@@ -62,14 +73,16 @@ namespace CDL2v1 {
       public static readonly Note ImpexMismatch                     = new(NoteType.Error  , 031, "Import {0} does not match export {1} ({2})");
       public static readonly Note InterfaceElementMissing           = new(NoteType.Error  , 032, "{0} is in {1} list, but not declared in section");
       public static readonly Note MissingInvoke                     = new(NoteType.Error,   033, "{0} is invoked in {1}, but is not extended or abstacted from anywhere");
+      public static readonly Note ModuleNotFound                    = new(NoteType.Error,   034, "Part {0} not found among modules");
+      public static readonly Note LudeNotFound                      = new(NoteType.Error,   035, "{2} references {0} {1}, but this does not have a {2}");
 
 
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is declared as {0}");
-      public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix {0} whose value has not been read passed to output in {1}");
-      public static readonly Note TransputAffixOverwritten          = new(NoteType.Warning, 103, "Transput affix (0} whose value has not been read passed to output in {1}");
-      public static readonly Note VariableNotRead                   = new(NoteType.Warning, 104, "Variable {0} was assigned a value which was never read");
-      public static readonly Note VariableNotWritten                = new(NoteType.Warning, 105, "Variable {0} was read, but never assigned a value");
-      public static readonly Note VariableMayNotHaveBeenRead        = new(NoteType.Warning, 106, "Variable {0} was assigned a value, but may not have been read");
+      public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix {0} whose action has not been read passed to output in {1}");
+      public static readonly Note TransputAffixOverwritten          = new(NoteType.Warning, 103, "Transput affix (0} whose action has not been read passed to output in {1}");
+      public static readonly Note VariableNotRead                   = new(NoteType.Warning, 104, "Variable {0} was assigned a action which was never read");
+      public static readonly Note VariableNotWritten                = new(NoteType.Warning, 105, "Variable {0} was read, but never assigned a action");
+      public static readonly Note VariableMayNotHaveBeenRead        = new(NoteType.Warning, 106, "Variable {0} was assigned a action, but may not have been read");
       public static readonly Note AbstractionsInTopLayer            = new(NoteType.Warning, 107, "There are abstractions in the top layer of the module");
 
       public static readonly Note AffixNotRefeenced                 = new(NoteType.Info   , 201, "Affix {0} was not used in procedure {1}");
@@ -77,6 +90,12 @@ namespace CDL2v1 {
       public static readonly Note UnreferenceObject                 = new(NoteType.Info   , 203, "Object is defined but not used in program");
 
       public override string ToString() => $"{Type} {Number}: {Text}";
+      public override bool Equals(object? obj) => Equals(obj as Note);
+      public bool Equals(Note? other) => other is not null && Type == other.Type && Text == other.Text && Number == other.Number;
+      public override int GetHashCode() => HashCode.Combine(Type, Text, Number);
+
+      public static bool operator ==(Note? left, Note? right) => EqualityComparer<Note>.Default.Equals(left, right);
+      public static bool operator !=(Note? left, Note? right) => !(left == right);
    }
 
 }

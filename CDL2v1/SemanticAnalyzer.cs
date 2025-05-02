@@ -1,4 +1,4 @@
-﻿// Ignore Spelling: CDL
+﻿// Ignore Sludeelling: CDL
 
 using Microsoft.VisualBasic;
 
@@ -53,21 +53,20 @@ namespace CDL2v1 {
    ///    d. Procedures are consistent with respect to their declared type and dataflow rules are kept.
    /// </summary>
    [Serializable]
-   public class SemanticAnalyzer : CompilationPhase {
-      public SemanticAnalyzer(CDL2 compiler) : base(compiler) { }
-
+   public class SemanticAnalyzer(CDL2 compiler) : CompilationPhase(compiler) {
       /// <summary>
       /// Analyze the given program.
       /// </summary>
       /// <param name="MainProgram"></param>
       internal void Analyze(Program MainProgram) {
+         Log(0, $"Analyzing {MainProgram}");
          // Phase 1
          AnalyzeImportsAndExports(MainProgram);
 
          // Phase 2
          AnalyzeInterfaces(MainProgram);
 
-         AnalyzeMainProgram(MainProgram);
+         AnalyzeProgram(MainProgram);
 
          // TODO: have an option to analyze all modules in the database. Default is to analyze only parts.
          foreach (Module module in MainProgram.Modules) {
@@ -81,7 +80,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="mainProgram"></param>
       internal void AnalyzeImportsAndExports(Program mainProgram) {
-         Log(1,$"Analyzing imports and exports of {mainProgram}");
+         Log(3,$"Analyzing imports and exports");
          // Collect all the exports from the modules in the program.
          mainProgram.Exports.Clear();
          foreach (Module module in mainProgram.Modules) {
@@ -131,10 +130,13 @@ namespace CDL2v1 {
       private void AnalyzeExports(Module module) {
          foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, section.Module!.exports);
       }
-
+      /// <summary>
+      /// Verify the consistency of interface declarations.
+      /// </summary>
+      /// <param name="mainProgram"></param>
       private void AnalyzeInterfaces(Program mainProgram) {
          foreach (Module module in mainProgram.Modules) {
-            Log(2, $"Analyzing internal interfaces of {module}");
+            Log(3, $"Analyzing internal interfaces of {module}");
             // Construct the Visible table of each layer in the module
             foreach (Section section in module.Sections) {
                AnalyzeProvidedInterfaces(section, RW.EXT, section.ext, section.Layer!.Visible);
@@ -154,10 +156,6 @@ namespace CDL2v1 {
                }
             }
          }
-      }
-
-      private void AnalyzeMainProgram(Program mainProgram) {
-         Log(0,$"Analyzing MAIN {mainProgram.ContainerName}");
       }
 
       /// <summary>
@@ -180,7 +178,37 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeProgram(Program program) {
-         Log(0,$"Analyzing {program.ContainerName}");
+         Dictionary<ID, Module> validModules = [];
+         Log(3, $"Analyzing module presence of {program.ContainerName}");
+         foreach (ID modId in program.Parts) {
+            if (Database.Instance.Modules.TryGetValue(modId, out Module? mod)) {
+               validModules[modId] = mod;
+            } else {
+               AddNote(program, Note.ModuleNotFound, modId);
+            }
+         }
+
+         // Verify that all lude references are correct.
+         foreach (RW ludeType in Container.LudeTypes) {
+            Log(3, $"Analyzing program {ludeType}");
+            foreach (ID modId in program.Ludes[ludeType]) {
+               if (validModules.TryGetValue(modId,out Module? mod)) {
+                  if (mod.Ludes[ludeType].Count == 0) {
+                     AddNote(program, Note.LudeNotFound, RW.MODULE, modId, ludeType);
+                  } else {
+                     foreach (ID lude in mod.Ludes[ludeType]) { 
+                        // lude should be the name of a section in the module. If the section has a lude of the required type then it
+                        // must contain the generated name of a lude procedure.
+                        if (mod.TryGetSectionById(lude, out Section? section) && section!.Ludes[ludeType].Count == 0) {
+                           AddNote(mod, Note.LudeNotFound,RW.SECTION, lude, ludeType);
+                        }
+                     }    
+                  }
+               } else {
+                  AddNote(program, Note.LudeNotFound,RW.MODULE, modId, ludeType);
+               }
+            }
+         }
       }
 
       /// <summary>
@@ -205,11 +233,11 @@ namespace CDL2v1 {
 
       private void AnalyzeSection(Section section) {
          Log(3,$"Analyzing {section.ContainerName}");
-         Log(2,$"Analyzing interfaces");
+         Log(4,$"Analyzing interfaces");
 
          // Analyze p[rocedures and macros.
          foreach (Algorithm algorithm in section.Declarations.Values.Where(obj => obj is Algorithm algorithm).Cast<Algorithm>()) {
-            Log(2,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
+            Log(5,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
             if (algorithm is Procedure procedure) {
                AnalyzeProcedure(procedure,section);
             } else if (algorithm is Macro macro) {
@@ -363,6 +391,13 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Analyze the group.
+      /// </summary>
+      /// <param name="proc"></param>
+      /// <param name="group"></param>
+      /// <param name="info"></param>
+      /// <returns>true if there are any undefined calls.</returns>
       private bool AnalyzeGroup(Procedure proc, Group group, DataFlowInfo info) {
          bool missingDefinitions = false;
          foreach (Alternative alt in group.alternatives) {
@@ -372,6 +407,13 @@ namespace CDL2v1 {
          return missingDefinitions;
       }
 
+      /// <summary>
+      /// Analyze the alternative.
+      /// </summary>
+      /// <param name="proc"></param>
+      /// <param name="alt"></param>
+      /// <param name="info"></param>
+      /// <returns>true if there are any undefined calls.</returns>
       private bool AnalyzeAlternative(Procedure proc, Alternative alt, DataFlowInfo info) {
          bool missingDefinitions = false;
          foreach (Call call in alt.calls) {
@@ -380,11 +422,18 @@ namespace CDL2v1 {
          if (alt.lastCall.type == LCT.Group) {
             missingDefinitions = AnalyzeGroup(proc, alt.lastCall.group!, info) || missingDefinitions;
          } else if (alt.lastCall.type == LCT.Standard) {
-            missingDefinitions = AnalyzeCall(alt.lastCall.call!, proc, info);
+            missingDefinitions = AnalyzeCall(alt.lastCall.call!, proc, info) || missingDefinitions;
          }
          return missingDefinitions;
       }
 
+      /// <summary>
+      /// Analyze the call.
+      /// </summary>
+      /// <param name="call"></param>
+      /// <param name="proc"></param>
+      /// <param name="info"></param>
+      /// <returns>true if ther call is undefined</returns>
       private bool AnalyzeCall(Call call, Procedure proc, DataFlowInfo info) {
          if (!call.IsBuiltin) {
             if (call.Called is null) {
@@ -401,7 +450,7 @@ namespace CDL2v1 {
                for (int i = 0; i < call.args.Count; i++) {
                   if (arg[i] is ID id) {
                      // ID that was not resolved during parsing
-                     if (proc.Section.TryGetDeclaration(id, out CDL2Object? obj)) {                           
+                     if (proc.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {                           
                         switch (obj) {
                            case Var var:
                               arg[i] = var; break;

@@ -41,7 +41,7 @@ namespace CDL2v1 {
                }
             }
          }
-         Logger.Log(0, $"Collected {AllObjects.Count} objects from {program}.");
+         Logger.Log(0, $"\nCollected {AllObjects.Count} objects from {program}.");
       }
 
       public void CollectReachableObjects(Program prog) {
@@ -68,13 +68,17 @@ namespace CDL2v1 {
          }
       }
       private void CollectReachableObjects(RW ludetype, Section section) {
-         // SectionById ludes contain teh single entry of argAffix synthetic procedure that is the lude
+         // Section ludes contain the single entry of a synthetic procedure that is the lude.
          // So we need to collect all the objects in the section that are reachable from this lude.
-         Debug.Assert(section.Ludes[ludetype].Count == 1, $"CollectReachableObjects: Expected single lude in {section}");
-         if (section.Declarations.TryGetValue(section.Ludes[ludetype][0],out CDL2Object? obj) && obj is Procedure proc) {
-            if (Objects.Add(proc!)) CollectReachableObjects(proc.group);
+         List<ID> ds = section.Ludes[ludetype];
+         if (ds.Count == 1) {
+            if (section.Declarations.TryGetValue(ds[0], out CDL2Object? obj) && obj is Procedure proc) {
+               if (Objects.Add(proc!)) CollectReachableObjects(proc.group);
+            } else {
+               throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludetype][0]} in {section}");
+            }
          } else {
-            throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludetype][0]} in {section}");
+            // The section was mentioned in a Module lude, but it has no lude.
          }
       }
       private void CollectReachableObjects(Group proc) {
@@ -125,10 +129,10 @@ namespace CDL2v1 {
                      if (affix.IsInput) ReadVars.Add(v);
                      break;
                   case ID id:
-                     if (call.Called.Section.TryGetDeclaration(id, out CDL2Object? obj)) {
+                     if (call.Called.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {
                         if (obj is Const c) {
                            CollectReachableObjects(c);
-                        } else if (obj is ImportedConst ic1 && ic1.Module.resolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
+                        } else if (obj is ImportedConst ic1 && ic1.Module!.resolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
                            CollectReachableObjects(rc1);
                         } else if (obj is Var v) {
                            Objects.Add(v);
@@ -173,7 +177,7 @@ namespace CDL2v1 {
                case Local:
                   break;
                case ID id:
-                  if (macro.Section.TryGetDeclaration(id, out CDL2Object? obj)) {
+                  if (macro.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {
                      switch (obj) {
                         case Const c:
                            CollectReachableObjects(c);
@@ -209,8 +213,8 @@ namespace CDL2v1 {
       }
       private void CollectReachableObjects(Macro macro, LIST list) {
          if (Objects.Add(list)) {
-            if (macro.Section!.TryGetDeclaration(list.lwb, out Const? lwb)) CollectReachableObjects(lwb);
-            if (macro.Section.TryGetDeclaration(list.upb, out Const? upb)) CollectReachableObjects(upb);
+            if (macro.Section!.TryGetDeclaration(list.lwb, out Const? lwb)) CollectReachableObjects(lwb!);
+            if (macro.Section.TryGetDeclaration(list.upb, out Const? upb)) CollectReachableObjects(upb!);
          }
       }
    }

@@ -140,13 +140,7 @@ namespace CDL2v1 {
       /// Element display name, i.e. MOD mod LAY lay SEC sec obj.
       /// </summary>
       /// <returns></returns>
-      public string FQDN() {
-         string sectionName = Parent!.ToString();
-         string layerName   = Parent!.Parent!.ToString();
-         string moduleName  = Parent!.Parent!.Parent!.ToString();
-         string objectName  = ToString();
-         return $"{moduleName} {layerName} {sectionName} {objectName}";
-      }
+      public string FQDN() => $"{Parent?.Parent?.Parent.WithSpace()}{Parent?.Parent.WithSpace()}{Parent.WithSpace()}{ToString()}";
    }
 
    /// <summary>
@@ -211,7 +205,7 @@ namespace CDL2v1 {
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
       public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => Database.Instance.Modules[id]);
       public Set<ID> Parts { get; } = [];
-      public IEnumerable<Module> Modules => Parts.Select(id => Database.Instance.Modules[id]);
+      public IEnumerable<Module> Modules => Parts.Select(id => Database.Instance.Modules.TryGetValue(id,out Module? mod) ? mod : null).Where(mod=>mod != null)!;
       /// <summary>
       /// Maps all identifiers exported by the modules in the program to the exporting module.
       /// </summary>
@@ -252,6 +246,10 @@ namespace CDL2v1 {
       public Section? SectionById(ID id) {
          foreach (Section section in Sections) if (section.Id == id) return section;
          return null;
+      }
+      public bool TryGetSectionById(ID id, out Section? section) {
+         section = SectionById(id);
+         return section != null;
       }
 
       public IEnumerable<Section> Sections => Children.OfType<Layer>().SelectMany(layer => layer.Children.OfType<Section>());
@@ -344,8 +342,8 @@ namespace CDL2v1 {
             return false;
          }
          Debug.Assert(declaration != null, $"Could not find declaration {id} in {this}");
-         if (declaration.IsImported && CDL2.Compiler.CompilationPhase.PhaseName == typeof(CodeGenerator).Name) {
-            // This object is an import stub, but note that reselvedImports are only available in the Code Generator phase.
+         if (declaration.IsImported && CDL2.Compiler.CompilationPhase?.PhaseName == typeof(CodeGenerator).Name) {
+            // This object is an import stub, but note that resolvedImports are only available in the Code Generator phase.
             declaration = Module!.resolvedImports[id] as T;
          }
          return true;
@@ -708,7 +706,7 @@ namespace CDL2v1 {
       public LastCall(ID? label) : this(LCT.Repeat) => this.label = label;
 
       public bool TryGetCalled(out Algorithm? called) {
-         if (type == LCT.Standard && call!.ContainingProc.Section.TryGetDeclaration(call.id,out called)) return true;
+         if (type == LCT.Standard && call!.ContainingProc.Section!.TryGetDeclaration(call.id,out called)) return true;
          called = null;
          return false;
       }

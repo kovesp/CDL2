@@ -9,6 +9,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
@@ -464,7 +465,7 @@ namespace CDL2v1 {
       /// <param name="algorithm"></param>
       public void Print(Algorithm algorithm) {
          if (algorithm is Procedure proc) {
-            Print(proc, proc.Section);
+            Print(proc, proc.Section!);
          } else {
             Print((Macro)algorithm);
          }
@@ -627,7 +628,7 @@ namespace CDL2v1 {
 
       private void PrintComment(string? comments,Notes notes) {
          if (IncludeComments) {
-            if (comments != null) Emitnl(comments.Decorate(Emitter, SE.Comment));
+            if (comments != null) Emitnl(NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
                if (note.Type == NoteType.Note) {
                   NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));
@@ -645,6 +646,9 @@ namespace CDL2v1 {
             }
          }
       }
+      private string NormalizeDividers(string comments) 
+         => string.Join("\n", comments.Split("\r\n").Select(l 
+            => Regex.Replace(l, @"^#?\s*([=~#-])+\s*#?$",m => $"\n#{new string(m.Groups[1].Value[0], Emitter.LineLength-4)}#"))).TrimStart();
 
       /// <summary>
       /// Translate all objects to strings using their to ToString, unless it is a TokenType, then use the glyph.

@@ -221,7 +221,7 @@ namespace CDL2v1 {
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
          foreach (IMacroElement elem in macro.elements) {
-            GenerateMacroElement(macro, macro.Section,callingProc, subst, first, elem);
+            GenerateMacroElement(macro, macro.Section!,callingProc, subst, first, elem);
             first = false;
          }
          cg.GenerateMacroBodyEnd(macro);

@@ -232,7 +232,7 @@ namespace CDL2v1 {
       private void ParseAlgorithm(Notes notes) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
-            Logger.Log(3,$"Parsing {algType} {id}");
+            Logger.Log(4,$"Parsing {algType} {id}");
             currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
             if (currentSection.Declarations.TryGetValue(id,out CDL2Object? value)) {
                ReportError($"Algorithm {id} already declared in container {currentSection.Id} as {value.GetType().Name}");
