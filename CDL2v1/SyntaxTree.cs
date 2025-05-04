@@ -9,6 +9,7 @@ using System.CommandLine.Parsing;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
@@ -33,6 +34,7 @@ namespace CDL2v1 {
    public interface IProvidable : IInterfaceElement {
       ID Id { get; }
       Section? Section { get; }
+      bool IsImported { get; }
    }
    public interface IImportable : IProvidable { }
    public interface IExportable : IProvidable { }
@@ -137,7 +139,7 @@ namespace CDL2v1 {
          return $"{moduleName}{separator}{layerName}{separator}{sectionName}{(IsSynthetic?separator+separator:separator)}{objectName}";
       }
       /// <summary>
-      /// Element display name, i.e. MOD mod LAY lay SEC sec obj.
+      /// Element display name, i.e. MOD mod LAY lay SEC sec declared.
       /// </summary>
       /// <returns></returns>
       public string FQDN() => $"{Parent?.Parent?.Parent.WithSpace()}{Parent?.Parent.WithSpace()}{Parent.WithSpace()}{ToString()}";
@@ -259,7 +261,7 @@ namespace CDL2v1 {
 
    /// <summary>
    /// Represents a layer in the syntax tree.
-   /// Notice that layers don't have Ludes.
+   /// Notice that layers don'localObject have Ludes.
    /// </summary>
    /// <param Id="Id"></param>
    /// <param Id="module"></param>
@@ -304,6 +306,50 @@ namespace CDL2v1 {
       public IEnumerable<LIST> Lists => Declarations.Values.OfType<LIST>();
       public IEnumerable<Macro> Macros => Declarations.Values.OfType<Macro>();
       public IEnumerable<Procedure> Procedures => Declarations.Values.OfType<Procedure>();
+      public IEnumerable<Algorithm> Algorithms => Declarations.Values.OfType<Algorithm>();
+      public IEnumerable<Algorithm> NonSyntheticAlgorithms => Declarations.Values.OfType<Algorithm>().Where(alg=>!alg.IsSynthetic);
+
+      /// <summary>
+      /// Get the object with the given ID. If the object is not found in this Section, then if it is invoked it is looked for in the layer.
+      /// If found in the layer
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="Id"></param>
+      /// <param name="resolvedObject"></param>
+      /// <returns></returns>
+      public bool TryGetResolvedObject<T>(ID Id, out T? resolvedObject) where T : CDL2Object {
+         if (Declarations.TryGetValue(Id, out CDL2Object? declared) && declared is T localObject) {
+            resolvedObject = localObject;
+         } else if (inv.Contains(Id) && Layer!.Visible.TryGetValue(Id, out IProvidable? visible) && visible is T visibleObject) {
+            resolvedObject = visibleObject;
+         } else {
+            resolvedObject = null;
+         }
+         if (resolvedObject is not null && resolvedObject.IsImported) {
+            if (Module!.resolvedImports.TryGetValue(Id, out IImportable? imported) && imported is T importedObject) {
+               resolvedObject = importedObject;
+            } else {
+               resolvedObject = null;
+            }
+         }
+         return resolvedObject != null;
+      }
+      public CDL2Object? GetResolvedObject(ID Id) {
+         CDL2Object? resolvedObject = null;
+         if (Declarations.TryGetValue(Id, out CDL2Object? localObject)) {
+            resolvedObject = localObject;
+         } else if (inv.Contains(Id) && Layer!.Visible.TryGetValue(Id, out IProvidable? visibleObject)) {
+            resolvedObject = (CDL2Object?)visibleObject;
+         }
+         if (resolvedObject?.IsImported == true) {
+            if (Module!.resolvedImports.TryGetValue(Id, out IImportable? importedObject)) {
+               resolvedObject = (CDL2Object)importedObject;
+            } else {
+               resolvedObject = null;
+            }
+         }
+         return resolvedObject;
+      }
 
       /// <summary>
       /// The non-synthetic procedures.
@@ -325,7 +371,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Get the declaration with the given ID. If the declaration is not found in this Section, it is looked for in the layer.
-      /// Note: this object may be imported, needs to be checked later.
+      /// Note: this object may be importable, needs to be checked later.
       /// </summary>
       /// <param name="id"></param>
       /// <typeparam name="T">The type of the requested object which must be an ICDL2Object.</typeparam>
@@ -337,7 +383,7 @@ namespace CDL2v1 {
          } else if (Layer!.Visible.TryGetValue(id, out IProvidable? visible) && visible is T visibleDeclaration) {
             declaration = visibleDeclaration;
          } else {
-            // Neither local nor invoked (not in Visible).
+            // Neither declared nor invoked (not in Visible).
             declaration = default;
             return false;
          }
@@ -351,7 +397,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Get a CDL2 object that is declared in the current section.
-      /// Note: this object may be imported, needs to be checked later.
+      /// Note: this object may be importable, needs to be checked later.
       /// </summary>
       /// <typeparam name="T"></typeparam>
       /// <param name="id"></param>
@@ -505,10 +551,10 @@ namespace CDL2v1 {
       //               return new SA(Prefix1: AS.Inv);   // Only possible in a partially analyzed context.
       //            } else { // Declarations
       //               bool exported = SectionById.export.Contains(Id);
-      //               bool imported = SectionById.import.Contains(Id);
+      //               bool importable = SectionById.import.Contains(Id);
       //               bool abstr = SectionById.abstr.Contains(Id);
       //               bool ext = SectionById.ext.Contains(Id);
-      //               if (imported) {
+      //               if (importable) {
       //                  if (abstr && ext) return new SA(Prefix1: AS.ImportExport,Suffix1: AS.AbstrExt);
       //                  if (abstr) return new SA(Prefix1: AS.ImportExport,Suffix1: AS.Abstr);
       //                  if (ext) return new SA(Prefix1: AS.ImportExport,Suffix1: AS.Ext);
@@ -539,7 +585,7 @@ namespace CDL2v1 {
    }
 
    /// <summary>
-   /// An imported algorithm is a reference to an algorithm in another module. Thus it has only a header and no body.
+   /// An importable algorithm is a reference to an algorithm in another module. Thus it has only a header and no body.
    /// </summary>
    [Serializable]
    public class ImportedAlgorithm(ID id,List<Affix> formals,Token algorithmType,Section section) : Algorithm(id,formals,[],algorithmType,TT.NOBODY,section), IImportable {

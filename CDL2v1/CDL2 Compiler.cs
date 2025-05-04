@@ -74,15 +74,16 @@ namespace CDL2v1 {
          if (message != null) Log(0, message);
 
          NoteType messages = Settings.SettingValue<NoteType>("Messages")!;
-         ReportByType(Errors);
-         if (messages == NoteType.Warning || messages == NoteType.Info)  ReportByType(Warnings);
-         if (messages == NoteType.Info) ReportByType(Infos,all:true);
+         bool all = messages == NoteType.Info || Settings.SettingValue<bool>("ReportAll");
+         ReportByType(Errors,all);
+         if (messages == NoteType.Warning || messages == NoteType.Info)  ReportByType(Warnings,all);
+         if (messages == NoteType.Info) ReportByType(Infos,all);
 
-         void ReportByType(IEnumerable<Note> list,bool all=false) {
+         void ReportByType(IEnumerable<Note> list,bool all) {
             foreach (Note note in list) {
                Debug.Assert(note.Owner != null, "ReportNoteCounts: Note Owner is null");
                // Report messages only for reachable objects
-               if (all || reachable is null || (note.Owner is CDL2Object obj && reachable.Objects.Contains(obj))) {
+               if (all || reachable is null || note.Owner is Container _ || (note.Owner is CDL2Object obj && reachable.Objects.Contains(obj))) {
                   string head = $"{note.Type,-7} {note.Number:D3}";
                   Log(0, $"   {head} {note.Owner.FQDN()}\n    {new string(' ', head.Length)}{note.Text}");
                }

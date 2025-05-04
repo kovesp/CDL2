@@ -49,7 +49,7 @@ namespace CDL2v1 {
    /// 3. Perform local analysis to verify that
    ///    a. References to other constants in a constants's elements are resolved.
    ///    b. References in a macro's elements to constants, variables, lists, affixes and locals are resolved.
-   ///    c. References in procedures to constants, variables, affixes and locals are resolved.
+   ///    subject. References in procedures to constants, variables, affixes and locals are resolved.
    ///    d. Procedures are consistent with respect to their declared type and dataflow rules are kept.
    /// </summary>
    [Serializable]
@@ -103,10 +103,10 @@ namespace CDL2v1 {
                            module.imports[elemid] = imported;
                         }
                      } else {
-                        AddNote(section, Note.InterfaceElementNotProvidable, obj);
+                        AddNote(section, Note.InterfaceElementNotProvidable, obj.Id, RW.IMPORT,obj.TypeShortName);
                      }
                   } else {
-                     AddNote(section, Note.InterfaceElementMissing, elemid, section);
+                     AddNote(section, Note.InterfaceElementMissing, elemid, RW.IMPORT);
                   }
                }
             }
@@ -235,14 +235,62 @@ namespace CDL2v1 {
          Log(3,$"Analyzing {section.ContainerName}");
          Log(4,$"Analyzing interfaces");
 
-         // Analyze p[rocedures and macros.
-         foreach (Algorithm algorithm in section.Declarations.Values.Where(obj => obj is Algorithm algorithm).Cast<Algorithm>()) {
+         // Analyze Constants
+         Log(4, $"Analyzing constants");
+         foreach (Const c in section.Constants) {
+            // Ensure that each CONST element in the constant is declared
+            foreach (ID elemId in c.elements.OfType<ID>()) {
+               CheckReferenceType<Const,Const>(section,c, elemId,Note.UnresolvedConstElement, Note.InvalidConstElement);
+            }
+         }
+
+         // Analyze Lists
+         Log(4, $"Analyzing Lists");
+         foreach (LIST list in section.Lists) {
+            CheckReferenceType<LIST,Const>(section, list, list.lwb, Note.UnresolvedListBound, Note.InvalidListBound, "lower bound");
+            CheckReferenceType<LIST,Const>(section, list, list.upb, Note.UnresolvedListBound, Note.InvalidListBound, "upper bound");
+         }
+
+         // Analyze procedures and macros.
+         Log(4, $"Analyzing Algorithms");
+         foreach (Algorithm algorithm in section.NonSyntheticAlgorithms) {
             Log(5,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
             if (algorithm is Procedure procedure) {
                AnalyzeProcedure(procedure,section);
             } else if (algorithm is Macro macro) {
                AnalyzeMacro(macro);
             }
+         }
+      }
+
+      /// <summary>
+      /// Check the type of the object with the given ID.
+      /// </summary>
+      /// <typeparam name="S">The type of subject.</typeparam>
+      /// <typeparam name="T">The type of the object that id must resolve to</typeparam>
+      /// <param name="section"></param>
+      /// <param name="subject"></param>
+      /// <param name="id"></param>
+      /// <param name="extra">Extra information to add to the note.</param>
+      private void CheckReferenceType<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null) where S : CDL2Object where T : CDL2Object {
+         CDL2Object? resolvedObject = section.GetResolvedObject(id);
+         switch (resolvedObject) {
+            case null:
+               if (extra != null) {
+                  AddNote(subject, unresolved, extra, id);
+               } else {
+                  AddNote(subject, unresolved, id);
+               }
+               return;
+            case T:
+               return;
+            default:
+               if (extra != null) {
+                  AddNote(subject, wrongType, extra, resolvedObject);
+               } else {
+                  AddNote(subject, wrongType, resolvedObject);
+               }
+               return;
          }
       }
 
@@ -276,7 +324,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Verify that the provied interfaces are valid within the section.
       ///  -- No duplications: uniqeness is already guaranteed by the collection being a interfaceElements.
-      ///  -- Each item in the list is declared in the same section and is a Const or an Algorithm
+      ///  -- Each item in the list is declared in the same section and is a subject or an Algorithm
       ///  -- Does not already occur in the providables, which will be
       ///     -- The current layer's Visible dictionary for kind = EXT
       ///     -- The successor layer's Visible dictionary for kind = ABSTR. In this case it may be null if the layer is the last one.

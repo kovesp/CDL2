@@ -45,6 +45,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "GenerateDebugInfo",   "--gen-debug-info",   false,         "Generate debug information"),
          new Setting<string?>( "OutputDirectory",     "--output-dir",       null,          "Specify output directory for generated code"),
          new Setting<bool>(    "NoMacroInlining",     "--no-macro-inlining",false,         "Do not inline macros, generae them as procedures"),
+         new Setting<bool>(    "ReportAll",           "--report-all"       ,false,         "Report all messages (subject to --messages). Normally messages for non-reachable objects are suppressed"),
          new Setting<NoteType>("Messages",            "--messages",         NoteType.Error,"Which messages should be shown: Error, Warning, Info. Default is errors only"),
       ];
       private readonly Dictionary<string, ISetting> SettingsDict = [];

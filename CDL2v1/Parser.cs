@@ -233,11 +233,9 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             Logger.Log(4,$"Parsing {algType} {id}");
-            currentObject.Object = (algType.reservedWordValue ?? RW.FUNCTION, id);
-            if (currentSection.Declarations.TryGetValue(id,out CDL2Object? value)) {
-               ReportError($"Algorithm {id} already declared in container {currentSection.Id} as {value.GetType().Name}");
-               return;
-            }
+            RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
+            currentObject.Object = (algTypeRW, id);
+            if (DuplicateDeclaration(id, algTypeRW)) return;
             List<Affix>? formals = ParseAffixes();
             if (formals == null) return;
             Algorithm? algorithm = null;
@@ -245,8 +243,8 @@ namespace CDL2v1 {
                // IMPORT declaration. Check if it is in the imports list.
                algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
                if (!currentSection.import.Contains(id)) {
-                  AddNote(algorithm,Note.ObjectNotImported,algorithm);
-                  ReportError($"{algType} {id} has no body but is not imported.");
+                  AddNote(currentSection,Note.ObjectNotImported,algorithm);
+                  return;
                }
             } else {
                Set<Local>? locals = ParseLocals();
@@ -266,18 +264,22 @@ namespace CDL2v1 {
                }
                Debug.Assert(algorithm != null);
                if (currentSection.import.Contains(id)) {
-                  AddNote(algorithm,Note.ObjectNotImported,algorithm);
-                  ReportError($"{algType} {id} is imported but has locals or a body.");
+                  AddNote(currentSection,Note.ObjectImportedButHasBody, algorithm);
+                  return;
                }
             }
-
-            Debug.Assert((algorithm is ImportedAlgorithm                &&  currentSection.import.Contains(algorithm.Id)) ||
-                        ((algorithm is Procedure || algorithm is Macro) && !currentSection.import.Contains(algorithm.Id)),
-                         $"{algorithm} has an invalid import status");
             currentSection.Declarations[id] = algorithm;
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
+      }
+
+      private bool DuplicateDeclaration(ID id,RW type) {
+         if (currentSection!.Declarations.TryGetValue(id, out CDL2Object? value)) {
+            AddNote(currentSection, Note.DuplicateDeclaration, $"{type} {id}", value);
+            return true;
+         }
+         return false;
       }
 
       private void ParseMacroBody(Macro macro) {
@@ -498,6 +500,7 @@ namespace CDL2v1 {
       /// <exception cref="Exception"></exception>
       private LIST? ParseListBody(ID id) {
          Debug.Assert(currentSection != null);
+         if (DuplicateDeclaration(id, RW.LIST)) return null;
          LIST? list = null;
          if (  tokens.Optional(TT.LISTBOUNDSTART) &&
                tokens.CanConsume(TT.ID,out Token lwbToken) &&
@@ -516,8 +519,10 @@ namespace CDL2v1 {
       /// </summary>
       private void ParseVar(Notes notes) {
          Debug.Assert(currentSection != null);
-         if (tokens.CanConsume(RW.VAR,out string? comments)) {
-            ParseIDDeclarationList(currentSection.Declarations,comments!,id => new Var(id,currentSection),notes);
+         if (tokens.CanConsume(RW.VAR, out string? comments)) {
+            ParseIDDeclarationList(currentSection.Declarations, comments!, id => { 
+               if (DuplicateDeclaration(id, RW.VAR)) return null; else return new Var(id, currentSection); 
+            },notes);
          }
       }
 
@@ -540,6 +545,7 @@ namespace CDL2v1 {
       /// <param Id="token">The token of the constant.</param>
       private Const? ParseConstBody(ID id) {
          Debug.Assert(currentSection != null);
+         if (DuplicateDeclaration(id, RW.CONST)) return null;
          if (tokens.Optional(TT.EQUALS)) {
             if (currentSection.import.Contains(id)) {
                LogError($"CONST {id} with definition is imported in container {currentSection.Id}");
@@ -566,16 +572,17 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
-               ID id = ID.From(elemId);
-               if (currentSection.Declarations.TryGetValue(id,out CDL2Object? value)) {
-                  // The ID is already declared in this container. It can only be a constant or undeclared.
-                  // That will be true even if it is invoked or imported.
-                  Debug.Assert(value is Const || value is Undeclared);
-                  c.elements.Add(id);
-               } else if (currentSection.import.Contains(id)) {
-                  currentSection.Declarations[id] = Undeclared.Instance;
-                  c.elements.Add(id);
-               }
+               //ID id = ID.From(elemId);
+               //if (currentSection.Declarations.TryGetValue(id,out CDL2Object? value)) {
+               //   // The ID is already declared in this container. It can only be a constant or undeclared.
+               //   // That will be true even if it is invoked or imported.
+               //   Debug.Assert(value is Const || value is Undeclared);
+               //   c.elements.Add(id);
+               //} else if (currentSection.import.Contains(id)) {
+               //   currentSection.Declarations[id] = Undeclared.Instance;
+               //   c.elements.Add(id);
+               //}
+               c.elements.Add(ID.From(elemId));
             } else if (tokens.Optional(TT.STRING,out Token str)) {
                c.elements.Add(new STRING(str));
             } else if (tokens.Optional(TT.INT,out Token i)) {
@@ -676,14 +683,15 @@ namespace CDL2v1 {
                   idList[id] = CDL2Object;
                   firstObject ??= (NamedElement)CDL2Object;
                }
-               // TODO: need error reporting for duplicate entries
             }
 
             if (!tokens.CanConsumeSep()) break;
          }
          tokens.CanConsumeEnd();
-         firstObject!.Comments = comments;
-         firstObject!.AddNotes(PhaseName, notes);
+         if (firstObject != null) {
+            firstObject.Comments = comments;
+            firstObject.AddNotes(PhaseName, notes);
+         }
       }
 
       /// <summary>

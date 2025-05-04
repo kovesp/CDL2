@@ -9,6 +9,11 @@ MODULE powershell kernel.
          EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
          EXPORT make, random.
          EXPORT gt, lt, ge, le, eq, ne.
+         #IMPORT something.
+
+         #FUNCTION something+>a>: incr+a.
+         CONST something2 = incr "is undefined".
+         LIST something(something1:10).
 
          FUNCTION incr+>a> = a "++".
          FUNCTION decr+>a> = a "--".

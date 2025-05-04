@@ -51,13 +51,11 @@ namespace CDL2v1 {
       public static readonly Note UndeclaredAlgorithmCall           = new(NoteType.Error  , 008, "Call of undeclared Algorithm {0}");
       public static readonly Note ArgumentCountMismatch             = new(NoteType.Error  , 009, "Argument count mismatch. {0} has {1} affixes, but called with {2}");
       public static readonly Note WrongTypeOfargumentForStringAffix = new(NoteType.Error  , 010, "Only a literal string or a CONST can be passed to a string affix for call {0}");
-      public static readonly Note UninitializedOutputPassedAsInput  = new(NoteType.Error  , 011, "Output affix {0} that has not been set passed as input or transput in call {1}");
-      public static readonly Note InputAffixPassedToOutput          = new(NoteType.Error  , 012, "Input affix {0} passed to output or transput in call {0}");
       public static readonly Note ConstPassedToOutput               = new(NoteType.Error  , 013, "CONST {0} passed to output or transput in call {0}");
       public static readonly Note ConstPassedToTransput             = new(NoteType.Error  , 014, "CONST {0} passed to transput in call {1}");
-      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Error  , 015, "Output affix {0} that has not been set passed as input in call {1}");
-      public static readonly Note LocalNotAssigned                  = new(NoteType.Error  , 016, "Local {0} that has not been set passed as input in call {1}");
-      public static readonly Note LocalOverwritten                  = new(NoteType.Error  , 017, "Local {0} whose action has not been read passed to output in call {1}");
+      public static readonly Note DuplicateDeclaration              = new(NoteType.Error,   015, "{0} has been already declared as {1} in this section");
+      public static readonly Note InvalidConstElement               = new(NoteType.Error,   016, "References {0}. Only other constants may be referenced.");
+      public static readonly Note UnresolvedConstElement            = new(NoteType.Error,   017, "References undefined id {0}.");
       public static readonly Note MissingImportSpec                 = new(NoteType.Error  , 018, "{0} is imported in section {1} but has no specificaion");
       public static readonly Note ObjectNotImported                 = new(NoteType.Error  , 019, "{0} has no body but is not imported");
       public static readonly Note ObjectImportedButHasBody          = new(NoteType.Error  , 020, "{0} is imported but has a body");
@@ -75,6 +73,8 @@ namespace CDL2v1 {
       public static readonly Note MissingInvoke                     = new(NoteType.Error,   033, "{0} is invoked in {1}, but is not extended or abstacted from anywhere");
       public static readonly Note ModuleNotFound                    = new(NoteType.Error,   034, "Part {0} not found among modules");
       public static readonly Note LudeNotFound                      = new(NoteType.Error,   035, "{2} references {0} {1}, but this does not have a {2}");
+      public static readonly Note InvalidListBound                  = new(NoteType.Error,   036, "Invalid list {0} {1}. Must be CONST, but is {2}");
+      public static readonly Note UnresolvedListBound               = new(NoteType.Error,   037, "Undefined list {0} {1}.");
 
 
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is declared as {0}");
@@ -84,6 +84,12 @@ namespace CDL2v1 {
       public static readonly Note VariableNotWritten                = new(NoteType.Warning, 105, "Variable {0} was read, but never assigned a action");
       public static readonly Note VariableMayNotHaveBeenRead        = new(NoteType.Warning, 106, "Variable {0} was assigned a action, but may not have been read");
       public static readonly Note AbstractionsInTopLayer            = new(NoteType.Warning, 107, "There are abstractions in the top layer of the module");
+
+      public static readonly Note UninitializedOutputPassedAsInput  = new(NoteType.Warning, 110, "Output affix {0} that has not been set passed as input or transput in call {1}");
+      public static readonly Note InputAffixPassedToOutput          = new(NoteType.Warning, 111, "Input affix {0} passed to output or transput in call {0}");
+      public static readonly Note OutputAffixNotAssigned            = new(NoteType.Warning, 112, "Output affix {0} that has not been set passed as input in call {1}");
+      public static readonly Note LocalNotAssigned                  = new(NoteType.Warning, 113, "Local {0} that has not been set passed as input in call {1}");
+      public static readonly Note LocalOverwritten                  = new(NoteType.Warning, 114, "Local {0} whose value has not been read passed to output in call {1}");
 
       public static readonly Note AffixNotRefeenced                 = new(NoteType.Info   , 201, "Affix {0} was not used in procedure {1}");
       public static readonly Note LocalNotReferenced                = new(NoteType.Info   , 202, "Local {0} was not used in procedure {1}");
