@@ -111,7 +111,7 @@ namespace CDL2v1 {
                }
             }
             // Now check that all the imports are in the exports table of the program and are consistent with those exports.
-            // Also insert the target of the import into the resolvedimports table of the module
+            // Also insert the target of the import into the resolvedImports table of the module
             foreach (CDL2Object imported in module.imports.Values.Cast<CDL2Object>()) {
                if (mainProgram.Exports.TryGetValue(imported.Id, out IExportable? exported)) {
                   CheckImportConsistency(imported,imported, (CDL2Object)exported);
@@ -296,8 +296,10 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Compare obj1 to obj2.
-      /// If they are both imported constants return true.
-      /// If they are both imported algorithms, then their affix counts ahd directions must match.
+      /// Both are imported when checking consistency beetween imports in the same module.
+      /// One is imported and the other is not when checking consistency between imports and exports.
+      /// If they are both constants return true.
+      /// If they are both algorithms, then their affix counts ahd directions must match.
       /// If there is any mismatch attach an apropriate note or notes to the first object
       /// </summary>
       /// <param name="problemObject">If there are issues with the spec, attach the note to this object.</param>
@@ -305,7 +307,7 @@ namespace CDL2v1 {
       /// <param name="obj2"></param>
       /// <returns></returns>
       private void  CheckImportConsistency(NamedElement problemObject, CDL2Object obj1, CDL2Object obj2) {
-         if (obj1 is ImportedConst && obj2 is ImportedConst) {
+         if (obj1 is Const && obj2 is Const) {
          } else if (obj1 is Algorithm alg1 && obj2 is Algorithm alg2) {
             if (alg1.affixes.Count != alg2.affixes.Count) {
                AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "Affix count mismatch");

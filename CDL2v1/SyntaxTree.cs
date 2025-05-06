@@ -881,7 +881,7 @@ namespace CDL2v1 {
    }
    [Serializable]
    public class Const : CDL2Object, 
-         IConstElement, IMacroElement, IProvidable, IActualArg, IImportable {
+         IConstElement, IMacroElement, IProvidable, IExportable, IActualArg, IImportable {
       public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
       public Const(ID id,Section section) : base(id,section,null) => SE = SE.Const;

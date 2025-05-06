@@ -5,15 +5,13 @@
 MODULE powershell kernel.
    LAYER kernel.
       SECTION arithmetic.
+         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, random.
+         EXT gt, lt, ge, le, eq, ne.
+
          EXPORT incr, decr, incr with, decr with.
          EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
          EXPORT make, random.
          EXPORT gt, lt, ge, le, eq, ne.
-         #IMPORT something.
-
-         #FUNCTION something+>a>: incr+a.
-         CONST something2 = incr "is undefined".
-         LIST something(something1:10).
 
          FUNCTION incr+>a> = a "++".
          FUNCTION decr+>a> = a "--".
@@ -39,14 +37,93 @@ MODULE powershell kernel.
 
          FUNCTION random+>min+>max+r> = r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
+
+      SECTION timer.
+         EXPORT start timer, stop timer, show elapsed time.
+
+         ACTION start timer = "$l $$script:start = Get-Date".
+         ACTION stop timer  = "$l $$script:stop = Get-Date".
+         ACTION show elapsed time = 
+            "$l Write-Host -ForegroundColor Blue ('Elapsed time: {0:N0} miliseconds' -f " 
+            "[int](($$script:stop-$$script:start).TotalMicroseconds/1000))".
+      ENDSEC timer.
+
+      SECTION messages.
+         EXPORT show msg, show msg no newline, show number.
+         EXT show msg, show msg no newline, show number.
+
+         ACTION show msg*string = "Write-Host " string.
+         ACTION show number +>number = "Write-Host -NoNewline ('{0:N0}' -f " number ")".
+         ACTION show msg no newline*string = "Write-Host -NoNewline " string.
+      ENDSEC messages.
+
+      SECTION data.
+         INV make, subtract, incr, le, random, show msg no newline, show msg.
+
+         EXPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
+         EXPORT sort data, initialize data.
+         IMPORT lwb, upb, max size of list to show, min random, max random.
+
+         CONST lwb, upb, max size of list to show, min random, max random.
+
+         # The array to be sorted. #
+         LIST data(lwb:upb).
+
+         TEST smaller element +>p+>q = 
+            data ".Item(" p ") -lt " data ".Item(" q ")".
+         ACTION swap element +>i+>j =
+            #get element+p+t, set element to+p+q, set element+q+t.#
+            data ".Swap(" i "," j ")".
+         FUNCTION get element +>i+v> = 
+            v " = " data ".Item(" i ")".
+         ACTION set element +>i+>v = 
+            data ".Item(" i "," v ")".
+         ACTION set element to+>p+>q =
+            data ".Item(" p "," data ".Item(" q "))".
+
+         ACTION dump list = 
+            "Write-Host " data ".Array".
+
+         ACTION dump data*msg:
+            show msg no newline+msg,
+               (le+data size+max size of list to show, dump list;
+                show msg+"too many elements to show.").
+
+         TEST is data sorted macro -i -r =
+            "$l " r " = 1"
+            "$l for (" i " = " lwb " ; " i " -lt " upb " ; " i "++) {"
+            "$l    if (" data ".Item(" i ") -gt " data ".Item(" i " + 1)) { " r " = 0; break }"
+            "$l }"
+            "$l [bool]" r.
+         
+         # Sort the array using the built-in sort method. For execution time comparison. #
+         ACTION sort data = "[Array]::Sort(" data ".Array)".  
+
+         # The size of the list to be sorted as a variable. Just to excercise VARs.
+         VAR data size.
+
+         # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
+         FUNCTION get data size +size>: make+size+data size.
+
+         # Fill the array with random integers. #
+         ACTION initialize data -i -r:
+            subtract+upb+lwb+data size, incr+data size,
+            make+i+lwb,
+            (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
+            +).
+      ENDSEC data.
+      PRELUDE initialize data.
    ENDLAY kernel.
 ENDMOD powershell kernel.
+PRELUDE initialize data.
+
 #=================================================================================
 MODULE quicksort.
    LAYER base.
       SECTION parametrization.
          ABSTR lwb, upb.
          EXT lwb, upb, max size of list to show, min random, max random.
+         EXPORT lwb, upb, max size of list to show, min random, max random.
 
          # The lower and upper bounds of the data array. #
          CONST lwb=1, upb=1_000.
@@ -93,6 +170,7 @@ MODULE quicksort.
 
          FUNCTION random+>min+>max+r>.
       ENDSEC arithmetic.
+
       SECTION touch.
          ABSTR touch in, touch out, touch trans.
 
@@ -104,11 +182,8 @@ MODULE quicksort.
       SECTION data.
          ABSTR smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
          ABSTR sort data, initialize data.
-         INV lwb, upb, make, less or equal, random, incr, subtract, show msg, show msg no newline, max size of list to show,
-             min random, max random.
-
-         # The array to be sorted. #
-         LIST data(lwb:upb).
+         IMPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
+         IMPORT sort data, initialize data.
 
          # Here for test purposes only. #
          VAR unused.
@@ -116,66 +191,40 @@ MODULE quicksort.
          NOTE.
          VAR unused2.
 
-         TEST smaller element +>p+>q = 
-            data ".Item(" p ") -lt " data ".Item(" q ")".
-         ACTION swap element +>i+>j =
-            #get element+p+t, set element to+p+q, set element+q+t.#
-            data ".Swap(" i "," j ")".
-         FUNCTION get element +>i+v> = 
-            v " = " data ".Item(" i ")".
-         ACTION set element +>i+>v = 
-            data ".Item(" i "," v ")".
-         ACTION set element to+>p+>q =
-            data ".Item(" p "," data ".Item(" q "))".
+         TEST smaller element +>p+>q.
+         ACTION swap element +>i+>j.
+         FUNCTION get element +>i+v>.
+         ACTION set element +>i+>v.
 
-         ACTION dump list = 
-            "Write-Host " data ".Array".
+         ACTION dump data*msg.
 
-         ACTION dump data*msg:
-            show msg no newline+msg,
-               (less or equal+data size+max size of list to show, dump list;
-                show msg+"too many elements to show.").
-
-         TEST is data sorted macro -i -r =
-            "$l " r " = 1"
-            "$l for (" i " = " lwb " ; " i " -lt " upb " ; " i "++) {"
-            "$l    if (" data ".Item(" i ") -gt " data ".Item(" i " + 1)) { " r " = 0; break }"
-            "$l }"
-            "$l [bool]" r.
+         TEST is data sorted macro.
          
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data = "[Array]::Sort(" data ".Array)".  
+         ACTION sort data.  
 
-         # The size of the list to be sorted as a variable. Just to excercise VARs.
-         VAR data size.
+         FUNCTION get data size +size>.
 
-         # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
-         FUNCTION get data size +size>: make+size+data size.
-
-         # Fill the array with random integers. #
-         ACTION initialize data -i -r:
-            subtract+upb+lwb+data size, incr+data size,
-            make+i+lwb,
-            (less or equal+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
-            +).
+         ACTION initialize data.
       ENDSEC data.
-      PRELUDE initialize data.
+
       SECTION timer.
          ABSTR start timer, stop timer, show elapsed time.
+         IMPORT start timer, stop timer, show elapsed time.
 
-         ACTION start timer = "$l $$script:start = Get-Date".
-         ACTION stop timer  = "$l $$script:stop = Get-Date".
-         ACTION show elapsed time = 
-            "$l Write-Host -ForegroundColor Blue ('Elapsed time: {0:N0} miliseconds' -f " 
-            "[int](($$script:stop-$$script:start).TotalMicroseconds/1000))".
+         ACTION start timer.
+         ACTION stop timer.
+         ACTION show elapsed time.
       ENDSEC timer.
+
       SECTION messages.
          ABSTR show msg, show msg no newline, show number.
          EXT show msg, show msg no newline, show number.
+         IMPORT show msg, show msg no newline, show number.
 
-         ACTION show msg*string = "Write-Host " string.
-         ACTION show number +>number = "Write-Host -NoNewline ('{0:N0}' -f " number ")".
-         ACTION show msg no newline*string = "Write-Host -NoNewline " string.
+         ACTION show msg*string.
+         ACTION show number +>number.
+         ACTION show msg no newline*string.
       ENDSEC messages.
    ENDLAY base.
    ### Note between Layers.
@@ -254,6 +303,6 @@ PRELUDE data.
 ROOT sorter.
 PROGRAM sort.
    PART powershell kernel, quicksort.
-   PRELUDE quicksort.
+   PRELUDE powershell kernel.
    ROOT quicksort.
 ENDPROG sort.

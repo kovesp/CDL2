@@ -15,7 +15,7 @@ namespace CDL2v1 {
    /// Used to keep track of errors and warnings.
    /// </summary>
    public abstract class CompilationPhase {
-      private readonly CDL2 compiler;
+      protected readonly CDL2 compiler;
 
       public CompilationPhase(CDL2 compiler) {
          this.compiler = compiler;
@@ -23,8 +23,10 @@ namespace CDL2v1 {
          PhaseName = GetType().Name;
       }
 
+      public Notes notes = [];
+
       public string PhaseName { get; }
-      private IEnumerable<Note> Notes => Database.Instance.ElementsWithNotes.SelectMany(elem => elem.Notes).Where(note => note.PhaseName == PhaseName);
+      private IEnumerable<Note> Notes => (notes.Any() ? notes : Database.Instance.ElementsWithNotes.SelectMany(elem => elem.Notes)).Where(note => note.PhaseName == PhaseName);
       private IEnumerable<Note> Errors => Notes.Where(note => note.Type == NoteType.Error);
       private IEnumerable<Note> Warnings => Notes.Where(note => note.Type == NoteType.Warning);
       private IEnumerable<Note> Infos => Notes.Where(note => note.Type == NoteType.Info);
@@ -37,6 +39,7 @@ namespace CDL2v1 {
       /// <param name="note"></param>
       /// <param name="insertions"></param>
       protected void AddNote(NamedElement subject, Note note, params object[] insertions) => subject.AddNote(PhaseName, note, insertions);
+      protected void AddNote(Note note, params object[] insertions) => notes.Add(new Note(note, PhaseName, null, insertions));
 
       /// <summary>
       /// Report errors and warnings for this phase.
@@ -69,8 +72,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="message">Optional termination message.</param>
       /// <returns></returns>
-      public void ReportNoteCounts(Reachable? reachable,string? message = null) {
-         Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error")}, {Warnings.Count().Plural("warning")}, {Infos.Count().Plural("info message")}");
+      public virtual void ReportNoteCounts(Reachable? reachable,string? message = null) {
+         Log(0, $"{PhaseName}: {Errors.Count().Plural("error")}, {Warnings.Count().Plural("warning")}, {Infos.Count().Plural("info message")}");
          if (message != null) Log(0, message);
 
          NoteType messages = Settings.SettingValue<NoteType>("Messages")!;
@@ -81,11 +84,10 @@ namespace CDL2v1 {
 
          void ReportByType(IEnumerable<Note> list,bool all) {
             foreach (Note note in list) {
-               Debug.Assert(note.Owner != null, "ReportNoteCounts: Note Owner is null");
                // Report messages only for reachable objects
-               if (all || reachable is null || note.Owner is Container _ || (note.Owner is CDL2Object obj && reachable.Objects.Contains(obj))) {
-                  string head = $"{note.Type,-7} {note.Number:D3}";
-                  Log(0, $"   {head} {note.Owner.FQDN()}\n    {new string(' ', head.Length)}{note.Text}");
+               if (all || reachable is null || note.Owner == null || note.Owner is Container _ || (note.Owner is CDL2Object obj && reachable.Objects.Contains(obj))) {
+                  string head = $"{note.Type,7} {note.Number:D3}: ";
+                  Log(0, $"   {head} {note.Owner?.FQDN()??PhaseName}\n    {new string(' ', head.Length)}{note.Text}");
                }
             }
          }
@@ -130,9 +132,7 @@ namespace CDL2v1 {
                string source = Path.GetFullPath(arg);
                if (File.Exists(source)) {
                   Log(0, $"Compiling {source}");
-                  TokenList sourceTokens = LexicalAnalyzer.Tokenize(source);
-                  // Add the tokens comprising the file to the syntax tree
-                  Parser.Parse(sourceTokens);
+                  Parser.Parse(source);
                }
             }
             if (Parser.AbortCompilation())
@@ -204,6 +204,7 @@ namespace CDL2v1 {
                      ReportError("No target code generator");
                   }
                }
+
                Log(0, "");
                Parser.ReportNoteCounts(Reachable);
                Log(0, "");

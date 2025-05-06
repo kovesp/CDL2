@@ -18,9 +18,10 @@ namespace CDL2v1 {
          Debug.WriteLine("End of reachable objects.");
       }
       private bool collecting = false;
+      private bool collected = false;
       public Set<CDL2Object> Objects {
          get {
-            Debug.Assert(collecting || field.Count != 0, "Must call CollectReachebleObjects(program/module)  before accessing Objects");
+            Debug.Assert(collecting || collected, "Must call CollectReachebleObjects(program/module)  before accessing Objects");
             return field;
          }
          private set;
@@ -48,6 +49,7 @@ namespace CDL2v1 {
          Objects = [];
          ReadVars = [];
          AmbigousVars = [];
+         collected = false;
          collecting = true;
          foreach (RW ludeType in Container.LudeTypes) {
             foreach (ID id in prog.Ludes[ludeType]) {
@@ -57,6 +59,7 @@ namespace CDL2v1 {
             }
          }
          collecting = false;
+         collected = true;
          string CountObjects(Type type) => Objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name);
          Logger.Log(0, $"Collected {Objects.Count.Plural("object")} reachable from {prog} ...");
          Logger.Log(0, $"   {CountObjects(typeof(Const))}, {CountObjects(typeof(Var))}, {CountObjects(typeof(LIST))}, {CountObjects(typeof(Macro))}, {CountObjects(typeof(Procedure))}.");
@@ -109,7 +112,8 @@ namespace CDL2v1 {
          if (call.Called is not null) {
             Algorithm called = call.Called;
             if (called is ImportedAlgorithm importedAlg) {
-               called = (called.Module!.resolvedImports[importedAlg.Id] as Algorithm)!;
+               CDL2Object? resolved = called.Section!.GetResolvedObject(importedAlg.Id);
+               if (resolved != null && resolved is Algorithm alg) called = alg;
             }
             if (called.IsConditionalCompilation()) {
                Objects.Add(called);
@@ -146,9 +150,8 @@ namespace CDL2v1 {
             if (Objects.Add(called)) {
                if (called is Macro macro) {
                   CollectReachableObjects(macro);
-               } else {
-                  Debug.Assert(called is Procedure, $"CollectReachableObjects: Unknown call type {called}");
-                  CollectReachableObjects(((Procedure)called).group);
+               } else if (called is Procedure proc) {
+                  CollectReachableObjects(proc.group);
                }
             }
          }

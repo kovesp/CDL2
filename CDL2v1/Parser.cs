@@ -61,25 +61,44 @@ namespace CDL2v1 {
 
       public TokenList tokens = new();
 
-
       public  Program?          currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
       private Module?           currentModule;     // The current module being parsed. Should be the same as currentObject.Module.
       private Layer?            currentLayer;      // The current layer being parsed. Should be the same as currentObject.Layer.
       private Section?          currentSection;    // The current container being parsed. Should be the same as currentObject.SectionById.
       public  CompilationObject currentObject;     // The object being compiled. Used mainly for error reporting.
 
+      private LexicalAnalyzer? Lexer = null;       // The lexical analyzer used to parse the input file.
+
       public Parser(CDL2 compiler) : base(compiler) => currentObject = new CompilationObject(this);
+
+      private void ReportInvalidToken(TokenType[] expected, Token actual, RW[] rw) {
+         Container subject = currentSection != null ? currentSection : currentLayer != null ? currentLayer : currentModule != null ? currentModule : currentProgram!;
+         string expectedtypes;
+         if (expected.Length == 1 && expected[0] == TT.RESWORD) {
+            expectedtypes = rw.Length == 1 ? rw[0].ToString() : $"one of {string.Join(",", rw)}";
+         } else {
+            expectedtypes = expected.Length == 1 ? expected[0].ToString() : $"one of {string.Join(",", expected)}";
+         }
+         string actualType = actual.type == TT.RESWORD ? actual.reservedWordValue?.ToString()! : actual.type.ToString();
+         AddNote(subject, Note.UnexpectedToken, expectedtypes, actualType);
+      }
+
+      public override void ReportNoteCounts(Reachable? reachable, string? message = null) {
+         Lexer!.ReportNoteCounts(reachable, message);
+         base.ReportNoteCounts(reachable, message);
+      }
+
 
       /// <summary>
       /// Recursive descent parser for CDL2.
       /// </summary>
       /// <param Id="tokens"></param>
       /// <exception cref="Exception"></exception>
-      internal void Parse(TokenList tokens) {
-         this.tokens = tokens;
-         // The list of tokens should contain a set of modules and possibly a program
-         tokens.SetOptions(TokenList.Options.ThrowOnUnexpectedToken); 
-                                                                                                       
+      internal void Parse(string filePath) {
+         this.tokens = new TokenList(ReportInvalidToken);
+         (Lexer = new LexicalAnalyzer(compiler,tokens)).Tokenize(filePath);
+         //tokens.SetOptions(TokenList.Options.ThrowOnUnexpectedToken); 
+
          Logger.logger.ErrorAction = SkipToNextEnd;
          Logger.logger.CurrentObject = currentObject;
 
@@ -91,7 +110,8 @@ namespace CDL2v1 {
             } else if (tokens.CanConsumeContainerDelimiter(RW.PROGRAM,ref unitId,out comments)) {
                ParseProgram(unitId,comments,notes);
             } else {
-               throw new Exception("Expected MODULE or PROGRAM");
+               //throw new Exception("Expected MODULE or PROGRAM");
+               break;
             }
          }
 
@@ -121,7 +141,6 @@ namespace CDL2v1 {
 
          if (tokens.CanConsume(RW.PART)) {
             ParseIDList(RW.PART,currentProgram.Parts);
-            // TODO: Semantic Analysis to verify that the parts are modules.
          }
 
          ParseLudes(currentProgram);
@@ -509,7 +528,7 @@ namespace CDL2v1 {
                tokens.CanConsume(TT.LISTBOUNDEND)) {
             list = new(id,currentSection,ID.From(lwbToken),ID.From(upbToken));
          } else {
-            ReportError($"LIST {id} with has invalid bounds in container {currentSection.Id}");
+            AddNote(currentSection, Note.InvalidListBounds, id);
          }
          return list;
       }
@@ -600,24 +619,27 @@ namespace CDL2v1 {
       /// </summary>
       private void ParseInterfaces() {
          Debug.Assert(currentSection != null && currentLayer != null && currentModule != null);
-         // Provided interfaces
-         ParseInterfaceList(RW.ABSTR,currentSection.abstr);
-         ParseInterfaceList(RW.EXT,currentSection.ext);
-         ParseInterfaceList(RW.EXPORT,currentSection.export);
-         // Required interfaces
-         ParseInterfaceList(RW.INV,currentSection.inv);
-         ParseInterfaceList(RW.IMPORT,currentSection.import);
+         // The interface can be in any order.
+         while (tokens.IsNext([RW.ABSTR, RW.EXT, RW.INV, RW.IMPORT, RW.EXPORT])) {
+            // Provided interfaces
+            ParseInterfaceList(RW.ABSTR, currentSection.abstr);
+            ParseInterfaceList(RW.EXT, currentSection.ext);
+            ParseInterfaceList(RW.EXPORT, currentSection.export);
+            // Required interfaces
+            ParseInterfaceList(RW.INV, currentSection.inv);
+            ParseInterfaceList(RW.IMPORT, currentSection.import);
+         }
       }
 
       /// <summary>
       /// Parse a simple list of IDs occurring in interfaces.
-      /// TODO: Verify that the IDs are unique within BOTH interface lists.
+      /// It is OK for the list to be completely absent
       /// </summary>
       /// <param Id="interfaceType"></param>
       /// <param Id="idList">The container interface list.</param>
       /// <returns></returns>
       private void ParseInterfaceList(RW interfaceType,ICollection<ID> idList) {
-         while (tokens.Consume(interfaceType)) {
+         if (tokens.Consume(interfaceType)) {
             ParseIDList(interfaceType,idList);
          }
       }

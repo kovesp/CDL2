@@ -9,14 +9,21 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
   [Serializable]
-  public class TokenList(TokenList.Options options = TokenList.Options.None) {
+  public class TokenList(Action<TokenType[],Token,RW[]> unexpectedTokenReporter,TokenList.Options options = TokenList.Options.None) {
       [Flags]
       public enum Options {
          None = 0,
          ThrowOnUnexpectedToken = 1,
          // Add more serializationOptions as needed
       }
-      
+
+      /// <summary>
+      /// Used only to initilize instance variable in parser. Will not actually be used.
+      /// </summary>
+      public TokenList() : this((_,_,_) => { }, Options.None) { }
+
+      private readonly Action<TokenType[],Token,RW[]> ReportUnexpectedToken = unexpectedTokenReporter;
+
       public readonly List<Token> tokens = [];
       public Options options = options;
 
@@ -79,9 +86,7 @@ namespace CDL2v1 {
             token = Next();
             return true;
          }
-         if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected token of type {type}, but found {Peek().type}");
-         }
+         ReportUnexpectedToken([type], Peek(), []);
          token = Token.ErrorToken;
          return false;
       }
@@ -90,9 +95,7 @@ namespace CDL2v1 {
             id = ID.From(token);
             return true;
          }
-         if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected ID, but found {Peek().type}");
-         }
+         ReportUnexpectedToken([TT.ID], Peek(), []);
          id = ID.ErrorID;
          return false;
       }
@@ -101,9 +104,7 @@ namespace CDL2v1 {
             token = Next();
             return true;
          }
-         if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected token of type {types}, but found {Peek().type}");
-         }
+         ReportUnexpectedToken(types.ToArray(), Peek(), []);
          token = Token.ErrorToken;
          return false;
       }
@@ -112,9 +113,7 @@ namespace CDL2v1 {
             Next();
             return true;
          }
-         if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected token of type {type}, but found {Peek().type}");
-         }
+         ReportUnexpectedToken([type], Peek(), []);
          return false;
       }
       public bool Optional(out ID id) {
@@ -132,9 +131,7 @@ namespace CDL2v1 {
             Next();
             return true;
          }
-         if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected token of type {types}, but found {Peek().type}");
-         }
+         ReportUnexpectedToken(types.ToArray(), Peek(), []);
          return false;
       }
 
@@ -145,9 +142,8 @@ namespace CDL2v1 {
             Next();
             return true;
          }
-         if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected reserved word {reservedWord}, but found {Peek().reservedWordValue}");
-         }
+         ReportUnexpectedToken([TT.RESWORD],Peek(),[reservedWord]);
+         Skip();
          return false;
       }
       public bool CanConsume(RW reservedWord) => CanConsume(reservedWord,out string? _);
@@ -156,9 +152,8 @@ namespace CDL2v1 {
             token = Next();
             return true;
          }
-         if (options.HasFlag(Options.ThrowOnUnexpectedToken)) {
-            throw new Exception($"Expected reserved word {reservedWords}, but found {Peek().reservedWordValue}");
-         }
+         ReportUnexpectedToken([TT.RESWORD], Peek(), reservedWords.ToArray());
+         Skip();
          token = Token.ErrorToken;
          return false;
       }
