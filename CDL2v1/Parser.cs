@@ -690,7 +690,6 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a list of IDs. The list is terminated by a period. The lists are normally sets.
       /// The lists cannot contain duplicates
-      /// TODO: Can an imports be in more than one container in a module? Let's assume no.
       /// </summary>
       /// <param Id="idList"></param>
       /// <param Id="idList2"></param>

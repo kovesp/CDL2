@@ -216,7 +216,7 @@ namespace CDL2v1 {
       }
 
       private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null) {
-         Dictionary<Affix,IActualArg> subst = args is null ? [] : macro.affixes.Zip(args, (key, value) => new { key, value }).ToDictionary(x => x.key, x => x.value);
+         Dictionary<Affix, IActualArg> subst = ArgumentSubstitutions(macro.affixes, args);
 
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
@@ -226,6 +226,9 @@ namespace CDL2v1 {
          }
          cg.GenerateMacroBodyEnd(macro);
       }
+
+      private static Dictionary<Affix, IActualArg> ArgumentSubstitutions(List<Affix> affixes, List<IActualArg>? args) 
+         => args is null ? [] : affixes.Zip(args, (key, value) => new { key, value }).ToDictionary(x => x.key, x => x.value);
 
       private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, Dictionary<Affix, IActualArg> subst, bool first, IMacroElement elem) {
          switch (elem) {
@@ -251,7 +254,7 @@ namespace CDL2v1 {
                   Debug.Assert(callingProc is not null, $"GenerateMacro: Calling procedure is null for inlined macro {macro}");
                   switch (arg) {
                      case Var   vv: cg.GenerateMacroElementVar(vv, callingProc.CanFail, inlined: true); break;
-                     case Const cc: cg.GenerateMacroElementConst(cc); break;
+                     case Const cc: cg.GenerateMacroElementConst(callingProc.Section!.GetResolvedConstant(cc)!); break;
                      case Local ll: cg.GenerateMacroElementLocal(ll); break;
                      case Affix aa: cg.GenerateMacroElementAffix(aa, callingProc.CanFail); break;
                      case STRING s: cg.GenerateMacroElementString(s.value, firstElement:false,quoted:true); break;
@@ -313,7 +316,7 @@ namespace CDL2v1 {
             cg.GenerateProcedureStart(proc);
             GenerateAlgorithmHeader(proc, variables);
             cg.GenerateProcedureBodyStart(proc, proc.ProcedureBodyType);
-            GenerateAlternatives(proc, proc.group);
+            GenerateProcedureBody(proc);
             cg.GenerateProcedureBodyEnd(proc, proc.ProcedureBodyType);
             FinalizeAffixesAndVariables(proc, variables);
             cg.GenerateProcedureEnd(proc);
@@ -381,21 +384,31 @@ namespace CDL2v1 {
 
       private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
-         if (call.Called is not null) {
-            if (!Settings.SettingValue<bool>("NoMacroInlining") && call.Called is Macro macro && macro.IsInlineMacro) {
+         Algorithm? called = call.Called;
+         if (called is not null) {
+            if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
                cg.GenerateMacroInlineStart(macro);
                GenerateMacroBody(macro, proc, call.args);
                cg.GenerateMacroInlineEnd(macro);
             } else {
-               cg.GenerateCallStart(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);
-               if (call.args.Count > 0) {
-                  GenerateActualArg(proc, call, call.Called!.affixes[0], call.args[0]);
-                  for (int i = 1 ; i < call.args.Count ; i++) {
-                     cg.GenerateActualArgSeparator();
-                     GenerateActualArg(proc, call, call.Called.affixes[i], call.args[i]);
+               Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
+               bool wasNotInlined = true;
+               if (calledProc.IsInlineable(reachable)) {
+                  Logger.Log(0, $"Can inline into {proc}: {calledProc.GetInliningParameters(reachable)}");
+                  // TODO: Need a version of GenerateAlternative that handles a substitution dictionary for the actuall arguments of the call that is being inlined
+                  //GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0], isLast: false);                  
+               } 
+               if (wasNotInlined)  { 
+                  cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
+                  if (call.args.Count > 0) {
+                     GenerateActualArg(proc, call, calledProc.affixes[0], call.args[0]);
+                     for (int i = 1 ; i < call.args.Count ; i++) {
+                        cg.GenerateActualArgSeparator();
+                        GenerateActualArg(proc, call, calledProc.affixes[i], call.args[i]);
+                     }
                   }
+                  cg.GenerateCallEnd(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
                }
-               cg.GenerateCallEnd(call.Called!, proc, canFail, onlyCallInAlternative, lastAlternative);
             }
          } else {
             cg.GenerateComment($"Call to undefined algorithm {call} skipped.");
@@ -409,7 +422,7 @@ namespace CDL2v1 {
                cg.GenerateCallArgString(s.value);
                break;
             case Const c:
-               cg.GenerateCallArgReferenceConst(calledAffix, c);
+               cg.GenerateCallArgReferenceConst(calledAffix, proc.Section!.GetResolvedConstant(c)!);
                break;
             case Var v:
                cg.GenerateCallArgReferenceVar(calledAffix, v, needFinalization: call.Called!.NeedsFinalization);
@@ -422,7 +435,7 @@ namespace CDL2v1 {
                } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out CDL2Object? dataRef)) {
                   if (dataRef is Const c) {
                      Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");
-                     cg.GenerateCallArgReferenceConst(calledAffix,c);
+                     cg.GenerateCallArgReferenceConst(calledAffix, proc.Section!.GetResolvedConstant(c)!);
                   } else if (dataRef is Var v) {
                      cg.GenerateCallArgReferenceVar(calledAffix, v, needFinalization: call.Called!.NeedsFinalization);
                   } else {

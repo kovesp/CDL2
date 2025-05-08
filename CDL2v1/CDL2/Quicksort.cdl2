@@ -12,6 +12,7 @@ MODULE powershell kernel.
          EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
          EXPORT make, random.
          EXPORT gt, lt, ge, le, eq, ne.
+         EXPORT less or equal.
 
          FUNCTION incr+>a> = a "++".
          FUNCTION decr+>a> = a "--".
@@ -34,6 +35,8 @@ MODULE powershell kernel.
          TEST ge+>a+>b = a " -ge " b.
          TEST lt+>a+>b = a " -lt " b.
          TEST le+>a+>b = a " -le " b.
+
+         TEST less or equal+>a+>b: le+a+b.
 
          FUNCTION random+>min+>max+r> = r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
       ENDSEC arithmetic.
@@ -141,6 +144,7 @@ MODULE quicksort.
          IMPORT add, subtract, multiply, divide, remainder, modulo, halve.
          IMPORT make, random.
          IMPORT gt, lt, ge, le, eq, ne.
+         IMPORT less or equal.
 
          FUNCTION incr+>a>.
          FUNCTION decr+>a>.
@@ -165,7 +169,7 @@ MODULE quicksort.
          TEST eq+>a+>b.
 
          TEST greater+>a+>b: gt+a+b.         
-         TEST less or equal+>a+>b: le+a+b.
+         TEST less or equal+>a+>b.
          TEST less+>a+>b: lt+a+b.
 
          FUNCTION random+>min+>max+r>.

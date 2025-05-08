@@ -27,6 +27,9 @@ namespace CDL2v1 {
          private set;
       } = [];
       public Set<CDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
+
+      public Dictionary<ID, int> ProcedureCalls = []; // The number of times a procedure is called
+
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
       public Set<ITrackedVar> ReadVars { get;  private set; } = [];
       public Set<ITrackedVar> AmbigousVars { get; private set; } = [];
@@ -49,6 +52,7 @@ namespace CDL2v1 {
          Objects = [];
          ReadVars = [];
          AmbigousVars = [];
+         ProcedureCalls = [];
          collected = false;
          collecting = true;
          foreach (RW ludeType in Container.LudeTypes) {
@@ -118,6 +122,14 @@ namespace CDL2v1 {
             if (called.IsConditionalCompilation()) {
                Objects.Add(called);
                return called.IsConditionalCompilationOn;   // If false, skip the rest of the alternative.
+            }
+
+            if (called is Procedure calledProc) {
+               if (ProcedureCalls.TryGetValue(calledProc.Id, out int count)) {
+                  ProcedureCalls[calledProc.Id] = count + 1;
+               } else {
+                  ProcedureCalls[calledProc.Id] = 1;
+               }
             }
 
             // Collect objects referrenced in actual args
