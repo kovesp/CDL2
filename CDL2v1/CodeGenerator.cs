@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Metadata;
@@ -216,7 +217,7 @@ namespace CDL2v1 {
       }
 
       private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null) {
-         Dictionary<Affix, IActualArg> subst = ArgumentSubstitutions(macro.affixes, args);
+         ArgumentSubstitutions subst = new(macro.affixes, args);
 
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
@@ -227,10 +228,30 @@ namespace CDL2v1 {
          cg.GenerateMacroBodyEnd(macro);
       }
 
-      private static Dictionary<Affix, IActualArg> ArgumentSubstitutions(List<Affix> affixes, List<IActualArg>? args) 
-         => args is null ? [] : affixes.Zip(args, (key, value) => new { key, value }).ToDictionary(x => x.key, x => x.value);
+      private struct ArgumentSubstitution(int i,Affix affix, IActualArg arg) {
+         public int argNo = i;
+         public Affix affix = affix;
+         public IActualArg arg = arg;
+      }
+      private class ArgumentSubstitutions : List<ArgumentSubstitution> {
+         public ArgumentSubstitutions(List<Affix> affixes, List<IActualArg>? args) : base() {
+            for (int i = 0 ; i < affixes.Count ; i++) {
+               Add(new ArgumentSubstitution(i, affixes[i], args![i]));
+            }
+         }
+         public bool TryGetValue(Affix affix, out IActualArg? arg) {
+            foreach (ArgumentSubstitution subst in this) {
+               if (subst.affix == affix) {
+                  arg = subst.arg;
+                  return true;
+               }
+            }
+            arg = null;
+            return false;
+         }
+      }
 
-      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, Dictionary<Affix, IActualArg> subst, bool first, IMacroElement elem) {
+      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, ArgumentSubstitutions subst, bool first, IMacroElement elem) {
          switch (elem) {
             case INT i: cg.GenerateMacroElementInt(i.value); break;
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
@@ -356,7 +377,7 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast) {
+      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast, ArgumentSubstitutions? subst = null) {
          List<Call> calls = alternative.calls;
          bool canFail = false;
          foreach (Call call in calls) {
@@ -382,7 +403,8 @@ namespace CDL2v1 {
          cg.GenerateGroupEnd(proc,group);
       }
 
-      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false) {
+      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false, 
+            ArgumentSubstitutions? argSubstitutions = null) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          Algorithm? called = call.Called;
          if (called is not null) {
@@ -396,11 +418,12 @@ namespace CDL2v1 {
                if (calledProc.IsInlineable(reachable)) {
                   Logger.Log(0, $"Can inline into {proc}: {calledProc.GetInliningParameters(reachable)}");
                   // TODO: Need a version of GenerateAlternative that handles a substitution dictionary for the actuall arguments of the call that is being inlined
-                  //GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0], isLast: false);                  
+                  //GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new ArgumentSubstitutions(calledProc.affixes, call.args));                  
                } 
                if (wasNotInlined)  { 
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
-                  if (call.args.Count > 0) {
+                  argSubstitutions ??= new ArgumentSubstitutions(calledProc.affixes, call.args);
+                  if (argSubstitutions.Count > 0) {
                      GenerateActualArg(proc, call, calledProc.affixes[0], call.args[0]);
                      for (int i = 1 ; i < call.args.Count ; i++) {
                         cg.GenerateActualArgSeparator();
