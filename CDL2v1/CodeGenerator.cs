@@ -409,6 +409,7 @@ namespace CDL2v1 {
          Algorithm? called = call.Called;
          if (called is not null) {
             if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
+               cg.GenerateComment($"Inlining macro call -> {call}");
                cg.GenerateMacroInlineStart(macro);
                GenerateMacroBody(macro, proc, call.args);
                cg.GenerateMacroInlineEnd(macro);
@@ -416,9 +417,12 @@ namespace CDL2v1 {
                Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
                bool wasNotInlined = true;
                if (calledProc.IsInlineable(reachable)) {
-                  Logger.Log(0, $"Can inline into {proc}: {calledProc.GetInliningParameters(reachable)}");
-                  // TODO: Need a version of GenerateAlternative that handles a substitution dictionary for the actuall arguments of the call that is being inlined
-                  //GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new ArgumentSubstitutions(calledProc.affixes, call.args));                  
+                  //cg.GenerateComment($"Can inline into {proc}: {calledProc.GetInliningParameters(reachable)}");
+                  cg.GenerateComment($"Inlining procedure call -> {call}");
+                  // cg.IncrementIndent();
+                  GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new ArgumentSubstitutions(calledProc.affixes, call.args));
+                  // cg.DecrementIndent();
+                  wasNotInlined = false;
                } 
                if (wasNotInlined)  { 
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);

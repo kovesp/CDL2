@@ -18,9 +18,8 @@ using System.Xml.Linq;
 
 namespace CDL2v1 {
    [Serializable]
-   internal partial class CodeGeneratorPowerShell : ICodeGenerator {
+   internal partial class CodeGeneratorPowerShell : TargetCodeGenerator, ICodeGenerator {
       #region Instance and Static Varibles, Constructors
-      EmitterBase emitter = new EmitterSink();
       private readonly string DataType;
       private readonly string DT;
 
@@ -29,7 +28,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="dataType">This can be used to change the word size, e.g., to Int32.</param>
       /// <remarks>No explicit references to this class. The instance is constructed via reflection.</remarks>
-      public CodeGeneratorPowerShell(string dataType) {
+      public CodeGeneratorPowerShell(string dataType) : base() {
          DataType = dataType;
          DT       = $"[{DataType}]";
       }
@@ -95,20 +94,20 @@ function Remove-Const([string[]]$names) {
          if (program != null) {
             EmitUnitStartComment(program);
             emitter.Emitnl("try {");
-            emitter.IndentLevel++;
+            IncrementIndent();
          }
       }
       void ICodeGenerator.GenerateProgramPart(Program program,ID mod,bool isSeparate) { }
 
       void ICodeGenerator.GenerateProgramEnd(Program program,bool isSeparate) {
          if (program != null) {
-            emitter.IndentLevel--;
+            DecrementIndent();
             emitter.Emitnl("} catch {");
-            emitter.IndentLevel++;
+            IncrementIndent();
             emitter.Emitnl("Write-Host \"Error Message: $($_.Exception.Message)\" -ForegroundColor Red");
             emitter.Emitnl("Write-Host \"Stack Trace:\" -ForegroundColor Yellow");
             emitter.Emitnl("Write-Host $_.ScriptStackTrace -ForegroundColor Yellow");
-            emitter.IndentLevel--;
+            DecrementIndent();
             emitter.Emitnl("}");
             EmitUnitEndComment(program);
          }
@@ -140,13 +139,13 @@ function Remove-Const([string[]]$names) {
       /// <param name="program"></param>
       void ICodeGenerator.GenerateProgramLudeStart(RW ludetype, Program program) {
          GenerateComment($"{program.TypeShortName}_{program.Id.Name.AsIdentifier(camelCase: true)}__{ludetype}");
-         emitter.IndentLevel++;
+         IncrementIndent();
       }
 
       void ICodeGenerator.GenerateProgramLude(RW ludeType, Program program, Module module)
          => emitter.Emitnl($"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: true)}__{ludeType}");
       void ICodeGenerator.GenerateProgramLudeEnd(RW ludeType, Program program) {
-         emitter.IndentLevel--;
+         DecrementIndent();
       }
 
       void ICodeGenerator.GenerateModuleLudeStart(RW ludetype, Module module, bool wrapped) {
@@ -156,12 +155,12 @@ function Remove-Const([string[]]$names) {
          } else {
             emitter.Emitnl($" # {moduleName}");
          }
-         emitter.IndentLevel++;
+         IncrementIndent();
       }
       void ICodeGenerator.GenerateModuleLude(RW ludeType, Module module, Section section)
          => emitter.Emitnl(section.SyntheticProcedures.Where(p=>p.Id.InternalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true, literalObjectName:true)!);
       void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType, Module module, bool wrapped) {
-         emitter.IndentLevel--;
+         DecrementIndent();
          if (wrapped) emitter.Emitnl("}");
       }
 
@@ -210,7 +209,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc)}(");
       void ICodeGenerator.GenerateAlgorithmHeaderEnd(Algorithm proc) {
          emitter.Emitnl(") {");
-         emitter.IndentLevel++;
+         IncrementIndent();
       }
       void ICodeGenerator.GenerateAffixSeparator() => emitter.Emit(",");
       /// <summary>
@@ -282,7 +281,7 @@ function Remove-Const([string[]]$names) {
       #region Macros
       void ICodeGenerator.GenerateMacroStart(Macro macro) { }
       void ICodeGenerator.GenerateMacroEnd(Macro macro) {
-         emitter.IndentLevel--;
+         DecrementIndent();
          emitter.NlEmitnl("}");
       }
 
@@ -310,18 +309,18 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateMacroElementLocal(Local local) => emitter.Emit(PSVar(local));
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
-         if (macro.NeedsFinalization) emitter.IndentLevel++;
+         if (macro.NeedsFinalization) IncrementIndent();
          if (macro.CanFail && HasMultipleStatments(macro)) {
             emitter.Emitnl("@(");
-            emitter.IndentLevel++;
+            IncrementIndent();
          }
       }
       void ICodeGenerator.GenerateMacroBodyEnd(Macro macro) {
          if (macro.CanFail && HasMultipleStatments(macro)) {
-            emitter.IndentLevel--;
+            DecrementIndent();
             emitter.NlEmitnl(")[-1]");
          }
-         if (macro.NeedsFinalization) emitter.IndentLevel--;
+         if (macro.NeedsFinalization) DecrementIndent();
       }
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
       void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) {
@@ -339,13 +338,13 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateProcedureEnd(Procedure proc) {
          ifDepth.Pop();
          emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "return $true" : "return $false" : "return");
-         emitter.IndentLevel--;
+         DecrementIndent();
          emitter.NlEmitnl("}");
       }
       void ICodeGenerator.GenerateProcedureBodyStart(Procedure proc,PBT bodyType) {
          if (proc.NeedsWrapper) {
             emitter.Emitnl(":", proc.Id.InternalName, " do {");
-            emitter.IndentLevel++;
+            IncrementIndent();
          }
       }
 
@@ -354,7 +353,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateProcedureBodyEnd(Procedure proc,PBT bodyType) {
          if (proc.NeedsWrapper) {
             emitter.Emitnl(proc.CanFail ? "return $false" : "return");
-            emitter.IndentLevel--;
+            DecrementIndent();
             emitter.Emitnl("} while ($true)");
          }
       }
@@ -364,7 +363,7 @@ function Remove-Const([string[]]$names) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.Id.InternalName}" : "return $true") : "return");            
          while (ifDepth > 0) {
-            emitter.IndentLevel--;
+            DecrementIndent();
             ifDepth--;
             emitter.Emitnl("}");
          }
@@ -379,12 +378,12 @@ function Remove-Const([string[]]$names) {
          if (!group.IsSynthetic) emitter.Emit(":",group.Id.InternalName," ");
          if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("do {");
          ifDepth.Push(0);
-         emitter.IndentLevel++;
+         IncrementIndent();
       }
       void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
          bool hasDo = group.HasAnonymousRepeat || !group.IsSynthetic;
          if (hasDo) emitter.Emitnl("break");
-         emitter.IndentLevel--;
+         DecrementIndent();
          ifDepth.Pop();
          if (hasDo) emitter.Emitnl("} while ($true)");
          GenerateComment("End Group");
@@ -446,19 +445,11 @@ function Remove-Const([string[]]$names) {
       #endregion Support
 
       #region Helpers
-      void Newline(bool optional = false) {
-         if (optional) emitter.EmitnlOption(); else emitter.Emitnl();
-      }
-      private void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName}");
-      private void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName}");
-      private void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl("# ",line);
-      }
       private void ConditionalWrapperStart(Algorithm called) {
          if (called.CanFail) {
             emitter.Emit("if (");
             ifDepth++;
-            emitter.IndentLevel++;
+            IncrementIndent();
          }
       }
       private void ConditionalWrapperEnd(Algorithm called) {
@@ -493,12 +484,6 @@ function Remove-Const([string[]]$names) {
       private static string PSName(CDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
       private static string PSName(Affix affix) => affix.Id.Name.AsIdentifier(camelCase: true);
       private static string PSName(Local local) => local.Id.Name.AsIdentifier(camelCase: true);
-      private static bool HasMultipleStatments(Macro macro) => macro.elements.OfType<STRING>().Any(str => MultipleStatementRegex().IsMatch(str.value));
-
-      private static readonly Random Random = new();
-      private static string RandomInitialValue => Random.Next(0, int.MaxValue).ToString()+"  <# Random value to catch uninitialized VARs, LOCALs, and output AFFIXes #>";
-
-      [GeneratedRegex(@"(?<!['""])(?:\n|;)(?![^'""]*['""])", RegexOptions.Compiled)]private static partial Regex MultipleStatementRegex();
       #endregion Helpers
    }
 }

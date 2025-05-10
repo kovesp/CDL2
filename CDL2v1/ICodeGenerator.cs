@@ -518,6 +518,9 @@ namespace CDL2v1 {
       void GenerateComment(PrettyPrinter sourcePrinter);
       void GenerateSourceComment();
 
+      void IncrementIndent();
+      void DecrementIndent();
+
       /// <summary>
       /// Provides the file extentsion for the target language.
       /// </summary>
