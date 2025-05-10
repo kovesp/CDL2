@@ -1,6 +1,6 @@
 # Ignore Spelling: lwb upb eq ne ge namespace str concat io fac prog decr cspell
-# Ignore Spelling: ENDMOD ENDLAY ENDSEC quicksort incr msg 
-# cspell:ignore ENDMOD ENDLAY ENDSEC ENDPROG decr ABSTR incr decr
+# Ignore Spelling: ENDMOD ENDLAY ENDSEC quicksort incr msg sortedness
+# cspell:ignore ENDMOD ENDLAY ENDSEC ENDPROG decr ABSTR incr decr sortedness
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 MODULE powershell kernel.
    LAYER kernel.
@@ -47,7 +47,7 @@ MODULE powershell kernel.
          ACTION start timer = "$l $$script:start = Get-Date".
          ACTION stop timer  = "$l $$script:stop = Get-Date".
          ACTION show elapsed time = 
-            "$l Write-Host -ForegroundColor Blue ('Elapsed time: {0:N0} miliseconds' -f " 
+            "$l Write-Host -ForegroundColor Blue ('Elapsed time: {0:N0} milliseconds' -f " 
             "[int](($$script:stop-$$script:start).TotalMicroseconds/1000))".
       ENDSEC timer.
 
@@ -102,7 +102,7 @@ MODULE powershell kernel.
          # Sort the array using the built-in sort method. For execution time comparison. #
          ACTION sort data = "[Array]::Sort(" data ".Array)".  
 
-         # The size of the list to be sorted as a variable. Just to excercise VARs.
+         # The size of the list to be sorted as a variable. Just to exercise VARs.
          VAR data size.
 
          # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
@@ -118,7 +118,7 @@ MODULE powershell kernel.
       PRELUDE initialize data.
    ENDLAY kernel.
 ENDMOD powershell kernel.
-PRELUDE initialize data.
+PRELUDE data.
 
 #=================================================================================
 MODULE quicksort.
@@ -293,7 +293,7 @@ MODULE quicksort.
             get data size+data size,
             show msg no new line+"Running quicksort on list of ", show number+data size, show msg+" elements.",
             start timer, quicksort+lwb+upb, stop timer, show elapsed time,
-            dump data+"Data after sorting: ", verify data sorted+"Quicksorted",
+            dump data+"Data after sorting: ", verify data sorted+"Quicksort-ed",
 
             initialize data,
             show msg+"Running .NET sort on list.",

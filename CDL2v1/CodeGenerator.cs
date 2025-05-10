@@ -216,8 +216,8 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null) {
-         ArgumentSubstitutions subst = new(macro.affixes, args);
+      private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null,ParameterList? paramList = null) {
+         ParameterList subst = new(paramList,macro.affixes, args ?? []);
 
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
@@ -228,19 +228,29 @@ namespace CDL2v1 {
          cg.GenerateMacroBodyEnd(macro);
       }
 
-      private struct ArgumentSubstitution(int i,Affix affix, IActualArg arg) {
+      private struct Parameter(int i,Affix affix, IActualArg arg) {
          public int argNo = i;
          public Affix affix = affix;
          public IActualArg arg = arg;
       }
-      private class ArgumentSubstitutions : List<ArgumentSubstitution> {
-         public ArgumentSubstitutions(List<Affix> affixes, List<IActualArg>? args) : base() {
-            for (int i = 0 ; i < affixes.Count ; i++) {
-               Add(new ArgumentSubstitution(i, affixes[i], args![i]));
+      private class ParameterList : List<Parameter> {
+         private ParameterList() : base() { }
+         public ParameterList(List<Affix> affixes, List<IActualArg> args) : this(null, affixes, args) { }
+         
+         /// <summary>
+         /// Merge the affixes and args into the existing list of parameters.
+         /// </summary>
+         /// <param name="subst"></param>
+         /// <param name="affixes"></param>
+         /// <param name="args"></param>
+         public ParameterList(ParameterList? subst,List<Affix> affixes, List<IActualArg> args) : base() {
+            subst ??= [];
+            for (int i = 0 ; i < affixes.Count ; i++) {               
+               Add(new Parameter(i, affixes[i], args![i] is Affix aff && subst.TryGetValue(aff,out IActualArg? arg) ? arg! : args![i]));
             }
          }
          public bool TryGetValue(Affix affix, out IActualArg? arg) {
-            foreach (ArgumentSubstitution subst in this) {
+            foreach (Parameter subst in this) {
                if (subst.affix == affix) {
                   arg = subst.arg;
                   return true;
@@ -251,7 +261,7 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, ArgumentSubstitutions subst, bool first, IMacroElement elem) {
+      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, ParameterList subst, bool first, IMacroElement elem) {
          switch (elem) {
             case INT i: cg.GenerateMacroElementInt(i.value); break;
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
@@ -332,6 +342,9 @@ namespace CDL2v1 {
       private void GenerateProcedure(Procedure proc, int _) {
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
+         } else if (proc.IsInlineable(reachable)) {
+            GenerateAlgorithmComment(proc);
+            cg.GenerateComment($"Calls of this Procedure are inlined");
          } else {
             IEnumerable<Var> variables = proc.GetReferencedVariables();
             cg.GenerateProcedureStart(proc);
@@ -377,15 +390,15 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast, ArgumentSubstitutions? subst = null) {
+      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast, ParameterList? paramList = null) {
          List<Call> calls = alternative.calls;
          bool canFail = false;
          foreach (Call call in calls) {
-            GenerateCall(proc, call, canFail);
+            GenerateCall(proc, call, canFail,paramList:paramList);
             canFail = canFail || call.CanFail;
          }
          switch (alternative.lastCall.type) {
-            case LCT.Standard: GenerateCall(proc, alternative.lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:isLast); break;
+            case LCT.Standard: GenerateCall(proc, alternative.lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:isLast,paramList); break;
             case LCT.Fail: cg.GenerateFail(proc, group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc, group); break;
             case LCT.Abort: cg.GenerateAbort(proc, group); break;
@@ -404,14 +417,14 @@ namespace CDL2v1 {
       }
 
       private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false, 
-            ArgumentSubstitutions? argSubstitutions = null) {
+            ParameterList? paramList = null) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          Algorithm? called = call.Called;
          if (called is not null) {
             if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
                cg.GenerateComment($"Inlining macro call -> {call}");
                cg.GenerateMacroInlineStart(macro);
-               GenerateMacroBody(macro, proc, call.args);
+               GenerateMacroBody(macro, proc, call.args,paramList);
                cg.GenerateMacroInlineEnd(macro);
             } else {
                Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
@@ -420,14 +433,14 @@ namespace CDL2v1 {
                   //cg.GenerateComment($"Can inline into {proc}: {calledProc.GetInliningParameters(reachable)}");
                   cg.GenerateComment($"Inlining procedure call -> {call}");
                   // cg.IncrementIndent();
-                  GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new ArgumentSubstitutions(calledProc.affixes, call.args));
+                  GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new ParameterList(paramList,calledProc.affixes, call.args));
                   // cg.DecrementIndent();
                   wasNotInlined = false;
                } 
                if (wasNotInlined)  { 
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
-                  argSubstitutions ??= new ArgumentSubstitutions(calledProc.affixes, call.args);
-                  if (argSubstitutions.Count > 0) {
+                  paramList = new ParameterList(paramList,calledProc.affixes, call.args);
+                  if (paramList.Count > 0) {
                      GenerateActualArg(proc, call, calledProc.affixes[0], call.args[0]);
                      for (int i = 1 ; i < call.args.Count ; i++) {
                         cg.GenerateActualArgSeparator();
