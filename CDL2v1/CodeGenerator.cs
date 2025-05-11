@@ -431,6 +431,9 @@ namespace CDL2v1 {
          } else if (proc.IsInlinable(Compiler.Reachable)) {
             GenerateAlgorithmComment(proc);
             cg.GenerateComment($"Procedure inlined");
+         //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Compiler.Reachable).NumberOfTimesCalled == 0) {
+         //   GenerateAlgorithmComment(proc);
+         //   cg.GenerateComment($"Procedure not invoked");
          } else {
             IEnumerable<Var> variables = proc.GetReferencedVariables();
             cg.GenerateProcedureStart(proc);
@@ -545,18 +548,12 @@ namespace CDL2v1 {
                cg.GenerateMacroInlineEnd(macro);
             } else {
                Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
-               bool wasNotInlined = true;
                if (calledProc.IsInlinable(Compiler.Reachable)) {
-                  //cg.GenerateComment($"Can inline into {proc}: {calledProc.GetInliningParameters(reachable)}");
                   cg.GenerateComment($"Inlining procedure call -> {call}");
-                  // cg.IncrementIndent();
                   GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new Parameters(parameters,calledProc.affixes, call.args));
-                  // cg.DecrementIndent();
-                  wasNotInlined = false;
-               } 
-               if (wasNotInlined)  { 
+               } else {
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
-                  parameters = new Parameters(parameters,calledProc.affixes, call.args);
+                  parameters = new Parameters(parameters, calledProc.affixes, call.args);
                   if (parameters.Count > 0) {
                      GenerateActualArg(proc, call, calledProc.affixes[0], call.args[0]);
                      for (int i = 1 ; i < call.args.Count ; i++) {
@@ -584,7 +581,7 @@ namespace CDL2v1 {
             case Var v:
                cg.GenerateCallArgReferenceVar(calledAffix, v, needFinalization: call.Called!.NeedsFinalization);
                break;
-            case ID id: // May be a reference to an affix or local of the calling proc or argAffix const, or argAffix var.
+            case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
                if (proc.TryGetAffix(id,out Affix procAffix)) {
                   cg.GenerateCallArgReferenceAffix(calledAffix, procAffix, needFinalization: call.CanFail);
                } else if (proc.TryGetLocal(id,out Local local)) {

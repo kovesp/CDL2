@@ -95,7 +95,7 @@ namespace CDL2v1 {
 
       public static readonly Note AffixNotRefeenced                 = new(NoteType.Info   , 201, "Affix {0} was not used in procedure {1}");
       public static readonly Note LocalNotReferenced                = new(NoteType.Info   , 202, "Local {0} was not used in procedure {1}");
-      public static readonly Note UnreferenceObject                 = new(NoteType.Info   , 203, "Object is defined but not used in program");
+      public static readonly Note UnreferenceObject                 = new(NoteType.Info   , 203, "Object is defined but not used in program. This may be due to conditional compilation");
 
       public override string ToString() => $"{Type} {Number}: {Text}";
       public override bool Equals(object? obj) => Equals(obj as Note);

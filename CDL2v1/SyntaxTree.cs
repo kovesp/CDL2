@@ -699,7 +699,7 @@ namespace CDL2v1 {
             this.proc = proc;
             MaxInlineCalls = Settings.SettingValue<int>("MaxInlineCalls");
             NumberOfTimesCalled = reachable.ProcedureCalls.TryGetValue(proc.Id, out int n) ? n : 0;
-            NumberOfCallsInProc = proc.group.alternatives[0].calls.Count + 1; ;
+            NumberOfCallsInProc = proc.group.CallCount();
          }
          public override string ToString() 
             => $"Proc {proc.FQDN()} -> MaxInlineCalls: {MaxInlineCalls}, NumberOfTimesCalled: {NumberOfTimesCalled}, NumberOfCallsInProc: {NumberOfCallsInProc}";
@@ -707,6 +707,8 @@ namespace CDL2v1 {
 
       private InliningParameters? inliningParameters = null!;
       public InliningParameters GetInliningParameters(Reachable reachable) => inliningParameters ??= new InliningParameters(this, reachable);//return inliningParameters;
+
+      public int CallCount() => group.CallCount();
 
       /// <summary>
       /// True if this procedure can be inlined by the code generator.
@@ -830,6 +832,9 @@ namespace CDL2v1 {
          if (lastCall.type == LCT.Standard) return lastCall.call;
          return null;
       }
+
+      internal int CallCount() => calls.Count + (lastCall.type == LCT.Standard ? 1 : 0) + (lastCall.type == LCT.Group ? lastCall.group!.CallCount() : 0);
+
       /// <summary>
       /// True if the alternative terminates the algorithm, i.e., its last call is a fail or abort.
       /// No need to check for succeed becasue that is just normal alternative completion.
@@ -860,6 +865,7 @@ namespace CDL2v1 {
          return false;
       }
       public override string ToString() => $"GRP {Id.Name} {alternatives.Count.Plural("ALT")}";
+      internal int CallCount() => alternatives.Sum(alt=>alt.CallCount());
    }
 
 

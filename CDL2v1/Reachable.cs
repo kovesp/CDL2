@@ -90,12 +90,17 @@ namespace CDL2v1 {
       }
       private void CollectReachableObjects(Group proc) {
          // Collect all the objects reachable from this group.
-         foreach (Alternative alt in proc.alternatives) CollectReachableObjects(alt);
+         foreach (Alternative alt in proc.alternatives) if (CollectReachableObjects(alt)) break;
       }
 
-      private void CollectReachableObjects(Alternative alt) {
+      /// <summary>
+      /// Collect all the objects reachable from this alternative.
+      /// </summary>
+      /// <param name="alt"></param>
+      /// <returns>true if this alternative was governed by positive conditional compilatiom, i.e., that subsequent alternatives should <b>not</b> be processed.</returns>
+      private bool CollectReachableObjects(Alternative alt) {
          foreach (Call call in alt.calls) {
-            if (!CollectReachableObjects(call)) return; // Skip the rest of the alternative.
+            if (!CollectReachableObjects(call)) return true; // Skip the rest of the alternative.
          }
          switch (alt.lastCall.type) {
             case LCT.Standard:
@@ -105,6 +110,7 @@ namespace CDL2v1 {
                if (alt.lastCall.group is not null) CollectReachableObjects(alt.lastCall.group);
                break;
          }
+         return alt.IsConditionalCompilationOn;
       }
 
       /// <summary>
