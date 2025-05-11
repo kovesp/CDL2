@@ -40,7 +40,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "SaveDB",              "--save",             false,         "Save the parsed code to a file using JSON"),
          new Setting<bool>(    "ParseOnly",           "--parse-only",       false,         "Do not generate code. Verifies whether the source is syntactically and semantically valid."),
          new Setting<bool>(    "StopOnWarnings",      "--stop-on-warnings", false,         "Stop processing if any warnings are generated."),
-         new Setting<bool>(    "AllowErrors",         "--allow-errors",     false,         "Continue even if there are errors. Mainly for debugging the compiler."),
+         new Setting<bool>(    "AllowErrors",         "--allow-errors",     false,         "Continue even if there are errors. Mainly for debugging the Compiler."),
          new Setting<string?>( "PrettyPrint",         "--pretty-print",     "",            "Pretty print the parsed code. If a value is given, it is assumed to be a file-name, Otherwise output goes to the Debugger.",ArgumentArity.ZeroOrOne),
          new Setting<bool>(    "GenerateDebugInfo",   "--gen-debug-info",   false,         "Generate debug information"),
          new Setting<string?>( "OutputDirectory",     "--output-dir",       null,          "Specify output directory for generated code"),

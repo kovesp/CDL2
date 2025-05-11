@@ -14,7 +14,7 @@ global using PBT = CDL2v1.ProcedureBodyType;
 using System.Text;
 
 namespace CDL2v1 {
-   /// Central place for enumerations that are used across the compiler as well as their abbreviations.
+   /// Central place for enumerations that are used across the Compiler as well as their abbreviations.
    /// This would be called the representation of the CDL2 language.
 
    /// <summary>
@@ -41,9 +41,9 @@ namespace CDL2v1 {
       AFFIXDIR       = 10,
       COLON          = 11,
       LABELSEP       = 11,  // Alias for COLON
-      CODEBODY       = 11,  // Alias for COLON
+      PROCBODY       = 11,  // Alias for COLON
       LISTBOUNDSEP   = 11,  // Alias for COLON
-      INLINECODEBODY = 12,
+      INLINEPROCBODY = 12,
       EQUALS         = 13,
       MACROBODY      = 13,  // Alias for EQUALS
       MACROPROCBODY  = 14,
@@ -108,7 +108,7 @@ namespace CDL2v1 {
       //      BUILTIN is target*"PowerShell", ps add+a+b+c;
       //      BUILTIN is target*"C#", cs add+a+b+c;
       //      add+a+b+c.
-      // With this, the compiler could avoid generating code for the second alternative, and with full flow analysis also avoid generating code for
+      // With this, the Compiler could avoid generating code for the second alternative, and with full flow analysis also avoid generating code for
       // whatever is called from there recursively.
       //   ACTION parse prolog:
       //      BUILTIN is option value*"Prolog Syntax"*"MProlog", parse mprolog;

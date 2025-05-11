@@ -11,7 +11,7 @@ using Microsoft.Win32;
 
 namespace CDL2v1 {
    /// <summary>
-   /// Entrypoint for all data maintanined by the compiler.
+   /// Entrypoint for all data maintanined by the Compiler.
    /// In memory dta holder for a future CDL2 Lab implementation.
    /// </summary>
    [Serializable]

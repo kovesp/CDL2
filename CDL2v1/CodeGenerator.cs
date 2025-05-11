@@ -20,20 +20,17 @@ namespace CDL2v1 {
    /// </summary>
    /// <param Id="cg"></param>
    [Serializable]
-   public class CodeGenerator(ICodeGenerator cg, Reachable reachable, CDL2 compiler) : CompilationPhase(compiler) {
+   public class CodeGenerator(ICodeGenerator cg, CDL2 compiler) : CompilationPhase(compiler) {
       /// <summary>
       /// Target specific code gnerator to use.
       /// </summary>
       private readonly ICodeGenerator cg = cg;
-      private readonly Reachable Reachable = reachable;
 
       /// <summary>
       /// Used to add the CDL2 code to each generated algorithm.
-      /// Will not include the CDL2 comments and Notes associated with CDL2 objects.
+      /// Will <b>not</b> include the CDL2 comments and Notes associated with the algorithms.
       /// </summary>
       private readonly PrettyPrinter sourceCommentPrinter = new(cg.SourceEmitter,includeComments:false);
-
-
 
       /// <summary>
       /// Generate code for the unit and all its modulesWithLudes.
@@ -43,12 +40,12 @@ namespace CDL2v1 {
       /// <param Id="Emitter"></param>
       /// <param Id="isSeparate"></param>
       public void GenerateCode(Program program, EmitterBase emitter, bool isSeparate = false) {
-         foreach (Var var in Reachable.Objects.OfType<Var>()) {
-            if (Reachable.AmbigousVars.Contains(var)) {
+         foreach (Var var in Compiler.Reachable.Objects.OfType<Var>()) {
+            if (Compiler.Reachable.AmbigousVars.Contains(var)) {
                // We know the variable was written to, but we can't tell whther it was read (becasue it was only referenced in an ACTION/PREDICATE macro).
                var.AddNote("CodeGeneration", Note.VariableMayNotHaveBeenRead, var);
                Logger.ReportError($"Variable {var} may not have been read. It was only referenced in an ACTION/PREDICATE macro.");
-            } else if (!Reachable.ReadVars.Contains(var)) {
+            } else if (!Compiler.Reachable.ReadVars.Contains(var)) {
                // It must have been written, but not read.
                var.AddNote("CodeGeneration", Note.VariableNotRead, var);
                Logger.ReportError($"Variable {var} was written to, but never read.");
@@ -61,13 +58,13 @@ namespace CDL2v1 {
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
 
 
-            GenerateObjects<Const>(Reachable.Objects.OfType<Const>(),                                        GenerateConstant);
-            GenerateObjects<Var>(Reachable.Objects.OfType<Var>(),                                            GenerateVar);
-            GenerateObjects<LIST>(Reachable.Objects.OfType<LIST>(),                                          GenerateList);
+            GenerateObjects<Const>(Compiler.Reachable.Objects.OfType<Const>(),                                        GenerateConstant);
+            GenerateObjects<Var>(Compiler.Reachable.Objects.OfType<Var>(),                                            GenerateVar);
+            GenerateObjects<LIST>(Compiler.Reachable.Objects.OfType<LIST>(),                                          GenerateList);
 
-            GenerateObjects<Macro>(Reachable.Objects.OfType<Macro>(),                                        GenerateMacro);
-            GenerateObjects<Procedure>(Reachable.Objects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic), GenerateProcedure);
-            GenerateObjects<Procedure>(Reachable.Objects.OfType<Procedure>().Where(proc=> proc.IsSynthetic), GenerateProcedure, "Synthetic Procedure");
+            GenerateObjects<Macro>(Compiler.Reachable.Objects.OfType<Macro>(),                                        GenerateMacro);
+            GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic), GenerateProcedure);
+            GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc=> proc.IsSynthetic), GenerateProcedure, "Synthetic Procedure");
 
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
@@ -75,6 +72,7 @@ namespace CDL2v1 {
             foreach (RW ludeType in Container.LudeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
             cg.GenerateProgramEnd(program);
          } else {
+            // TODO: Needs work
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
@@ -86,6 +84,10 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Generate the program prelude, root and postlude.
+      /// </summary>
+      /// <param name="program"></param>
       private void GenerateProgramLudes(Program program) {
          foreach (RW ludeType in Container.LudeTypes) {
             IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.Modules[id]).Where(mod => mod.Ludes[ludeType].Count > 0);
@@ -102,7 +104,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="module"></param>
       private void GenerateModule(Module module, bool isSeparate) {
-         void GenerateImpEx<T>(Dictionary<ID,T> impexList, Action<T> generateImpEx) {
+         static void GenerateImpEx<T>(Dictionary<ID,T> impexList, Action<T> generateImpEx) {
             foreach (T impex in impexList.Values) {               
                 generateImpEx(impex);
             }
@@ -121,7 +123,12 @@ namespace CDL2v1 {
 
          cg.GenerateModuleEnd(module, isSeparate);
       }
-
+      /// <summary>
+      /// Generate code for the module ludes. There is aone for each type if it exists.
+      /// </summary>
+      /// <param name="ludeType"></param>
+      /// <param name="module"></param>
+      /// <param name="wrapped"></param>
       private void GenerateModuleLude(RW ludeType, Module module, bool wrapped) {
          IEnumerable<Section?> SectionsWithLudes = module.Ludes[ludeType].Select(id => module.SectionById(id)).Where(sec => sec?.Ludes[ludeType].Count > 0) ?? [];
          if (SectionsWithLudes.Any()) {
@@ -132,7 +139,7 @@ namespace CDL2v1 {
       }
 
       /// <summary> 
-      /// Generate proc for argAffix layer. Typically there is no target proc associated with this.
+      /// Generate proc for a layer. Typically there is no target code associated with the layer itself.
       /// </summary>
       /// <param Id="layer"></param>
       private void GenerateLayer(Layer layer) {
@@ -142,11 +149,10 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Generate argAffix container. Again, there will likely be no target proc associated with argAffix container itself.
-      /// So generate proc for each routine and for the Ludes.
-      /// A lude is just proc with argAffix special Id
+      /// Generate a section. Again, there will likely be no target proc associated with section itself.
+      /// So generate the constants, variables and lists folowed by the algorithms. Macros first, then user procedures and synthetic procdures (the ludes).
       /// </summary>
-      /// <param Id="container"></param>
+      /// <param Id="section"></param>
       private void GenerateSection(Section section) {
          cg.GenerateSectionStart(section);
          GenerateObjects<Const>(section.Constants,                   GenerateConstant);
@@ -160,7 +166,12 @@ namespace CDL2v1 {
          cg.GenerateSectionEnd(section);
       }
 
-      private void GenerateList(LIST list, int maxNameLength) {
+      /// <summary>
+      /// Generate code for a list.
+      /// </summary>
+      /// <param name="list"></param>
+      /// <exception cref="NotImplementedException"></exception>
+      private void GenerateList(LIST list, int _) {
          Section section = (Section)list.Parent!;
          if (section.TryGetDeclaration(list.lwb, out Const? lwb) && section.TryGetDeclaration(list.upb, out Const? upb)) {
             cg.GenerateList(list, lwb!, upb!);
@@ -169,18 +180,37 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateVar(Var v,int maxNameLength) => cg.GenerateVar(v);
+      /// <summary>
+      /// Generate code for a variable.
+      /// </summary>
+      /// <param name="v"></param>
+      private void GenerateVar(Var v,int _) => cg.GenerateVar(v);
 
-      private void GenerateObjects<T>(IEnumerable<NamedElement> items, Action<T,int> generate, string? specialType = null) where T : NamedElement {
+      /// <summary>
+      /// Generate code for a list of objects
+      /// </summary>
+      /// <typeparam name="T">A CDL2Object, so Algorithm, LIST, Var, Const </typeparam>
+      /// <param name="items"></param>
+      /// <param name="generate"></param>
+      /// <param name="specialType"></param>
+      private void GenerateObjects<T>(IEnumerable<NamedElement> items, Action<T,int> generate, string? specialType = null) where T : CDL2Object {
          if (items.Any()) {
+#if AllignNames
             int maxNameLength = items.Select(item=>item.Id.InternalName.Length).Max();
+#else
+            int maxNameLength = 0;
+#endif
             cg.GenerateObjectSectionStart<T>(items, specialType ?? typeof(T).Name);
-            foreach (T item in items) generate(item,maxNameLength);
+            foreach (T item in items.Cast<T>()) generate(item,maxNameLength);
             cg.GenerateObjectSectionEnd<T>(items, typeof(T).Name);
          }
       }
-
-      private void GenerateConstant(Const constant,int maxNameLength) {
+      /// <summary>
+      /// Generate code for a constant.
+      /// </summary>
+      /// <param name="constant"></param>
+      /// <exception cref="NotImplementedException"></exception>
+      private void GenerateConstant(Const constant,int _) {
          Section section = (Section)constant.Parent!;
          cg.GenerateConstantStart(constant);
          foreach (IConstElement elem in constant.elements) {
@@ -200,6 +230,11 @@ namespace CDL2v1 {
          cg.GenerateConstantEnd(constant);
       }
 
+      /// <summary>
+      /// Generate code for a macro.
+      /// </summary>
+      /// <param name="macro"></param>
+      /// <param name="_"></param>
       private void GenerateMacro(Macro macro,int _) {
          if (!Settings.SettingValue<bool>("NoMacroInlining") && macro.IsInlineMacro) {
             GenerateAlgorithmComment(macro);
@@ -216,39 +251,63 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null,ParameterList? paramList = null) {
-         ParameterList subst = new(paramList,macro.affixes, args ?? []);
-
+      /// <summary>
+      /// Generate the body of a macro.
+      /// </summary>
+      /// <param name="macro"></param>
+      /// <param name="callingProc"></param>
+      /// <param name="args"></param>
+      /// <param name="parameters"></param>
+      private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null,Parameters? parameters = null) {
+         parameters = new(parameters,macro.affixes, args ?? []);
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
          foreach (IMacroElement elem in macro.elements) {
-            GenerateMacroElement(macro, macro.Section!,callingProc, subst, first, elem);
+            GenerateMacroElement(macro, macro.Section!,callingProc, parameters, first, elem);
             first = false;
          }
          cg.GenerateMacroBodyEnd(macro);
       }
 
-      private struct Parameter(int i,Affix affix, IActualArg arg) {
-         public int argNo = i;
-         public Affix affix = affix;
-         public IActualArg arg = arg;
-      }
-      private class ParameterList : List<Parameter> {
-         private ParameterList() : base() { }
-         public ParameterList(List<Affix> affixes, List<IActualArg> args) : this(null, affixes, args) { }
-         
+      /// <summary>
+      /// Represents a list of parameters for an Algorithm call.
+      /// </summary>
+      private class Parameters : List<Parameters.Parameter> {
          /// <summary>
-         /// Merge the affixes and args into the existing list of parameters.
+         /// Represents an Algorithm call parameter.
+         /// Maps an affix to the actual argument.
          /// </summary>
-         /// <param name="subst"></param>
+         /// <param name="i">The ordinal of the argument. Not currently used.</param>
+         /// <param name="affix"></param>
+         /// <param name="arg"></param>
+         internal struct Parameter(int i,Affix affix, IActualArg arg) {
+            public int argNo = i;
+            public Affix affix = affix;
+            public IActualArg arg = arg;
+         }
+
+         private Parameters() : base() { }
+
+         /// <summary>
+         /// Construct a parameter list from a list of affixes and actual arguments.
+         /// If an actual argument is an Affix, then it is replaced with the corresponding argument from the parameters list.
+         /// This implements actula args cascaded through multiple procedure inlinings.
+         /// </summary>
+         /// <param name="parameters"></param>
          /// <param name="affixes"></param>
          /// <param name="args"></param>
-         public ParameterList(ParameterList? subst,List<Affix> affixes, List<IActualArg> args) : base() {
-            subst ??= [];
+         public Parameters(Parameters? parameters,List<Affix> affixes, List<IActualArg> args) : base() {
+            parameters ??= [];
             for (int i = 0 ; i < affixes.Count ; i++) {               
-               Add(new Parameter(i, affixes[i], args![i] is Affix aff && subst.TryGetValue(aff,out IActualArg? arg) ? arg! : args![i]));
+               Add(new Parameter(i, affixes[i], args![i] is Affix aff && parameters.TryGetValue(aff,out IActualArg? arg) ? arg! : args![i]));
             }
          }
+         /// <summary>
+         /// Try to get the value of an affix from the list.
+         /// </summary>
+         /// <param name="affix"></param>
+         /// <param name="arg"></param>
+         /// <returns></returns>
          public bool TryGetValue(Affix affix, out IActualArg? arg) {
             foreach (Parameter subst in this) {
                if (subst.affix == affix) {
@@ -260,8 +319,17 @@ namespace CDL2v1 {
             return false;
          }
       }
-
-      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, ParameterList subst, bool first, IMacroElement elem) {
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="macro"></param>
+      /// <param name="section"></param>
+      /// <param name="callingProc"></param>
+      /// <param name="parameters"></param>
+      /// <param name="first"></param>
+      /// <param name="elem"></param>
+      /// <exception cref="NotImplementedException"></exception>
+      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, Parameters parameters, bool first, IMacroElement elem) {
          switch (elem) {
             case INT i: cg.GenerateMacroElementInt(i.value); break;
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
@@ -281,7 +349,7 @@ namespace CDL2v1 {
                }
                break;
             case Affix aff:
-               if (subst.TryGetValue(aff, out IActualArg? arg)) {
+               if (parameters.TryGetValue(aff, out IActualArg? arg)) {
                   Debug.Assert(callingProc is not null, $"GenerateMacro: Calling procedure is null for inlined macro {macro}");
                   switch (arg) {
                      case Var   vv: cg.GenerateMacroElementVar(vv, callingProc.CanFail, inlined: true); break;
@@ -300,7 +368,13 @@ namespace CDL2v1 {
                throw new NotImplementedException($"GenerateMacro: Unknown element type {elem.GetType()}");
          }
       }
-
+      /// <summary>
+      /// Generate the finalizers for all affixes and variables that need it.
+      /// Variables and output and transput affixes can only be modified if the algorithm succeeds. Therefore generated local variables
+      /// are used in the algorithm and the finalizer is used to copy the values from the local variables to the actual affixes and variables.
+      /// </summary>
+      /// <param name="algorithm"></param>
+      /// <param name="variables"></param>
       private void FinalizeAffixesAndVariables(Algorithm algorithm,IEnumerable<Var> variables) {
          cg.GenerateAffixAndVariableFinalizationStart(algorithm);
          if (algorithm.NeedsFinalization) {
@@ -310,6 +384,11 @@ namespace CDL2v1 {
          cg.GenerateAffixAndVariableFinalizationEnd(algorithm);
       }
 
+      /// <summary>
+      /// Generate the header for an algorithm. This includes the affixes and locals that are used in the algorithm.
+      /// </summary>
+      /// <param name="alg"></param>
+      /// <param name="variables"></param>
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
          GenerateAlgorithmComment(alg);
          cg.GenerateAlgorithmHeaderStart(alg);
@@ -329,7 +408,10 @@ namespace CDL2v1 {
          foreach (Local local in alg.locals) cg.GenerateLocal(local);
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
-
+      /// <summary>
+      /// Generate the comment for an algorithm. This is adds the pretty printed text of the algorthm as a comment.
+      /// </summary>
+      /// <param name="alg"></param>
       private void GenerateAlgorithmComment(Algorithm alg) {
          if (!alg.IsSynthetic) {
             sourceCommentPrinter.Print(alg);
@@ -338,13 +420,17 @@ namespace CDL2v1 {
             cg.GenerateComment(alg.ToString());
          }
       }
-
+      /// <summary>
+      /// Generate the code for a procedure.
+      /// If the procedures is conditioanl compilation or it is inlined, only the algorithm comment is generated.
+      /// </summary>
+      /// <param name="proc"></param>
       private void GenerateProcedure(Procedure proc, int _) {
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
-         } else if (proc.IsInlineable(reachable)) {
+         } else if (proc.IsInlinable(Compiler.Reachable)) {
             GenerateAlgorithmComment(proc);
-            cg.GenerateComment($"Calls of this Procedure are inlined");
+            cg.GenerateComment($"Procedure inlined");
          } else {
             IEnumerable<Var> variables = proc.GetReferencedVariables();
             cg.GenerateProcedureStart(proc);
@@ -357,10 +443,15 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Generate the body of a procedure.
+      /// </summary>
+      /// <param name="proc"></param>
       private void GenerateProcedureBody(Procedure proc) => GenerateAlternatives(proc, proc.group);
       /// <summary>
       /// Generate the alternatives for argAffix procedure.
       /// This method manages the conditional compilation of the alternatives based on whether the first call in the altarnative is conditional compilation on or off.
+      /// TODO: Currently only single level of conditonal compilation is handled.
       /// If it is off, then no code is generated for that alternative.
       /// If it is on, then that alternative is generated, but all later alternatives are skipped.
       /// </summary>
@@ -389,16 +480,24 @@ namespace CDL2v1 {
             i++;
          }
       }
-
-      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast, ParameterList? paramList = null) {
+      /// <summary>
+      /// Generate the code for an alternative.
+      /// </summary>
+      /// <param name="proc"></param>
+      /// <param name="group"></param>
+      /// <param name="alternative"></param>
+      /// <param name="isLast"></param>
+      /// <param name="parameters"></param>
+      /// <exception cref="NotImplementedException"></exception>
+      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast, Parameters? parameters = null) {
          List<Call> calls = alternative.calls;
          bool canFail = false;
          foreach (Call call in calls) {
-            GenerateCall(proc, call, canFail,paramList:paramList);
+            GenerateCall(proc, call, canFail,parameters:parameters);
             canFail = canFail || call.CanFail;
          }
          switch (alternative.lastCall.type) {
-            case LCT.Standard: GenerateCall(proc, alternative.lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:isLast,paramList); break;
+            case LCT.Standard: GenerateCall(proc, alternative.lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:isLast,parameters); break;
             case LCT.Fail: cg.GenerateFail(proc, group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc, group); break;
             case LCT.Abort: cg.GenerateAbort(proc, group); break;
@@ -409,38 +508,56 @@ namespace CDL2v1 {
                throw new NotImplementedException($"GenerateAlternative: Unknown last call type {alternative.lastCall.type}");
          }
       }
-
+      /// <summary>
+      /// Generate the code for a group.
+      /// </summary>
+      /// <param name="proc"></param>
+      /// <param name="group"></param>
       private void GenerateGroup(Procedure proc,Group group) {
          cg.GenerateGroupStart(proc,group);
          GenerateAlternatives(proc, group);
          cg.GenerateGroupEnd(proc,group);
       }
-
-      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false, 
-            ParameterList? paramList = null) {
+      /// <summary>
+      /// Generate the code for a call.
+      /// There are three main cases:
+      /// <ol>
+      /// <li>Inlined macros: macros with '=' body type.</li>
+      /// <li>Inlined procedures: procedures that are inlineable or have ':=' body type.</li>
+      /// <li>Actual calls on procedures that have ':" body type and are not inlinable and macros that have '=:' body type.</li>
+      /// </ol>
+      /// </summary>
+      /// <param name="proc"></param>
+      /// <param name="call"></param>
+      /// <param name="canFail"></param>
+      /// <param name="onlyCallInAlternative"></param>
+      /// <param name="lastAlternative"></param>
+      /// <param name="parameters"></param>
+      /// <exception cref="NotImplementedException"></exception>
+      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false,Parameters? parameters = null) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          Algorithm? called = call.Called;
          if (called is not null) {
             if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
                cg.GenerateComment($"Inlining macro call -> {call}");
                cg.GenerateMacroInlineStart(macro);
-               GenerateMacroBody(macro, proc, call.args,paramList);
+               GenerateMacroBody(macro, proc, call.args,parameters);
                cg.GenerateMacroInlineEnd(macro);
             } else {
                Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
                bool wasNotInlined = true;
-               if (calledProc.IsInlineable(reachable)) {
+               if (calledProc.IsInlinable(Compiler.Reachable)) {
                   //cg.GenerateComment($"Can inline into {proc}: {calledProc.GetInliningParameters(reachable)}");
                   cg.GenerateComment($"Inlining procedure call -> {call}");
                   // cg.IncrementIndent();
-                  GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new ParameterList(paramList,calledProc.affixes, call.args));
+                  GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new Parameters(parameters,calledProc.affixes, call.args));
                   // cg.DecrementIndent();
                   wasNotInlined = false;
                } 
                if (wasNotInlined)  { 
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
-                  paramList = new ParameterList(paramList,calledProc.affixes, call.args);
-                  if (paramList.Count > 0) {
+                  parameters = new Parameters(parameters,calledProc.affixes, call.args);
+                  if (parameters.Count > 0) {
                      GenerateActualArg(proc, call, calledProc.affixes[0], call.args[0]);
                      for (int i = 1 ; i < call.args.Count ; i++) {
                         cg.GenerateActualArgSeparator();

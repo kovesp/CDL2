@@ -11,15 +11,15 @@ using static CDL2v1.TokenList;
 
 namespace CDL2v1 {
    /// <summary>
-   /// Base class for compiler phases Parser and SemanticAnalyzer.
+   /// Base class for Compiler phases Parser and SemanticAnalyzer.
    /// Used to keep track of errors and warnings.
    /// </summary>
    public abstract class CompilationPhase {
-      protected readonly CDL2 compiler;
+      protected readonly CDL2 Compiler;
 
       public CompilationPhase(CDL2 compiler) {
-         this.compiler = compiler;
-         compiler.CompilationPhase = this;
+         Compiler = compiler;
+         Compiler.CompilationPhase = this;
          PhaseName = GetType().Name;
       }
 
@@ -95,7 +95,7 @@ namespace CDL2v1 {
    }
 
    /// <summary>
-   /// The CDL2 compiler. A singleton.
+   /// The CDL2 Compiler. A singleton.
    /// Processes command line options and compiles the source files.
    /// </summary>
    [Serializable]
@@ -197,7 +197,7 @@ namespace CDL2v1 {
                      string targetFileName = Path.ChangeExtension(args[0], cg.FileExtension);
                      EmitterBase emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true };
                      Log(0, $"Generating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
-                     codeGenerator = new CodeGenerator(cg, Reachable, Compiler);
+                     codeGenerator = new CodeGenerator(cg,Compiler);
                      codeGenerator.GenerateCode(MainProgram, emitter);
                      emitter.Close();
                   } else {

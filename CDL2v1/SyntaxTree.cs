@@ -671,7 +671,7 @@ namespace CDL2v1 {
       /// </summary>
       public bool repeatsProcedure = false;
 
-      public Procedure(RW ludeType,Section section) : this(ID.From(ludeType),[],[],Token.ACTIONToken,TT.CODEBODY,section,true) { } // Used for container Ludes which are parameterless actions with no locals.
+      public Procedure(RW ludeType,Section section) : this(ID.From(ludeType),[],[],Token.ACTIONToken,TT.PROCBODY,section,true) { } // Used for container Ludes which are parameterless actions with no locals.
       public override IEnumerable<Var> GetReferencedVariables() {
          Set<Var> variables = [];
          CollectReferencedVariables(group,variables);
@@ -701,39 +701,34 @@ namespace CDL2v1 {
             NumberOfTimesCalled = reachable.ProcedureCalls.TryGetValue(proc.Id, out int n) ? n : 0;
             NumberOfCallsInProc = proc.group.alternatives[0].calls.Count + 1; ;
          }
-         public override string ToString() {
-            return $"Proc {proc.FQDN()} -> MaxInlineCalls: {MaxInlineCalls}, NumberOfTimesCalled: {NumberOfTimesCalled}, NumberOfCallsInProc: {NumberOfCallsInProc}";
-         }
+         public override string ToString() 
+            => $"Proc {proc.FQDN()} -> MaxInlineCalls: {MaxInlineCalls}, NumberOfTimesCalled: {NumberOfTimesCalled}, NumberOfCallsInProc: {NumberOfCallsInProc}";
       }
 
       private InliningParameters? inliningParameters = null!;
-      public InliningParameters GetInliningParameters(Reachable reachable) {
-         if (inliningParameters == null) {
-            inliningParameters = new InliningParameters(this, reachable);
-         }
-         return inliningParameters;
-      }
+      public InliningParameters GetInliningParameters(Reachable reachable) => inliningParameters ??= new InliningParameters(this, reachable);//return inliningParameters;
 
       /// <summary>
-      /// This procedure can be inlined by the code generator.
-      /// May be parametrizable later, for now it is fixed.
+      /// True if this procedure can be inlined by the code generator.
       /// Current implemenation:
       /// The procedure has a single alternative conssiting of calls only where only the last call can fail (in which case, of course, the procedure can fail).
-      /// Then if the procedure contains only a single call or it is called only once, it is always inlineable.
+      /// Then if the procedure was marked for inlining OR contains only a single call or it is called only once, it is always inlineable.
+      /// Otherwise let n = the number of times it is called, m = the number of calls in the procedure.
+      /// It is inlinable if n*m <= the threshold specified in the settings.
+      /// <param name="reachable">The reachability graph.</param>
       /// </summary>
-      public bool IsInlineable(Reachable reachable) {
+      public bool IsInlinable(Reachable reachable) {
          if (Settings.SettingValue<bool>("NoProcInlining")) return false;
          if (IsConditionalCompilationOff || IsConditionalCompilationOn) return false;  // Handled explictily by the code generator.
          Alternative alternative = group.alternatives[0];
          if (group.alternatives.Count != 1 || alternative.lastCall.type != LCT.Standard) return false;
+         if (alternative.calls.Any(call => call.CanFail)) return false;
 
-         int numberOfTimesCalled = GetInliningParameters(reachable).NumberOfTimesCalled;
-         int numberOfCallsInProc = GetInliningParameters(reachable).NumberOfCallsInProc;
-         if (alternative.calls.All(call=> !call.CanFail)) {
-            if (numberOfCallsInProc == 1 || numberOfTimesCalled <= 1 || numberOfTimesCalled * numberOfCallsInProc <= Settings.SettingValue<int>("MaxInlineCalls")) return true;
-         }
-         
-         return false;
+         // The procedure meets the basic criteria for inlinabilty. Apply inlining parameters if appropriate.
+         return   bodyType == TT.INLINEPROCBODY ||
+                  GetInliningParameters(reachable).NumberOfCallsInProc == 1 ||
+                  GetInliningParameters(reachable).NumberOfTimesCalled <= 1 ||
+                  GetInliningParameters(reachable).NumberOfTimesCalled * GetInliningParameters(reachable).NumberOfCallsInProc <= Settings.SettingValue<int>("MaxInlineCalls");
       }
 
    }
@@ -744,7 +739,7 @@ namespace CDL2v1 {
       public readonly List<IActualArg> args = [];
       public readonly Procedure ContainingProc = containingProc;
       /// <summary>
-      /// Set for compiler procedures that are evaluated at code generation time.
+      /// Set for Compiler procedures that are evaluated at code generation time.
       /// </summary>
       public readonly bool IsBuiltin = builtin;
 

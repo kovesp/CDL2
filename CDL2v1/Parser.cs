@@ -96,7 +96,7 @@ namespace CDL2v1 {
       /// <exception cref="Exception"></exception>
       internal void Parse(string filePath) {
          this.tokens = new TokenList(ReportInvalidToken);
-         (Lexer = new LexicalAnalyzer(compiler,tokens)).Tokenize(filePath);
+         (Lexer = new LexicalAnalyzer(Compiler,tokens)).Tokenize(filePath);
          //tokens.SetOptions(TokenList.Options.ThrowOnUnexpectedToken); 
 
          Logger.logger.ErrorAction = SkipToNextEnd;
@@ -163,14 +163,14 @@ namespace CDL2v1 {
       /// This implementation uses the implementation favoured by the CDL2 lab, i.e., that a PROGRAM is required to specify the participating modules.
       /// The PROGRAM Ludes specify modules, such modules must have corresponding Ludes which specify sections, and the sections have Ludes specifying the algorithms to call.
       /// 
-      /// The CDL2 compiler required that only a single module have Ludes.
+      /// The CDL2 Compiler required that only a single module have Ludes.
       /// 
       /// This implementation therefore will:
       /// * If there is a PROGRAM, follow the CDL2 lab convention.
-      /// * Otherwise it will follow the CD2 compiler convention.
+      /// * Otherwise it will follow the CD2 Compiler convention.
       /// 
       /// THis is irrelevant for parsing, it will be handled in the semantic analysis.
-      /// TODO: Semantic analysis to enforce CDL2 lab or compiler convention.
+      /// TODO: Semantic analysis to enforce CDL2 lab or Compiler convention.
       /// </summary>
       /// <param Id="moduleId">The ID (Id) of the module.</param>
       private void ParseModule(ID moduleId,string? comments,Notes notes) {
@@ -247,7 +247,7 @@ namespace CDL2v1 {
          ParseLudes(currentSection);
       }
 
-      private static readonly List<TT> bodyTypes = [TT.INLINECODEBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.CODEBODY];
+      private static readonly List<TT> bodyTypes = [TT.INLINEPROCBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
       private void ParseAlgorithm(Notes notes) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
@@ -269,7 +269,7 @@ namespace CDL2v1 {
                Set<Local>? locals = ParseLocals();
                if (locals == null) return;
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {                  
-                  if (bodyType.type == TT.CODEBODY || bodyType.type == TT.INLINECODEBODY) {
+                  if (bodyType.type == TT.PROCBODY || bodyType.type == TT.INLINEPROCBODY) {
                      // Parse the code body
                      algorithm = new Procedure(id,formals,locals,algType,bodyType.type,currentSection);
                      algorithm.AddNotes(PhaseName, notes);
