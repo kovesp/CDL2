@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -11,11 +12,12 @@ namespace CDL2v1 {
    [Serializable]
    //[JsonConverter(typeof(IDJsonConverter))]
    public class ID : IConstElement, IMacroElement, IActualArg {
-      [JsonInclude]
+      [JsonIgnore]
       public string InternalName = string.Empty;
       [JsonInclude]
       public string Name = string.Empty;
 
+      [JsonIgnore]
       public ID Id => this;
 
       public static void Dump() {
@@ -55,7 +57,6 @@ namespace CDL2v1 {
       public readonly static ID ErrorID = new("ERROR");
       public readonly static ID AnonID = new("Anon");
 
-      //[JsonConstructor]
       public ID() { }
       public ID(string name) {
          Name = name;
@@ -72,53 +73,76 @@ namespace CDL2v1 {
          InternalName = newName.Trim().Replace(" ","");
       }
 
-      public override bool Equals(object? obj) => obj is ID id && Name == id.Name && InternalName == id.InternalName;
-      public override int GetHashCode() => HashCode.Combine(InternalName,Name);
+      public override bool Equals(object? obj) => obj is ID id && Name == id.Name /*&& InternalName == id.InternalName*/ ;
+      public override int GetHashCode() => HashCode.Combine(/*InternalName,*/Name);
       public override string ToString() => Name;
  
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator !=(ID left,ID right) => !(left == right);
    }
 
-#if JSONSerialize
-   public class IDJsonConverter : JsonConverter<ID> {
-      public override ID Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
+   [Serializable]
+   public class IDDictionary<V> : Dictionary<ID, V> { }
+   [Serializable]
+   public class IDSet : Set<ID> { }
+   public class IDDictionaryJsonConverter<V> : JsonConverter<IDDictionary<V>> {
+      public override IDDictionary<V> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         //var dictionary = new Database.StringDictionary<V>();
+         var dictionary = new IDDictionary<V>();
+
          if (reader.TokenType != JsonTokenType.StartObject)
             throw new JsonException();
 
-         string internalName = string.Empty;
-         string name = string.Empty;
-
          while (reader.Read()) {
-            if (reader.TokenType == JsonTokenType.EndObject) {
-               return new ID(name) { /*InternalName = internalName */ };
-            }
-
-            if (reader.TokenType == JsonTokenType.PropertyName) {
-               string propertyName = reader.GetString();
-               reader.Read();
-
-               switch (propertyName) {
-                  case nameof(ID.InternalName):
-                     internalName = reader.GetString();
-                     break;
-                  case nameof(ID.Name):
-                     name = reader.GetString();
-                     break;
-               }
-            }
+            if (reader.TokenType == JsonTokenType.EndObject) break;
+            // Read the key as a string
+            string keyString = reader.GetString()!;
+            // Read the value
+            reader.Read();
+            dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<V>(ref reader, options)!;
          }
-
-         throw new JsonException();
+         return dictionary;
       }
 
-      public override void Write(Utf8JsonWriter writer,ID value,JsonSerializerOptions options) {
+      public override void Write(Utf8JsonWriter writer, IDDictionary<V> value, JsonSerializerOptions options) {
          writer.WriteStartObject();
-         //writer.WriteString(nameof(ID.InternalName),value.InternalName);
-         writer.WriteString(nameof(ID.Name),value.Name);
+         foreach (ID key in value.Keys) {
+            Debug.WriteLine($"{key} -> {value[key]}");
+            writer.WritePropertyName(key.Name);
+            try {
+               JsonSerializer.Serialize(writer, value[key], options);
+            } catch (Exception e) {
+               writer.Flush();
+               writer.Dispose();
+               Debugger.Break();
+            }
+         }
          writer.WriteEndObject();
       }
    }
-#endif // JSONSerialize
+
+   public class IDSetJsonConverter : JsonConverter<IDSet> {
+      public override IDSet Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         var set = new IDSet();
+         if (reader.TokenType != JsonTokenType.StartArray)
+            throw new JsonException();
+
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndArray) break;
+            // Read the key as a string
+            string keyString = reader.GetString()!;
+            set.Add(ID.From(keyString));
+         }
+         return set;
+      }
+
+      public override void Write(Utf8JsonWriter writer, IDSet value, JsonSerializerOptions options) {
+         writer.WriteStartArray();
+         foreach (ID key in value) {
+            writer.WriteStringValue(key.Name);
+         }
+         writer.WriteEndArray();
+      }
+   }
 
 }

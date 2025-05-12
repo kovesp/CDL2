@@ -206,12 +206,14 @@ namespace CDL2v1 {
       /// <param Id="ludeType"></param>
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
       public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => Database.Instance.Modules[id]);
-      public Set<ID> Parts { get; } = [];
+      [JsonInclude]
+      public IDSet Parts = [];
       public IEnumerable<Module> Modules => Parts.Select(id => Database.Instance.Modules.TryGetValue(id,out Module? mod) ? mod : null).Where(mod=>mod != null)!;
       /// <summary>
       /// Maps all identifiers exported by the modules in the program to the exporting module.
       /// </summary>
-      public readonly Dictionary<ID, IExportable> Exports = [];
+      [JsonInclude]
+      public readonly IDDictionary<IExportable> Exports = [];
       /// <summary>
       /// Program Ludes are a list of module IDs.
       /// </summary>
@@ -277,7 +279,7 @@ namespace CDL2v1 {
       /// <summary>
       /// The visible objects in this layer, i.e, the Consts and Algorithms extended in the sections of this layer and abstracted in the sections of the ancestor.
       /// </summary>
-      public Dictionary<ID, IProvidable> Visible { get; } = []; 
+      public IDDictionary<IProvidable> Visible { get; } = []; 
    }
 
    /// <summary>
@@ -452,10 +454,13 @@ namespace CDL2v1 {
    /// </summary>
    [Serializable]
    public abstract class Algorithm : CDL2Object, IProvidable, IImportable, IExportable {
-      // public readonly SectionById container = container;
+      [JsonInclude]
       public          RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
+      [JsonInclude]
       public readonly TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
-      public readonly List<Affix> affixes;         // The affixes of this algorithm. A List because they are ordered.       
+      [JsonInclude]
+      public readonly List<Affix> affixes;         // The affixes of this algorithm. A List because they are ordered.
+      [JsonInclude]
       public readonly Set<Local> locals;           // The Declarations variables of this algorithm.
 
 
@@ -610,6 +615,7 @@ namespace CDL2v1 {
    /// <param Id="container"></param>
    [Serializable]
    public class Macro(ID id,List<Affix> formals,Set<Local> locals,Token algorithmType,TT bodyType,Section section) : Algorithm(id,formals,locals,algorithmType,bodyType,section) {
+      [JsonInclude]
       public List<IMacroElement> elements = [];
 
       public override IEnumerable<Var> GetReferencedVariables() => elements.OfType<Var>();
@@ -982,7 +988,6 @@ namespace CDL2v1 {
    [Serializable]
    public class Local(ID id) : NamedElement(id), IMacroElement, IActualArg, ITrackedVar {
       public static readonly Local Default = new(ID.AnonID);
-
       override public string ToString() => $"-{Id.Name}";
    }
 

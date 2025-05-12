@@ -1,4 +1,5 @@
-﻿using System;
+﻿#define SaveAsJSON
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,6 +9,9 @@ using System.Xml.Serialization;
 using System.Text.Json.Serialization;
 using System.Text.Json;
 using Microsoft.Win32;
+using System.Diagnostics.CodeAnalysis;
+using System.Collections;
+using System.Diagnostics;
 
 namespace CDL2v1 {
    /// <summary>
@@ -23,11 +27,11 @@ namespace CDL2v1 {
       public static Database Instance { get; private set; } = new Database();
 
       [JsonInclude]
-      public readonly Dictionary<ID,Program> Programs = [];       // Contains all the programs in the syntax tree.
+      public readonly IDDictionary<Program> Programs = [];       // Contains all the programs in the syntax tree.
       [JsonInclude]
       public Program? FirstProgram = null;                        // The first program in the syntax tree.
       [JsonInclude]
-      public readonly Dictionary<ID,Module> Modules = [];         // Contains all the modules in the syntax tree.
+      public readonly Dictionary<ID, Module> Modules = [];         // Contains all the modules in the syntax tree.
 
       /// <summary>
       /// When a note is added to an element, the element is also added here.
@@ -42,7 +46,7 @@ namespace CDL2v1 {
       /// Used to ensure that multiple spellings of tokens produce the same ID.
       /// </summary>
       [JsonInclude]
-      public readonly Dictionary<string,ID> UniqueIDs = [];
+      public readonly Dictionary<string, ID> UniqueIDs = [];
 
 #if GroupCounter
       public long labelCounter = 0;
@@ -58,7 +62,7 @@ namespace CDL2v1 {
       public static ID NextGroupLabel => ID.AnonID;
 #endif // GroupCounter
 
-      internal Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)),out Program? program) ? program : null;
+      internal Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)), out Program? program) ? program : null;
 
 #if SaveAsXML
       public static void SaveXML(string filePath) {
@@ -72,18 +76,93 @@ namespace CDL2v1 {
       }
 #endif // SaveAsXML
 #if SaveAsJSON
-      public Dictionary<ID,string> test = new() {
-            { ID.ErrorID,"ErrorID" },
-            { ID.AnonID,"AnonID" },
-         };
-      private static readonly JsonSerializerOptions serializationOptions = new() { WriteIndented = true };
-      //public static void SaveJSON(string filePath) => File.WriteAllText(Path.ChangeExtension(filePath,"JSON"),JsonSerializer.Serialize(Instance,serializationOptions));
-      public static void SaveJSON(string filePath) {
 
-         string json = JsonSerializer.Serialize(Instance.FirstProgram,serializationOptions);
-         Program prog = JsonSerializer.Deserialize<Program>(json);
+      //public class StringDictionary<V> : Dictionary<string, V> { }
+
+      //public class IDDictionary<V> /*: IDictionary<ID,V>*/ {
+      //   [JsonInclude]
+      //   public StringDictionary<V> Dictionary = [];
+      //   //private List<ID> keys = [];
+
+      //   public IDDictionary() { }
+      //   public IDDictionary(Dictionary<ID, V> dictionary) {
+      //      foreach (ID key in dictionary.Keys) Add(key, dictionary[key]);
+      //   }
+      //   public IDDictionary(Dictionary<string, V> dictionary) => Dictionary = dictionary as StringDictionary<V>;
+      //   public IDDictionary(StringDictionary<V> dictionary) => Dictionary = dictionary;
+
+
+
+      //   public ICollection<ID> Keys => [.. Dictionary.Keys.Select(k => ID.From(k))];
+
+      //   public ICollection<V> Values => Dictionary.Values;
+      //   public int Count => Dictionary.Count;
+      //   public bool IsReadOnly => false;
+
+      //   //public Dictionary<string, V> ToSerializableDictionary()
+      //   //    => Dictionary.ToDictionary(kvp => kvp.Key.Name, kvp => kvp.Value);
+
+      //   //public void FromSerializableDictionary(Dictionary<string, V> serializableDictionary) 
+      //   //   => Dictionary = serializableDictionary.ToDictionary(kvp => ID.From(kvp.Key), kvp => kvp.Value);
+
+      //   public void Clear() => Dictionary.Clear();
+      //   public void Add(ID key, V value) {
+      //      //keys.Add(key);
+      //      Dictionary.Add(key.InternalName, value);
+      //   }
+      //   public bool ContainsKey(ID key) => Dictionary.ContainsKey(key.InternalName);
+      //   public bool Remove(ID key) => Dictionary.Remove(key.InternalName);
+      //   public bool TryGetValue(ID key, [MaybeNullWhen(false)] out V value) => Dictionary.TryGetValue(key.InternalName, out value);
+      //   public void Add(KeyValuePair<ID, V> item) => Add(item.Key, item.Value);
+      //   public bool Contains(KeyValuePair<ID, V> item) => Dictionary.Contains(new(item.Key.InternalName, item.Value));
+      //   //public void CopyTo(KeyValuePair<ID, V>[] array, int arrayIndex) => throw new NotImplementedException();
+      //   //public bool Remove(KeyValuePair<ID, V> item) => throw new NotImplementedException();
+      //   //public IEnumerator<KeyValuePair<ID, V>> GetEnumerator() => throw new NotImplementedException();
+      //   //IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+      //   public V this[ID key] {
+      //      get => Dictionary[key.InternalName];
+      //      set => Dictionary[key.InternalName] = value;
+      //   }
+      //}
+
+      //[JsonInclude]
+      //[JsonConverter(typeof(IDDictionaryJsonConverter<string>))]
+      //public static IDDictionary<string> test = new(new Dictionary<ID, string> {
+      //     { ID.ErrorID, "ErrorID" },
+      //     { ID.AnonID, "AnonID" }
+      //   });
+      //[JsonConverter(typeof(IDDictionaryJsonConverter<string>))]
+      public static IDDictionary<string> test = new() {
+           { ID.ErrorID, "ErrorID" },
+           { ID.AnonID, "AnonID" }
+         };
+
+
+      private static readonly JsonSerializerOptions serializationOptions = new() { 
+         WriteIndented = true,
+         Converters = { 
+            new IDDictionaryJsonConverter<string>(),
+            new IDDictionaryJsonConverter<Program>(),
+            new IDDictionaryJsonConverter<IProvidable>(),
+            new IDSetJsonConverter(),
+         }, 
+         ReferenceHandler = ReferenceHandler.Preserve 
+       };
+      public static void SaveJSON(string filePath) {
+         string path = Path.ChangeExtension(filePath, "JSON");
+
+         string json = JsonSerializer.Serialize(Database.Instance.Programs, serializationOptions);
+         Debug.WriteLine(json);
+         File.WriteAllText(path, json);
+
+         //test.Clear();
+
+         json = File.ReadAllText(path);
+         var progs = JsonSerializer.Deserialize<IDDictionary<Program>>(json, serializationOptions);
 
       }
+
 
       public static void LoadJSON(string filePath) => Instance = JsonSerializer.Deserialize<Database>(File.ReadAllText(Path.ChangeExtension(filePath,"JSON")))!;
 #endif // SaveAsJSON
@@ -99,4 +178,5 @@ namespace CDL2v1 {
       public static void Load(string filePath) { }
 #endif
    }
+
 }
