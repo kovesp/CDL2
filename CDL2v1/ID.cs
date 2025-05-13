@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using System.IO;
 using System.Linq.Expressions;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -9,8 +11,6 @@ namespace CDL2v1 {
    /// Represents a reference to a named syntactic element, Arg or Local in the syntax tree.
    /// It contains the token it was created from.
    /// </summary>
-   [Serializable]
-   //[JsonConverter(typeof(IDJsonConverter))]
    public class ID : IConstElement, IMacroElement, IActualArg {
       [JsonIgnore]
       public string InternalName = string.Empty;
@@ -81,13 +81,10 @@ namespace CDL2v1 {
       public static bool operator !=(ID left,ID right) => !(left == right);
    }
 
-   [Serializable]
    public class IDDictionary<V> : Dictionary<ID, V> { }
-   [Serializable]
    public class IDSet : Set<ID> { }
    public class IDDictionaryJsonConverter<V> : JsonConverter<IDDictionary<V>> {
       public override IDDictionary<V> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-         //var dictionary = new Database.StringDictionary<V>();
          var dictionary = new IDDictionary<V>();
 
          if (reader.TokenType != JsonTokenType.StartObject)
@@ -105,15 +102,15 @@ namespace CDL2v1 {
       }
 
       public override void Write(Utf8JsonWriter writer, IDDictionary<V> value, JsonSerializerOptions options) {
+         //Debug.WriteLine($"Write(IDDictionary<{typeof(V)}>)");
          writer.WriteStartObject();
          foreach (ID key in value.Keys) {
-            Debug.WriteLine($"{key} -> {value[key]}");
+            //Debug.WriteLine($"{key} -> {value[key]}");
             writer.WritePropertyName(key.Name);
             try {
                JsonSerializer.Serialize(writer, value[key], options);
             } catch (Exception e) {
-               writer.Flush();
-               writer.Dispose();
+               Debug.WriteLine(e.Message);
                Debugger.Break();
             }
          }

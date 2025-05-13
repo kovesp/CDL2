@@ -22,7 +22,6 @@ namespace CDL2v1 {
    /// <summary>
    /// Formatted printing of the parse tree.
    /// </summary>
-   [Serializable]
    public class PrettyPrinter {
       private const int DEFAULT_LINE_LENGTH          = 100;
       private const int DEFAULT_INDENT_MULTIPLIER    = 3;
@@ -192,7 +191,7 @@ namespace CDL2v1 {
          { typeof(Section),new (RW.SECTION, RW.ENDSEC)},
       };
 
-      public void Print(Dictionary<ID,Program> programs,Dictionary<ID,Module> modules) {
+      public void Print(IDDictionary<Program> programs,IDDictionary<Module> modules) {
          Emitter.BeginUpdate();
          foreach (Program program in programs.Values) Print(program);
          foreach (Module module in modules.Values) Print(module);

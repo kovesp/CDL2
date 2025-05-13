@@ -592,7 +592,7 @@ namespace CDL2v1 {
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
                //ID id = ID.From(elemId);
-               //if (currentSection.Declarations.TryGetValue(id,out CDL2Object? value)) {
+               //if (currentSection.Declarations.GetElement(id,out CDL2Object? value)) {
                //   // The ID is already declared in this container. It can only be a constant or undeclared.
                //   // That will be true even if it is invoked or imported.
                //   Debug.Assert(value is Const || value is Undeclared);
@@ -694,7 +694,7 @@ namespace CDL2v1 {
       /// <param Id="idList"></param>
       /// <param Id="idList2"></param>
       /// <param Id="processID"></param>
-      private void ParseIDDeclarationList(Dictionary<ID,CDL2Object> idList,string comments,Func<ID,CDL2Object?> processID,Notes notes) {
+      private void ParseIDDeclarationList(IDDictionary<CDL2Object> idList,string comments,Func<ID,CDL2Object?> processID,Notes notes) {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());

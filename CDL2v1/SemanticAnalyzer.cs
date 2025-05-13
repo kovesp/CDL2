@@ -52,7 +52,6 @@ namespace CDL2v1 {
    ///    subject. References in procedures to constants, variables, affixes and locals are resolved.
    ///    d. Procedures are consistent with respect to their declared type and dataflow rules are kept.
    /// </summary>
-   [Serializable]
    public class SemanticAnalyzer(CDL2 compiler) : CompilationPhase(compiler) {
       /// <summary>
       /// Analyze the given program.
@@ -178,7 +177,7 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeProgram(Program program) {
-         Dictionary<ID, Module> validModules = [];
+         IDDictionary<Module> validModules = [];
          Log(3, $"Analyzing module presence of {program.ContainerName}");
          foreach (ID modId in program.Parts) {
             if (Database.Instance.Modules.TryGetValue(modId, out Module? mod)) {
@@ -337,7 +336,7 @@ namespace CDL2v1 {
       /// <param name="kind"></param>
       /// <param name="interfaceElements"></param>
       /// <param name="providables"></param>
-      private void AnalyzeProvidedInterfaces(Section section, RW kind, Set<ID> interfaceElements, Dictionary<ID, IProvidable>? providables) {
+      private void AnalyzeProvidedInterfaces(Section section, RW kind, Set<ID> interfaceElements, IDDictionary<IProvidable>? providables) {
          if (providables == null && interfaceElements.Count > 0) AddNote(section, Note.AbstractionsInTopLayer);
          foreach (ID elemId in interfaceElements) {
             if (section.Declarations.TryGetValue(elemId,out CDL2Object? decl)) {

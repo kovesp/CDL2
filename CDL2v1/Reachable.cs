@@ -28,7 +28,7 @@ namespace CDL2v1 {
       } = [];
       public Set<CDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
 
-      public Dictionary<ID, int> ProcedureCalls = []; // The number of times a procedure is called
+      public IDDictionary<int> ProcedureCalls = []; // The number of times a procedure is called
 
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
       public Set<ITrackedVar> ReadVars { get;  private set; } = [];

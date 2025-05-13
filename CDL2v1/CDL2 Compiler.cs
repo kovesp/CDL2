@@ -98,7 +98,6 @@ namespace CDL2v1 {
    /// The CDL2 Compiler. A singleton.
    /// Processes command line options and compiles the source files.
    /// </summary>
-   [Serializable]
    public partial class CDL2 {
       public static readonly string Version = "1.0.0";
 

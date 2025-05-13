@@ -19,7 +19,6 @@ namespace CDL2v1 {
    /// 
    /// </summary>
    /// <param Id="cg"></param>
-   [Serializable]
    public class CodeGenerator(ICodeGenerator cg, CDL2 compiler) : CompilationPhase(compiler) {
       /// <summary>
       /// Target specific code gnerator to use.
@@ -104,7 +103,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="module"></param>
       private void GenerateModule(Module module, bool isSeparate) {
-         static void GenerateImpEx<T>(Dictionary<ID,T> impexList, Action<T> generateImpEx) {
+         static void GenerateImpEx<T>(IDDictionary<T> impexList, Action<T> generateImpEx) {
             foreach (T impex in impexList.Values) {               
                 generateImpEx(impex);
             }

@@ -17,7 +17,6 @@ using System.Windows.Controls;
 using System.Xml.Linq;
 
 namespace CDL2v1 {
-   [Serializable]
    internal partial class CodeGeneratorPowerShell : TargetCodeGenerator, ICodeGenerator {
       #region Instance and Static Varibles, Constructors
       private readonly string DataType;

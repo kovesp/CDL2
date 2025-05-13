@@ -15,9 +15,7 @@ using System.Diagnostics.Metrics;
 using System.Xml.Serialization;
 using System.Windows;
 
-namespace CDL2v1 {
-   
-   [Serializable]
+namespace CDL2v1 {  
    public class Set<T> : HashSet<T> {
       public Set() { }
       public Set(ICollection<T> collection) : base(collection) { }
