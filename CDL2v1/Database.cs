@@ -22,43 +22,8 @@ namespace CDL2v1 {
       /// <summary>
       /// This is a singleton class.
       /// </summary>
-      private Database() { }
+      public Database() { }
       public static Database Instance { get; private set; } = new Database();
-
-      [JsonInclude]
-      public readonly IDDictionary<Program> Programs = [];       // Contains all the programs in the syntax tree.
-      [JsonInclude]
-      private ID? firstProgram = null;                        // The first program in the syntax tree.
-      [JsonIgnore]
-      public Program? FirstProgram {
-         get {  if (firstProgram is null) {
-               if (Programs.Count > 0) {
-                  firstProgram = Programs.Values.First().Id;
-               } else {
-                  firstProgram = ID.ErrorID;
-               }
-            }
-            return Programs.TryGetValue(firstProgram, out Program? prog) ? prog : null;
-         }
-         set => firstProgram = value?.Id ?? ID.ErrorID;
-      }
-      [JsonInclude]
-      public readonly IDDictionary<Module> Modules = [];         // Contains all the modules in the syntax tree.
-
-      /// <summary>
-      /// When a note is added to an element, the element is also added here.
-      /// Should be cleared at the begining of compilation.
-      /// In database mode, i.e., when operating on smaller units (e.g., algorithms) the Parser and SemanticAnalyzer must ensure that
-      /// analyzed elements are appropriately removed or added.
-      /// </summary>
-      [JsonInclude]
-      public Set<NamedElement> ElementsWithNotes { get;  } = [];  
-
-      /// <summary>
-      /// Used to ensure that multiple spellings of tokens produce the same ID.
-      /// </summary>
-      [JsonInclude]
-      public readonly Dictionary<string, ID> UniqueIDs = [];
 
 #if GroupCounter
       public long labelCounter = 0;
@@ -73,26 +38,82 @@ namespace CDL2v1 {
 #else
       public static ID NextGroupLabel => ID.AnonID;
 #endif // GroupCounter
+
+      //[JsonInclude][JsonPropertyOrder(4)]
+      [JsonIgnore]
+      public IDDictionary<Program> Programs = [];       // Contains all the programs in the syntax tree.
+      //[JsonInclude][JsonPropertyOrder(5)]
+      [JsonIgnore]
+      public ID? firstProgram = null;                        // The first program in the syntax tree.
+      [JsonIgnore]
+      public Program? FirstProgram {
+         get {  if (firstProgram is null) {
+               if (Programs.Count > 0) {
+                  firstProgram = Programs.Values.First().Id;
+               } else {
+                  firstProgram = ID.ErrorID;
+               }
+            }
+            return Programs.TryGetValue(firstProgram, out Program? prog) ? prog : null;
+         }
+         set => firstProgram = value?.Id ?? ID.ErrorID;
+      }
+      //[JsonInclude][JsonPropertyOrder(3)]
+      [JsonIgnore]
+      public IDDictionary<Module> Modules = [];         // Contains all the modules in the syntax tree.
+
+      /// <summary>
+      /// Used to ensure that multiple spellings of tokens produce the same ID.
+      /// </summary>
+      [JsonInclude][JsonPropertyOrder(0)]
+      public Dictionary<string, ID> UniqueIDs = [];
+
+      /// <summary>
+      /// When a note is added to an element, the element is also added here.
+      /// Should be cleared at the begining of compilation.
+      /// In database mode, i.e., when operating on smaller units (e.g., algorithms) the Parser and SemanticAnalyzer must ensure that
+      /// analyzed elements are appropriately removed or added.
+      /// </summary>
+      [JsonIgnore]
+      public Set<NamedElement> ElementsWithNotes = [];
+      [JsonInclude][JsonPropertyOrder(2)]
+      public Set<NamedElementID> ElementsWithNoteIDs = [];
+
       /// <summary>
       /// Contains the full id of all the named elements in the database.
       /// THe elements themselves contain the GUID, the NamedElementID can then be used to locate the actual element.
       /// This will be used in serializtion to avoid multiple copies of an element.
       /// </summary>
       [JsonIgnore]
-      public Dictionary<Guid,NamedElement> NamedElements { get; } = []; // Records all named elements in the database.
-      public Dictionary<Guid, NamedElementID> NamedElementIDs { get; } = []; // Records the NamedElementIDs of all named elements in the database.
+      public Dictionary<Guid,NamedElement> NamedElements = []; // Records all named elements in the database.
+      [JsonInclude][JsonPropertyOrder(1)]
+      public Dictionary<string, NamedElementID> NamedElementIDs = []; // Records the NamedElementIDs of all named elements in the database.
       /// <summary>
       /// Record the element in Namedelements with a NamedElementId.
       /// </summary>
       /// <param name="element"></param>
       public static void Record(NamedElement element) => Instance.NamedElements[element.GUID] = element;
+
       public void NamedElementsToNamedElementIDs() {
          NamedElementIDs.Clear();
-         foreach (KeyValuePair<Guid,NamedElement> element in NamedElements) NamedElementIDs[element.Key] = new(element.Value);
+         foreach (KeyValuePair<Guid,NamedElement> element in NamedElements) NamedElementIDs[element.Key.ToString()] = new(element.Value);
+         ElementsWithNoteIDs.Clear();
+         foreach (NamedElement element in ElementsWithNotes) ElementsWithNoteIDs.Add(NamedElementIDs[element.GUID.ToString()]);
       }
       public void NamedElementIDsToNamedElements() {
-         NamedElements.Clear();
-         foreach (KeyValuePair<Guid, NamedElementID> element in NamedElementIDs) NamedElements[element.Key] = element.Value.GetElement()!;
+         NamedElements     = NamedElenentIDsToNamedElements(NamedElementIDs);
+         ElementsWithNotes = NamedElenentIDsToNamedElements(ElementsWithNoteIDs,NamedElements);
+      }
+      public static Dictionary<Guid, NamedElement> NamedElenentIDsToNamedElements(Dictionary<string, NamedElementID> namedElements) {
+         Dictionary<Guid, NamedElement> elements = [];
+         foreach (KeyValuePair<string, NamedElementID> element in namedElements) elements[Guid.Parse(element.Key)] = element.Value.GetElement()!;
+         return elements;
+      }
+      public static Set<NamedElement> NamedElenentIDsToNamedElements(Set<NamedElementID> namedElementIDs, Dictionary<Guid, NamedElement>? namedElements = null) {
+         Set<NamedElement> elements = [];
+         namedElements ??= [];
+         foreach (NamedElementID element in namedElementIDs) elements.Add(namedElements.TryGetValue(element.GUID,out NamedElement? elem) ? elem : element.GetElement()!);
+         return elements;
       }
 
       internal Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)), out Program? program) ? program : null;
@@ -114,16 +135,17 @@ namespace CDL2v1 {
        };
       public static void SaveJSON(string filePath) {
          Instance.NamedElementsToNamedElementIDs();
-         foreach (NamedElementID id in Instance.NamedElementIDs.Values.Take(10)) Debug.WriteLine(id.ToString());
+
          string path = Path.ChangeExtension(filePath, "JSON");
 
          string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
-         Debug.WriteLine(json);
          File.WriteAllText(path, json);
 
 
-         json = File.ReadAllText(path);
-         Database? db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
+         //json = File.ReadAllText(path);
+
+         var db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
+         db?.NamedElementIDsToNamedElements();
 
       }
 

@@ -59,13 +59,17 @@ namespace CDL2v1 {
    public interface ITrackedVar { }
 
    public class NamedElementID {
-      public string TypeName;
-      public ID? ModuleID;
-      public ID? LayerID;
-      public ID? SectionID;
-      public ID? AlgorithmID;
-      public ID  ElementID;
-      public Guid GUID;
+      [JsonInclude] public string? TypeName;
+      [JsonInclude] public ID? ModuleID;
+      [JsonInclude] public ID? LayerID;
+      [JsonInclude] public ID? SectionID;
+      [JsonInclude] public ID? AlgorithmID;
+      [JsonInclude] public ID?  ElementID;
+      [JsonInclude] public Guid GUID;
+
+
+      [JsonConstructor]
+      public NamedElementID() { }
 
       /// <summary>
       /// Create a new NamedElementID for the given element.
@@ -81,33 +85,48 @@ namespace CDL2v1 {
             ModuleID = section.Module?.Id;
             LayerID = section.Layer?.Id;
          } else if (element is CDL2Object cdl2Object) {
-            ModuleID = cdl2Object.Module?.Id;
-            LayerID = cdl2Object.Layer?.Id;
-            SectionID = cdl2Object.Section?.Id;
+            SetContainer(cdl2Object);
          } else if (element is Affix affix) {
+            SetContainer(affix.ContainingAlgorithm);
             AlgorithmID = affix.ContainingAlgorithm?.Id;
          } else if (element is Local local) {
+            SetContainer(local.ContainingAlgorithm);
             AlgorithmID = local.ContainingAlgorithm?.Id;
          }
          ElementID = element!.Id;
+
+         void SetContainer(CDL2Object? element) {
+            if (element != null) {
+               ModuleID = element.Module?.Id;
+               LayerID = element.Layer?.Id;
+               SectionID = element.Section?.Id;
+            }
+         }
       }
 
+      /// <summary>
+      /// Called by Database load when restroing NamedElements from NamedElementIDs
+      /// </summary>>
+      /// <returns></returns>
+      /// <exception cref="NotImplementedException"></exception>
       public NamedElement? GetElement() {
+         Debug.Assert(ElementID is not null, "GetElement: ElementID is null");
          Module   ? mod     = ModuleID is not null    ? Database.Instance.Modules[ModuleID] : null;
          Layer    ? lay     = LayerID is not null     ? mod?.Children.FirstOrDefault(layer => layer.Id == LayerID) as Layer : null;
          Section  ? sec     = SectionID is not null   ? lay?.Children.FirstOrDefault(section => section.Id == SectionID) as Section : null;
          Algorithm? alg     = AlgorithmID is not null ? sec?.Declarations[AlgorithmID] as Algorithm : null;
-         switch (TypeName) {
-            case "Program":   return Database.Instance.Programs[ElementID];
-            case "Module":    return mod;
-            case "Layer":     return lay;
-            case "Section":   return sec;
-            case "Macro": case "ImportedMacro": case "Procedure": case "ImportedProcedure": case "Const": case "Var": case "LIST":
-                              return sec!.Declarations[ElementID];
-            case "Affix":     return alg!.affixes.Find(aff => aff.Id == ElementID);
-            case "Local":     return alg!.locals.Where(loc => loc.Id == ElementID).FirstOrDefault();
-            default: throw new NotImplementedException($"GetValue not implemented for {TypeName}");
-         }
+         return TypeName switch {
+            "Program" => Database.Instance.Programs[ElementID],
+            "Module"  => mod,
+            "Layer"   => lay,
+            "Section" => sec,
+            "Macro" or "ImportedAlgorithm" or "Procedure" or "Macro" or "Const" or "ImportedConst" or "Var" or "LIST"
+                      => sec!.Declarations[ElementID],
+            "Affix"   => alg?.affixes?.Find(aff => aff.Id == ElementID),
+            "Local"   => alg?.locals?.Where(loc => loc.Id == ElementID)?.FirstOrDefault(),
+            "Group"   => null, //TODO: Fix Group case in NamedElementID.GetElement
+            _         => throw new NotImplementedException($"GetValue not implemented for {TypeName}"),
+         };
       }
 
       public override string ToString() {
@@ -115,6 +134,8 @@ namespace CDL2v1 {
          return $"[{GUID}] {id("MOD",ModuleID)}{id("LAY",LayerID)}{id("SEC",SectionID)}{id("ALG",AlgorithmID)}{TypeName} {ElementID}";
       }
 
+      public override bool Equals(object? obj) => obj is NamedElementID iD && GUID.Equals(iD.GUID);
+      public override int GetHashCode() => HashCode.Combine(GUID);
    }
 
    /// <summary>

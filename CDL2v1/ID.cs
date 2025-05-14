@@ -5,13 +5,14 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    /// <summary>
    /// Represents a reference to a named syntactic element, Arg or Local in the syntax tree.
    /// It contains the token it was created from.
    /// </summary>
-   public class ID : IConstElement, IMacroElement, IActualArg {
+   public partial class ID : IConstElement, IMacroElement, IActualArg {
       [JsonIgnore]
       public string InternalName = string.Empty;
       [JsonInclude]
@@ -58,9 +59,10 @@ namespace CDL2v1 {
       public readonly static ID AnonID = new("Anon");
 
       public ID() { }
+      [JsonConstructor]
       public ID(string name) {
          Name = name;
-         InternalName = name.Trim().Replace(" ","");
+         InternalName = RemoveWhitespaceRE().Replace(name,"");
       }
 
       /// <summary>
@@ -79,6 +81,9 @@ namespace CDL2v1 {
  
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator !=(ID left,ID right) => !(left == right);
+
+      [GeneratedRegex(@"\s+")]
+      private static partial Regex RemoveWhitespaceRE();
    }
 
    public class IDDictionary<V> : Dictionary<ID, V> { }
