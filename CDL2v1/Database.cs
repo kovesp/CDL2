@@ -39,11 +39,12 @@ namespace CDL2v1 {
       public static ID NextGroupLabel => ID.AnonID;
 #endif // GroupCounter
 
-      //[JsonInclude][JsonPropertyOrder(4)]
-      [JsonIgnore]
+      [JsonInclude]
+      [JsonPropertyOrder(4)]
+      //[JsonIgnore]
       public IDDictionary<Program> Programs = [];       // Contains all the programs in the syntax tree.
       //[JsonInclude][JsonPropertyOrder(5)]
-      [JsonIgnore]
+      [JsonInclude]
       public ID? firstProgram = null;                        // The first program in the syntax tree.
       [JsonIgnore]
       public Program? FirstProgram {
@@ -140,7 +141,6 @@ namespace CDL2v1 {
 
          string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
          File.WriteAllText(path, json);
-
 
          //json = File.ReadAllText(path);
 

@@ -14,6 +14,8 @@ using System.Reflection.Emit;
 using System.Diagnostics.Metrics;
 using System.Xml.Serialization;
 using System.Windows;
+using System.Text.Json.Serialization;
+using System.Collections;
 
 namespace CDL2v1 {  
    public class Set<T> : HashSet<T> {
@@ -22,6 +24,34 @@ namespace CDL2v1 {
       public Set(IEnumerable<T> enumerable) {
          foreach (T item in enumerable) Add(item);
       }
+   }
+
+   public class GuidList<T> : ICollection<T> where T : NamedElement {
+      [JsonInclude]
+      public List<Guid> guids = [];
+      public GuidList() { }
+
+      public int Count => guids.Count;
+
+      public bool IsReadOnly => false;
+
+      public void Add(T element) {
+         if (element is null) throw new ArgumentNullException(nameof(element));
+         guids.Add(element.GUID);
+      }
+
+      public void Clear() => guids.Clear();
+      public bool Contains(T item) => guids.Contains(item.GUID);
+      public void CopyTo(T[] array, int arrayIndex) => throw new NotImplementedException();
+      public IEnumerator<T> GetEnumerator() {
+         foreach (Guid guid in guids) {
+            if (Database.Instance.NamedElements.TryGetValue(guid, out NamedElement? namedElement) && namedElement is T value) {
+               yield return value;
+            }
+         }
+      }
+      public bool Remove(T item) => guids.Remove(item.GUID);
+      IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
    }
 
    /// <summary>
