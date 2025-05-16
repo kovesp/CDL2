@@ -2,6 +2,8 @@
 
 
 
+using System.Text.Json.Serialization;
+
 namespace CDL2v1 {
    /// <summary>
    /// Notes are used to annotate objects with error/warning/info messages.
@@ -23,11 +25,14 @@ namespace CDL2v1 {
    /// <param name="text"></param>
    /// <param name="number"></param>
    public class Note : IEquatable<Note?> {
-      public readonly NoteType Type;
-      public readonly string Text;
-      public readonly int Number;
-      public readonly string PhaseName;
-      public NamedElement? Owner = null;
+      [JsonInclude][JsonPropertyOrder(0)] public NoteType Type = NoteType.Note;
+      [JsonInclude][JsonPropertyOrder(1)] public string Text = "";
+      [JsonInclude][JsonPropertyOrder(2)] public int Number = 0;
+      [JsonInclude][JsonPropertyOrder(3)] public string PhaseName = "";
+      [JsonInclude][JsonPropertyOrder(4)] public NamedElement? Owner = null;
+
+      [JsonConstructor]
+      public Note() { }
       public Note(NoteType type, int number, string text, string phaseName = "") {
          Type = type;
          Text = text;
@@ -78,6 +83,7 @@ namespace CDL2v1 {
       public static readonly Note LudeNotFound                      = new(NoteType.Error  , 035, "{2} references {0} {1}, but this does not have a {2}");
       public static readonly Note InvalidListBound                  = new(NoteType.Error  , 036, "Invalid list {0} {1}. Must be CONST, but is {2}");
       public static readonly Note UnresolvedListBound               = new(NoteType.Error  , 037, "Undefined list {0} {1}.");
+      public static readonly Note DuplicateChild                    = new(NoteType.Error,   038, "Duplicate {0} {1} in {2} {3}");
 
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix {0} whose action has not been read passed to output in {1}");

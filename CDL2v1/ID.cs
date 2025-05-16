@@ -86,11 +86,24 @@ namespace CDL2v1 {
       private static partial Regex RemoveWhitespaceRE();
    }
 
-   public class IDDictionary<V> : Dictionary<ID, V> { }
-   public class IDSet : Set<ID> { }
+   public class IDDictionary<V> : Dictionary<ID, V> {
+      [JsonInclude]
+      public string Name;
+
+      [JsonConstructor]
+      public IDDictionary(string name="N/A") : base([]) => Name = name;
+      // public IDDictionary() : this(string.Empty) { }
+   }
+   public class IDSet : Set<ID> {
+      [JsonInclude]
+      public string Name;
+
+      [JsonConstructor]
+      public IDSet(string name = "N/A") : base([]) => Name = name;
+   }
    public class IDDictionaryJsonConverter<V> : JsonConverter<IDDictionary<V>> {
       public override IDDictionary<V> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-         var dictionary = new IDDictionary<V>();
+         var dictionary = new IDDictionary<V>("IDDictionaryJsonConverter.Read.dictionary");
 
          if (reader.TokenType != JsonTokenType.StartObject)
             throw new JsonException();
@@ -101,19 +114,25 @@ namespace CDL2v1 {
             string keyString = reader.GetString()!;
             // Read the value
             reader.Read();
-            dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<V>(ref reader, options)!;
+            try {
+               dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<V>(ref reader, options)!;
+            } catch (Exception e) {
+               Debug.WriteLine($"IDDictionaryJsonConverter: {keyString} -> {e.Message}");;
+               Debugger.Break();
+            }
          }
          return dictionary;
       }
 
       public override void Write(Utf8JsonWriter writer, IDDictionary<V> value, JsonSerializerOptions options) {
-         //Debug.WriteLine($"Write(IDDictionary<{typeof(V)}>)");
+         Debug.WriteLine($"JsonConverter.Write(IDDictionary<{typeof(V).Name}> {(value.First().Value is CDL2Object obj ? obj.Section : "")} {value.Name})");
          writer.WriteStartObject();
          foreach (ID key in value.Keys) {
-            //Debug.WriteLine($"{key} -> {value[key]}");
+            // Debug.WriteLine($"   {key} -> {value[key]}");
+            if (key.Name == "incr") Debug.WriteLine($"   {key} -> {value[key]}");
             writer.WritePropertyName(key.Name);
             try {
-               JsonSerializer.Serialize(writer, value[key], options);
+               JsonSerializer.Serialize(writer, value[key],value[key]!.GetType(), options);
             } catch (Exception e) {
                Debug.WriteLine(e.Message);
                Debugger.Break();
@@ -125,7 +144,7 @@ namespace CDL2v1 {
 
    public class IDSetJsonConverter : JsonConverter<IDSet> {
       public override IDSet Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-         var set = new IDSet();
+         IDSet set = new();
          if (reader.TokenType != JsonTokenType.StartArray)
             throw new JsonException();
 
@@ -139,6 +158,7 @@ namespace CDL2v1 {
       }
 
       public override void Write(Utf8JsonWriter writer, IDSet value, JsonSerializerOptions options) {
+         Debug.WriteLine($"JsonConverter.Write(IDSet {value.Name})");
          writer.WriteStartArray();
          foreach (ID key in value) {
             writer.WriteStringValue(key.Name);

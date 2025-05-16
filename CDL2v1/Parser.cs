@@ -259,7 +259,7 @@ namespace CDL2v1 {
             if (formals == null) return;
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
-               // IMPORT declaration. Check if it is in the imports list.
+               // IMPORT declaration. Check if it is in the Imports list.
                algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
                if (!currentSection.import.Contains(id)) {
                   AddNote(currentSection,Note.ObjectNotImported,algorithm);

@@ -44,7 +44,7 @@ namespace CDL2v1 {
    ///   - If a is a string (i.e., *a), then x is a string ("...") or a string affix of the containing ContainingProc.
    /// 
    /// 
-   /// 1. Verify that all imports are consistent with exports in the modules in the program.
+   /// 1. Verify that all Imports are consistent with exports in the modules in the program.
    /// 2. Resolve all invocations to their corresponding extensions and abstractions.
    /// 3. Perform local analysis to verify that
    ///    a. References to other constants in a constants's elements are resolved.
@@ -74,32 +74,32 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Analyze the imports of the given program.
-      /// Ensure that all imports used in the modules are found and are consistent with the exports.
+      /// Analyze the Imports of the given program.
+      /// Ensure that all Imports used in the modules are found and are consistent with the exports.
       /// </summary>
       /// <param name="mainProgram"></param>
       internal void AnalyzeImportsAndExports(Program mainProgram) {
-         Log(3,$"Analyzing imports and exports");
+         Log(3,$"Analyzing Imports and exports");
          // Collect all the exports from the modules in the program.
          mainProgram.Exports.Clear();
          foreach (Module module in mainProgram.Modules) {
             AnalyzeExports(module);
-            foreach (IExportable export in module.exports.Values.Cast<IExportable>()) {
+            foreach (IExportable export in module.Exports.Values.Cast<IExportable>()) {
                mainProgram.Exports[export.Id] = export;
             }
          }
          // Now verify that each import has a corresponding export and that the specs match.
          foreach (Module module in mainProgram.Modules) {
-            // First collect all the imports in the sections into the imports table of the module.
+            // First collect all the Imports in the sections into the Imports table of the module.
             // While doing this check for consistency in case an object is imported inot multiple sections.
             foreach (Section section in module.Sections) {
                foreach (ID elemid in section.import) {
                   if (section.Declarations.TryGetValue(elemid, out CDL2Object? obj)) {
                      if (obj is IImportable imported) {
-                        if (module.imports.TryGetValue(elemid, out IImportable? importedObj)) {
+                        if (module.Imports.TryGetValue(elemid, out IImportable? importedObj)) {
                            CheckImportConsistency(obj, obj, (CDL2Object)importedObj);
                         } else {
-                           module.imports[elemid] = imported;
+                           module.Imports[elemid] = imported;
                         }
                      } else {
                         AddNote(section, Note.InterfaceElementNotProvidable, obj.Id, RW.IMPORT,obj.TypeShortName);
@@ -109,12 +109,12 @@ namespace CDL2v1 {
                   }
                }
             }
-            // Now check that all the imports are in the exports table of the program and are consistent with those exports.
+            // Now check that all the Imports are in the exports table of the program and are consistent with those exports.
             // Also insert the target of the import into the resolvedImports table of the module
-            foreach (CDL2Object imported in module.imports.Values.Cast<CDL2Object>()) {
+            foreach (CDL2Object imported in module.Imports.Values.Cast<CDL2Object>()) {
                if (mainProgram.Exports.TryGetValue(imported.Id, out IExportable? exported)) {
                   CheckImportConsistency(imported,imported, (CDL2Object)exported);
-                  module.resolvedImports[imported.Id] = (IImportable)exported;
+                  module.ResolvedImports[imported.Id] = (IImportable)exported;
                } else {
                   AddNote(mainProgram, Note.MissingImport, imported);
                }
@@ -127,7 +127,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="module"></param>
       private void AnalyzeExports(Module module) {
-         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, section.Module!.exports);
+         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, section.Module!.Exports);
       }
       /// <summary>
       /// Verify the consistency of interface declarations.
@@ -146,7 +146,7 @@ namespace CDL2v1 {
             // We can now check to see if everything invoked in this layer is in the Visible dictionary. Note that there may be imported objects. Those will be linked up with
             // exports prior to code generation.
             foreach (Layer layer in module.Layers) {
-               foreach (Section section in layer.Children.Cast<Section>()) {
+               foreach (Section section in layer.Sections) {
                   foreach (ID elemid in section.inv) {
                      if (!layer.Visible.ContainsKey(elemid)) {
                         AddNote(section, Note.MissingInvoke, elemid, layer);
@@ -177,7 +177,7 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeProgram(Program program) {
-         IDDictionary<Module> validModules = [];
+         IDDictionary<Module> validModules = new();
          Log(3, $"Analyzing module presence of {program.ContainerName}");
          foreach (ID modId in program.Parts) {
             if (Database.Instance.Modules.TryGetValue(modId, out Module? mod)) {
@@ -212,20 +212,20 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Analyze a module.
-      /// Notice that a check is made to ensure that all objects are exported from a single module. As a result, the exports table can be used to resolve imports.
+      /// Notice that a check is made to ensure that all objects are exported from a single module. As a result, the exports table can be used to resolve Imports.
       /// </summary>
       /// <param name="prog"></param>
       /// <param name="module"></param>
       private void AnalyzeModule(Program prog,Module module) {
          Log(1,$"Analyzing {module.ContainerName}");
-         foreach (Layer layer in module.Children.Cast<Layer>()) {
+         foreach (Layer layer in module.Layers) {
             AnalyzeLayer(layer);
          }
       }
 
       private void AnalyzeLayer(Layer layer) {
          Log(2,$"Analyzing {layer.ContainerName}");
-         foreach (Section section in layer.Children.Cast<Section>()) {
+         foreach (Section section in layer.Sections) {
             AnalyzeSection(section);
          }
       }
@@ -295,8 +295,8 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Compare obj1 to obj2.
-      /// Both are imported when checking consistency beetween imports in the same module.
-      /// One is imported and the other is not when checking consistency between imports and exports.
+      /// Both are imported when checking consistency beetween Imports in the same module.
+      /// One is imported and the other is not when checking consistency between Imports and exports.
       /// If they are both constants return true.
       /// If they are both algorithms, then their affix counts ahd directions must match.
       /// If there is any mismatch attach an apropriate note or notes to the first object

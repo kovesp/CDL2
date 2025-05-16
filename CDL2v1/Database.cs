@@ -39,12 +39,11 @@ namespace CDL2v1 {
       public static ID NextGroupLabel => ID.AnonID;
 #endif // GroupCounter
 
-      [JsonInclude]
-      [JsonPropertyOrder(4)]
+      [JsonInclude][JsonPropertyOrder(4)]
       //[JsonIgnore]
-      public IDDictionary<Program> Programs = [];       // Contains all the programs in the syntax tree.
+      public IDDictionary<Program> Programs = new("Database.Programs");       // Contains all the programs in the syntax tree.
       //[JsonInclude][JsonPropertyOrder(5)]
-      [JsonInclude]
+      [JsonInclude][JsonPropertyOrder(5)]
       public ID? firstProgram = null;                        // The first program in the syntax tree.
       [JsonIgnore]
       public Program? FirstProgram {
@@ -60,8 +59,8 @@ namespace CDL2v1 {
          set => firstProgram = value?.Id ?? ID.ErrorID;
       }
       //[JsonInclude][JsonPropertyOrder(3)]
-      [JsonIgnore]
-      public IDDictionary<Module> Modules = [];         // Contains all the modules in the syntax tree.
+      [JsonInclude][JsonPropertyOrder(6)]
+      public IDDictionary<Module> Modules = new("Database.Modules");         // Contains all the modules in the syntax tree.
 
       /// <summary>
       /// Used to ensure that multiple spellings of tokens produce the same ID.
@@ -129,6 +128,7 @@ namespace CDL2v1 {
             new IDDictionaryJsonConverter<Section>(),
             new IDDictionaryJsonConverter<IProvidable>(),
             new IDDictionaryJsonConverter<IExportable>(),
+            new IDDictionaryJsonConverter<CDL2Object>(),
             new IDSetJsonConverter(),
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
          }, 
@@ -139,13 +139,16 @@ namespace CDL2v1 {
 
          string path = Path.ChangeExtension(filePath, "JSON");
 
-         string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
+         //object objectToSerialize = Database.Instance;
+         object objectToSerialize = Instance.Modules.Values.Skip(0).First();
+         string json = JsonSerializer.Serialize(objectToSerialize, serializationOptions);
+         //string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
          File.WriteAllText(path, json);
 
          //json = File.ReadAllText(path);
 
-         var db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
-         db?.NamedElementIDsToNamedElements();
+         var  obj = JsonSerializer.Deserialize(json,objectToSerialize.GetType(), serializationOptions);
+         if (obj is Database db) db?.NamedElementIDsToNamedElements();
 
       }
 

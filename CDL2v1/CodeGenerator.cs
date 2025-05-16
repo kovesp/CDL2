@@ -112,11 +112,11 @@ namespace CDL2v1 {
          cg.GenerateModuleStart(module, isSeparate);
 
          cg.GenerateImpExStart(module);
-         GenerateImpEx(module.exports, cg.GenerateExport);
-         GenerateImpEx(module.imports, cg.GenerateImport);
+         GenerateImpEx(module.Exports, cg.GenerateExport);
+         GenerateImpEx(module.Imports, cg.GenerateImport);
          cg.GenerateImpExEnd(module);
 
-         foreach (Layer layer in module.Children.Cast<Layer>()) GenerateLayer(layer);
+         foreach (Layer layer in module.Layers) GenerateLayer(layer);
 
          foreach (RW ludeType in Container.LudeTypes) GenerateModuleLude(ludeType, module, wrapped: true);
 
@@ -143,7 +143,7 @@ namespace CDL2v1 {
       /// <param Id="layer"></param>
       private void GenerateLayer(Layer layer) {
          cg.GenerateLayerStart(layer);
-         foreach (Section section in layer.Children.Cast<Section>()) GenerateSection(section);
+         foreach (Section section in layer.Sections) GenerateSection(section);
          cg.GenerateLayerEnd(layer);
       }
 

@@ -21,10 +21,10 @@ namespace CDL2v1 {
    ///    
    ///      For each Module:
    ///         GenerateModuleStart                                   for each module
-   ///            GenerateImpExStart                                 at the start of imports and exports
+   ///            GenerateImpExStart                                 at the start of Imports and exports
    ///               GenerateExport                                  for each export
    ///               GenerateImport                                  for each import
-   ///            GenerateImpExEnd                                   at the end of imports and exports
+   ///            GenerateImpExEnd                                   at the end of Imports and exports
    ///            GenerateLayerStart                                 for each layer
    ///               GenerateSectionStart                            for each SectionById
    ///                  GenerateObjectSectionStart                     start of data Declarations
@@ -215,7 +215,7 @@ namespace CDL2v1 {
 
       #region Import/Export
       /// <summary>
-      /// This is called at the start of imports and exports.
+      /// This is called at the start of Imports and exports.
       /// </summary>
       /// <param name="module"></param>
       void GenerateImpExStart(Module module);
@@ -230,7 +230,7 @@ namespace CDL2v1 {
       /// <param name="import"></param>
       void GenerateImport(IProvidable import);
       /// <summary>
-      /// This is called at the end of imports and exports.
+      /// This is called at the end of Imports and exports.
       /// </summary>
       /// <param name="module"></param>
       void GenerateImpExEnd(Module module);

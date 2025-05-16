@@ -28,7 +28,7 @@ namespace CDL2v1 {
       } = [];
       public Set<CDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
 
-      public IDDictionary<int> ProcedureCalls = []; // The number of times a procedure is called
+      public IDDictionary<int> ProcedureCalls = new("Reachable.ProcedureCalls"); // The number of times a procedure is called
 
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
       public Set<ITrackedVar> ReadVars { get;  private set; } = [];
@@ -37,8 +37,8 @@ namespace CDL2v1 {
       public void CollectAllObjects(Program program) {
          AllObjects = [];
          foreach (Module module in program.Modules) {
-            foreach (Layer layer in module.Children.Cast<Layer>()) {
-               foreach (Section section in layer.Children.Cast<Section>()) {
+            foreach (Layer layer in module.Layers) {
+               foreach (Section section in layer.Sections) {
                   foreach (CDL2Object cdl2object in section.Declarations.Values) {
                      AllObjects.Add(cdl2object);
                   }
@@ -52,7 +52,7 @@ namespace CDL2v1 {
          Objects = [];
          ReadVars = [];
          AmbigousVars = [];
-         ProcedureCalls = [];
+         ProcedureCalls = new();
          collected = false;
          collecting = true;
          foreach (RW ludeType in Container.LudeTypes) {
@@ -154,7 +154,7 @@ namespace CDL2v1 {
                      if (call.Called.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {
                         if (obj is Const c) {
                            CollectReachableObjects(c);
-                        } else if (obj is ImportedConst ic1 && ic1.Module!.resolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
+                        } else if (obj is ImportedConst ic1 && ic1.Module!.ResolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
                            CollectReachableObjects(rc1);
                         } else if (obj is Var v) {
                            Objects.Add(v);
@@ -176,7 +176,7 @@ namespace CDL2v1 {
          return true;
       }
       private void CollectReachableObjects(Const constant) {
-         if (constant is ImportedConst) constant = (constant.Module!.resolvedImports[constant.Id] as Const)!;
+         if (constant is ImportedConst) constant = (constant.Module!.ResolvedImports[constant.Id] as Const)!;
          if (Objects.Add(constant)) {
             foreach (IConstElement elem in constant.elements) {
                switch (elem) {
