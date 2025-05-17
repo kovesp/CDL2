@@ -308,12 +308,12 @@ namespace CDL2v1 {
       private void  CheckImportConsistency(NamedElement problemObject, CDL2Object obj1, CDL2Object obj2) {
          if (obj1 is Const && obj2 is Const) {
          } else if (obj1 is Algorithm alg1 && obj2 is Algorithm alg2) {
-            if (alg1.affixes.Count != alg2.affixes.Count) {
+            if (alg1.Affixes.Count != alg2.Affixes.Count) {
                AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "Affix count mismatch");
             } else {
-               for (int i = 0 ; i < alg1.affixes.Count ; i++) {
-                  if (alg1.affixes[i].affixDir != alg2.affixes[i].affixDir) {
-                     AddNote(problemObject, Note.ImpexMismatch, alg1, alg2, $"Affix direction mismatch, {alg1.affixes[i]} vs. {alg2.affixes[i]}");
+               for (int i = 0 ; i < alg1.Affixes.Count ; i++) {
+                  if (alg1.Affixes[i].affixDir != alg2.Affixes[i].affixDir) {
+                     AddNote(problemObject, Note.ImpexMismatch, alg1, alg2, $"Affix direction mismatch, {alg1.Affixes[i]} vs. {alg2.Affixes[i]}");
                   }
                }
             }
@@ -388,12 +388,12 @@ namespace CDL2v1 {
                   foreach (T value in values) set.Add(value);
                }
             }
-            reset(VarSet.readableAffixes    ,readableAffixes    ,proc.affixes.Where(affix => affix.IsInput).ToSet());
+            reset(VarSet.readableAffixes    ,readableAffixes    ,proc.Affixes.Where(affix => affix.IsInput).ToSet());
             reset(VarSet.readableLocals     ,readableLocals     ,[]);
-            reset(VarSet.writableAffixes    ,writableAffixes    ,proc.affixes.Where(affix => affix.IsOutput).ToSet());
-            reset(VarSet.writableLocals     ,writableLocals     ,[.. proc.locals]);
-            reset(VarSet.neverWrittenAffixes,neverWrittenAffixes,proc.affixes.Where(affix => affix.IsOutputOnly).ToSet());
-            reset(VarSet.neverWrittenLocals ,neverWrittenLocals ,[.. proc.locals]);
+            reset(VarSet.writableAffixes    ,writableAffixes    ,proc.Affixes.Where(affix => affix.IsOutput).ToSet());
+            reset(VarSet.writableLocals     ,writableLocals     ,[.. proc.Locals]);
+            reset(VarSet.neverWrittenAffixes,neverWrittenAffixes,proc.Affixes.Where(affix => affix.IsOutputOnly).ToSet());
+            reset(VarSet.neverWrittenLocals ,neverWrittenLocals ,[.. proc.Locals]);
          }
 
          public bool Readable(Affix affix)       => readableAffixes.Contains(affix);
@@ -421,21 +421,21 @@ namespace CDL2v1 {
 
          bool hasEffect = AnalyzeEffect(proc.group);
          if (proc.HasEffect && !hasEffect) {
-            AddNote(proc,Note.NoEffect,proc.algorithmType);
-            ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.algorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
+            AddNote(proc,Note.NoEffect,proc.AlgorithmType);
+            ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.AlgorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
          } else if (!proc.HasEffect && hasEffect) {
-            AddNote(proc,Note.Defect,proc.algorithmType);
-            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.algorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
+            AddNote(proc,Note.Defect,proc.AlgorithmType);
+            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.AlgorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
          if (! proc.IsConditionalCompilation()) {
             bool canFail = AnalyzeCanFail(proc.group, section);
             if (proc.CanFail && !canFail) {
-               AddNote(proc, Note.CannotFail, proc.algorithmType);
-               ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
+               AddNote(proc, Note.CannotFail, proc.AlgorithmType);
+               ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.AlgorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
             } else if (!proc.CanFail && canFail) {
-               AddNote(proc, Note.CanFail, proc.algorithmType);
-               ReportError(section, $"Procedure {proc.AlgorithmName} can fail. Should be {(proc.algorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
+               AddNote(proc, Note.CanFail, proc.AlgorithmType);
+               ReportError(section, $"Procedure {proc.AlgorithmName} can fail. Should be {(proc.AlgorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
             }
          }
       }
@@ -488,13 +488,13 @@ namespace CDL2v1 {
             if (call.Called is null) {
                proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
                return true;
-            } else if (call.Called.affixes.Count != call.args.Count) {
-               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.args.Count, call.Called.affixes.Count);
+            } else if (call.Called.Affixes.Count != call.args.Count) {
+               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.args.Count, call.Called.Affixes.Count);
                return true;
             } else if (call.args.Count == 0) {
                return false;
             } else {
-               List<Affix> affix = call.Called.affixes;
+               List<Affix> affix = call.Called.Affixes;
                List<IActualArg> arg = call.args;
                for (int i = 0; i < call.args.Count; i++) {
                   if (arg[i] is ID id) {

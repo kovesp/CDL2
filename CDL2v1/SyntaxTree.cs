@@ -129,8 +129,8 @@ namespace CDL2v1 {
             "Section" => sec,
             "Macro" or "ImportedAlgorithm" or "Procedure" or "Macro" or "Const" or "ImportedConst" or "Var" or "LIST"
                       => sec!.Declarations[ElementID],
-            "Affix"   => alg?.affixes?.Find(aff => aff.Id == ElementID),
-            "Local"   => alg?.locals?.Where(loc => loc.Id == ElementID)?.FirstOrDefault(),
+            "Affix"   => alg?.Affixes?.Find(aff => aff.Id == ElementID),
+            "Local"   => alg?.Locals?.Where(loc => loc.Id == ElementID)?.FirstOrDefault(),
             "Group"   => null, //TODO: Fix Group case in NamedElementID.GetElement
             _         => throw new NotImplementedException($"GetValue not implemented for {TypeName}"),
          };
@@ -615,37 +615,38 @@ namespace CDL2v1 {
    /// </summary>
    public abstract class Algorithm : CDL2Object, IProvidable, IImportable, IExportable {
       [JsonInclude]
-      public          RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
+      public          RW AlgorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
       [JsonInclude]
-      public readonly TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
+      public readonly TT BodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
       [JsonInclude]
-      public List<Affix> affixes = [];             // The affixes of this algorithm. A List because they are ordered.
+      public List<Affix> Affixes = [];             // The affixes of this algorithm. A List because they are ordered.
       [JsonInclude]
-      public Set<Local> locals = [];               // The Declarations variables of this algorithm.
+      public Set<Local> Locals = [];               // The Declarations variables of this algorithm.
 
       [JsonConstructor] public Algorithm() : base() { }
 
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
             : base(id,section,algorithmType.Comments,synthetic) {
-         this.affixes = affixes;
-         this.locals = locals;
-         this.algorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
-         this.bodyType = bodyType;
+         this.Affixes = affixes;
+         this.Locals = locals;
+         this.AlgorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
+         this.BodyType = bodyType;
          this.SE = SE.AlgorithmName;
          foreach (Affix affix in affixes) affix.ContainingAlgorithm = this;
          foreach (Local local in locals)  local.ContainingAlgorithm = this;
       }
 
+      [JsonIgnore]
       public AlgorithmNameType NameType {
          get {
             AlgorithmNameType ait = AlgorithmNameType.None;
-            if (algorithmType == RW.TEST || algorithmType == RW.PREDICATE) ait |= AlgorithmNameType.CanFail;
-            if (algorithmType == RW.ACTION || algorithmType == RW.PREDICATE) ait |= AlgorithmNameType.HasEffect;
-            if (bodyType == TT.MACROBODY || bodyType == TT.MACROPROCBODY) ait |= AlgorithmNameType.Macro;
+            if (AlgorithmType == RW.TEST || AlgorithmType == RW.PREDICATE) ait |= AlgorithmNameType.CanFail;
+            if (AlgorithmType == RW.ACTION || AlgorithmType == RW.PREDICATE) ait |= AlgorithmNameType.HasEffect;
+            if (BodyType == TT.MACROBODY || BodyType == TT.MACROPROCBODY) ait |= AlgorithmNameType.Macro;
             return ait;
          }
       }
-
+      [JsonIgnore]
       public DecorationStyle NameStyle {
          get {
             AlgorithmNameType ait = NameType;
@@ -656,33 +657,34 @@ namespace CDL2v1 {
             return ds;
          }
       }
-      public string AlgorithmName => $"{algorithmType} {Id}";
+      [JsonIgnore]
+      public string AlgorithmName => $"{AlgorithmType} {Id}";
 
-      [JsonIgnore] public bool CanFail => algorithmType == RW.TEST || algorithmType == RW.PREDICATE;
+      [JsonIgnore] public bool CanFail => AlgorithmType == RW.TEST || AlgorithmType == RW.PREDICATE;
       [JsonIgnore] public bool AlwaysSucceeds => !CanFail;
-      [JsonIgnore] public bool HasEffect => algorithmType == RW.PREDICATE || algorithmType == RW.ACTION;
+      [JsonIgnore] public bool HasEffect => AlgorithmType == RW.PREDICATE || AlgorithmType == RW.ACTION;
       [JsonIgnore] public bool HasNoEffect => !HasEffect;
-      [JsonIgnore] public bool NeedsFinalization => CanFail && (affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
-      [JsonIgnore] public bool IsInlineMacro => bodyType == TT.MACROBODY;
+      [JsonIgnore] public bool NeedsFinalization => CanFail && (Affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
+      [JsonIgnore] public bool IsInlineMacro => BodyType == TT.MACROBODY;
       /// <summary>
       /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
       /// </summary>
       /// <param name="group"></param>
       /// <returns></returns>
-      public virtual bool IsConditionalCompilationOff => false;
-      public virtual bool IsConditionalCompilationOn => false;
+      [JsonIgnore] public virtual bool IsConditionalCompilationOff => false;
+      [JsonIgnore] public virtual bool IsConditionalCompilationOn => false;
       public bool IsConditionalCompilation(bool? on=null) => on is null ? IsConditionalCompilationOn || IsConditionalCompilationOff : (bool)on ? IsConditionalCompilationOn : IsConditionalCompilationOff;
-      public bool TryGetAffix(ID id,out Affix affix) => (affix = affixes.FirstOrDefault(affix => affix.Id == id,Affix.Default)) != Affix.Default;
-      public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.Id == id,Local.Default)) != Local.Default;
+      public bool TryGetAffix(ID id,out Affix affix) => (affix = Affixes.FirstOrDefault(affix => affix.Id == id,Affix.Default)) != Affix.Default;
+      public bool TryGetLocal(ID id,out Local local) => (local = Locals.FirstOrDefault(local => local.Id == id,Local.Default)) != Local.Default;
 
       public override string ToString() {
          StringBuilder buffer = new();
          buffer.Append($"{TypeShortName} {Id.Name}");
-         foreach (Affix affix in affixes) {
+         foreach (Affix affix in Affixes) {
             buffer.Append(Token.TokenType2Glyph[affix.IsString ? TT.STRINGAFFIXSEP : TT.AFFIXSEP]);
             buffer.Append(affix);
          }
-         foreach (Local local in locals) buffer.Append(local);
+         foreach (Local local in Locals) buffer.Append(local);
          return buffer.ToString();
       }
 
@@ -754,7 +756,7 @@ namespace CDL2v1 {
       /// </summary>
       //public void ResetNameAnnotations() => sa = null;
       public abstract IEnumerable<Var> GetReferencedVariables();
-      override public string TypeShortName => $"{algorithmType}";
+      [JsonIgnore] override public string TypeShortName => $"{AlgorithmType}";
    }
 
    /// <summary>
@@ -901,7 +903,7 @@ namespace CDL2v1 {
          if (alternative.calls.Any(call => call.CanFail)) return false;
 
          // The procedure meets the basic criteria for inlinabilty. Apply inlining parameters if appropriate.
-         return   bodyType == TT.INLINEPROCBODY ||
+         return   BodyType == TT.INLINEPROCBODY ||
                   GetInliningParameters(reachable).NumberOfCallsInProc == 1 ||
                   GetInliningParameters(reachable).NumberOfTimesCalled <= 1 ||
                   GetInliningParameters(reachable).NumberOfTimesCalled * GetInliningParameters(reachable).NumberOfCallsInProc <= Settings.SettingValue<int>("MaxInlineCalls");
@@ -1058,6 +1060,7 @@ namespace CDL2v1 {
 
    public class INT : IConstElement, IMacroElement {
       [JsonInclude] public readonly long value;
+      [JsonConstructor] public INT() : base() => value = 0;
       public INT(Token intToken) {
          Debug.Assert(intToken.type == TT.INT && intToken.intValue != null);
          value = (long)intToken.intValue;
@@ -1065,7 +1068,8 @@ namespace CDL2v1 {
       override public string ToString() => value.ToString();
    }
    public class FLOAT : IConstElement, IMacroElement {
-      [JsonInclude] public readonly double value;
+      [JsonInclude] public double value;
+      [JsonConstructor] public FLOAT() : base() => value = 0.0;
       public FLOAT(Token floatToken) {
          Debug.Assert(floatToken.type == TT.FLOAT && floatToken.floatValue != null);
          value = (double)floatToken.floatValue;
@@ -1073,15 +1077,14 @@ namespace CDL2v1 {
       override public string ToString() => value.ToString();
    }
    public class STRING : IMacroElement, IConstElement, IActualArg {
-      [JsonInclude] public readonly string value;
+      [JsonInclude] public string value;
+      [JsonConstructor] public STRING() : base() => value = "";
       public STRING(Token str) {
          Debug.Assert(str.type == TT.STRING && str.StringValue != null);
          value = str.StringValue;
-         fakeID = ID.From(ToString());
       }
 
-      private ID fakeID;
-      public ID Id => fakeID;
+      public ID Id => ID.AnonID;
 
       private static string EscapedCDL2(string str) {
          StringBuilder sb = new();

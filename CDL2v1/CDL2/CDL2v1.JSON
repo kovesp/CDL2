@@ -1,7 +1,7 @@
 {
   "$id": "1",
   "IsSynthetic": false,
-  "GUID": "27874aec-67e4-4388-8707-06eb0dc99b16",
+  "GUID": "edbddb19-8918-41b9-98f6-34aa1f246347",
   "Id": {
     "$id": "2",
     "Name": "powershell kernel"
@@ -64,7 +64,7 @@
               ],
               "import": [],
               "Declarations": {
-                "incr": {
+                "incr-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -77,15 +77,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION incr",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "5",
                     "$values": [
                       {
@@ -93,24 +87,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "6",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "60b2f75a-4af2-4757-9694-c90e08154195",
+                  "GUID": "ad224aef-345e-49e5-a541-2ffa4d066c7f",
                   "Id": {
                     "$id": "7",
                     "Name": "incr"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "8",
                     "$values": []
                   }
                 },
-                "decr": {
+                "decr-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -123,15 +117,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION decr",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "5",
                     "$values": [
                       {
@@ -139,24 +127,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "6",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "549bc838-5b76-4bc3-b279-926cafd3af1d",
+                  "GUID": "b8ca69db-4054-4426-afaa-a69b0499ad59",
                   "Id": {
                     "$id": "7",
                     "Name": "decr"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "8",
                     "$values": []
                   }
                 },
-                "incr with": {
+                "incr with-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -172,15 +160,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION incr with",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -191,24 +173,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "490771ea-268a-437f-b649-e87f9de59f20",
+                  "GUID": "55b8bb9c-21fb-447b-b0d9-fa137300c38b",
                   "Id": {
                     "$id": "8",
                     "Name": "incr with"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "decr with": {
+                "decr with-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -224,15 +206,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION decr with",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -243,24 +219,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "d1b1dd4b-c611-4001-aec2-e0b423ed2fb9",
+                  "GUID": "0bae122b-66dc-4f11-8697-d27d6b9816eb",
                   "Id": {
                     "$id": "8",
                     "Name": "decr with"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "add": {
+                "add-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -282,15 +258,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION add",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "8",
                     "$values": [
                       {
@@ -304,24 +274,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "9",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "df09b014-415d-479c-88e7-6f00a4206cde",
+                  "GUID": "58ac2916-3373-48ea-bb33-b06cbb3b2196",
                   "Id": {
                     "$id": "10",
                     "Name": "add"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "11",
                     "$values": []
                   }
                 },
-                "subtract": {
+                "subtract-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -343,15 +313,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION subtract",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "8",
                     "$values": [
                       {
@@ -365,24 +329,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "9",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "bd26fe94-41b4-46ae-8e82-60cd1c947a4b",
+                  "GUID": "b1988806-fed3-48a3-9cf4-8c94dd8bfef9",
                   "Id": {
                     "$id": "10",
                     "Name": "subtract"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "11",
                     "$values": []
                   }
                 },
-                "multiply": {
+                "multiply-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -404,15 +368,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION multiply",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "8",
                     "$values": [
                       {
@@ -426,24 +384,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "9",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "208dd1bf-99ed-4242-a97f-58ce7477695a",
+                  "GUID": "89392ac8-97a3-4320-9801-c4a44cda9d31",
                   "Id": {
                     "$id": "10",
                     "Name": "multiply"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "11",
                     "$values": []
                   }
                 },
-                "divide": {
+                "divide-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -465,15 +423,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION divide",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "8",
                     "$values": [
                       {
@@ -487,24 +439,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "9",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "55eb385f-7e49-4e0b-bd65-02806177f82f",
+                  "GUID": "075b4a83-e9d6-4351-b411-0da9ec798aef",
                   "Id": {
                     "$id": "10",
                     "Name": "divide"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "11",
                     "$values": []
                   }
                 },
-                "remainder": {
+                "remainder-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -538,15 +490,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION remainder",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "10",
                     "$values": [
                       {
@@ -560,24 +506,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "11",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "b98b5048-79af-42c9-b8a7-c76b1d22b151",
+                  "GUID": "e530bcd3-da62-4ec8-af2a-8a4e1fc2732b",
                   "Id": {
                     "$id": "12",
                     "Name": "remainder"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "13",
                     "$values": []
                   }
                 },
-                "modulo": {
+                "modulo-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -599,15 +545,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION modulo",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "8",
                     "$values": [
                       {
@@ -621,24 +561,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "9",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "943c7890-3cb5-4cc9-b7fa-dc209bf4aa9b",
+                  "GUID": "4d4bad6d-1f40-48c3-979e-667e985e3ab6",
                   "Id": {
                     "$id": "10",
                     "Name": "modulo"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "11",
                     "$values": []
                   }
                 },
-                "halve": {
+                "halve-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -651,15 +591,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION halve",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "5",
                     "$values": [
                       {
@@ -667,24 +601,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "6",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "328809e4-b63c-4b03-8b49-5bf8b3d41e12",
+                  "GUID": "f302d65c-62fc-4fd3-a0d2-87ef60720c53",
                   "Id": {
                     "$id": "7",
                     "Name": "halve"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "8",
                     "$values": []
                   }
                 },
-                "make": {
+                "make-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -700,15 +634,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION make",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -719,24 +647,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "35d78fd7-321f-4802-8cc9-086f93970f50",
+                  "GUID": "3aa958ee-0add-42d1-a1ec-d9cd313ca507",
                   "Id": {
                     "$id": "8",
                     "Name": "make"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "eq": {
+                "eq-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -752,15 +680,9 @@
                       }
                     ]
                   },
-                  "NameType": "canFail, macro",
-                  "NameStyle": "italic, underline",
-                  "AlgorithmName": "TEST eq",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -771,24 +693,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "736be659-36f7-4e85-9326-f509a76194a3",
+                  "GUID": "8f60b15e-6565-46ef-b654-121af8db9a87",
                   "Id": {
                     "$id": "8",
                     "Name": "eq"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "ne": {
+                "ne-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -804,15 +726,9 @@
                       }
                     ]
                   },
-                  "NameType": "canFail, macro",
-                  "NameStyle": "italic, underline",
-                  "AlgorithmName": "TEST ne",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -823,24 +739,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "c08dbfc0-12bc-4e50-8479-9b4e589d8357",
+                  "GUID": "9722e953-aea9-4184-a0d6-a77cde1685f3",
                   "Id": {
                     "$id": "8",
                     "Name": "ne"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "gt": {
+                "gt-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -856,15 +772,9 @@
                       }
                     ]
                   },
-                  "NameType": "canFail, macro",
-                  "NameStyle": "italic, underline",
-                  "AlgorithmName": "TEST gt",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -875,24 +785,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "fc13a242-7bfe-4c8e-a07d-40170f6c1e45",
+                  "GUID": "3201a1c7-d3d9-4709-a69c-8fef9d009c31",
                   "Id": {
                     "$id": "8",
                     "Name": "gt"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "ge": {
+                "ge-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -908,15 +818,9 @@
                       }
                     ]
                   },
-                  "NameType": "canFail, macro",
-                  "NameStyle": "italic, underline",
-                  "AlgorithmName": "TEST ge",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -927,24 +831,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "30e0afc1-d968-410d-9911-c1de0978bf80",
+                  "GUID": "81377357-b546-4cf6-8ef7-3e9b28b3ef6a",
                   "Id": {
                     "$id": "8",
                     "Name": "ge"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "lt": {
+                "lt-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -960,15 +864,9 @@
                       }
                     ]
                   },
-                  "NameType": "canFail, macro",
-                  "NameStyle": "italic, underline",
-                  "AlgorithmName": "TEST lt",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -979,24 +877,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "939e2c16-b49e-4b6b-b5b2-14f4a8290172",
+                  "GUID": "283ec30e-723f-4a11-a8b2-0ac041d643cf",
                   "Id": {
                     "$id": "8",
                     "Name": "lt"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "le": {
+                "le-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1012,15 +910,9 @@
                       }
                     ]
                   },
-                  "NameType": "canFail, macro",
-                  "NameStyle": "italic, underline",
-                  "AlgorithmName": "TEST le",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -1031,24 +923,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "facaaa13-b5b5-4347-bc68-1eab8e56b868",
+                  "GUID": "7bbff3e1-8010-41c4-b53a-646e35659134",
                   "Id": {
                     "$id": "8",
                     "Name": "le"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "less or equal": {
+                "less or equal-Procedure": {
                   "$id": "1",
                   "group": {
                     "$id": "2",
@@ -1109,7 +1001,7 @@
                     },
                     "Parent": null,
                     "IsSynthetic": false,
-                    "GUID": "43fd503f-81cf-47dd-8528-84b2115f601c",
+                    "GUID": "9cc0ff19-afd2-444b-91e7-d967d21704ea",
                     "Id": {
                       "$id": "16",
                       "Name": "less or equal"
@@ -1122,13 +1014,9 @@
                     }
                   },
                   "repeatsProcedure": false,
-                  "NameType": "canFail",
-                  "NameStyle": "italic",
-                  "AlgorithmName": "TEST less or equal",
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "colon",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "colon",
+                  "Affixes": {
                     "$id": "18",
                     "$values": [
                       {
@@ -1139,23 +1027,23 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "19",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "a0318f5b-a7af-4fd4-9a5e-866d9e6baa4e",
+                  "GUID": "de8ee68f-9316-458f-9daa-55ed8411317a",
                   "Id": {
                     "$ref": "16"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "20",
                     "$values": []
                   }
                 },
-                "random": {
+                "random-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1180,15 +1068,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION random",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "9",
                     "$values": [
                       {
@@ -1202,17 +1084,17 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "10",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "a0443a74-2a88-4518-ad17-1b3baaf0bccf",
+                  "GUID": "1ec02fec-8094-4efc-96f4-9d2ae6526dbf",
                   "Id": {
                     "$id": "11",
                     "Name": "random"
                   },
-                  "ParentGuid": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+                  "ParentGuid": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
                   "Comments": null,
                   "Notes": {
                     "$id": "12",
@@ -1221,12 +1103,12 @@
                 }
               },
               "IsSynthetic": false,
-              "GUID": "b8053be1-cd50-4400-a8df-23b7f3ef288b",
+              "GUID": "6d9dc36b-d0e7-4ee2-8755-21c0579a278d",
               "Id": {
                 "$id": "7",
                 "Name": "arithmetic"
               },
-              "ParentGuid": "f9a5e18b-3d9f-4806-90a3-55289e6271bb",
+              "ParentGuid": "94a18191-9f92-4433-ae44-ba6bea7554b4",
               "Comments": null,
               "Ludes": {
                 "$id": "8",
@@ -1260,7 +1142,7 @@
               ],
               "import": [],
               "Declarations": {
-                "start timer": {
+                "start timer-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1270,36 +1152,30 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION start timer",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "4",
                     "$values": []
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "5",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "89eec7db-90c3-4dc1-9b5d-5ccfe904ca87",
+                  "GUID": "9be7ebff-4b2e-46e7-a190-61502c047cbf",
                   "Id": {
                     "$id": "6",
                     "Name": "start timer"
                   },
-                  "ParentGuid": "6d44cc8e-e87d-4ebb-b411-e3dbecc8086c",
+                  "ParentGuid": "784c0655-816c-453d-8ec1-d3e4274b0066",
                   "Comments": null,
                   "Notes": {
                     "$id": "7",
                     "$values": []
                   }
                 },
-                "stop timer": {
+                "stop timer-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1309,36 +1185,30 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION stop timer",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "4",
                     "$values": []
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "5",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "b117c9b4-33ec-4110-80cf-d0f53b155ae1",
+                  "GUID": "28a9f042-93e0-40d0-aa34-7ea8078bb056",
                   "Id": {
                     "$id": "6",
                     "Name": "stop timer"
                   },
-                  "ParentGuid": "6d44cc8e-e87d-4ebb-b411-e3dbecc8086c",
+                  "ParentGuid": "784c0655-816c-453d-8ec1-d3e4274b0066",
                   "Comments": null,
                   "Notes": {
                     "$id": "7",
                     "$values": []
                   }
                 },
-                "show elapsed time": {
+                "show elapsed time-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1351,29 +1221,23 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION show elapsed time",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "5",
                     "$values": []
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "6",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "42d4a25c-0cbd-4d85-98be-9c321379f5ff",
+                  "GUID": "a00ed34e-8166-4945-a3d8-10805386642d",
                   "Id": {
                     "$id": "7",
                     "Name": "show elapsed time"
                   },
-                  "ParentGuid": "6d44cc8e-e87d-4ebb-b411-e3dbecc8086c",
+                  "ParentGuid": "784c0655-816c-453d-8ec1-d3e4274b0066",
                   "Comments": null,
                   "Notes": {
                     "$id": "8",
@@ -1382,12 +1246,12 @@
                 }
               },
               "IsSynthetic": false,
-              "GUID": "6d44cc8e-e87d-4ebb-b411-e3dbecc8086c",
+              "GUID": "784c0655-816c-453d-8ec1-d3e4274b0066",
               "Id": {
                 "$id": "14",
                 "Name": "timer"
               },
-              "ParentGuid": "f9a5e18b-3d9f-4806-90a3-55289e6271bb",
+              "ParentGuid": "94a18191-9f92-4433-ae44-ba6bea7554b4",
               "Comments": null,
               "Ludes": {
                 "$id": "15",
@@ -1425,7 +1289,7 @@
               ],
               "import": [],
               "Declarations": {
-                "show msg": {
+                "show msg-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1438,15 +1302,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION show msg",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "5",
                     "$values": [
                       {
@@ -1454,24 +1312,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "6",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "b984867a-be0f-4ff1-9eab-ae28b682d1f3",
+                  "GUID": "7708383c-5b23-4c8d-9842-5337b4a96490",
                   "Id": {
                     "$id": "7",
                     "Name": "show msg"
                   },
-                  "ParentGuid": "21d4643f-951b-41e4-b607-d31725314332",
+                  "ParentGuid": "d07bdffb-e6e5-4c16-9035-e4c90bcccfbb",
                   "Comments": null,
                   "Notes": {
                     "$id": "8",
                     "$values": []
                   }
                 },
-                "show number": {
+                "show number-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1487,15 +1345,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION show number",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": [
                       {
@@ -1503,24 +1355,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "1baf44e7-6c1b-4a3b-9543-18dd52cf1be0",
+                  "GUID": "53c79e4a-c195-4f07-8ce1-b7740841f81d",
                   "Id": {
                     "$id": "8",
                     "Name": "show number"
                   },
-                  "ParentGuid": "21d4643f-951b-41e4-b607-d31725314332",
+                  "ParentGuid": "d07bdffb-e6e5-4c16-9035-e4c90bcccfbb",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "show msg no newline": {
+                "show msg no newline-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1533,15 +1385,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION show msg no newline",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "5",
                     "$values": [
                       {
@@ -1549,17 +1395,17 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "6",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "e57dae9a-a527-401e-b818-2885f9af06da",
+                  "GUID": "50033a9a-3284-46a4-b1ca-1d90a987a533",
                   "Id": {
                     "$id": "7",
                     "Name": "show msg no newline"
                   },
-                  "ParentGuid": "21d4643f-951b-41e4-b607-d31725314332",
+                  "ParentGuid": "d07bdffb-e6e5-4c16-9035-e4c90bcccfbb",
                   "Comments": null,
                   "Notes": {
                     "$id": "8",
@@ -1568,12 +1414,12 @@
                 }
               },
               "IsSynthetic": false,
-              "GUID": "21d4643f-951b-41e4-b607-d31725314332",
+              "GUID": "d07bdffb-e6e5-4c16-9035-e4c90bcccfbb",
               "Id": {
                 "$id": "21",
                 "Name": "messages"
               },
-              "ParentGuid": "f9a5e18b-3d9f-4806-90a3-55289e6271bb",
+              "ParentGuid": "94a18191-9f92-4433-ae44-ba6bea7554b4",
               "Comments": null,
               "Ludes": {
                 "$id": "22",
@@ -1627,7 +1473,7 @@
                 "max random"
               ],
               "Declarations": {
-                "lwb": {
+                "lwb-ImportedConst": {
                   "$id": "1",
                   "IsImported": true,
                   "elements": {
@@ -1635,19 +1481,19 @@
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "3b8e9cb3-3b09-46c3-a887-1612ac2e5f30",
+                  "GUID": "140398c8-cdea-49ce-beea-2462d16b4d31",
                   "Id": {
                     "$id": "3",
                     "Name": "lwb"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "4",
                     "$values": []
                   }
                 },
-                "upb": {
+                "upb-ImportedConst": {
                   "$id": "1",
                   "IsImported": true,
                   "elements": {
@@ -1655,19 +1501,19 @@
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "e7eb3698-793d-4a1c-832e-ef5704afd2e6",
+                  "GUID": "e51723fc-e833-4a9b-ac48-70f7ea07bd0b",
                   "Id": {
                     "$id": "3",
                     "Name": "upb"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "4",
                     "$values": []
                   }
                 },
-                "max size of list to show": {
+                "max size of list to show-ImportedConst": {
                   "$id": "1",
                   "IsImported": true,
                   "elements": {
@@ -1675,19 +1521,19 @@
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "035d7f60-d191-4113-89f2-986e9dd89d6d",
+                  "GUID": "d9a8e3ab-c288-41ad-92d4-c16da2d447bb",
                   "Id": {
                     "$id": "3",
                     "Name": "max size of list to show"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "4",
                     "$values": []
                   }
                 },
-                "min random": {
+                "min random-ImportedConst": {
                   "$id": "1",
                   "IsImported": true,
                   "elements": {
@@ -1695,19 +1541,19 @@
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "a38380be-1b50-48a3-995b-387c937492f5",
+                  "GUID": "a9d6b62a-6bbb-455f-b7a7-98c98e98e061",
                   "Id": {
                     "$id": "3",
                     "Name": "min random"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "4",
                     "$values": []
                   }
                 },
-                "max random": {
+                "max random-ImportedConst": {
                   "$id": "1",
                   "IsImported": true,
                   "elements": {
@@ -1715,19 +1561,19 @@
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "0fdc7be8-4e28-4ff4-89aa-c3c873303793",
+                  "GUID": "de288324-5870-4c27-b791-65afc2aead47",
                   "Id": {
                     "$id": "3",
                     "Name": "max random"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "4",
                     "$values": []
                   }
                 },
-                "data": {
+                "data-LIST": {
                   "$id": "1",
                   "lwb": {
                     "$id": "2",
@@ -1738,19 +1584,19 @@
                     "Name": "upb"
                   },
                   "IsSynthetic": false,
-                  "GUID": "dad0d4e6-3ce0-4b9f-b512-1a74ac9ae301",
+                  "GUID": "a20cd9e4-3b80-4387-ae50-fc4eb3de5e65",
                   "Id": {
                     "$id": "4",
                     "Name": "data"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": "# The array to be sorted. #\r\n",
                   "Notes": {
                     "$id": "5",
                     "$values": []
                   }
                 },
-                "smaller element": {
+                "smaller element-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1781,15 +1627,9 @@
                       }
                     ]
                   },
-                  "NameType": "canFail, macro",
-                  "NameStyle": "italic, underline",
-                  "AlgorithmName": "TEST smaller element",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "10",
                     "$values": [
                       {
@@ -1800,24 +1640,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "11",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "d6320bd1-3e9f-4a9e-af50-9d783145ca19",
+                  "GUID": "75971cc1-6db0-4cda-9ced-653b8b49ecc6",
                   "Id": {
                     "$id": "12",
                     "Name": "smaller element"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "13",
                     "$values": []
                   }
                 },
-                "swap element": {
+                "swap element-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1842,15 +1682,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION swap element",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "9",
                     "$values": [
                       {
@@ -1861,24 +1695,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "10",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "237f0f8d-e82a-49b3-9dff-af4a50defbf0",
+                  "GUID": "fd89f7ba-c83f-43e7-8fab-e400d9a55bc7",
                   "Id": {
                     "$id": "11",
                     "Name": "swap element"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "12",
                     "$values": []
                   }
                 },
-                "get element": {
+                "get element-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1903,15 +1737,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro",
-                  "NameStyle": "underline",
-                  "AlgorithmName": "FUNCTION get element",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "9",
                     "$values": [
                       {
@@ -1922,24 +1750,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "10",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "dd7e20bc-cf80-4e9f-a395-51bbf67372c3",
+                  "GUID": "560ddba5-7858-4aa1-afec-bff6168fe04e",
                   "Id": {
                     "$id": "11",
                     "Name": "get element"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "12",
                     "$values": []
                   }
                 },
-                "set element": {
+                "set element-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -1964,15 +1792,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION set element",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "9",
                     "$values": [
                       {
@@ -1983,24 +1805,24 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "10",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "a6bc3de5-b2fd-4b54-8125-5dad86eac12e",
+                  "GUID": "3b6de638-8124-4160-b06e-4854f1f87705",
                   "Id": {
                     "$id": "11",
                     "Name": "set element"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "12",
                     "$values": []
                   }
                 },
-                "set element to": {
+                "set element to-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -2031,15 +1853,9 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION set element to",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "10",
                     "$values": [
                       {
@@ -2050,17 +1866,17 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "11",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "573a053d-7c9d-4ca5-88cb-43a37907c721",
+                  "GUID": "2694c33f-ceca-40b8-b959-e8f4ed823cdc",
                   "Id": {
                     "$id": "12",
                     "Name": "set element to"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "13",
@@ -2078,7 +1894,7 @@
                     ]
                   }
                 },
-                "dump list": {
+                "dump list-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -2094,36 +1910,30 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION dump list",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": []
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "95c9261f-06eb-43f3-9960-b9aff4a2e414",
+                  "GUID": "36458676-e3b4-4471-8604-1545cf61f460",
                   "Id": {
                     "$id": "8",
                     "Name": "dump list"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "dump data": {
+                "dump data-Procedure": {
                   "$id": "1",
                   "group": {
                     "$id": "2",
@@ -2256,8 +2066,7 @@
                                             {
                                               "$id": "35",
                                               "Id": {
-                                                "$id": "36",
-                                                "Name": "\u0022too many elements to show.\u0022"
+                                                "$ref": "27"
                                               }
                                             }
                                           ]
@@ -2272,7 +2081,7 @@
                                       }
                                     },
                                     "Notes": {
-                                      "$id": "37",
+                                      "$id": "36",
                                       "$values": []
                                     }
                                   }
@@ -2280,14 +2089,14 @@
                               },
                               "Parent": null,
                               "IsSynthetic": true,
-                              "GUID": "8364a5d9-e4f0-4364-8f75-581a13b7fd95",
+                              "GUID": "21882622-3884-40f6-8e19-af67256aa3ff",
                               "Id": {
                                 "$ref": "27"
                               },
                               "ParentGuid": null,
                               "Comments": null,
                               "Notes": {
-                                "$id": "38",
+                                "$id": "37",
                                 "$values": []
                               }
                             },
@@ -2297,7 +2106,7 @@
                             }
                           },
                           "Notes": {
-                            "$id": "39",
+                            "$id": "38",
                             "$values": []
                           }
                         }
@@ -2305,50 +2114,46 @@
                     },
                     "Parent": null,
                     "IsSynthetic": false,
-                    "GUID": "10f7c4ea-08bf-4b1b-b7de-155fd7ad5969",
+                    "GUID": "cfc8e04f-027f-4ec5-9b0a-a42183fbe449",
                     "Id": {
-                      "$id": "40",
+                      "$id": "39",
                       "Name": "dump data"
                     },
                     "ParentGuid": null,
                     "Comments": null,
                     "Notes": {
-                      "$id": "41",
+                      "$id": "40",
                       "$values": []
                     }
                   },
                   "repeatsProcedure": false,
-                  "NameType": "hasEffect",
-                  "NameStyle": "bold",
-                  "AlgorithmName": "ACTION dump data",
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "colon",
-                  "affixes": {
-                    "$id": "42",
+                  "AlgorithmType": "action",
+                  "BodyType": "colon",
+                  "Affixes": {
+                    "$id": "41",
                     "$values": [
                       {
                         "$ref": "9"
                       }
                     ]
                   },
-                  "locals": {
-                    "$id": "43",
+                  "Locals": {
+                    "$id": "42",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "23acf101-9a09-4f33-997e-a018531fc7d6",
+                  "GUID": "e2493fb3-4ccc-479b-87c0-26124f93a659",
                   "Id": {
-                    "$ref": "40"
+                    "$ref": "39"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
-                    "$id": "44",
+                    "$id": "43",
                     "$values": []
                   }
                 },
-                "is data sorted macro": {
+                "is data sorted macro-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -2439,19 +2244,13 @@
                       }
                     ]
                   },
-                  "NameType": "canFail, macro",
-                  "NameStyle": "italic, underline",
-                  "AlgorithmName": "TEST is data sorted macro",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "TEST",
-                  "algorithmType": "test",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "test",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "24",
                     "$values": []
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "25",
                     "$values": [
                       {
@@ -2463,19 +2262,19 @@
                     ]
                   },
                   "IsSynthetic": false,
-                  "GUID": "73bc05c4-f5b0-4231-909a-b1a8129a3d5e",
+                  "GUID": "e6b941fe-a3c8-4732-877a-3f3900f7b6ab",
                   "Id": {
                     "$id": "26",
                     "Name": "is data sorted macro"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "27",
                     "$values": []
                   }
                 },
-                "sort data": {
+                "sort data-Macro": {
                   "$id": "1",
                   "elements": {
                     "$id": "2",
@@ -2491,51 +2290,45 @@
                       }
                     ]
                   },
-                  "NameType": "macro, hasEffect",
-                  "NameStyle": "bold, underline",
-                  "AlgorithmName": "ACTION sort data",
-                  "IsConditionalCompilationOff": false,
-                  "IsConditionalCompilationOn": false,
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "equals",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "equals",
+                  "Affixes": {
                     "$id": "6",
                     "$values": []
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "7",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "428dc343-3fb2-4103-8f64-63cffe3171bb",
+                  "GUID": "817a8112-f669-42e0-9adb-d35cbb658c85",
                   "Id": {
                     "$id": "8",
                     "Name": "sort data"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": "# Sort the array using the built-in sort method. For execution time comparison. #\r\n",
                   "Notes": {
                     "$id": "9",
                     "$values": []
                   }
                 },
-                "data size": {
+                "data size-Var": {
                   "$id": "1",
                   "IsSynthetic": false,
-                  "GUID": "ee8d7429-4978-4a44-b016-fcad725a3f1d",
+                  "GUID": "1e4505d8-d11e-4d46-bd1b-f75d5208d9ef",
                   "Id": {
                     "$id": "2",
                     "Name": "data size"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": "# The size of the list to be sorted as a variable. Just to exercise VARs.  #\r\n",
                   "Notes": {
                     "$id": "3",
                     "$values": []
                   }
                 },
-                "get data size": {
+                "get data size-Procedure": {
                   "$id": "1",
                   "group": {
                     "$id": "2",
@@ -2596,7 +2389,7 @@
                     },
                     "Parent": null,
                     "IsSynthetic": false,
-                    "GUID": "9ff21d2b-6bf2-4bab-8dde-9949714f61a3",
+                    "GUID": "5d7d4c81-fb0b-4740-bfa8-80b47a5f1f58",
                     "Id": {
                       "$id": "16",
                       "Name": "get data size"
@@ -2609,13 +2402,9 @@
                     }
                   },
                   "repeatsProcedure": false,
-                  "NameType": "none",
-                  "NameStyle": "normal",
-                  "AlgorithmName": "FUNCTION get data size",
-                  "TypeShortName": "FUNCTION",
-                  "algorithmType": "function",
-                  "bodyType": "colon",
-                  "affixes": {
+                  "AlgorithmType": "function",
+                  "BodyType": "colon",
+                  "Affixes": {
                     "$id": "18",
                     "$values": [
                       {
@@ -2623,23 +2412,23 @@
                       }
                     ]
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "19",
                     "$values": []
                   },
                   "IsSynthetic": false,
-                  "GUID": "1618136a-5779-4ac7-9c7f-53af1e021ed8",
+                  "GUID": "4638e628-8501-4393-a2a5-f27008d62081",
                   "Id": {
                     "$ref": "16"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": "# The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted.   #\r\n",
                   "Notes": {
                     "$id": "20",
                     "$values": []
                   }
                 },
-                "initialize data": {
+                "initialize data-Procedure": {
                   "$id": "1",
                   "group": {
                     "$id": "2",
@@ -2888,7 +2677,7 @@
                               },
                               "Parent": null,
                               "IsSynthetic": true,
-                              "GUID": "7b02f54c-173f-482c-9e86-6f1babde3bc4",
+                              "GUID": "8efb3db6-486c-47e4-aaa5-f7d1d9f29c3e",
                               "Id": {
                                 "$ref": "46"
                               },
@@ -2913,7 +2702,7 @@
                     },
                     "Parent": null,
                     "IsSynthetic": false,
-                    "GUID": "aa1b63a8-fc3b-4f17-bc35-8a5ccff34085",
+                    "GUID": "22861651-7ab3-4694-8dfb-bf76daf58a09",
                     "Id": {
                       "$id": "54",
                       "Name": "initialize data"
@@ -2926,17 +2715,13 @@
                     }
                   },
                   "repeatsProcedure": false,
-                  "NameType": "hasEffect",
-                  "NameStyle": "bold",
-                  "AlgorithmName": "ACTION initialize data",
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "colon",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "colon",
+                  "Affixes": {
                     "$id": "56",
                     "$values": []
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "57",
                     "$values": [
                       {
@@ -2948,18 +2733,18 @@
                     ]
                   },
                   "IsSynthetic": false,
-                  "GUID": "09d0d4cb-d5d2-4458-86bf-382729380597",
+                  "GUID": "d8b0d2c6-6030-4a58-8e7e-61331e11cb9b",
                   "Id": {
                     "$ref": "54"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": "# Fill the array with random integers. #\r\n",
                   "Notes": {
                     "$id": "58",
                     "$values": []
                   }
                 },
-                "PRELUDE": {
+                "PRELUDE-Procedure": {
                   "$id": "1",
                   "group": {
                     "$id": "2",
@@ -3007,7 +2792,7 @@
                     },
                     "Parent": null,
                     "IsSynthetic": false,
-                    "GUID": "89817162-69f3-43e9-95b2-a1829dfba148",
+                    "GUID": "87511aa2-a2e9-4577-aca4-15634be23df3",
                     "Id": {
                       "$id": "12",
                       "Name": "PRELUDE"
@@ -3020,26 +2805,22 @@
                     }
                   },
                   "repeatsProcedure": false,
-                  "NameType": "hasEffect",
-                  "NameStyle": "bold",
-                  "AlgorithmName": "ACTION PRELUDE",
-                  "TypeShortName": "ACTION",
-                  "algorithmType": "action",
-                  "bodyType": "colon",
-                  "affixes": {
+                  "AlgorithmType": "action",
+                  "BodyType": "colon",
+                  "Affixes": {
                     "$id": "14",
                     "$values": []
                   },
-                  "locals": {
+                  "Locals": {
                     "$id": "15",
                     "$values": []
                   },
                   "IsSynthetic": true,
-                  "GUID": "33ef88aa-ba19-4ece-9641-d936a20324ae",
+                  "GUID": "1b586134-8655-4298-a271-24fa3b845eca",
                   "Id": {
                     "$ref": "12"
                   },
-                  "ParentGuid": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+                  "ParentGuid": "56867778-8b74-42bb-a723-6960f76b569a",
                   "Comments": null,
                   "Notes": {
                     "$id": "16",
@@ -3048,12 +2829,12 @@
                 }
               },
               "IsSynthetic": false,
-              "GUID": "9d947cc5-047f-4b85-a147-b5a85d59c69c",
+              "GUID": "56867778-8b74-42bb-a723-6960f76b569a",
               "Id": {
                 "$id": "28",
                 "Name": "data"
               },
-              "ParentGuid": "f9a5e18b-3d9f-4806-90a3-55289e6271bb",
+              "ParentGuid": "94a18191-9f92-4433-ae44-ba6bea7554b4",
               "Comments": null,
               "Ludes": {
                 "$id": "29",
@@ -3084,12 +2865,12 @@
         },
         "Ancestor": null,
         "IsSynthetic": false,
-        "GUID": "f9a5e18b-3d9f-4806-90a3-55289e6271bb",
+        "GUID": "94a18191-9f92-4433-ae44-ba6bea7554b4",
         "Id": {
           "$id": "35",
           "Name": "kernel"
         },
-        "ParentGuid": "27874aec-67e4-4388-8707-06eb0dc99b16",
+        "ParentGuid": "edbddb19-8918-41b9-98f6-34aa1f246347",
         "Comments": null,
         "Ludes": {
           "$id": "36",

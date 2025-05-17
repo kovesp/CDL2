@@ -258,7 +258,7 @@ namespace CDL2v1 {
       /// <param name="args"></param>
       /// <param name="parameters"></param>
       private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null,Parameters? parameters = null) {
-         parameters = new(parameters,macro.affixes, args ?? []);
+         parameters = new(parameters,macro.Affixes, args ?? []);
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
          foreach (IMacroElement elem in macro.elements) {
@@ -377,7 +377,7 @@ namespace CDL2v1 {
       private void FinalizeAffixesAndVariables(Algorithm algorithm,IEnumerable<Var> variables) {
          cg.GenerateAffixAndVariableFinalizationStart(algorithm);
          if (algorithm.NeedsFinalization) {
-            foreach (Affix affix in algorithm.affixes) cg.GenerateAffixAndVariableFinalizer(algorithm, affix);
+            foreach (Affix affix in algorithm.Affixes) cg.GenerateAffixAndVariableFinalizer(algorithm, affix);
             foreach (Var var in variables) cg.GenerateAffixAndVariableFinalizer(algorithm, var, isVar: true);
          }
          cg.GenerateAffixAndVariableFinalizationEnd(algorithm);
@@ -391,9 +391,9 @@ namespace CDL2v1 {
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
          GenerateAlgorithmComment(alg);
          cg.GenerateAlgorithmHeaderStart(alg);
-         if (alg.affixes.Count > 0) {
-            cg.GenerateAffix(alg.affixes[0], alg.affixes[0].affixDir, alg.CanFail);
-            foreach (Affix affix in alg.affixes.Skip(1)) {
+         if (alg.Affixes.Count > 0) {
+            cg.GenerateAffix(alg.Affixes[0], alg.Affixes[0].affixDir, alg.CanFail);
+            foreach (Affix affix in alg.Affixes.Skip(1)) {
                cg.GenerateAffixSeparator();
                cg.GenerateAffix(affix, affix.affixDir, alg.CanFail);
             }
@@ -401,10 +401,10 @@ namespace CDL2v1 {
 
          cg.GenerateAffixAndVariableInitializationStart(alg);
          if (alg.NeedsFinalization) {
-            foreach (Affix affix in alg.affixes) cg.GenerateAffixAndVariableInitializer(alg, affix);
+            foreach (Affix affix in alg.Affixes) cg.GenerateAffixAndVariableInitializer(alg, affix);
             foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg, var, isVar: true);
          }
-         foreach (Local local in alg.locals) cg.GenerateLocal(local);
+         foreach (Local local in alg.Locals) cg.GenerateLocal(local);
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
       /// <summary>
@@ -549,15 +549,15 @@ namespace CDL2v1 {
                Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
                if (calledProc.IsInlinable(Compiler.Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call}");
-                  GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new Parameters(parameters,calledProc.affixes, call.args));
+                  GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new Parameters(parameters,calledProc.Affixes, call.args));
                } else {
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
-                  parameters = new Parameters(parameters, calledProc.affixes, call.args);
+                  parameters = new Parameters(parameters, calledProc.Affixes, call.args);
                   if (parameters.Count > 0) {
-                     GenerateActualArg(proc, call, calledProc.affixes[0], call.args[0]);
+                     GenerateActualArg(proc, call, calledProc.Affixes[0], call.args[0]);
                      for (int i = 1 ; i < call.args.Count ; i++) {
                         cg.GenerateActualArgSeparator();
-                        GenerateActualArg(proc, call, calledProc.affixes[i], call.args[i]);
+                        GenerateActualArg(proc, call, calledProc.Affixes[i], call.args[i]);
                      }
                   }
                   cg.GenerateCallEnd(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);

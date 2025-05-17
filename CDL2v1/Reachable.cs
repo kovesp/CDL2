@@ -141,7 +141,7 @@ namespace CDL2v1 {
             // Collect objects referrenced in actual args
             for (int i = 0 ; i < call.args.Count ; i++) {
                IActualArg arg = call.args[i];
-               Affix affix = called.affixes[i];
+               Affix affix = called.Affixes[i];
                switch (arg) {
                   case Const c:
                      CollectReachableObjects(c);

@@ -212,8 +212,6 @@ namespace CDL2v1 {
          }
       }
 
-
-
       private static ICodeGenerator? CreateCodeGenerator(string target, string dataType = "Int64") {
          try {
             string className = $"CDL2v1.CodeGenerator{target}";

@@ -112,12 +112,14 @@ namespace CDL2v1 {
             if (reader.TokenType == JsonTokenType.EndObject) break;
             // Read the key as a string
             string keyString = reader.GetString()!;
+            (string key,string typeName) = keyString.Split2('-');
+            Type? type = Type.GetType($"CDL2v1.{typeName}");
             // Read the value
             reader.Read();
-            try {
-               dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<V>(ref reader, options)!;
+            try {  
+               dictionary[ID.From(key)] = (V)JsonSerializer.Deserialize(ref reader, type!, options)!;
             } catch (Exception e) {
-               Debug.WriteLine($"IDDictionaryJsonConverter: {keyString} -> {e.Message}");;
+               Debug.WriteLine($"IDDictionaryJsonConverter: {keyString} -> {e.Message}");
                Debugger.Break();
             }
          }
@@ -129,8 +131,8 @@ namespace CDL2v1 {
          writer.WriteStartObject();
          foreach (ID key in value.Keys) {
             // Debug.WriteLine($"   {key} -> {value[key]}");
-            if (key.Name == "incr") Debug.WriteLine($"   {key} -> {value[key]}");
-            writer.WritePropertyName(key.Name);
+             if (key.Name == "incr") Debug.WriteLine($"   {key} -> {value[key]}");
+            writer.WritePropertyName($"{key.Name}-{value[key]!.GetType().Name}");
             try {
                JsonSerializer.Serialize(writer, value[key],value[key]!.GetType(), options);
             } catch (Exception e) {

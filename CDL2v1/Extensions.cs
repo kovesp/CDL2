@@ -162,6 +162,20 @@ namespace CDL2v1 {
    }
 
    public static class Extensions {
+      /// <summary>
+      /// Split a string into two parts at the first occurrence of the separator.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <param name="separator"></param>
+      /// <returns></returns>
+      /// <exception cref="ArgumentException"></exception>
+      public static (string, string) Split2(this string input, char separator) {
+         var parts = input.Split(separator, 2);
+         if (parts.Length != 2)
+            throw new ArgumentException($"Input '{input}' does not contain exactly one '{separator}'");
+         return (parts[0], parts[1]);
+      }
+
       public static bool IsValidFileName(this string? fileName) {
          if (string.IsNullOrWhiteSpace(fileName)) {
             return false;
