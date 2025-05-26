@@ -12,6 +12,7 @@ using Microsoft.Win32;
 using System.Diagnostics.CodeAnalysis;
 using System.Collections;
 using System.Diagnostics;
+using System.Xml.Linq;
 
 namespace CDL2v1 {
    /// <summary>
@@ -24,6 +25,56 @@ namespace CDL2v1 {
       /// </summary>
       public Database() { }
       public static Database Instance { get; private set; } = new Database();
+
+      /// <summary>
+      /// Maps the cannonical form of identifiers (i.e., with whitespace removed) to the original form.
+      /// </summary>
+      [JsonInclude]
+      [JsonPropertyOrder(0)]
+      public Dictionary<string, string> CanonicalNames = [];
+      /// <summary>
+      /// Add a name to the canonical name list.
+      /// If the canonical form is already in the dictioary make no changes. this preserves the first seen spaacing of the name.
+      /// </summary>
+      /// <param name="name"></param>
+      /// <returns>The canonical name.</returns>
+      public string AddCanonicalName(string name) {
+         string canonicalName = name.Replace(" ", "");
+         if (CanonicalNames.TryGetValue(canonicalName, out string? _)) Instance.CanonicalNames[canonicalName] = name;
+         return canonicalName;
+      }
+      /// <summary>
+      /// Rename a canonical name. This simply involves adding a new name to the dictionary with the new spelling.
+      /// This can be used to change just the spelling of the name (i.e., spacing), or to completely change the name.
+      /// In the latter case, the old name is not removed from the dictionary because it may be used in places other than the current context.
+      /// This allows fpr the use of an identifier in multiple sections with the rename applying only the section of the object being renamed.
+      /// </summary>
+      /// <param name="oldName">not used</param>
+      /// <param name="newName">the new name</param>
+      /// <returns>the (possibly new) canonical name</returns>
+      public string RenameCanonicalName(string oldName,string newName) {
+         string canonicalName = newName.Replace(" ", "");
+         CanonicalNames[canonicalName] = newName;
+         return canonicalName;
+      }
+      /// <summary>
+      /// The diplay name of the identifer.
+      /// </summary>
+      /// <param name="name"></param>
+      /// <returns></returns>
+      public string DisplayName(string name) => CanonicalNames.TryGetValue(name.Replace(" ", ""), out string? displayName) ? displayName : name;
+
+      /// <summary>
+      /// All the named elements in the database. Every other reference uses the GUID.
+      /// </summary>
+      [JsonInclude]
+      [JsonPropertyOrder(1)]
+      public Dictionary<Guid,NamedElement> NamedElements = [];
+      /// <summary>
+      /// Add a named element to the database.
+      /// </summary>
+      /// <param name="element"></param>
+      public void AddNamedElement(NamedElement element) => NamedElements[element.GUID] = element;
 
 #if GroupCounter
       public long labelCounter = 0;
@@ -39,35 +90,57 @@ namespace CDL2v1 {
       public static ID NextGroupLabel => ID.AnonID;
 #endif // GroupCounter
 
+      /// <summary>
+      /// Contains the guids of all the programs in the syntax tree.
+      /// </summary>
       [JsonInclude]
-      [JsonPropertyOrder(4)]
-      //[JsonIgnore]
-      public IDDictionary<Program> Programs = [];       // Contains all the programs in the syntax tree.
-      //[JsonInclude][JsonPropertyOrder(5)]
-      [JsonInclude]
-      public ID? firstProgram = null;                        // The first program in the syntax tree.
+      [JsonPropertyOrder(2)]
+      public List<Guid> Programs = [];      
+
+      /// <summary>
+      /// Return the first program which is used as the main program if none is specified.
+      /// </summary>
       [JsonIgnore]
-      public Program? FirstProgram {
-         get {  if (firstProgram is null) {
-               if (Programs.Count > 0) {
-                  firstProgram = Programs.Values.First().Id;
-               } else {
-                  firstProgram = ID.ErrorID;
-               }
+      public Program? FirstProgram => Programs.Count == 0 ? null : NamedElements[Programs[0]] as Program;
+            /// <summary>
+      /// All the modules in the database.
+      /// </summary>
+      [JsonInclude][JsonPropertyOrder(3)]
+      public Set<Guid> Modules = [];
+
+      public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement{
+         IEnumerable<T> typedElements = NamedElements.Values.OfType<T>();
+         if (name == null) {
+            if (typedElements.Any()) {
+               elements = [typedElements.First()];
+            } else {
+               elements = [];
             }
-            return Programs.TryGetValue(firstProgram, out Program? prog) ? prog : null;
+         } else {
+            elements = typedElements.Where(e => e.Name == name);
          }
-         set => firstProgram = value?.Id ?? ID.ErrorID;
+         return elements.Any();
       }
-      //[JsonInclude][JsonPropertyOrder(3)]
-      [JsonIgnore]
-      public IDDictionary<Module> Modules = [];         // Contains all the modules in the syntax tree.
+      public bool TryGetSingleNamedelement<T>(string name, [MaybeNullWhen(false)] out T element) where T : NamedElement {
+         if (TryGetNamedElement(name, out IEnumerable<T> elements) && elements.Count() == 1) {
+            element = elements.First();
+            return true;
+         } else {
+            element = null!;
+            return false; 
+         }
+      }
+
 
       /// <summary>
       /// Used to ensure that multiple spellings of tokens produce the same ID.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(0)]
-      public Dictionary<string, ID> UniqueIDs = [];
+      //[JsonInclude][JsonPropertyOrder(0)]
+      //public Dictionary<string, ID> UniqueIDs = [];
+
+
+
+
 
       /// <summary>
       /// When a note is added to an element, the element is also added here.
@@ -85,10 +158,11 @@ namespace CDL2v1 {
       /// THe elements themselves contain the GUID, the NamedElementID can then be used to locate the actual element.
       /// This will be used in serializtion to avoid multiple copies of an element.
       /// </summary>
-      [JsonIgnore]
-      public Dictionary<Guid,NamedElement> NamedElements = []; // Records all named elements in the database.
+      //[JsonIgnore]
+      //public Dictionary<Guid,NamedElement> NamedElements = []; // Records all named elements in the database.
       [JsonInclude][JsonPropertyOrder(1)]
       public Dictionary<string, NamedElementID> NamedElementIDs = []; // Records the NamedElementIDs of all named elements in the database.
+
       /// <summary>
       /// Record the element in Namedelements with a NamedElementId.
       /// </summary>

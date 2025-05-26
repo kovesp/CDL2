@@ -142,14 +142,15 @@ namespace CDL2v1 {
    /// Base class for all elements that have names in the syntax tree.
    /// </summary>
    public abstract class NamedElement {
-      [JsonInclude][JsonPropertyOrder(0)] public readonly Guid GUID;
+      [JsonInclude][JsonPropertyOrder(0)] public Guid GUID;
+      [JsonInclude][JsonPropertyOrder(1)] public string Name;
 
       /// <param Id="Id"></param>
       public NamedElement(ID id,bool synthetic = false) {
          Id = id;
          IsSynthetic = synthetic;
          GUID = Guid.NewGuid();
-         Database.Record(this);
+         Database.Instance.AddNamedElement(this); // Register the element in the database.
       }
       public NamedElement() => Id = ID.AnonID;
       [JsonInclude][JsonPropertyOrder(1)]
