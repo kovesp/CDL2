@@ -16,6 +16,7 @@ using System.Xml.Serialization;
 using System.Windows;
 using System.Text.Json.Serialization;
 using System.Collections;
+using System.Text.Json;
 
 namespace CDL2v1 {  
    public class Set<T> : HashSet<T> {
@@ -162,6 +163,19 @@ namespace CDL2v1 {
    }
 
    public static class Extensions {
+
+      public static Type AsType(this string typeName) {
+         if (string.IsNullOrWhiteSpace(typeName)) {
+            throw new ArgumentException("Type name cannot be null or whitespace.", nameof(typeName));
+         }
+         Type? type = Type.GetType(typeName);
+         type ??= Type.GetType($"{typeof(Module).Namespace}.{typeName}");
+         if (type == null) {
+            throw new TypeLoadException($"Could not load type '{typeName}'.");
+         }
+         return type;
+      }
+
       public static bool IsValidFileName(this string? fileName) {
          if (string.IsNullOrWhiteSpace(fileName)) {
             return false;

@@ -39,6 +39,8 @@ namespace CDL2v1 {
       private readonly JsonSerializerOptions SerializationOptionsIndentedJSON;
 #endif
 
+      public static Serializer Instance { get; } = new();
+
       private Database Input;
       private Database Output;
 
@@ -68,6 +70,12 @@ namespace CDL2v1 {
 #if DEBUG
          SerializationOptionsIndentedJSON = new(SerializationOptionsNDJSON) { WriteIndented = true };
 #endif
+      }
+
+      public string SerializeElement(NamedElement element) => JsonSerializer.Serialize(element, SerializationOptionsNDJSON);
+      public T DeserializeElement<T>(Database.UndoRecord<NamedElement> undo) where T: NamedElement {
+         T? element = JsonSerializer.Deserialize(undo.SerializedElement, undo.Type.AsType(), SerializationOptionsNDJSON) as T;
+         return element ?? throw new JsonException($"Deserializer.DeserializeElement: Could not deserialize undo record for {undo.Type}");
       }
 
       private FilePaths? filePaths;

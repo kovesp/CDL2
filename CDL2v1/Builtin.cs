@@ -21,11 +21,11 @@ namespace CDL2v1 {
       private static readonly Set<string> BuiltinFunctions = ["date","time", "version", "option", "environmentvariable"];
       private static readonly Set<string> BuiltinTests     = ["isoption", "isoptionvalue", "isenvironmentvariable", "istarget"]; 
 
-      public static bool IsFunction(Call call) => BuiltinFunctions.Contains(call.id.InternalName);
-      public static bool IsTest(Call call) => BuiltinTests.Contains(call.id.InternalName);
+      public static bool IsFunction(Call call) => BuiltinFunctions.Contains(call.id.CanonicalName);
+      public static bool IsTest(Call call) => BuiltinTests.Contains(call.id.CanonicalName);
 
       public static string EvalFunction(Call call) {
-         switch (call.id.InternalName) {
+         switch (call.id.CanonicalName) {
             case "datestring":
                return DateTime.Now.ToString("yyyy-MM-dd");
             case "timestring":
@@ -45,11 +45,11 @@ namespace CDL2v1 {
                   return "";
                }
             default:
-               throw new NotImplementedException($"Builtin function {call.id.InternalName} not implemented.");
+               throw new NotImplementedException($"Builtin function {call.id.CanonicalName} not implemented.");
          }
       }
       public static bool EvalTest(Call call) {
-         switch (call.id.InternalName) {
+         switch (call.id.CanonicalName) {
             case "isoption":
                if (call.args.Count >= 1 && call.args[0] is STRING option) {
                   return Settings.TryGetSettingValue(option.value, out _);
@@ -75,7 +75,7 @@ namespace CDL2v1 {
                   return false;
                }
             default:
-               throw new NotImplementedException($"Builtin test {call.id.InternalName} not implemented.");
+               throw new NotImplementedException($"Builtin test {call.id.CanonicalName} not implemented.");
          }
       }
    }

@@ -70,12 +70,98 @@ namespace CDL2v1 {
       [JsonInclude]
       [JsonPropertyOrder(1)]
       public Dictionary<Guid,NamedElement> NamedElements = [];
+
+      public class UndoRecord<T> where T : NamedElement {
+         [JsonInclude] [JsonPropertyOrder(0)] public DateTime Timestamp { get; } = DateTime.Now;
+         [JsonInclude] [JsonPropertyOrder(1)] public string Tag { get; set; } = "";
+         [JsonInclude] [JsonPropertyOrder(2)] public string Type { get; set; } = "";
+         [JsonInclude] [JsonPropertyOrder(3)] public string SerializedElement { get; set; }
+
+         public UndoRecord(T element) {
+            Type = element.GetType().Name;
+            SerializedElement = Serializer.Instance.SerializeElement(element);
+         }
+
+         [JsonConstructor]
+         public UndoRecord() => SerializedElement = "";
+      }
+
       /// <summary>
-      /// Add a named element to the database.
+      /// Undo records for NamedElements.  entries are inserted wheneer an elment is changed or removed.
+      /// Each entry is a stack of undo records for the element.
+      /// A record contains
+      /// <ol>
+      /// <li> The time the record was created.</li>
+      /// <li> An optional tag</li>
+      /// <li> The type of the element (required for deserialization</li>
+      /// <li> The serialized element</li>"
+      /// </ol>
+      /// </summary>
+      [JsonInclude]
+      [JsonPropertyOrder(1)]
+      public Dictionary<Guid,Stack<UndoRecord<NamedElement>>> NamedElementUndoRecords = [];
+      /// <summary>
+      /// Create an undo record for the given named element.
       /// </summary>
       /// <param name="element"></param>
-      public void AddNamedElement(NamedElement element) => NamedElements[element.GUID] = element;
+      public void RecordUndo(NamedElement element) {
+         if (!NamedElementUndoRecords.TryGetValue(element.GUID, out Stack<UndoRecord<NamedElement>>? undoStack)) {
+            NamedElementUndoRecords[element.GUID] = undoStack = new Stack<UndoRecord<NamedElement>>();            
+         }
+         undoStack.Push(new UndoRecord<NamedElement>(element));
+      }
+      /// <summary>
+      /// Add a tag to the top undo record for the given named element.
+      /// </summary>
+      /// <param name="guid"></param>
+      /// <param name="label"></param>
+      /// <returns></returns>
+      public bool TagUndoRecord(Guid guid, string label) {
+         if (NamedElementUndoRecords.TryGetValue(guid, out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
+            undoStack.Peek().Tag = label;
+            return true;
+         } else {
+            return false;
+         }
+      }
+      public bool TagUndoRecord(NamedElement element, string label) => TagUndoRecord(element.GUID, label);
+      public T GetUndo<T>(Guid guid) where T : NamedElement {
+         if (NamedElementUndoRecords.TryGetValue(guid, out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
+            if (undoStack.Peek().Type != typeof(T).Name) {
+               throw new InvalidCastException($"Cannot cast undo record of type {undoStack.Peek().Type} to {typeof(T).Name}");
+            }
+            return Serializer.Instance.DeserializeElement<T>(undoStack.Pop());
+         } else {
+            throw new KeyNotFoundException($"No undo record found for element with GUID {guid}");
+         }
+      }
 
+      /// <summary>
+      /// Add a named element to the database.
+      /// Add to Programs or Modules if of that type.
+      /// </summary>
+      /// <param name="element"></param>
+      public void AddNamedElement(NamedElement element) {
+         NamedElements[element.GUID] = element;
+         if (element is Program) {
+            Programs.Add(element.GUID);
+         } else if(element is Module) {
+            Modules.Add(element.GUID);
+         }
+      }
+      /// <summary>
+      /// Remove an element
+      /// </summary>
+      /// <param name="element"></param>
+      public void RemoveElement(NamedElement element) {
+         RecordUndo(element);
+         NamedElements.Remove(element.GUID);
+         if (element is Program) {
+            Programs.Remove(element.GUID);
+         } else if (element is Module) {
+            Modules.Remove(element.GUID);
+         }
+      }
 #if GroupCounter
       public long labelCounter = 0;
       /// <summary>
@@ -106,7 +192,7 @@ namespace CDL2v1 {
       /// All the modules in the database.
       /// </summary>
       [JsonInclude][JsonPropertyOrder(3)]
-      public Set<Guid> Modules = [];
+      public List<Guid> Modules = [];
 
       public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement{
          IEnumerable<T> typedElements = NamedElements.Values.OfType<T>();
@@ -121,6 +207,8 @@ namespace CDL2v1 {
          }
          return elements.Any();
       }
+      public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Name == name);
+      public bool IsNamedElement<T>(ID id) where T : NamedElement => IsNamedElement<T>(id.CanonicalName);
       public bool TryGetSingleNamedelement<T>(string name, [MaybeNullWhen(false)] out T element) where T : NamedElement {
          if (TryGetNamedElement(name, out IEnumerable<T> elements) && elements.Count() == 1) {
             element = elements.First();
@@ -137,7 +225,6 @@ namespace CDL2v1 {
       /// </summary>
       //[JsonInclude][JsonPropertyOrder(0)]
       //public Dictionary<string, ID> UniqueIDs = [];
-
 
 
 

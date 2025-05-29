@@ -130,12 +130,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param PhaseName="programId"></param>
       private void ParseProgram(ID programId,string? comments,Notes notes) {
-         if (Database.Instance.Programs.ContainsKey(programId)) {
+         if (Database.Instance.IsNamedElement<Program>(programId)) {
             ReportError($"Program {programId} already exists");
             return;
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
-            Database.Instance.Programs[programId] = currentProgram = new Program(programId,comments,notes);
+            currentProgram = new Program(programId,comments,notes);
             Log(1,$"Parsing {currentProgram}");
          }
 
