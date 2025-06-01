@@ -191,10 +191,10 @@ namespace CDL2v1 {
          { typeof(Section),new (RW.SECTION, RW.ENDSEC)},
       };
 
-      public void Print(IDDictionary<Program> programs,IDDictionary<Module> modules) {
+      public void Print(IEnumerable<Program> programs,IEnumerable<Module> modules) {
          Emitter.BeginUpdate();
-         foreach (Program program in programs.Values) Print(program);
-         foreach (Module module in modules.Values) Print(module);
+         foreach (Program program in programs) Print(program);
+         foreach (Module module in modules) Print(module);
          Emitter.EndUpdate();
       }
 

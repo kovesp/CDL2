@@ -143,7 +143,7 @@ namespace CDL2v1 {
             if (ProgramName == "" && Database.Instance.FirstProgram != null) {
                MainProgram = Database.Instance.FirstProgram;
             } else if (ProgramName != null && ProgramName != "") {
-               MainProgram = Database.Instance.FindProgramByName(ProgramName);
+               MainProgram = Database.Instance.ProgramByName(ProgramName);
                if (MainProgram is null) {
                   if (Database.Instance.FirstProgram != null) {
                      MainProgram = Database.Instance.FirstProgram;
@@ -154,7 +154,7 @@ namespace CDL2v1 {
                }
             }
             if (MainProgram != null) {
-               if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4)               ID.Dump();            
+               //if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4) ID.Dump();            
 
                // Perform semantic checks
                SemanticAnalyzer = new SemanticAnalyzer(this);
@@ -183,7 +183,7 @@ namespace CDL2v1 {
                   } else {
                      emitter = new EmitterDebug();
                   }
-                  new PrettyPrinter(emitter).Print(Database.Instance.Programs, Database.Instance.Modules);
+                  new PrettyPrinter(emitter).Print(Database.Instance.NamedElements.Values.OfType<Program>(), Database.Instance.NamedElements.Values.OfType<Module>());
                   emitter.Close();
                }
 

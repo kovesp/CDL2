@@ -58,85 +58,85 @@ namespace CDL2v1 {
    /// </summary>
    public interface ITrackedVar { }
 
-   public class NamedElementID {
-      [JsonInclude] public string? TypeName;
-      [JsonInclude] public ID? ModuleID;
-      [JsonInclude] public ID? LayerID;
-      [JsonInclude] public ID? SectionID;
-      [JsonInclude] public ID? AlgorithmID;
-      [JsonInclude] public ID?  ElementID;
-      [JsonInclude] public Guid GUID;
+   //public class NamedElementID {
+   //   [JsonInclude] public string? TypeName;
+   //   [JsonInclude] public ID? ModuleID;
+   //   [JsonInclude] public ID? LayerID;
+   //   [JsonInclude] public ID? SectionID;
+   //   [JsonInclude] public ID? AlgorithmID;
+   //   [JsonInclude] public ID?  ElementID;
+   //   [JsonInclude] public Guid GUID;
 
 
-      [JsonConstructor]
-      public NamedElementID() { }
+   //   [JsonConstructor]
+   //   public NamedElementID() { }
 
-      /// <summary>
-      /// Create a new NamedElementID for the given element.
-      /// </summary>
-      /// <param name="element"></param>
-      public NamedElementID(NamedElement element) {
-         TypeName = element.GetType().Name;
-         GUID = element.GUID;
+   //   /// <summary>
+   //   /// Create a new NamedElementID for the given element.
+   //   /// </summary>
+   //   /// <param name="element"></param>
+   //   public NamedElementID(NamedElement element) {
+   //      TypeName = element.GetType().Name;
+   //      GUID = element.GUID;
 
-         if (element is Layer layer) {
-            ModuleID = layer.Module?.Id;
-         } else if (element is Section section) {
-            ModuleID = section.Module?.Id;
-            LayerID = section.Layer?.Id;
-         } else if (element is CDL2Object cdl2Object) {
-            SetContainer(cdl2Object);
-         } else if (element is Affix affix) {
-            SetContainer(affix.ContainingAlgorithm);
-            AlgorithmID = affix.ContainingAlgorithm?.Id;
-         } else if (element is Local local) {
-            SetContainer(local.ContainingAlgorithm);
-            AlgorithmID = local.ContainingAlgorithm?.Id;
-         }
-         ElementID = element!.Id;
+   //      if (element is Layer layer) {
+   //         ModuleID = layer.Module?.Id;
+   //      } else if (element is Section section) {
+   //         ModuleID = section.Module?.Id;
+   //         LayerID = section.Layer?.Id;
+   //      } else if (element is CDL2Object cdl2Object) {
+   //         SetContainer(cdl2Object);
+   //      } else if (element is Affix affix) {
+   //         SetContainer(affix.ContainingAlgorithm);
+   //         AlgorithmID = affix.ContainingAlgorithm?.Id;
+   //      } else if (element is Local local) {
+   //         SetContainer(local.ContainingAlgorithm);
+   //         AlgorithmID = local.ContainingAlgorithm?.Id;
+   //      }
+   //      ElementID = element!.Id;
 
-         void SetContainer(CDL2Object? element) {
-            if (element != null) {
-               ModuleID = element.Module?.Id;
-               LayerID = element.Layer?.Id;
-               SectionID = element.Section?.Id;
-            }
-         }
-      }
+   //      void SetContainer(CDL2Object? element) {
+   //         if (element != null) {
+   //            ModuleID = element.Module?.Id;
+   //            LayerID = element.Layer?.Id;
+   //            SectionID = element.Section?.Id;
+   //         }
+   //      }
+   //   }
 
-      /// <summary>
-      /// Called by Database load when restroing NamedElements from NamedElementIDs
-      /// </summary>>
-      /// <returns></returns>
-      /// <exception cref="NotImplementedException"></exception>
-      public NamedElement? GetElement() {
-         Debug.Assert(ElementID is not null, "GetElement: ElementID is null");
-         Module   ? mod     = ModuleID is not null    ? Database.Instance.Modules[ModuleID] : null;
-         Layer    ? lay     = LayerID is not null     ? mod?.Children.FirstOrDefault(layer => layer.Id == LayerID) as Layer : null;
-         Section  ? sec     = SectionID is not null   ? lay?.Children.FirstOrDefault(section => section.Id == SectionID) as Section : null;
-         Algorithm? alg     = AlgorithmID is not null ? sec?.Declarations[AlgorithmID] as Algorithm : null;
-         return TypeName switch {
-            "Program" => Database.Instance.Programs[ElementID],
-            "Module"  => mod,
-            "Layer"   => lay,
-            "Section" => sec,
-            "Macro" or "ImportedAlgorithm" or "Procedure" or "Macro" or "Const" or "ImportedConst" or "Var" or "LIST"
-                      => sec!.Declarations[ElementID],
-            "Affix"   => alg?.affixes?.Find(aff => aff.Id == ElementID),
-            "Local"   => alg?.locals?.Where(loc => loc.Id == ElementID)?.FirstOrDefault(),
-            "Group"   => null, //TODO: Fix Group case in NamedElementID.GetElement
-            _         => throw new NotImplementedException($"GetValue not implemented for {TypeName}"),
-         };
-      }
+   //   /// <summary>
+   //   /// Called by Database load when restroing NamedElements from NamedElementIDs
+   //   /// </summary>>
+   //   /// <returns></returns>
+   //   /// <exception cref="NotImplementedException"></exception>
+   //   public NamedElement? GetElement() {
+   //      Debug.Assert(ElementID is not null, "GetElement: ElementID is null");
+   //      Module   ? mod     = ModuleID is not null    ? Database.Instance. ModuleByName(ModuleID) : null;
+   //      Layer    ? lay     = LayerID is not null     ? mod?.Children.FirstOrDefault(layer => layer.Id == LayerID) as Layer : null;
+   //      Section  ? sec     = SectionID is not null   ? lay?.Children.FirstOrDefault(section => section.Id == SectionID) as Section : null;
+   //      Algorithm? alg     = AlgorithmID is not null ? sec?.Declarations[AlgorithmID] as Algorithm : null;
+   //      return TypeName switch {
+   //         "Program" => Database.Instance.ProgramByName(ElementID!.Name) ?? Database.Instance.FirstProgram, 
+   //         "Module"  => mod,
+   //         "Layer"   => lay,
+   //         "Section" => sec,
+   //         "Macro" or "ImportedAlgorithm" or "Procedure" or "Macro" or "Const" or "ImportedConst" or "Var" or "LIST"
+   //                   => sec!.Declarations[ElementID],
+   //         "Affix"   => alg?.affixes?.Find(aff => aff.Id == ElementID),
+   //         "Local"   => alg?.locals?.Where(loc => loc.Id == ElementID)?.FirstOrDefault(),
+   //         "Group"   => null, //TODO: Fix Group case in NamedElementID.GetElement
+   //         _         => throw new NotImplementedException($"GetValue not implemented for {TypeName}"),
+   //      };
+   //   }
 
-      public override string ToString() {
-         static string id(string type, ID? id) => id is null ? "" : $"{type} {id.Name} ";
-         return $"[{GUID}] {id("MOD",ModuleID)}{id("LAY",LayerID)}{id("SEC",SectionID)}{id("ALG",AlgorithmID)}{TypeName} {ElementID}";
-      }
+   //   public override string ToString() {
+   //      static string id(string type, ID? id) => id is null ? "" : $"{type} {id.Name} ";
+   //      return $"[{GUID}] {id("MOD",ModuleID)}{id("LAY",LayerID)}{id("SEC",SectionID)}{id("ALG",AlgorithmID)}{TypeName} {ElementID}";
+   //   }
 
-      public override bool Equals(object? obj) => obj is NamedElementID iD && GUID.Equals(iD.GUID);
-      public override int GetHashCode() => HashCode.Combine(GUID);
-   }
+   //   public override bool Equals(object? obj) => obj is NamedElementID iD && GUID.Equals(iD.GUID);
+   //   public override int GetHashCode() => HashCode.Combine(GUID);
+   //}
 
    /// <summary>
    /// Base class for all elements that have names in the syntax tree.
@@ -344,7 +344,7 @@ namespace CDL2v1 {
       [JsonInclude]
       public IDSet Parts = [];
       [JsonIgnore]
-      public IEnumerable<Module> Modules => Parts.Select(id => Database.Instance.Modules.TryGetValue(id,out Module? mod) ? mod : null).Where(mod=>mod != null)!;
+      public IEnumerable<Module> Modules => Database.Instance.NamedElements.Values.OfType<Module>().Where(mod=>Parts.Contains(mod.Id));
       /// <summary>
       /// Maps all identifiers exported by the modules in the program to the exporting module.
       /// </summary>
@@ -356,7 +356,6 @@ namespace CDL2v1 {
       /// <param Id="Id"></param>
       public Program(ID id,string? comments,Notes notes) : base(id,null,comments,notes) {
          LudeParser = Parser.ParseLudeOfIDs;
-         Database.Instance.FirstProgram ??= this;
       }
       public Program() { }
    }
@@ -396,10 +395,10 @@ namespace CDL2v1 {
       }
 
       [JsonIgnore]
-      public IEnumerable<Section> Sections => Children.OfType<Layer>().SelectMany(layer => layer.Children.OfType<Section>());
+      public IEnumerable<Section> Sections => Layers.SelectMany(layer => layer.Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section))!;
 
       [JsonIgnore]
-      public IEnumerable<Layer> Layers => Children.OfType<Layer>();
+      public IEnumerable<Layer> Layers => Children.Select(GUID => Database.Instance.NamedElements[GUID] as Layer)!;
    }
 
    /// <summary>
@@ -414,9 +413,11 @@ namespace CDL2v1 {
       /// The ancestor of a layer is the previous layer in the layer list of the containing module.
       /// </summary>
       [JsonInclude]
-      public readonly Layer? Ancestor = ancestor;
+      public Guid? AncestorGUID = ancestor?.GUID;
       [JsonIgnore]
-      public Layer? Successor => Parent?.Children.FirstOrDefault(child => child is Layer layer && layer.Ancestor == this) as Layer;
+      public Layer? Ancestor => AncestorGUID is not null && Database.Instance.NamedElements.TryGetValue(AncestorGUID.Value, out NamedElement? ancestor) && ancestor is Layer layer ? layer : null;
+      [JsonIgnore]
+      public Layer? Successor => Module?.Layers.FirstOrDefault(layer => layer.AncestorGUID == GUID);
 
       /// <summary>
       /// The visible objects in this layer, i.e, the Consts and Algorithms extended in the sections of this layer and abstracted in the sections of the ancestor.
@@ -572,7 +573,7 @@ namespace CDL2v1 {
    /// </summary>
    public abstract class CDL2Object : NamedElement {
       public CDL2Object(ID id,Section section,string? comments,bool synthetic = false) : base(id,synthetic) {
-         Parent = section;
+         Parent = section.GUID;
          Comments = comments;
       }
       public CDL2Object(ID id) : base(id) { }

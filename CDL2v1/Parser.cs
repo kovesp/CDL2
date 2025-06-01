@@ -131,7 +131,7 @@ namespace CDL2v1 {
       /// <param PhaseName="programId"></param>
       private void ParseProgram(ID programId,string? comments,Notes notes) {
          if (Database.Instance.IsNamedElement<Program>(programId)) {
-            ReportError($"Program {programId} already exists");
+            AddNote(Note.DuplicateContainer, programId.Name);
             return;
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
@@ -174,12 +174,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="moduleId">The ID (Id) of the module.</param>
       private void ParseModule(ID moduleId,string? comments,Notes notes) {
-         if (Database.Instance.Modules.ContainsKey(moduleId)) {
-            ReportError($"Program {moduleId} already exists");
+         if (Database.Instance.IsNamedElement<Module>(moduleId)) {
+            AddNote(Note.DuplicateContainer, moduleId.Name);
             return;
          } else {
-            Database.Instance.Modules[moduleId] = currentModule = new Module(moduleId,comments,notes);
             currentObject.Object = (RW.MODULE, moduleId);
+            currentModule = new Module(moduleId,comments,notes);
             Log(1,$"Parsing {currentObject}");
          }
          

@@ -1,4 +1,5 @@
 ﻿#define Debug
+#define SerializationSupportOff
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,7 +13,9 @@ using System.IO;
 using static CDL2v1.TokenList;
 using System.IO.Enumeration;
 using System.Printing;
+#if SerializationSupport
 using static CDL2v1.Serializer;
+#endif
 
 namespace CDL2v1 {
 
@@ -32,7 +35,7 @@ namespace CDL2v1 {
 #endif
       }
    }
-
+#if SerializationSupport
    public class Serializer {
       private readonly JsonSerializerOptions SerializationOptionsNDJSON;
 #if DEBUG
@@ -310,5 +313,14 @@ namespace CDL2v1 {
    //         writer.WriteEndObject();
    //      }
    //   }
-   } 
+   }
+#else
+   public class Serializer {
+      public static Serializer Instance { get; } = new();
+      public void SaveJSON(string filePath) => throw new NotImplementedException("Serializer.SaveJSON is not implemented when SerializationSupport is off");
+      public T? LoadJSON<T>() => throw new NotImplementedException("Serializer.LoadJSON is not implemented when SerializationSupport is off");
+      internal string? SerializeElement<T>(T element) where T : NamedElement => "";
+      internal T? DeserializeElement<T>(Database.UndoRecord<NamedElement> undoRecord) where T : NamedElement => default;
+   }
+#endif
 }

@@ -50,12 +50,16 @@ namespace CDL2v1 {
       [JsonConstructor]
       public ID(string name) => CanonicalName = name;
 
-      public override bool Equals(object? obj) => obj is ID id && CanonicalName == id.CanonicalName;
+      public override bool Equals(object? obj) => (obj is ID id && CanonicalName == id.CanonicalName) || (obj is string s && CanonicalName == s.Replace(" ",""));
       public override int GetHashCode() => HashCode.Combine(CanonicalName);
       public override string ToString() => Name;
  
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
+      public static bool operator ==(ID left, string right) => left is null ? right is null : left.Equals(right);
+      public static bool operator ==(string left, ID right) => left is null ? right is null : right.Equals(left);
       public static bool operator !=(ID left,ID right) => !(left == right);
+      public static bool operator !=(ID left, string right) => !(left == right);
+      public static bool operator !=(string left, ID right) => !(left == right);
    }
 
    public class IDDictionary<V> : Dictionary<ID, V> { }

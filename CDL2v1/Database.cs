@@ -79,6 +79,7 @@ namespace CDL2v1 {
 
          public UndoRecord(T element) {
             Type = element.GetType().Name;
+
             SerializedElement = Serializer.Instance.SerializeElement(element);
          }
 
@@ -194,7 +195,7 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(3)]
       public List<Guid> Modules = [];
 
-      public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement{
+      public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
          IEnumerable<T> typedElements = NamedElements.Values.OfType<T>();
          if (name == null) {
             if (typedElements.Any()) {
@@ -203,11 +204,11 @@ namespace CDL2v1 {
                elements = [];
             }
          } else {
-            elements = typedElements.Where(e => e.Name == name);
+            elements = typedElements.Where(e => e.Id == name);
          }
          return elements.Any();
       }
-      public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Name == name);
+      public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Id == name);
       public bool IsNamedElement<T>(ID id) where T : NamedElement => IsNamedElement<T>(id.CanonicalName);
       public bool TryGetSingleNamedelement<T>(string name, [MaybeNullWhen(false)] out T element) where T : NamedElement {
          if (TryGetNamedElement(name, out IEnumerable<T> elements) && elements.Count() == 1) {
@@ -236,9 +237,9 @@ namespace CDL2v1 {
       /// analyzed elements are appropriately removed or added.
       /// </summary>
       [JsonIgnore]
-      public Set<NamedElement> ElementsWithNotes = [];
-      [JsonInclude][JsonPropertyOrder(2)]
-      public Set<NamedElementID> ElementsWithNoteIDs = [];
+      public Set<Guid> ElementsWithNotes = [];
+      //[JsonInclude][JsonPropertyOrder(2)]
+      //public Set<NamedElementID> ElementsWithNoteIDs = [];
 
       /// <summary>
       /// Contains the full id of all the named elements in the database.
@@ -247,38 +248,42 @@ namespace CDL2v1 {
       /// </summary>
       //[JsonIgnore]
       //public Dictionary<Guid,NamedElement> NamedElements = []; // Records all named elements in the database.
-      [JsonInclude][JsonPropertyOrder(1)]
-      public Dictionary<string, NamedElementID> NamedElementIDs = []; // Records the NamedElementIDs of all named elements in the database.
+      //[JsonInclude][JsonPropertyOrder(1)]
+      //public Dictionary<string, NamedElementID> NamedElementIDs = []; // Records the NamedElementIDs of all named elements in the database.
 
       /// <summary>
       /// Record the element in Namedelements with a NamedElementId.
       /// </summary>
       /// <param name="element"></param>
-      public static void Record(NamedElement element) => Instance.NamedElements[element.GUID] = element;
+      //public static void Record(NamedElement element) => Instance.NamedElements[element.GUID] = element;
 
-      public void NamedElementsToNamedElementIDs() {
-         NamedElementIDs.Clear();
-         foreach (KeyValuePair<Guid,NamedElement> element in NamedElements) NamedElementIDs[element.Key.ToString()] = new(element.Value);
-         ElementsWithNoteIDs.Clear();
-         foreach (NamedElement element in ElementsWithNotes) ElementsWithNoteIDs.Add(NamedElementIDs[element.GUID.ToString()]);
-      }
-      public void NamedElementIDsToNamedElements() {
-         NamedElements     = NamedElenentIDsToNamedElements(NamedElementIDs);
-         ElementsWithNotes = NamedElenentIDsToNamedElements(ElementsWithNoteIDs,NamedElements);
-      }
-      public static Dictionary<Guid, NamedElement> NamedElenentIDsToNamedElements(Dictionary<string, NamedElementID> namedElements) {
-         Dictionary<Guid, NamedElement> elements = [];
-         foreach (KeyValuePair<string, NamedElementID> element in namedElements) elements[Guid.Parse(element.Key)] = element.Value.GetElement()!;
-         return elements;
-      }
-      public static Set<NamedElement> NamedElenentIDsToNamedElements(Set<NamedElementID> namedElementIDs, Dictionary<Guid, NamedElement>? namedElements = null) {
-         Set<NamedElement> elements = [];
-         namedElements ??= [];
-         foreach (NamedElementID element in namedElementIDs) elements.Add(namedElements.TryGetValue(element.GUID,out NamedElement? elem) ? elem : element.GetElement()!);
-         return elements;
-      }
+      //public void NamedElementsToNamedElementIDs() {
+      //   NamedElementIDs.Clear();
+      //   foreach (KeyValuePair<Guid,NamedElement> element in NamedElements) NamedElementIDs[element.Key.ToString()] = new(element.Value);
+      //   ElementsWithNoteIDs.Clear();
+      //   foreach (NamedElement element in ElementsWithNotes) ElementsWithNoteIDs.Add(NamedElementIDs[element.GUID.ToString()]);
+      //}
+      //public void NamedElementIDsToNamedElements() {
+      //   NamedElements     = NamedElenentIDsToNamedElements(NamedElementIDs);
+      //   ElementsWithNotes = NamedElenentIDsToNamedElements(ElementsWithNoteIDs,NamedElements);
+      //}
+      //public static Dictionary<Guid, NamedElement> NamedElenentIDsToNamedElements(Dictionary<string, NamedElementID> namedElements) {
+      //   Dictionary<Guid, NamedElement> elements = [];
+      //   foreach (KeyValuePair<string, NamedElementID> element in namedElements) elements[Guid.Parse(element.Key)] = element.Value.GetElement()!;
+      //   return elements;
+      //}
+      //public static Set<NamedElement> NamedElenentIDsToNamedElements(Set<NamedElementID> namedElementIDs, Dictionary<Guid, NamedElement>? namedElements = null) {
+      //   Set<NamedElement> elements = [];
+      //   namedElements ??= [];
+      //   foreach (NamedElementID element in namedElementIDs) elements.Add(namedElements.TryGetValue(element.GUID,out NamedElement? elem) ? elem : element.GetElement()!);
+      //   return elements;
+      //}
 
-      internal Program? FindProgramByName(string programName) => Programs.TryGetValue(ID.From(new Token(programName)), out Program? program) ? program : null;
+      internal Program? ProgramByName(string programName) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == programName);
+      internal Program? ProgramByName(ID ProgramId) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == ProgramId);
+      internal Module? ModuleByName(string moduleName) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleName);
+      internal Module? ModuleByName(ID moduleId) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleId);
+
 
       private static readonly JsonSerializerOptions serializationOptions = new() { 
          WriteIndented = true,

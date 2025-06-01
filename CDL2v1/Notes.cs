@@ -78,6 +78,7 @@ namespace CDL2v1 {
       public static readonly Note LudeNotFound                      = new(NoteType.Error  , 035, "{2} references {0} {1}, but this does not have a {2}");
       public static readonly Note InvalidListBound                  = new(NoteType.Error  , 036, "Invalid list {0} {1}. Must be CONST, but is {2}");
       public static readonly Note UnresolvedListBound               = new(NoteType.Error  , 037, "Undefined list {0} {1}.");
+      public static readonly Note DuplicateContainer                = new(NoteType.Error  , 038, "{0} already exists.");
 
       public static readonly Note NoEffect                          = new(NoteType.Warning, 101, "Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten            = new(NoteType.Warning, 102, "Output affix {0} whose action has not been read passed to output in {1}");
