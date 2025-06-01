@@ -26,7 +26,7 @@ namespace CDL2v1 {
       public Notes notes = [];
 
       public string PhaseName { get; }
-      private IEnumerable<Note> Notes => (notes.Any() ? notes : Database.Instance.ElementsWithNotes.SelectMany(elem => elem.Notes)).Where(note => note.PhaseName == PhaseName);
+      private IEnumerable<Note> Notes => (notes.Any() ? notes : Database.Instance.ElementsWithNotes.SelectMany(guid => Database.Instance.NamedElements[guid].Notes)).Where(note => note.PhaseName == PhaseName);
       private IEnumerable<Note> Errors => Notes.Where(note => note.Type == NoteType.Error);
       private IEnumerable<Note> Warnings => Notes.Where(note => note.Type == NoteType.Warning);
       private IEnumerable<Note> Infos => Notes.Where(note => note.Type == NoteType.Info);

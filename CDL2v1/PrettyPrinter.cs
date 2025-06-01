@@ -203,9 +203,9 @@ namespace CDL2v1 {
          PrintLudes(program);
       },Newline: true,updateUI: true);
 
-      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Children.Cast<Layer>()) Print(layer); },Newline: true,updateUI: true); 
+      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Layers) Print(layer); },Newline: true,updateUI: true); 
 
-      public void Print(Layer layer)   => PrintContainer(layer,() => { foreach (Section section in layer.Children.Cast<Section>()) Print(section); },updateUI: false);
+      public void Print(Layer layer)   => PrintContainer(layer,() => { foreach (Section section in layer.Sections) Print(section); },updateUI: false);
 
       public void Print(Section section) => PrintContainer(section,() => {
          PrintList(RW.EXPORT,section.export);

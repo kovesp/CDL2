@@ -301,7 +301,7 @@ namespace CDL2v1 {
          ReferenceHandler = ReferenceHandler.Preserve 
        };
       public static void SaveJSON(string filePath) {
-         Instance.NamedElementsToNamedElementIDs();
+         //Instance.NamedElementsToNamedElementIDs();
 
          string path = Path.ChangeExtension(filePath, "JSON");
 
@@ -311,7 +311,7 @@ namespace CDL2v1 {
          //json = File.ReadAllText(path);
 
          var db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
-         db?.NamedElementIDsToNamedElements();
+         //db?.NamedElementIDsToNamedElements();
 
       }
 

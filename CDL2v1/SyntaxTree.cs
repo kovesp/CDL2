@@ -253,7 +253,7 @@ namespace CDL2v1 {
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
       public void AddNote(string phase, Note note, params object[] insertions) {
          Notes.Add(new Note(note, phase, this, insertions));
-         Database.Instance.ElementsWithNotes.Add(this);
+         Database.Instance.ElementsWithNotes.Add(GUID);
       }
       public void AddNotes(string phase, Notes? notes) => notes?.ForEach(note => AddNote(phase, note));
 
@@ -315,8 +315,6 @@ namespace CDL2v1 {
       };
       public static readonly List<RW> LudeTypes = [RW.PRELUDE, RW.ROOT, RW.POSTLUDE];
 
-      public Container? Child(ID id) => Children.FirstOrDefault(child => child.Id == id);
-
       /// <summary>
       /// Sets the LudeParser action for the container. The default is to do nothing.
       /// </summary>
@@ -339,7 +337,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="ludeType"></param>
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
-      public IEnumerable<Module> Lude(RW ludeType) => this.Ludes[ludeType].Select(id => Database.Instance.Modules[id]);
+      public IEnumerable<Module> Lude(RW ludeType) => Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id))!;
 
       [JsonInclude]
       public IDSet Parts = [];
@@ -423,7 +421,9 @@ namespace CDL2v1 {
       /// The visible objects in this layer, i.e, the Consts and Algorithms extended in the sections of this layer and abstracted in the sections of the ancestor.
       /// </summary>
       [JsonIgnore]
-      public IDDictionary<IProvidable> Visible { get; } = []; 
+      public IDDictionary<IProvidable> Visible { get; } = [];
+
+      public IEnumerable<Section> Sections => Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section)!;
    }
 
    /// <summary>
