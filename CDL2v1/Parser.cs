@@ -326,7 +326,7 @@ namespace CDL2v1 {
          }
       }
       private void ParseProcedureBody(Procedure proc) {
-         proc.group.alternatives = ParseAlternatives(proc,group:null);
+         proc.group.Alternatives = ParseAlternatives(proc,group:null);
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
       private List<Alternative> ParseAlternatives(Procedure proc,Group? group) {
@@ -370,7 +370,7 @@ namespace CDL2v1 {
                         found = true;
                         break;
                      }
-                     g = g.Parent;
+                     g = g.ParentElement<Group>();
                   }
                   if (!found && label != proc.Id) { // The label can be the ContainingProc Id
                      AddNote(proc, Note.LabelNotFound, label.Name);
@@ -410,7 +410,7 @@ namespace CDL2v1 {
          LastCall? lastCall;
          ID? label = ParseOptionalLabel(containingGroup,proc);
          Group group = new(label,[],containingGroup,synthetic:label is null);
-         group.alternatives = ParseAlternatives(proc,group);
+         group.Alternatives = ParseAlternatives(proc,group);
          if (!tokens.CanConsume(TT.GRPCLOSE)) ReportError("Expected )");
          lastCall = new LastCall(group);
          return lastCall;
@@ -429,7 +429,7 @@ namespace CDL2v1 {
                   ReportError($"Duplicate label {label}");
                   return ID.AnonID;
                }
-               g = g.Parent;
+                    g = g.ParentElement<Group>();
             }
             return label;
          } else {
@@ -681,7 +681,7 @@ namespace CDL2v1 {
             parser.tokens.CanConsumeEnd();
 
             lude.algorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
-            lude.group.alternatives.Add(new Alternative(callList,new LastCall(LCT.None),[]));
+            lude.group.Alternatives.Add(new Alternative(callList,new LastCall(LCT.None),[]));
             section.Ludes[ludeType].Add(lude.Id);
             section.Declarations[lude.Id] = lude;
          }

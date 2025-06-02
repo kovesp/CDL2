@@ -253,7 +253,7 @@ namespace CDL2v1 {
                Emit(ludeType.Decorate(Emitter,SE.ReservedWord)," ");
                // SectionById Ludes are stored as ids of a generated Procedure item.
                if (section.TryGetLocalDeclaration(section.Ludes[ludeType].First(),out Procedure? proc)) { // This should always be the case
-                  Print(proc!.group.alternatives.First(),section);
+                  Print(proc!.group.Alternatives.First(),section);
                   EmitSeparatorWithNL(TT.END);
                } else {
                   ReportError($"Internal error: {ludeType} lude is not a Procedure item.");
@@ -313,7 +313,7 @@ namespace CDL2v1 {
       private void Print(Group group,Section section) => Indented(() => {
          NlEmit(TT.GRPOPEN);
          if (! group.IsSynthetic) Emit(group.Id.Name.Decorate(Emitter,SE.Label),TT.LABELSEP);
-         Print(group.alternatives,section);
+         Print(group.Alternatives,section);
          Emit(TT.GRPCLOSE);
       });
 
@@ -478,9 +478,9 @@ namespace CDL2v1 {
          Debug.Assert(!proc.IsSynthetic,"Synthetic procedures should not be printed");
          PrintAlgorithmHeader(proc);
          Indented(() => {
-            Debug.Assert(proc.group.alternatives.Count != 0,"alternatives list is empty");
-            Print(proc.group.alternatives.First(),section);
-            foreach (Alternative alt in proc.group.alternatives.Skip(1)) {
+            Debug.Assert(proc.group.Alternatives.Count != 0,"alternatives list is empty");
+            Print(proc.group.Alternatives.First(),section);
+            foreach (Alternative alt in proc.group.Alternatives.Skip(1)) {
                EmitSeparatorWithNL(TT.ALTSEP);
                Print(alt,section);
             }

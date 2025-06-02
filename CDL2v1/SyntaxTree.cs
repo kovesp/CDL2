@@ -140,6 +140,7 @@ namespace CDL2v1 {
 
    /// <summary>
    /// Base class for all elements that have names in the syntax tree.
+   /// To support serialization all references to NamedElements are by GUID through <see cref="Database.Instance.NamedElements"/>.
    /// </summary>
    public abstract class NamedElement {
       [JsonInclude][JsonPropertyOrder(0)] public Guid GUID;
@@ -214,7 +215,7 @@ namespace CDL2v1 {
       /// The Parent as an element.
       /// </summary>
       /// <returns></returns>
-      public Container? ParentContainer() => Parent != Guid.Empty && Database.Instance.NamedElements.TryGetValue(Parent,out NamedElement? parent) && parent is Container container ? container : null;
+      public T? ParentElement<T>() where T : NamedElement => Parent != Guid.Empty && Database.Instance.NamedElements.TryGetValue(Parent,out NamedElement? parent) && parent is T element ? element : default;
 
       /// <summary>
       /// The section which contains this object or null
@@ -775,11 +776,11 @@ namespace CDL2v1 {
    public class Procedure(ID id,List<Affix> affxies,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
          : Algorithm(id,affxies,locals,algorithmType,bodyType,section,synthetic) {
       [JsonInclude]
-      public Group group = new(id,[],null,synthetic: false);
+      public Group group = Group.Empty;
       /// <summary>
       /// True if the procedure is an Action or Function that has only a single alternative (which is a sequence of calls none of which can fail ... which will be guarenteed by the sematic analyzer)
       /// </summary>
-      [JsonIgnore] public bool IsVerySimple => AlwaysSucceeds && group.alternatives.Count == 1 && HasNoGroups;
+      [JsonIgnore] public bool IsVerySimple => AlwaysSucceeds && group.Alternatives.Count == 1 && HasNoGroups;
       /// <summary>
       /// Can have alternatives, but there are mo groups except for the primary one.
       /// It can also fail.
@@ -792,8 +793,8 @@ namespace CDL2v1 {
       /// TODO: This is the intial version. It will be refined to check that all calls in a procedure are to other procedures that are also conditional compilation flags.
       /// </summary>
       /// <returns></returns>
-      [JsonIgnore] public override bool IsConditionalCompilationOff => CanFail && group.alternatives.Count == 1 && group.alternatives[0].calls.Count == 0 && group.alternatives[0].lastCall.type == LCT.Fail;
-      [JsonIgnore] public override bool IsConditionalCompilationOn => CanFail && group.alternatives.Count == 1 && group.alternatives[0].calls.Count == 0 && group.alternatives[0].lastCall.type == LCT.Succeed;
+      [JsonIgnore] public override bool IsConditionalCompilationOff => CanFail && group.Alternatives.Count == 1 && group.Alternatives[0].calls.Count == 0 && group.Alternatives[0].lastCall.type == LCT.Fail;
+      [JsonIgnore] public override bool IsConditionalCompilationOn => CanFail && group.Alternatives.Count == 1 && group.Alternatives[0].calls.Count == 0 && group.Alternatives[0].lastCall.type == LCT.Succeed;
 
       /// <summary>
       /// The procedure has repeats.
@@ -808,7 +809,7 @@ namespace CDL2v1 {
       /// </summary>
       [JsonIgnore] public bool HasNoGroups {
          get {
-            foreach (Alternative alternative in group.alternatives) {
+            foreach (Alternative alternative in group.Alternatives) {
                if (alternative.lastCall.type == LCT.Group) return false;
             }
             return true;
@@ -827,7 +828,7 @@ namespace CDL2v1 {
          return variables;
       }
       private static void CollectReferencedVariables(Group group,Set<Var> variables) {
-         foreach (Alternative alternative in group.alternatives) {
+         foreach (Alternative alternative in group.Alternatives) {
             foreach (Call call in alternative.calls) foreach (Var variable in call.args.OfType<Var>()) variables.Add(variable);
             if (alternative.lastCall.type == LCT.Standard) {
                foreach (Var variable in alternative.lastCall.call!.args.OfType<Var>()) variables.Add(variable);
@@ -865,8 +866,8 @@ namespace CDL2v1 {
       public bool IsInlinable(Reachable reachable) {
          if (Settings.SettingValue<bool>("NoProcInlining")) return false;
          if (IsConditionalCompilationOff || IsConditionalCompilationOn) return false;  // Handled explictily by the code generator.
-         Alternative alternative = group.alternatives[0];
-         if (group.alternatives.Count != 1 || alternative.lastCall.type != LCT.Standard) return false;
+         Alternative alternative = group.Alternatives[0];
+         if (group.Alternatives.Count != 1 || alternative.lastCall.type != LCT.Standard) return false;
          if (alternative.calls.Any(call => call.CanFail)) return false;
 
          // The procedure meets the basic criteria for inlinabilty. Apply inlining parameters if appropriate.
@@ -983,32 +984,38 @@ namespace CDL2v1 {
       [JsonIgnore] public bool IsConditionalCompilationOff => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOff;
    }
    // Note that the Id in this case is the label.
-   public class Group(ID? label,List<Alternative> alternatives,Group? parent,bool synthetic) 
-         : NamedElement(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
-      [JsonInclude] public List<Alternative> alternatives = alternatives;
-      [JsonInclude] public new readonly Group? Parent = parent;
+   public class Group : NamedElement {
+      [JsonInclude] public List<Alternative> Alternatives = [];
+      [JsonConstructor]
+      public Group() { }
+      public Group(ID? label,List<Alternative> alternatives,Group? parent,bool synthetic) : base(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
+         Parent = parent?.GUID ?? Guid.Empty;
+         Alternatives = alternatives;
+      }
+
+      public static Group Empty { get; } = new();
 
       [JsonIgnore] public bool HasAnonymousRepeat => HasAnAnonymousRepeat();
       [JsonIgnore] public bool HasNoAnonymousRepeat => ! HasAnonymousRepeat;
-      [JsonIgnore] public bool CanFail => alternatives.Any(alternative => alternative.lastCall.type == LastCallType.Fail) || alternatives.Last().CanFail;
+      [JsonIgnore] public bool CanFail => Alternatives.Any(alternative => alternative.lastCall.type == LastCallType.Fail) || Alternatives.Last().CanFail;
       /// <summary>
       /// The group has an alternative which has at least one anonymous repeat operator.
       /// Required for target languages (e.g., PowerShell) that have to use a loop to simulate goto-s.
       /// Only anonymous repeat operators are considered because labeled repeats are handle when the label is placed.
       /// </summary>
       public bool HasAnAnonymousRepeat() {
-         foreach (Alternative alternative in alternatives) {
+         foreach (Alternative alternative in Alternatives) {
             if (alternative.lastCall.type == LCT.Repeat && alternative.lastCall.label! == ID.AnonID) return true;
          }
          return false;
       }
-      public override string ToString() => $"GRP {Id.Name} {alternatives.Count.Plural("ALT")}";
-      internal int CallCount() => alternatives.Sum(alt=>alt.CallCount());
+      public override string ToString() => $"GRP {Id.Name} {Alternatives.Count.Plural("ALT")}";
+      internal int CallCount() => Alternatives.Sum(alt=>alt.CallCount());
    }
 
 
    public class INT : IConstElement, IMacroElement {
-      [JsonInclude] public readonly long value;
+      [JsonInclude] public long value;
       public INT(Token intToken) {
          Debug.Assert(intToken.type == TT.INT && intToken.intValue != null);
          value = (long)intToken.intValue;
@@ -1016,7 +1023,7 @@ namespace CDL2v1 {
       override public string ToString() => value.ToString();
    }
    public class FLOAT : IConstElement, IMacroElement {
-      [JsonInclude] public readonly double value;
+      [JsonInclude] public double value;
       public FLOAT(Token floatToken) {
          Debug.Assert(floatToken.type == TT.FLOAT && floatToken.floatValue != null);
          value = (double)floatToken.floatValue;
@@ -1024,7 +1031,7 @@ namespace CDL2v1 {
       override public string ToString() => value.ToString();
    }
    public class STRING : IMacroElement, IConstElement, IActualArg {
-      [JsonInclude] public readonly string value;
+      [JsonInclude] public string value;
       public STRING(Token str) {
          Debug.Assert(str.type == TT.STRING && str.StringValue != null);
          value = str.StringValue;
@@ -1049,8 +1056,8 @@ namespace CDL2v1 {
       override public string ToString() => $"\"{value}\"";
    }
    public class LIST : CDL2Object, IMacroElement {
-      [JsonInclude] public readonly ID lwb;
-      [JsonInclude] public readonly ID upb;
+      [JsonInclude] public ID lwb;
+      [JsonInclude] public ID upb;
 
       public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section,null) {
          this.lwb = lwb;
@@ -1067,7 +1074,7 @@ namespace CDL2v1 {
    public class Const : CDL2Object, 
          IConstElement, IMacroElement, IProvidable, IExportable, IActualArg, IImportable {
       [JsonInclude]
-      public readonly List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
+      public List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
       public Const(ID id,Section section) : base(id,section,null) => SE = SE.Const;
    }
@@ -1085,9 +1092,12 @@ namespace CDL2v1 {
    /// </summary>
    public class Affix : NamedElement, IFailureProtected, IMacroElement, ITrackedVar  {
       public static readonly Affix Default = new (ID.AnonID,AffixDir.NONE,AffixType.std);
-      [JsonInclude] public readonly AffixDir affixDir;
-      [JsonInclude] public readonly AffixType affixType;
-      [JsonInclude] public Algorithm? ContainingAlgorithm { get; set; } = null;
+      [JsonInclude] public AffixDir affixDir;
+      [JsonInclude] public AffixType affixType;
+      [JsonIgnore] public Algorithm? ContainingAlgorithm {
+         get => Database.Instance.NamedElements[Parent] as Algorithm;
+         set => Parent = value?.GUID ?? Guid.Empty;
+      }
 
 
       /// <param Id="Id"></param>
@@ -1117,7 +1127,11 @@ namespace CDL2v1 {
    }
 
    public class Local(ID id) : NamedElement(id), IMacroElement, IActualArg, ITrackedVar, IParameter {
-      [JsonInclude] public Algorithm? ContainingAlgorithm { get; set; } = null;
+      [JsonIgnore] public Algorithm? ContainingAlgorithm {
+         get => Database.Instance.NamedElements[Parent] as Algorithm;
+         set => Parent = value?.GUID ?? Guid.Empty;
+      }
+      [JsonIgnore]
       public static readonly Local Default = new(ID.AnonID);
       override public string ToString() => $"-{Id.Name}";
    }

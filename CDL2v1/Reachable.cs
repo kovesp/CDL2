@@ -37,8 +37,8 @@ namespace CDL2v1 {
       public void CollectAllObjects(Program program) {
          AllObjects = [];
          foreach (Module module in program.Modules) {
-            foreach (Layer layer in module.Children.Cast<Layer>()) {
-               foreach (Section section in layer.Children.Cast<Section>()) {
+            foreach (Layer layer in module.Layers) {
+               foreach (Section section in layer.Sections) {
                   foreach (CDL2Object cdl2object in section.Declarations.Values) {
                      AllObjects.Add(cdl2object);
                   }
@@ -57,7 +57,8 @@ namespace CDL2v1 {
          collecting = true;
          foreach (RW ludeType in Container.LudeTypes) {
             foreach (ID id in prog.Ludes[ludeType]) {
-               if (Database.Instance.Modules.TryGetValue(id, out Module? module)) {
+               Module? module = Database.Instance.ModuleByName(id);
+               if (module is not null) {
                   CollectReachableObjects(ludeType, module);
                }
             }
@@ -90,7 +91,7 @@ namespace CDL2v1 {
       }
       private void CollectReachableObjects(Group proc) {
          // Collect all the objects reachable from this group.
-         foreach (Alternative alt in proc.alternatives) if (CollectReachableObjects(alt)) break;
+         foreach (Alternative alt in proc.Alternatives) if (CollectReachableObjects(alt)) break;
       }
 
       /// <summary>
@@ -181,7 +182,7 @@ namespace CDL2v1 {
             foreach (IConstElement elem in constant.elements) {
                switch (elem) {
                   case ID id:
-                     if (((Section)constant.Parent!).TryGetDeclaration(id, out CDL2Object? obj)) {
+                     if (constant.ParentElement<Section>()!.TryGetDeclaration(id, out CDL2Object? obj)) {
                         if (obj is Const c) CollectReachableObjects(c);
                      } else {
                         throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");

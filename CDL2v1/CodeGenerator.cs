@@ -89,7 +89,7 @@ namespace CDL2v1 {
       /// <param name="program"></param>
       private void GenerateProgramLudes(Program program) {
          foreach (RW ludeType in Container.LudeTypes) {
-            IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.Modules[id]).Where(mod => mod.Ludes[ludeType].Count > 0);
+            IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id)).Where(mod => mod.Ludes[ludeType].Count > 0);
             if (modulesWithLudes.Any()) {
                cg.GenerateProgramLudeStart(ludeType, program);
                foreach (Module module in modulesWithLudes) cg.GenerateProgramLude(ludeType, program, module);
@@ -116,7 +116,7 @@ namespace CDL2v1 {
          GenerateImpEx(module.imports, cg.GenerateImport);
          cg.GenerateImpExEnd(module);
 
-         foreach (Layer layer in module.Children.Cast<Layer>()) GenerateLayer(layer);
+         foreach (Layer layer in module.Layers) GenerateLayer(layer);
 
          foreach (RW ludeType in Container.LudeTypes) GenerateModuleLude(ludeType, module, wrapped: true);
 
@@ -143,7 +143,7 @@ namespace CDL2v1 {
       /// <param Id="layer"></param>
       private void GenerateLayer(Layer layer) {
          cg.GenerateLayerStart(layer);
-         foreach (Section section in layer.Children.Cast<Section>()) GenerateSection(section);
+         foreach (Section section in layer.Sections) GenerateSection(section);
          cg.GenerateLayerEnd(layer);
       }
 
@@ -171,7 +171,7 @@ namespace CDL2v1 {
       /// <param name="list"></param>
       /// <exception cref="NotImplementedException"></exception>
       private void GenerateList(LIST list, int _) {
-         Section section = (Section)list.Parent!;
+         Section section = list.ParentElement<Section>()!;
          if (section.TryGetDeclaration(list.lwb, out Const? lwb) && section.TryGetDeclaration(list.upb, out Const? upb)) {
             cg.GenerateList(list, lwb!, upb!);
          } else {
@@ -210,7 +210,7 @@ namespace CDL2v1 {
       /// <param name="constant"></param>
       /// <exception cref="NotImplementedException"></exception>
       private void GenerateConstant(Const constant,int _) {
-         Section section = (Section)constant.Parent!;
+         Section section = constant.ParentElement<Section>()!;
          cg.GenerateConstantStart(constant);
          foreach (IConstElement elem in constant.elements) {
             switch (elem) {
@@ -239,7 +239,7 @@ namespace CDL2v1 {
             GenerateAlgorithmComment(macro);
             cg.GenerateComment("Macro inlined");
          } else {
-            Section section = (Section)macro.Parent!;
+            Section section = macro.ParentElement<Section>()!;
             IEnumerable<Var> variables = macro.GetReferencedVariables();
             cg.GenerateMacroStart(macro);
             GenerateAlgorithmHeader(macro, variables);
@@ -464,7 +464,7 @@ namespace CDL2v1 {
          bool removed;
          
          int i = 1;
-         foreach (Alternative alternative in group.alternatives) {   
+         foreach (Alternative alternative in group.Alternatives) {   
             cg.GenerateAlternativeStart(proc, group, i);
             removed = false;
             if (supressRest) {
@@ -475,7 +475,7 @@ namespace CDL2v1 {
                removed = true;
             } else {          
                supressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
-               GenerateAlternative(proc, group, alternative, supressRest || group.alternatives.Count == i);
+               GenerateAlternative(proc, group, alternative, supressRest || group.Alternatives.Count == i);
             }
             cg.GenerateAlternativeEnd(proc, group, i, alternative, removed);
 
@@ -549,7 +549,7 @@ namespace CDL2v1 {
                Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
                if (calledProc.IsInlinable(Compiler.Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call}");
-                  GenerateAlternative(proc, calledProc.group, calledProc.group.alternatives[0],isLast: false, new Parameters(parameters,calledProc.affixes, call.args));
+                  GenerateAlternative(proc, calledProc.group, calledProc.group.Alternatives[0],isLast: false, new Parameters(parameters,calledProc.affixes, call.args));
                } else {
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
                   parameters = new Parameters(parameters, calledProc.affixes, call.args);
@@ -585,7 +585,7 @@ namespace CDL2v1 {
                   cg.GenerateCallArgReferenceAffix(calledAffix, procAffix, needFinalization: call.CanFail);
                } else if (proc.TryGetLocal(id,out Local local)) {
                   cg.GenerateCallArgReferenceLocal(calledAffix,local);
-               } else if (proc.Parent is Section section && section.TryGetDeclaration(id,out CDL2Object? dataRef)) {
+               } else if (proc.ParentElement<Section>()!.TryGetDeclaration(id,out CDL2Object? dataRef)) {
                   if (dataRef is Const c) {
                      Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");
                      cg.GenerateCallArgReferenceConst(calledAffix, proc.Section!.GetResolvedConstant(c)!);

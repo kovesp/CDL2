@@ -146,7 +146,7 @@ namespace CDL2v1 {
             // We can now check to see if everything invoked in this layer is in the Visible dictionary. Note that there may be imported objects. Those will be linked up with
             // exports prior to code generation.
             foreach (Layer layer in module.Layers) {
-               foreach (Section section in layer.Children.Cast<Section>()) {
+               foreach (Section section in layer.Sections) {
                   foreach (ID elemid in section.inv) {
                      if (!layer.Visible.ContainsKey(elemid)) {
                         AddNote(section, Note.MissingInvoke, elemid, layer);
@@ -169,7 +169,7 @@ namespace CDL2v1 {
             if (Reachable.Objects.Contains(obj) || mainProgram.Exports.ContainsKey(obj.Id)) {
                obj.Notes.Remove(Note.UnreferenceObject);
             } else {
-               AddNote(obj, new Note(Note.UnreferenceObject,PhaseName,obj.Parent!));
+               AddNote(obj, new Note(Note.UnreferenceObject,PhaseName,obj.ParentElement<CDL2Object>()!));
                unused++;
             }
          }
@@ -180,7 +180,8 @@ namespace CDL2v1 {
          IDDictionary<Module> validModules = [];
          Log(3, $"Analyzing module presence of {program.ContainerName}");
          foreach (ID modId in program.Parts) {
-            if (Database.Instance.Modules.TryGetValue(modId, out Module? mod)) {
+            Module? mod;
+            if ((mod = Database.Instance.ModuleByName(modId)) is not null) {
                validModules[modId] = mod;
             } else {
                AddNote(program, Note.ModuleNotFound, modId);
@@ -218,14 +219,14 @@ namespace CDL2v1 {
       /// <param name="module"></param>
       private void AnalyzeModule(Program prog,Module module) {
          Log(1,$"Analyzing {module.ContainerName}");
-         foreach (Layer layer in module.Children.Cast<Layer>()) {
+         foreach (Layer layer in module.Layers) {
             AnalyzeLayer(layer);
          }
       }
 
       private void AnalyzeLayer(Layer layer) {
          Log(2,$"Analyzing {layer.ContainerName}");
-         foreach (Section section in layer.Children.Cast<Section>()) {
+         foreach (Section section in layer.Sections) {
             AnalyzeSection(section);
          }
       }
@@ -449,7 +450,7 @@ namespace CDL2v1 {
       /// <returns>true if there are any undefined calls.</returns>
       private bool AnalyzeGroup(Procedure proc, Group group, DataFlowInfo info) {
          bool missingDefinitions = false;
-         foreach (Alternative alt in group.alternatives) {
+         foreach (Alternative alt in group.Alternatives) {
             missingDefinitions = AnalyzeAlternative(proc, alt, info) || missingDefinitions;
             // info.Reset(DataFlowInfo.VarSet.neverWrittenLocals | DataFlowInfo.VarSet.writableLocals | DataFlowInfo.VarSet.readableLocals);
          }
@@ -607,15 +608,15 @@ namespace CDL2v1 {
       /// <returns></returns>
       private bool AnalyzeEffect(Group group) {
          bool effect = false;
-         foreach (Alternative alt in group.alternatives) effect |= AnalyzeEffect(alt);
+         foreach (Alternative alt in group.Alternatives) effect |= AnalyzeEffect(alt);
          return effect;
       }
       private bool AnalyzeCanFail(Group group,Section section) {
-         foreach (Alternative alternative in group.alternatives) {
+         foreach (Alternative alternative in group.Alternatives) {
             if (alternative.lastCall.type == LCT.Fail) return true;
             if (alternative.lastCall.type == LCT.Group && AnalyzeCanFail(alternative.lastCall.group!,section)) return true;
          }
-         Alternative lastAlternative = group.alternatives.Last();
+         Alternative lastAlternative = group.Alternatives.Last();
          if (lastAlternative.CanFail) return true;
          LastCall lc = lastAlternative.lastCall;
          return lc.type == LCT.Standard && lc.call!.CanFail;   // Group and Fail already handled above.
