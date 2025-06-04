@@ -17,6 +17,18 @@ namespace CDL2v1 {
    /// Central place for enumerations that are used across the Compiler as well as their abbreviations.
    /// This would be called the representation of the CDL2 language.
 
+
+   public enum SpaceCharacters {
+      Figure      = '\u2007', // Unicode character for figure space, width of a digit
+      Em          = '\u2003', // Unicode character for em space, width of an 'M' in the current font
+      En          = '\u2002', // Unicode character for en space, width of an 'N' in the current font, 1/2 em
+      ThreePerEm  = '\u2004', // Unicode character for three-per-em space, width of 1/3 of an em space
+      Punctuation = '\u2008', // Unicode character for punctuation space, width of a period
+      Thin        = '\u2009', // Unicode character for thin space, 1/5 em
+      Hair        = '\u200A', // Unicode character for hair space, 1/10 em
+   }
+
+
    /// <summary>
    /// Token types for the CDL2 language.
    /// The aliases are meant to be used in the parser to make the code more readable.

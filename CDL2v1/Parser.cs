@@ -287,7 +287,7 @@ namespace CDL2v1 {
                   return;
                }
             }
-            currentSection.Declarations[id] = algorithm;
+            currentSection.Declarations[id] = algorithm.GUID;
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
@@ -295,7 +295,7 @@ namespace CDL2v1 {
 
       private bool DuplicateDeclaration(ID id,RW type) {
          if (currentSection!.Declarations.TryGetValue(id, out CDL2Object? value)) {
-            AddNote(currentSection, Note.DuplicateDeclaration, $"{type} {id}", value);
+            AddNote(currentSection, Note.DuplicateDeclaration, $"{type} {id}", value!);
             return true;
          }
          return false;
@@ -683,7 +683,7 @@ namespace CDL2v1 {
             lude.algorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
             lude.group.Alternatives.Add(new Alternative(callList,new LastCall(LCT.None),[]));
             section.Ludes[ludeType].Add(lude.Id);
-            section.Declarations[lude.Id] = lude;
+            section.Declarations[lude.Id] = lude.GUID;
          }
       }
 
@@ -694,16 +694,13 @@ namespace CDL2v1 {
       /// <param Id="idList"></param>
       /// <param Id="idList2"></param>
       /// <param Id="processID"></param>
-      private void ParseIDDeclarationList(IDDictionary<CDL2Object> idList,string comments,Func<ID,CDL2Object?> processID,Notes notes) {
+      private void ParseIDDeclarationList(Section.DeclartaionDictionary declarations,string comments,Func<ID,CDL2Object?> getObject,Notes notes) {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            CDL2Object? CDL2Object = processID(id);            
-            if (CDL2Object != null) {
-               if (!idList.ContainsKey(id)) {
-                  idList[id] = CDL2Object;
-                  firstObject ??= (NamedElement)CDL2Object;
-               }
+            CDL2Object? CDL2Object = getObject(id);            
+            if (CDL2Object != null && declarations.TryAdd(id, CDL2Object.GUID)) {
+               firstObject ??= (NamedElement)CDL2Object;
             }
 
             if (!tokens.CanConsumeSep()) break;

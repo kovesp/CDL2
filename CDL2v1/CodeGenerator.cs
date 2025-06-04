@@ -89,7 +89,7 @@ namespace CDL2v1 {
       /// <param name="program"></param>
       private void GenerateProgramLudes(Program program) {
          foreach (RW ludeType in Container.LudeTypes) {
-            IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id)).Where(mod => mod.Ludes[ludeType].Count > 0);
+            IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id)!).Where(mod => mod.Ludes[ludeType].Count > 0);
             if (modulesWithLudes.Any()) {
                cg.GenerateProgramLudeStart(ludeType, program);
                foreach (Module module in modulesWithLudes) cg.GenerateProgramLude(ludeType, program, module);

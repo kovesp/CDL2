@@ -39,7 +39,7 @@ namespace CDL2v1 {
          foreach (Module module in program.Modules) {
             foreach (Layer layer in module.Layers) {
                foreach (Section section in layer.Sections) {
-                  foreach (CDL2Object cdl2object in section.Declarations.Values) {
+                  foreach (CDL2Object cdl2object in section.Declarations.AsCDL2Objects<CDL2Object>()) {
                      AllObjects.Add(cdl2object);
                   }
                }

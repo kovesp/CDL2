@@ -26,6 +26,20 @@ namespace CDL2v1 {
       public Database() { }
       public static Database Instance { get; private set; } = new Database();
 
+      private static Stack<Database> DatabaseStack = [];
+
+      public static void PushDatabase(Database db) {
+         DatabaseStack.Push(Instance);
+         Instance = db;
+      }
+      public static void PopDatabase() {
+         if (DatabaseStack.Count > 0) {
+            Instance = DatabaseStack.Pop();
+         } else {
+            throw new InvalidOperationException("Cannot pop database stack, stack is empty.");
+         }
+      }
+
       /// <summary>
       /// Maps the cannonical form of identifiers (i.e., with whitespace removed) to the original form.
       /// </summary>
@@ -80,7 +94,7 @@ namespace CDL2v1 {
          public UndoRecord(T element) {
             Type = element.GetType().Name;
 
-            SerializedElement = Serializer.Instance.SerializeElement(element);
+            SerializedElement = Serializer.Instance.SerializeElement(element)??"";
          }
 
          [JsonConstructor]
@@ -131,7 +145,7 @@ namespace CDL2v1 {
             if (undoStack.Peek().Type != typeof(T).Name) {
                throw new InvalidCastException($"Cannot cast undo record of type {undoStack.Peek().Type} to {typeof(T).Name}");
             }
-            return Serializer.Instance.DeserializeElement<T>(undoStack.Pop());
+            return Serializer.Instance.DeserializeElement<T>(undoStack.Pop())!;
          } else {
             throw new KeyNotFoundException($"No undo record found for element with GUID {guid}");
          }
@@ -208,17 +222,18 @@ namespace CDL2v1 {
          }
          return elements.Any();
       }
-      public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Id == name);
-      public bool IsNamedElement<T>(ID id) where T : NamedElement => IsNamedElement<T>(id.CanonicalName);
       public bool TryGetSingleNamedelement<T>(string name, [MaybeNullWhen(false)] out T element) where T : NamedElement {
-         if (TryGetNamedElement(name, out IEnumerable<T> elements) && elements.Count() == 1) {
+         if (TryGetNamedElement(name, out IEnumerable<T>? elements) && elements.Count() == 1) {
             element = elements.First();
             return true;
          } else {
             element = null!;
             return false; 
          }
-      }
+      }      
+      public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Id == name);
+      public bool IsNamedElement<T>(ID id) where T : NamedElement => IsNamedElement<T>(id.CanonicalName);
+
 
 
       /// <summary>

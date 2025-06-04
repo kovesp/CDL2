@@ -163,7 +163,6 @@ namespace CDL2v1 {
    }
 
    public static class Extensions {
-
       public static Type AsType(this string typeName) {
          if (string.IsNullOrWhiteSpace(typeName)) {
             throw new ArgumentException("Type name cannot be null or whitespace.", nameof(typeName));

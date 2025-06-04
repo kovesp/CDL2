@@ -102,7 +102,7 @@ namespace CDL2v1 {
                            module.imports[elemid] = imported;
                         }
                      } else {
-                        AddNote(section, Note.InterfaceElementNotProvidable, obj.Id, RW.IMPORT,obj.TypeShortName);
+                        AddNote(section, Note.InterfaceElementNotProvidable, obj!.Id, RW.IMPORT,obj.TypeShortName);
                      }
                   } else {
                      AddNote(section, Note.InterfaceElementMissing, elemid, RW.IMPORT);
@@ -347,7 +347,7 @@ namespace CDL2v1 {
                   } else if (decl is IProvidable providable) {
                      providables[elemId] = providable;
                   } else {
-                     AddNote(section, Note.InterfaceElementNotProvidable, elemId, kind, decl.TypeShortName);
+                     AddNote(section, Note.InterfaceElementNotProvidable, elemId, kind, decl!.TypeShortName);
                   }
                }
             } else {

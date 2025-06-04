@@ -443,19 +443,35 @@ namespace CDL2v1 {
       [JsonInclude] public readonly Set<ID> export = [];
       [JsonInclude] public readonly Set<ID> import = [];
 
+      public class DeclartaionDictionary : IDDictionary<Guid> {
+         public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => Values.Select(guid => Database.Instance.NamedElements[guid]).OfType<T>();
+         public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => Values.Select(guid => Database.Instance.NamedElements[guid]).OfType<T>().Where(pred);
+
+         public bool TryGetValue<T>(ID id, out T? value) where T : CDL2Object {
+            if (base.TryGetValue(id, out Guid guid) && Database.Instance.NamedElements[guid] is T elem) {
+               value = elem;
+               return true;
+            }
+            value = null;
+            return false;
+         }
+
+         public override string ToString() => $"Declarations: {Count}";
+      }
+
       /// <summary>
       /// Holds the Declarations of the SectionById. The key is the ID of the declaration.
       /// </summary>
       [JsonInclude]
-      public readonly IDDictionary<CDL2Object> Declarations = [];
+      public DeclartaionDictionary Declarations = [];
 
-      [JsonIgnore] public IEnumerable<Const> Constants => Declarations.Values.OfType<Const>();
-      [JsonIgnore] public IEnumerable<Var> Variables => Declarations.Values.OfType<Var>();
-      [JsonIgnore] public IEnumerable<LIST> Lists => Declarations.Values.OfType<LIST>();
-      [JsonIgnore] public IEnumerable<Macro> Macros => Declarations.Values.OfType<Macro>();
-      [JsonIgnore] public IEnumerable<Procedure> Procedures => Declarations.Values.OfType<Procedure>();
-      [JsonIgnore] public IEnumerable<Algorithm> Algorithms => Declarations.Values.OfType<Algorithm>();
-      [JsonIgnore] public IEnumerable<Algorithm> NonSyntheticAlgorithms => Declarations.Values.OfType<Algorithm>().Where(alg=>!alg.IsSynthetic);
+      [JsonIgnore] public IEnumerable<Const> Constants => Declarations.AsCDL2Objects<Const>();
+      [JsonIgnore] public IEnumerable<Var> Variables => Declarations.AsCDL2Objects<Var>();
+      [JsonIgnore] public IEnumerable<LIST> Lists => Declarations.AsCDL2Objects<LIST>();
+      [JsonIgnore] public IEnumerable<Macro> Macros => Declarations.AsCDL2Objects<Macro>();
+      [JsonIgnore] public IEnumerable<Procedure> Procedures => Declarations.AsCDL2Objects<Procedure>();
+      [JsonIgnore] public IEnumerable<Algorithm> Algorithms => Declarations.AsCDL2Objects<Algorithm>();
+      [JsonIgnore] public IEnumerable<Algorithm> NonSyntheticAlgorithms => Declarations.AsCDL2Objects<Algorithm>(alg=>!alg.IsSynthetic);
 
       /// <summary>
       /// Get the object with the given ID. If the object is not found in this Section, then if it is invoked it is looked for in the layer.

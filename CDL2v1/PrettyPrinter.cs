@@ -555,6 +555,7 @@ namespace CDL2v1 {
       public void Print(Const constant) {
          //PrintIDComment(item,SE.Const);
          Emit(constant.Id.Decorate(Emitter, SE.Const));
+         if (constant.IsImported) return;
          Emit(" ",TT.EQUALS," ");
          foreach (IConstElement element in constant.elements) {
             switch (element) {
