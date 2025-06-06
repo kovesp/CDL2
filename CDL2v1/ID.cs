@@ -11,7 +11,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a reference to a named syntactic element, Arg or Local in the syntax tree.
    /// </summary>
-   public partial class ID : IConstElement, IMacroElement, IActualArg {
+   public partial class ID : IElement, IActualArg {
       [JsonInclude]
       public string CanonicalName = string.Empty;
       [JsonIgnore]

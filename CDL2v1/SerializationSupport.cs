@@ -110,7 +110,7 @@ namespace CDL2v1 {
             for (int i = 0 ; i < macro.elements.Count ; i++) {
                if (macro.elements[i] is MacroElementPlaceholder placeholder) {
                   if (Output.NamedElements.TryGetValue(placeholder.GUID, out NamedElement? element)) {
-                     macro.elements[i] = (IMacroElement)element;
+                     macro.elements[i] = (IElement)element;
                   } else {
                      Debug.WriteLine($"Serializer.LoadJSON: {placeholder.typeName} {placeholder.GUID} not found");
                      Debugger.Break();
@@ -203,17 +203,17 @@ namespace CDL2v1 {
          }
       }
 
-      public class MacroElementPlaceholder(string typeName, string guid) : IMacroElement {
+      public class MacroElementPlaceholder(string typeName, string guid) : IElement {
          public string GUID = guid;
          public string typeName = typeName;
          public ID Id { get; set; } = ID.AnonID; // Not use but needed for interface
       }
 
-      public class MacroElementListJsonConverter(Database output) : JsonConverter<List<IMacroElement>> {
+      public class MacroElementListJsonConverter(Database output) : JsonConverter<List<IElement>> {
          private readonly Database Output = output;
 
-         public override List<IMacroElement> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-            List<IMacroElement> list = [];
+         public override List<IElement> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+            List<IElement> list = [];
 
             if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("MacroElementListJsonConverter.Read expected [ for element list");
 
@@ -236,7 +236,7 @@ namespace CDL2v1 {
                   default:
                      string guid = reader.GetString()!;
                      list.Add(new MacroElementPlaceholder(typeName, guid));
-                     //if (Output.NamedElements.TryGetValue(new Guid(guid), out NamedElement? element) && element is IMacroElement macroElement) {
+                     //if (Output.NamedElements.TryGetValue(new Guid(guid), out NamedElement? element) && element is IElement macroElement) {
                      //   list.Add(macroElement);
                      //} else {
                      //   throw new JsonException($"MacroElementListJsonConverter.Read: {typeName} {guid} not found");
@@ -249,10 +249,10 @@ namespace CDL2v1 {
             return list;
          }
 
-         public override void Write(Utf8JsonWriter writer, List<IMacroElement> value, JsonSerializerOptions options) {
+         public override void Write(Utf8JsonWriter writer, List<IElement> value, JsonSerializerOptions options) {
 
             writer.WriteStartArray();
-            foreach (IMacroElement elem in value) {
+            foreach (IElement elem in value) {
                writer.WriteStartArray();
                writer.WriteStringValue(elem.GetType().Name);
                switch (elem) {
@@ -323,4 +323,68 @@ namespace CDL2v1 {
       internal T? DeserializeElement<T>(Database.UndoRecord<NamedElement> undoRecord) where T : NamedElement => default;
    }
 #endif
+
+   public class IElementListJsonConverter : JsonConverter<List<IElement>> {
+      public override List<IElement> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         var list = new List<IElement>();
+         if (reader.TokenType != JsonTokenType.StartArray)
+            throw new JsonException("Expected start of array for List<IElement>.");
+
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndArray) break;
+            if (reader.TokenType == JsonTokenType.StartObject) {
+               reader.Read(); // Read the "type" property
+               if (reader.TokenType != JsonTokenType.PropertyName || reader.GetString() != "type") {
+                  throw new JsonException("Expected 'type' property for IElement.");
+               }
+               reader.Read(); // Read the type value
+               string typeName = reader.GetString()!;
+               reader.Read(); // Read the "value" property name
+               if (reader.TokenType != JsonTokenType.PropertyName || reader.GetString() != "value" || (typeName != "INT" && typeName != "FLOAT" && typeName != "STRING" && typeName != "ID")) {
+                  throw new JsonException($"Expected 'value' or 'guid' property for {typeName} IElement.");
+               }
+               reader.Read(); // Read the value
+               switch (typeName) {
+                  case "INT":
+                     list.Add(new INT(reader.GetInt64()));
+                     break;
+                  case "FLOAT":
+                     list.Add(new FLOAT(reader.GetDouble()));
+                     break;
+                  case "STRING":
+                     list.Add(new STRING(reader.GetString()!));
+                     break;
+                  case "ID":
+                     list.Add(new ID(reader.GetString()!));
+                     break;
+                  default:
+                     throw new JsonException($"Unknown type '{typeName}' for IElement.");
+               }
+               reader.Read(); // Read the end of the object
+               if (reader.TokenType != JsonTokenType.EndObject) {
+                  throw new JsonException("Expected end of object for IElement.");
+               }
+            } else {
+               throw new JsonException("Expected start of object for List<IElement>.");
+            }
+         }
+         return list;
+      }
+
+      public override void Write(Utf8JsonWriter writer, List<IElement> value, JsonSerializerOptions options) {
+         writer.WriteStartArray();
+         foreach (IElement element in value) {
+            writer.WriteStartObject();
+            writer.WriteString("type", element.GetType().Name);
+            switch (element) {
+               case INT ei: writer.WriteNumber("value", ei.value); break;
+               case FLOAT ef: writer.WriteNumber("value", ef.value); break;
+               case STRING es: writer.WriteString("value", es.value); break;
+               case ID id: writer.WriteString("value", id.CanonicalName); break;
+            }
+            writer.WriteEndObject();
+         }
+         writer.WriteEndArray();
+      }
+   }
 }

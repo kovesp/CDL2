@@ -304,16 +304,8 @@ namespace CDL2v1 {
       private void ParseMacroBody(Macro macro) {
          Debug.Assert(currentSection != null);
          while (!tokens.Optional(TT.END)) {
-            if (tokens.Optional(TT.ID,out Token idToken)) {
-               ID id = ID.From(idToken);
-               if (macro.TryGetAffix(id,out Affix? affix)) {
-                  macro.elements.Add(affix);
-               } else if (macro.TryGetLocal(id,out Local local)) {
-                  macro.elements.Add(local);
-               } else {
-                  // Can be a Var, Const, or List. TODO: Semantic Analysis to verify.
-                  macro.elements.Add(id);
-               }
+            if (tokens.Optional(TT.ID,out Token idToken)) {                  
+               macro.elements.Add(ID.From(idToken)); // Can be an Affix, Local, Var, Const, or List.
             } else if (tokens.Optional(TT.STRING,out Token str)) {
                macro.elements.Add(new STRING(str));
             } else if (tokens.Optional(TT.INT,out Token i)) {
@@ -321,7 +313,7 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.FLOAT,out Token f)) {
                macro.elements.Add(new FLOAT(f));
             } else {
-               ReportError("Expected ID, Affix, Local, STRING, INT, or FLOAT");
+               AddNote(macro, Note.UnexpectedToken, "ID, Affix, Local, STRING, INT, or FLOAT", tokens.Peek().ToString());
             }
          }
       }
@@ -591,16 +583,6 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
             if (tokens.Optional(TT.ID,out Token elemId)) {
-               //ID id = ID.From(elemId);
-               //if (currentSection.Declarations.GetElement(id,out CDL2Object? value)) {
-               //   // The ID is already declared in this container. It can only be a constant or undeclared.
-               //   // That will be true even if it is invoked or imported.
-               //   Debug.Assert(value is Const || value is Undeclared);
-               //   c.elements.Add(id);
-               //} else if (currentSection.import.Contains(id)) {
-               //   currentSection.Declarations[id] = Undeclared.Instance;
-               //   c.elements.Add(id);
-               //}
                c.elements.Add(ID.From(elemId));
             } else if (tokens.Optional(TT.STRING,out Token str)) {
                c.elements.Add(new STRING(str));
@@ -609,7 +591,7 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.FLOAT,out Token f)) {
                c.elements.Add(new FLOAT(f));
             } else {
-               throw new Exception("Expected ID, STRING, INT, or FLOAT");
+               AddNote(c, Note.UnexpectedToken, "ID, STRING, INT, or FLOAT", tokens.Peek().ToString());
             }
          }
       }

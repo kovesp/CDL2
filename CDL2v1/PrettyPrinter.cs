@@ -497,14 +497,14 @@ namespace CDL2v1 {
          Indented(() => {
             Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
             PrintMacroElement(macro.elements.First(),withNl: false);
-            foreach (IMacroElement elem in macro.elements.Skip(1)) {
+            foreach (IElement elem in macro.elements.Skip(1)) {
                PrintMacroElement(elem,withSpace: true);
             }
             EmitSeparatorWithNL(TT.END);
          });
       }
 
-      private void PrintMacroElement(IMacroElement elem,bool withSpace = false,bool withNl = true) {
+      private void PrintMacroElement(IElement elem,bool withSpace = false,bool withNl = true) {
          if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
@@ -557,7 +557,7 @@ namespace CDL2v1 {
          Emit(constant.Id.Decorate(Emitter, SE.Const));
          if (constant.IsImported) return;
          Emit(" ",TT.EQUALS," ");
-         foreach (IConstElement element in constant.elements) {
+         foreach (IElement element in constant.elements) {
             switch (element) {
                case STRING s:
                   Emit(s.value.Decorate(Emitter,SE.String));

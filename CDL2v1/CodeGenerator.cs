@@ -212,7 +212,7 @@ namespace CDL2v1 {
       private void GenerateConstant(Const constant,int _) {
          Section section = constant.ParentElement<Section>()!;
          cg.GenerateConstantStart(constant);
-         foreach (IConstElement elem in constant.elements) {
+         foreach (IElement elem in constant.elements) {
             switch (elem) {
                case INT i: cg.GenerateConstElementInt(i.value); break;
                case FLOAT f: cg.GenerateConstElementFloat(f.value); break;
@@ -261,7 +261,7 @@ namespace CDL2v1 {
          parameters = new(parameters,macro.Affixes, args ?? []);
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
-         foreach (IMacroElement elem in macro.elements) {
+         foreach (IElement elem in macro.elements) {
             GenerateMacroElement(macro, macro.Section!,callingProc, parameters, first, elem);
             first = false;
          }
@@ -328,7 +328,7 @@ namespace CDL2v1 {
       /// <param name="first"></param>
       /// <param name="elem"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, Parameters parameters, bool first, IMacroElement elem) {
+      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, Parameters parameters, bool first, IElement elem) {
          switch (elem) {
             case INT i: cg.GenerateMacroElementInt(i.value); break;
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;

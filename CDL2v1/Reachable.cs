@@ -179,7 +179,7 @@ namespace CDL2v1 {
       private void CollectReachableObjects(Const constant) {
          if (constant is ImportedConst) constant = (constant.Module!.resolvedImports[constant.Id] as Const)!;
          if (Objects.Add(constant)) {
-            foreach (IConstElement elem in constant.elements) {
+            foreach (IElement elem in constant.elements) {
                switch (elem) {
                   case ID id:
                      if (constant.ParentElement<Section>()!.TryGetDeclaration(id, out CDL2Object? obj)) {
@@ -193,7 +193,7 @@ namespace CDL2v1 {
          }
       }
       private void CollectReachableObjects(Macro macro) {
-         foreach (IMacroElement element in macro.elements) {
+         foreach (IElement element in macro.elements) {
             switch (element) {
                case Affix:
                case Local:

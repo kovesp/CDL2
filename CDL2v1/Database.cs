@@ -272,6 +272,7 @@ namespace CDL2v1 {
             new IDDictionaryJsonConverter<IProvidable>(),
             new IDDictionaryJsonConverter<IExportable>(),
             new IDSetJsonConverter(),
+            new IElementListJsonConverter(),
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
          },
          IncludeFields = true,

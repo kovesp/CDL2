@@ -28,8 +28,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CDL2v1 {
    // Marker interfaces to allow lists to be composed of permissible elements.
-   public interface IMacroElement { }
-   public interface IConstElement { }
+   public interface IElement { }
    public interface IInterfaceElement { }
    public interface IProvidable : IInterfaceElement {
       ID Id { get; }
@@ -57,86 +56,6 @@ namespace CDL2v1 {
    /// Used to mark objects that are tracked in flow analysis. Affixes, Locals and Vars.
    /// </summary>
    public interface ITrackedVar { }
-
-   //public class NamedElementID {
-   //   [JsonInclude] public string? TypeName;
-   //   [JsonInclude] public ID? ModuleID;
-   //   [JsonInclude] public ID? LayerID;
-   //   [JsonInclude] public ID? SectionID;
-   //   [JsonInclude] public ID? AlgorithmID;
-   //   [JsonInclude] public ID?  ElementID;
-   //   [JsonInclude] public Guid GUID;
-
-
-   //   [JsonConstructor]
-   //   public NamedElementID() { }
-
-   //   /// <summary>
-   //   /// Create a new NamedElementID for the given element.
-   //   /// </summary>
-   //   /// <param name="element"></param>
-   //   public NamedElementID(NamedElement element) {
-   //      TypeName = element.GetType().Name;
-   //      GUID = element.GUID;
-
-   //      if (element is Layer layer) {
-   //         ModuleID = layer.Module?.Id;
-   //      } else if (element is Section section) {
-   //         ModuleID = section.Module?.Id;
-   //         LayerID = section.Layer?.Id;
-   //      } else if (element is CDL2Object cdl2Object) {
-   //         SetContainer(cdl2Object);
-   //      } else if (element is Affix affix) {
-   //         SetContainer(affix.ContainingAlgorithm);
-   //         AlgorithmID = affix.ContainingAlgorithm?.Id;
-   //      } else if (element is Local local) {
-   //         SetContainer(local.ContainingAlgorithm);
-   //         AlgorithmID = local.ContainingAlgorithm?.Id;
-   //      }
-   //      ElementID = element!.Id;
-
-   //      void SetContainer(CDL2Object? element) {
-   //         if (element != null) {
-   //            ModuleID = element.Module?.Id;
-   //            LayerID = element.Layer?.Id;
-   //            SectionID = element.Section?.Id;
-   //         }
-   //      }
-   //   }
-
-   //   /// <summary>
-   //   /// Called by Database load when restroing NamedElements from NamedElementIDs
-   //   /// </summary>>
-   //   /// <returns></returns>
-   //   /// <exception cref="NotImplementedException"></exception>
-   //   public NamedElement? GetElement() {
-   //      Debug.Assert(ElementID is not null, "GetElement: ElementID is null");
-   //      Module   ? mod     = ModuleID is not null    ? Database.Instance. ModuleByName(ModuleID) : null;
-   //      Layer    ? lay     = LayerID is not null     ? mod?.Children.FirstOrDefault(layer => layer.Id == LayerID) as Layer : null;
-   //      Section  ? sec     = SectionID is not null   ? lay?.Children.FirstOrDefault(section => section.Id == SectionID) as Section : null;
-   //      Algorithm? alg     = AlgorithmID is not null ? sec?.Declarations[AlgorithmID] as Algorithm : null;
-   //      return TypeName switch {
-   //         "Program" => Database.Instance.ProgramByName(ElementID!.Name) ?? Database.Instance.FirstProgram, 
-   //         "Module"  => mod,
-   //         "Layer"   => lay,
-   //         "Section" => sec,
-   //         "Macro" or "ImportedAlgorithm" or "Procedure" or "Macro" or "Const" or "ImportedConst" or "Var" or "LIST"
-   //                   => sec!.Declarations[ElementID],
-   //         "Affix"   => alg?.affixes?.Find(aff => aff.Id == ElementID),
-   //         "Local"   => alg?.locals?.Where(loc => loc.Id == ElementID)?.FirstOrDefault(),
-   //         "Group"   => null, //TODO: Fix Group case in NamedElementID.GetElement
-   //         _         => throw new NotImplementedException($"GetValue not implemented for {TypeName}"),
-   //      };
-   //   }
-
-   //   public override string ToString() {
-   //      static string id(string type, ID? id) => id is null ? "" : $"{type} {id.Name} ";
-   //      return $"[{GUID}] {id("MOD",ModuleID)}{id("LAY",LayerID)}{id("SEC",SectionID)}{id("ALG",AlgorithmID)}{TypeName} {ElementID}";
-   //   }
-
-   //   public override bool Equals(object? obj) => obj is NamedElementID iD && GUID.Equals(iD.GUID);
-   //   public override int GetHashCode() => HashCode.Combine(GUID);
-   //}
 
    /// <summary>
    /// Base class for all elements that have names in the syntax tree.
@@ -826,9 +745,8 @@ namespace CDL2v1 {
    /// <param Id="container"></param>
    public class Macro(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section) : Algorithm(id,affixes,locals,algorithmType,bodyType,section) {
       [JsonInclude]
-      public List<IMacroElement> elements = [];
-
-      public override IEnumerable<Var> GetReferencedVariables() => elements.OfType<Var>();
+      public List<IElement> elements = [];
+      public override IEnumerable<Var> GetReferencedVariables() => elements.OfType<ID>().Select(id=>Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
    }
    /// <summary>
    /// Represents a procedure in the syntax tree.
@@ -1081,32 +999,32 @@ namespace CDL2v1 {
    }
 
 
-   public class INT : IConstElement, IMacroElement {
+   public class INT : IElement {
       [JsonInclude] public long value;
       public INT(Token intToken) {
          Debug.Assert(intToken.type == TT.INT && intToken.intValue != null);
          value = (long)intToken.intValue;
       }
+      public INT(long value) => this.value = value;
       override public string ToString() => value.ToString();
    }
-   public class FLOAT : IConstElement, IMacroElement {
+   public class FLOAT : IElement {
       [JsonInclude] public double value;
       public FLOAT(Token floatToken) {
          Debug.Assert(floatToken.type == TT.FLOAT && floatToken.floatValue != null);
          value = (double)floatToken.floatValue;
       }
+      public FLOAT(double value) => this.value = value;
       override public string ToString() => value.ToString();
    }
-   public class STRING : IMacroElement, IConstElement, IActualArg {
+   public class STRING : IElement, IActualArg {
       [JsonInclude] public string value;
       public STRING(Token str) {
          Debug.Assert(str.type == TT.STRING && str.StringValue != null);
          value = str.StringValue;
-         fakeID = ID.AnonID;
       }
-
-      private ID fakeID;
-      public ID Id => fakeID;
+      public STRING(string str) => value = str;
+      public ID Id => ID.AnonID;
 
       private static string EscapedCDL2(string str) {
          StringBuilder sb = new();
@@ -1122,7 +1040,7 @@ namespace CDL2v1 {
       public string AsDecoratedCDL2String(EmitterBase emitter) => $"\"{EscapedCDL2(value)}\"".Decorate(emitter,SE.String);
       override public string ToString() => $"\"{value}\"";
    }
-   public class LIST : CDL2Object, IMacroElement {
+   public class LIST : CDL2Object {
       [JsonInclude] public ID lwb;
       [JsonInclude] public ID upb;
 
@@ -1133,15 +1051,14 @@ namespace CDL2v1 {
       }
       override public string ToString() => $"LIST {Id}({lwb}:{upb})";
    }
-   public class Var : CDL2Object, IFailureProtected, IMacroElement, IActualArg, ITrackedVar {
+   public class Var : CDL2Object, IFailureProtected, IActualArg, ITrackedVar {
       public Var(ID id, Section section) : base(id, section, null) => SE = SE.Var;
 
       override public string ToString() => $"VAR {Id.Name}";
    }
-   public class Const : CDL2Object, 
-         IConstElement, IMacroElement, IProvidable, IExportable, IActualArg, IImportable {
+   public class Const : CDL2Object, IProvidable, IExportable, IActualArg, IImportable {
       [JsonInclude]
-      public List<IConstElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
+      public List<IElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
       public Const(ID id,Section section) : base(id,section,null) => SE = SE.Const;
    }
@@ -1157,7 +1074,7 @@ namespace CDL2v1 {
    /// Represents a formal argument in an algorithm.
    /// It is just an ID with annotations. An arg is considered to be equal to another arg or ID if the names are the same.
    /// </summary>
-   public class Affix : NamedElement, IFailureProtected, IMacroElement, ITrackedVar  {
+   public class Affix : NamedElement, IFailureProtected, ITrackedVar  {
       public static readonly Affix Default = new (ID.AnonID,AffixDir.NONE,AffixType.std);
       [JsonInclude] public AffixDir affixDir;
       [JsonInclude] public AffixType affixType;
@@ -1193,7 +1110,7 @@ namespace CDL2v1 {
       public static bool operator !=(Affix? left,Affix? right) => !(left == right);
    }
 
-   public class Local(ID id) : NamedElement(id), IMacroElement, IActualArg, ITrackedVar, IParameter {
+   public class Local(ID id) : NamedElement(id), IActualArg, ITrackedVar, IParameter {
       [JsonIgnore] public Algorithm? ContainingAlgorithm {
          get => Database.Instance.NamedElements[Parent] as Algorithm;
          set => Parent = value?.GUID ?? Guid.Empty;
