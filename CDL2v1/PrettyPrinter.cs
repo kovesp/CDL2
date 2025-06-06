@@ -346,7 +346,7 @@ namespace CDL2v1 {
          } else { 
             EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, AlgorithmNameDecorators[callDecorator]));
          }
-         foreach (IActualArg arg in call.args) {
+         foreach (IActualArg arg in call.Args) {
             Emit(TT.AFFIXSEP);
             switch (arg) {
                case STRING s:
@@ -496,15 +496,25 @@ namespace CDL2v1 {
          PrintAlgorithmHeader(macro);
          Indented(() => {
             Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
-            PrintMacroElement(macro.elements.First(),withNl: false);
+
+            IElement elem1 = macro.elements.First();
+            bool wasID = PrintMacroElement(elem1,withNl: false);
             foreach (IElement elem in macro.elements.Skip(1)) {
-               PrintMacroElement(elem,withSpace: true);
+               wasID = PrintMacroElement(elem,withSpace: true,wasID:wasID);
             }
             EmitSeparatorWithNL(TT.END);
          });
       }
 
-      private void PrintMacroElement(IElement elem,bool withSpace = false,bool withNl = true) {
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="elem"></param>
+      /// <param name="withSpace"></param>
+      /// <param name="withNl"></param>
+      /// <returns>True if the element printed was an ID.</returns>
+      /// <exception cref="NotImplementedException"></exception>
+      private bool PrintMacroElement(IElement elem,bool withSpace = false,bool withNl = true,bool wasID=false) {
          if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
@@ -517,17 +527,21 @@ namespace CDL2v1 {
                Emit(f.value.Decorate(Emitter));
                break;
             case ID id:
+               if (wasID) Emit(TT.ELEMSEP," "); // If the previous element was an ID, add a separator.
                Emit(id.Name);
                break;
             case Affix affix:
+               if (wasID) Emit(TT.ELEMSEP, " ");
                Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
                break;
             case Local local:
+               if (wasID) Emit(TT.ELEMSEP, " ");
                Emit(local.Id.Decorate(Emitter,SE.Local));
                break;
             default:
                throw new NotImplementedException();
          }
+         return elem is ID || elem is Affix || elem is Local; // Return true if the element printed was an ID.
       }
 
       private void PrintAlgorithmHeader(Algorithm algorithm) {
@@ -557,7 +571,9 @@ namespace CDL2v1 {
          Emit(constant.Id.Decorate(Emitter, SE.Const));
          if (constant.IsImported) return;
          Emit(" ",TT.EQUALS," ");
+         bool wasID;
          foreach (IElement element in constant.elements) {
+            wasID = false;
             switch (element) {
                case STRING s:
                   Emit(s.value.Decorate(Emitter,SE.String));
@@ -572,7 +588,9 @@ namespace CDL2v1 {
                   Emit(c.Id.Decorate(Emitter,SE.Const));
                   break;
                case ID id:
+                  if (wasID) Emit(TT.ELEMSEP," "); // If the previous element was an ID, add a separator.
                   Emit(id.Name);
+                  wasID = true;
                   break;
                default:
                   throw new NotImplementedException();

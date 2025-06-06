@@ -62,16 +62,18 @@ namespace CDL2v1 {
       PERIOD         = 15,
       END            = 15,  // Alias for PERIOD
       COMMA          = 16,
-      SEP            = 16, // Alias for COMMA
-      CALLSEP        = 16, // Alias for COMMA
-      LISTSEP        = 16, // Alias for COMMA
-      ALTSEP         = 17,
+      SEP            = 16,  // Alias for COMMA
+      CALLSEP        = 16,  // Alias for COMMA
+      LISTSEP        = 16,  // Alias for COMMA
+      SEMICOLON      = 17,
+      ALTSEP         = 17,  // Alias for SEMICOLON
+      ELEMSEP        = 17,  // Alias for SEMICOLON
       GRPOPEN        = 18,
       LISTBOUNDSTART = 18,  // Alias for GRPOPEN
       GRPCLOSE       = 19,
       LISTBOUNDEND   = 19,  // Alias for GRPCLOSE
       COMMENT        = 20,
-      NOBODY         = 21, // IMPORTed PROCs have no body
+      NOBODY         = 21,  // IMPORTed ALGORITHMs have no body
    }
 
    /// <summary>

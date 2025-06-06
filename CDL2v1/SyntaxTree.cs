@@ -573,10 +573,10 @@ namespace CDL2v1 {
    /// Represents the common properties of Algorithms (Macros and Procedures).
    /// </summary>
    public /*abstract*/ class Algorithm : CDL2Object, IProvidable, IImportable, IExportable {
-      [JsonInclude][JsonPropertyOrder(50)] public RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
-      [JsonInclude][JsonPropertyOrder(51)] public TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
-      [JsonInclude][JsonPropertyOrder(52)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
-      [JsonInclude][JsonPropertyOrder(53)] public Set<Guid> localGuids = [];   // The Dlocals of this algorithm.
+      [JsonInclude][JsonPropertyOrder(10)] public RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
+      [JsonInclude][JsonPropertyOrder(11)] public TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
+      [JsonInclude][JsonPropertyOrder(12)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
+      [JsonInclude][JsonPropertyOrder(13)] public Set<Guid> localGuids = [];   // The Dlocals of this algorithm.
 
       [JsonIgnore] public List<Affix> Affixes => [.. affixGuids.Select(guid => NamedElement.From<Affix>(guid))];
       [JsonIgnore] public Set<Local> Locals => [.. localGuids.Select(guid => NamedElement.From<Local>(guid))];
@@ -745,6 +745,7 @@ namespace CDL2v1 {
    /// <param Id="container"></param>
    public class Macro(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section) : Algorithm(id,affixes,locals,algorithmType,bodyType,section) {
       [JsonInclude]
+      [JsonPropertyOrder(60)]
       public List<IElement> elements = [];
       public override IEnumerable<Var> GetReferencedVariables() => elements.OfType<ID>().Select(id=>Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
    }
@@ -759,7 +760,7 @@ namespace CDL2v1 {
    /// <param Id="SectionById"></param>
    public class Procedure(ID id,List<Affix> affxies,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
          : Algorithm(id,affxies,locals,algorithmType,bodyType,section,synthetic) {
-      [JsonInclude]
+      [JsonInclude][JsonPropertyOrder(20)]
       public Group group = Group.Empty;
       /// <summary>
       /// True if the procedure is an Action or Function that has only a single alternative (which is a sequence of calls none of which can fail ... which will be guarenteed by the sematic analyzer)
@@ -813,9 +814,9 @@ namespace CDL2v1 {
       }
       private static void CollectReferencedVariables(Group group,Set<Var> variables) {
          foreach (Alternative alternative in group.Alternatives) {
-            foreach (Call call in alternative.calls) foreach (Var variable in call.args.OfType<Var>()) variables.Add(variable);
+            foreach (Call call in alternative.calls) foreach (Var variable in call.Args.OfType<Var>()) variables.Add(variable);
             if (alternative.lastCall.type == LCT.Standard) {
-               foreach (Var variable in alternative.lastCall.call!.args.OfType<Var>()) variables.Add(variable);
+               foreach (Var variable in alternative.lastCall.call!.Args.OfType<Var>()) variables.Add(variable);
             } else if (alternative.lastCall.type == LCT.Group) {
                CollectReferencedVariables(alternative.lastCall.group!,variables);
             }
@@ -864,14 +865,37 @@ namespace CDL2v1 {
    }
 
    public class Call(ID id,Procedure containingProc,bool builtin=false) {
-      [JsonInclude] public ID id = id;
-      [JsonInclude] public List<IActualArg> args = [];
+#if DEBUG_SERIALIZATION
+#pragma warning disable CS0414
+      [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Call";
+#pragma warning restore CS0414
+#endif
+      [JsonInclude][JsonPropertyOrder(51)] public ID id = id;
+      [JsonIgnore] public IEnumerable<IActualArg> Args {
+         get {
+            Procedure containingProc = ContainingProc;
+            return argRefs.Select<IElement,IActualArg>(argRef => {
+               if (argRef is ID id) {
+                  if (containingProc.TryGetLocal(id, out Local? local)) return local;
+                  if (containingProc.TryGetAffix(id, out Affix? affix)) return affix;
+                  CDL2Object? resolved = containingProc.Section?.GetResolvedObject(id);
+                  if (resolved is IActualArg actual) return actual;
+                  throw new ArgumentException($"Call {this} has an argument with ID {id} that is not an affix, local , var or const in {containingProc}.");
+               } else if (argRef is STRING str) {
+                  return str;
+               } else {
+                  throw new ArgumentException($"Call {this} has an argument referrence that is not an ID or a str: {argRef}.");
+               }
+            });
+         }
+      }
+      [JsonInclude][JsonPropertyOrder(52)] public List<IElement> argRefs = []; // Restricted to ID-s and strings
       [JsonIgnore]  public Procedure ContainingProc => NamedElement.From<Procedure>(containingProc.GUID) ?? throw new ArgumentException($"Containing procedure {containingProc} not found in database.");
-      [JsonInclude] public Guid ContainingProcGuid = containingProc.GUID; 
+      [JsonInclude][JsonPropertyOrder(53)] public Guid ContainingProcGuid = containingProc.GUID; 
       /// <summary>
       /// Set for Compiler procedures that are evaluated at code generation time.
       /// </summary>
-      [JsonInclude] public readonly bool IsBuiltin = builtin;
+      [JsonInclude][JsonPropertyOrder(54)] public readonly bool IsBuiltin = builtin;
 
       [JsonIgnore] public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
       [JsonIgnore] public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: true);
@@ -885,7 +909,7 @@ namespace CDL2v1 {
          }
       }
 
-      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}{(args.Count>0?"+":"")}{string.Join("+",args.Select(arg=>arg.Id))}";
+      override public string ToString() => $"{(IsBuiltin?RW.BUILTIN+" ":"")}{id.Name}{(Args.Any()?"+":"")}{string.Join("+",Args.Select(arg=>arg.Id))}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
       [JsonIgnore] public Algorithm? Called {
@@ -917,10 +941,15 @@ namespace CDL2v1 {
    /// </summary>
    /// <param Id="type"></param>   
    public class LastCall(LCT type) {
-      [JsonInclude] public readonly LCT type = type;
-      [JsonInclude] public readonly Group? group;
-      [JsonInclude] public readonly Call? call;
-      [JsonInclude] public readonly ID? label = ID.AnonID;
+#if DEBUG_SERIALIZATION
+#pragma warning disable CS0414
+      [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "LastCall";
+#pragma warning restore CS0414
+#endif
+      [JsonInclude][JsonPropertyOrder(51)] public readonly LCT type = type;
+      [JsonInclude][JsonPropertyOrder(52)] public readonly Group? group;
+      [JsonInclude][JsonPropertyOrder(53)] public readonly Call? call;
+      [JsonInclude][JsonPropertyOrder(54)] public readonly ID? label = ID.AnonID;
 
       public LastCall(Call call) : this(LCT.Standard) => this.call = call;
       public LastCall(Group group) : this(LCT.Group) => this.group = group;
@@ -943,10 +972,15 @@ namespace CDL2v1 {
       };
    }
    public class Alternative(List<Call> calls,LastCall lastCall,Notes notes) {
-      [JsonInclude] public readonly List<Call> calls = calls;
-      [JsonInclude] public readonly LastCall lastCall = lastCall;
-      [JsonInclude] public readonly Notes Notes = notes;
-      public bool IsConditionalOff = false;
+#if DEBUG_SERIALIZATION
+#pragma warning disable CS0414
+      [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Alternative";
+#pragma warning restore CS0414
+#endif
+      [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls = calls;
+      [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall = lastCall;
+      [JsonInclude][JsonPropertyOrder(43)] public Notes Notes = notes;
+      [JsonIgnore] public bool IsConditionalOff = false;
 
       [JsonIgnore] public bool CanFail =>  calls.Any(call => call.CanFail) || 
                               (lastCall.type == LCT.Standard && lastCall.call!.CanFail) || 
@@ -970,7 +1004,7 @@ namespace CDL2v1 {
    }
    // Note that the Id in this case is the label.
    public class Group : NamedElement {
-      [JsonInclude] public List<Alternative> Alternatives = [];
+      [JsonInclude][JsonPropertyOrder(30)] public List<Alternative> Alternatives = [];
       [JsonConstructor]
       public Group() { }
       public Group(ID? label,List<Alternative> alternatives,Group? parent,bool synthetic) : base(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {

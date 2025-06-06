@@ -543,21 +543,22 @@ namespace CDL2v1 {
             if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
                cg.GenerateComment($"Inlining macro call -> {call}");
                cg.GenerateMacroInlineStart(macro);
-               GenerateMacroBody(macro, proc, call.args,parameters);
+               GenerateMacroBody(macro, proc, [.. call.Args],parameters);
                cg.GenerateMacroInlineEnd(macro);
             } else {
                Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
                if (calledProc.IsInlinable(Compiler.Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call}");
-                  GenerateAlternative(proc, calledProc.group, calledProc.group.Alternatives[0],isLast: false, new Parameters(parameters,calledProc.Affixes, call.args));
+                  GenerateAlternative(proc, calledProc.group, calledProc.group.Alternatives[0],isLast: false, new Parameters(parameters,calledProc.Affixes, [.. call.Args]));
                } else {
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
-                  parameters = new Parameters(parameters, calledProc.Affixes, call.args);
+                  parameters = new Parameters(parameters, calledProc.Affixes, [.. call.Args]);
                   if (parameters.Count > 0) {
-                     GenerateActualArg(proc, call, calledProc.Affixes[0], call.args[0]);
-                     for (int i = 1 ; i < call.args.Count ; i++) {
+                     int i = 0;
+                     GenerateActualArg(proc, call, calledProc.Affixes[i++], call.Args.First());
+                     foreach (IActualArg arg in call.Args.Skip(1)) {
                         cg.GenerateActualArgSeparator();
-                        GenerateActualArg(proc, call, calledProc.Affixes[i], call.args[i]);
+                        GenerateActualArg(proc, call, calledProc.Affixes[i], arg);
                      }
                   }
                   cg.GenerateCallEnd(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);

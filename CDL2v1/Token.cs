@@ -43,11 +43,11 @@ namespace CDL2v1 {
       private static readonly Regex IdRE_;
       private static readonly Regex StringEscapeRE_;
 
-      [GeneratedRegex(@"^"".*?(?:$"".*?)*""",                  RegexOptions.Compiled)]private static partial Regex StringRE();
-      [GeneratedRegex(@"^(?m:#((?:##)?.*?)?(?:#|$))",          RegexOptions.Compiled)]private static partial Regex CommentRE();
-      [GeneratedRegex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",       RegexOptions.Compiled)]private static partial Regex IntRE();
-      [GeneratedRegex(@"^[+-]?\d+(?:\.\d+(?:[eE][+-]?\d+)?)?", RegexOptions.Compiled)]private static partial Regex FloatRE();
-      [GeneratedRegex(@"\s+",                                  RegexOptions.Compiled)]private static partial Regex ReduceWhitespaceRE();
+      [GeneratedRegex(@"^"".*?(?:$"".*?)*""",                   RegexOptions.Compiled)]private static partial Regex StringRE();
+      [GeneratedRegex(@"^(?m:#((?:##)?.*?)?(?:#|$))",           RegexOptions.Compiled)]private static partial Regex CommentRE();
+      [GeneratedRegex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",        RegexOptions.Compiled)]private static partial Regex IntRE();
+      [GeneratedRegex(@"^[+-]?\d+\.\d(?:\d*(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled)]private static partial Regex FloatRE();
+      [GeneratedRegex(@"\s+",                                   RegexOptions.Compiled)]private static partial Regex ReduceWhitespaceRE();
       private static Regex GlyphRE() => GlyphRE_; // Lazy initialization of the regex to avoid static constructor issues.
       private static Regex ReservedWordRE() => ReservedWordRE_; // Lazy initialization of the regex to avoid static constructor issues.
       private static Regex IdRE() => IdRE_; // Lazy initialization of the regex to avoid static constructor issues.
@@ -251,8 +251,8 @@ namespace CDL2v1 {
                }
                return true;
             }
-            if (HandleMatch(IntRE(),TokenClass.Int,ref input,out token)) return true;
             if (HandleMatch(FloatRE(),TokenClass.Float,ref input,out token)) return true;
+            if (HandleMatch(IntRE(),TokenClass.Int,ref input,out token)) return true;
             if (HandleMatch(GlyphRE(),TokenClass.Glyph,ref input,out token)) return true; // Must be placed after Int & Float as they may start with + or -
             return false;
          }

@@ -489,48 +489,48 @@ namespace CDL2v1 {
             if (call.Called is null) {
                proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
                return true;
-            } else if (call.Called.Affixes.Count != call.args.Count) {
-               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.args.Count, call.Called.Affixes.Count);
+            } else if (call.Called.Affixes.Count != call.Args.Count()) {
+               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.Args.Count(), call.Called.Affixes.Count);
                return true;
-            } else if (call.args.Count == 0) {
+            } else if (!call.Args.Any()) {
                return false;
             } else {
                List<Affix> affix = call.Called.Affixes;
-               List<IActualArg> arg = call.args;
-               for (int i = 0; i < call.args.Count; i++) {
-                  if (arg[i] is ID id) {
+               List<IActualArg> args = [.. call.Args];
+               for (int i = 0; i < args.Count; i++) {
+                  if (args[i] is ID id) {
                      // ID that was not resolved during parsing
                      if (proc.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {                           
                         switch (obj) {
                            case Var var:
-                              arg[i] = var; break;
+                              args[i] = var; break;
                            case Const c:
-                              arg[i] = c; break;
+                              args[i] = c; break;
                            default:
-                              proc.AddNote(PhaseName, Note.InvalidArgumentType, arg[i],call);
+                              proc.AddNote(PhaseName, Note.InvalidArgumentType, args[i],call);
                               break;
                         }               
                      } else {
-                        proc.AddNote(PhaseName, Note.UnresolvedArgument, arg[i],call);
+                        proc.AddNote(PhaseName, Note.UnresolvedArgument, args[i],call);
                         return true; // No point in continuing
                      }
                   }
 
                   if (affix[i].IsString) {
                      // The actual argument must be a constant, a string or a string affix of the containing procedure.
-                     switch (arg[i]) {
+                     switch (args[i]) {
                         case Const _:
                         case Affix stringArg when stringArg.IsString:
                         case STRING _:
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidStringArg, arg[i], call);
+                           proc.AddNote(PhaseName, Note.InvalidStringArg, args[i], call);
                            break;
                      }
                   } else if (affix[i].IsInputOnly) {
                      // The actual argument must be a constant, a variable, an input or transput affix of the containing procedure,
                      // or a local or output affix that has already received a value.
-                     switch (arg[i]) {
+                     switch (args[i]) {
                         case Const _:
                         case Var _:
                         case Affix inputArg when inputArg.IsInput:   // Includes transput
@@ -542,13 +542,13 @@ namespace CDL2v1 {
                            if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i], call);
+                           proc.AddNote(PhaseName, Note.InvalidInputArg, args[i], call);
                            break;
                      }
                   } else if (affix[i].IsOutputOnly) {
                      // The actual argument must be a variable, a local or an affix (output or transput) of the containing procedure.
                      // The local or affix must have been read since it was last written (this is a warning).
-                     switch (arg[i]) {
+                     switch (args[i]) {
                         case Var _:
                            break;
                         case Affix outputArg when outputArg.IsOutput:   // Includes transput
@@ -562,13 +562,13 @@ namespace CDL2v1 {
                            info.MakeUnwritable(local);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidOutputArg, arg[i], call);
+                           proc.AddNote(PhaseName, Note.InvalidOutputArg, args[i], call);
                            break;
                      }
                   } else {
                      Debug.Assert(affix[i].IsTransput, "Transput affix expected");
                      // The actual argument must be a variable, a transput affix or a local or an output affix which has already been assigned a value of the containing procedure.
-                     switch (arg[i]) {
+                     switch (args[i]) {
                         case Var _:
                            break;
                         case Affix transputArg when transputArg.IsTransput:
@@ -589,7 +589,7 @@ namespace CDL2v1 {
                            info.MakeUnwritable(local);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidTransputArg, arg[i], call);
+                           proc.AddNote(PhaseName, Note.InvalidTransputArg, args[i], call);
                            break;
                      }
                   }

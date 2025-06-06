@@ -33,13 +33,13 @@ namespace CDL2v1 {
             case "versionstring":
                return CDL2.Version;
             case "option":
-               if (call.args.Count >= 1 && call.args[0] is STRING option) {
+               if (call.Args.FirstOrDefault() is STRING option) {
                   return Settings.TryGetSettingValue(option.value, out string? value) ? value : "";
                } else {
                   return "";
                }
             case "environmentvariable":
-               if (call.args.Count >= 1 && call.args[0] is STRING envName) {
+               if (call.Args.FirstOrDefault() is STRING envName) {
                   return Environment.GetEnvironmentVariable(envName.value) ?? "";
                } else {
                   return "";
@@ -51,25 +51,25 @@ namespace CDL2v1 {
       public static bool EvalTest(Call call) {
          switch (call.id.CanonicalName) {
             case "isoption":
-               if (call.args.Count >= 1 && call.args[0] is STRING option) {
+               if (call.Args.FirstOrDefault() is STRING option) {
                   return Settings.TryGetSettingValue(option.value, out _);
                } else {
                   return false;
                }
             case "isoptionvalue":
-               if (call.args.Count >= 2 && call.args[0] is STRING option1 && call.args[1] is STRING value) {
+               if (call.Args.FirstOrDefault() is STRING option1 && call.Args.Skip(1).FirstOrDefault() is STRING value) {
                   return Settings.TryGetSettingValue(option1.value, out string? settingValue) && settingValue == value.value;
                } else {
                   return false;
                }
             case "isenvironmentvariable":
-               if (call.args.Count >= 1 && call.args[0] is STRING envName) {
+               if (call.Args.FirstOrDefault() is STRING envName) {
                   return Environment.GetEnvironmentVariable(envName.value) != null;
                } else {
                   return false;
                }
             case "istarget":
-               if (call.args.Count >= 1 && call.args[0] is STRING target) {
+               if (call.Args.FirstOrDefault() is STRING target) {
                   return target.value == Settings.SettingValue<string>("Target");
                } else {
                   return false;

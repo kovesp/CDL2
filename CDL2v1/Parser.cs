@@ -237,7 +237,7 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.CONST)) {
                ParseConstants(internalNotes);
             } else {
-               ReportError("Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST");
+               ReportError($"Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST. Seeing {tokens.Peek()}");
             }
          }
 
@@ -302,20 +302,8 @@ namespace CDL2v1 {
       }
 
       private void ParseMacroBody(Macro macro) {
-         Debug.Assert(currentSection != null);
-         while (!tokens.Optional(TT.END)) {
-            if (tokens.Optional(TT.ID,out Token idToken)) {                  
-               macro.elements.Add(ID.From(idToken)); // Can be an Affix, Local, Var, Const, or List.
-            } else if (tokens.Optional(TT.STRING,out Token str)) {
-               macro.elements.Add(new STRING(str));
-            } else if (tokens.Optional(TT.INT,out Token i)) {
-               macro.elements.Add(new INT(i));
-            } else if (tokens.Optional(TT.FLOAT,out Token f)) {
-               macro.elements.Add(new FLOAT(f));
-            } else {
-               AddNote(macro, Note.UnexpectedToken, "ID, Affix, Local, STRING, INT, or FLOAT", tokens.Peek().ToString());
-            }
-         }
+         ParseElementList(macro, macro.elements, "ID, Affix, Local, STRING, INT, or FLOAT");
+         if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
       private void ParseProcedureBody(Procedure proc) {
          proc.group.Alternatives = ParseAlternatives(proc,group:null);
@@ -434,31 +422,14 @@ namespace CDL2v1 {
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
       /// <param Id="call"></param>
-      // private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
       private static void ParseActualArgs(Parser parser, Call call, Procedure proc) {
-         Debug.Assert(parser.currentSection != null);
+         Debug.Assert(parser.currentSection != null);         
          while (parser.tokens.Optional(TT.AFFIXSEP)) {
             if (parser.tokens.Optional(out ID id)) {
-               if (proc.TryGetAffix(id, out Affix affix)) {
-                  call.args.Add(affix);
-               } else if (proc.TryGetLocal(id, out Local local)) {
-                  call.args.Add(local);
-               } else if (parser.currentSection.Declarations.TryGetValue(id, out CDL2Object? obj)) {
-                  if (obj is Const c) {
-                     call.args.Add(c);
-                  } else if (obj is Var v) {
-                     call.args.Add(v);
-                  } else {
-                     parser.ReportError($"Expected Affix, Local, Const, or Var got {obj}");
-                  }
-               } else {
-                  // Resolve later
-                  call.args.Add(id);
-               }
+                call.argRefs.Add(id);
             } else if (parser.tokens.CanConsume(TT.STRING, out Token str)) {
-               call.args.Add(new STRING(str));
-            }
-            else {
+               call.argRefs.Add(new STRING(str));
+            } else {
                parser.ReportError("Expected ID or STRING");
             }
          }
@@ -563,7 +534,7 @@ namespace CDL2v1 {
                return null;
             } else {
                Const c = new(id,currentSection);
-               ParseConstElements(c);
+               ParseElementList(c, c.elements, "ID, STRING, INT, or FLOAT",secondaryTerminator:TT.SEP);
                return c;
             }
          } else if (!currentSection.import.Contains(id)) {
@@ -579,19 +550,21 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="c"></param>
       /// <exception cref="Exception"></exception>
-      private void ParseConstElements(Const c) {
+      private void ParseElementList(NamedElement parent, List<IElement> elements, string expected, TT secondaryTerminator = TokenType.END) {
          Debug.Assert(currentSection != null);
-         while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
-            if (tokens.Optional(TT.ID,out Token elemId)) {
-               c.elements.Add(ID.From(elemId));
-            } else if (tokens.Optional(TT.STRING,out Token str)) {
-               c.elements.Add(new STRING(str));
-            } else if (tokens.Optional(TT.INT,out Token i)) {
-               c.elements.Add(new INT(i));
-            } else if (tokens.Optional(TT.FLOAT,out Token f)) {
-               c.elements.Add(new FLOAT(f));
+         while (!tokens.IsNext(TT.END) && !tokens.IsNext(secondaryTerminator)) {
+            if (tokens.Optional(TT.ELEMSEP,out Token _)) {
+               continue;
+            } else if (tokens.Optional(TT.ID, out Token elemId)) {
+               elements.Add(ID.From(elemId));
+            } else if (tokens.Optional(TT.STRING, out Token str)) {
+               elements.Add(new STRING(str));
+            } else if (tokens.Optional(TT.INT, out Token i)) {
+               elements.Add(new INT(i));
+            } else if (tokens.Optional(TT.FLOAT, out Token f)) {
+               elements.Add(new FLOAT(f));
             } else {
-               AddNote(c, Note.UnexpectedToken, "ID, STRING, INT, or FLOAT", tokens.Peek().ToString());
+               AddNote(parent, Note.UnexpectedToken, expected, tokens.Peek().ToString());
             }
          }
       }
