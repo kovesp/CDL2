@@ -534,14 +534,14 @@ namespace CDL2v1 {
          PrintComment(algorithm);
          Emit(algorithm.algorithmType.Decorate(Emitter,SE.ReservedWord)," ",
             algorithm.Id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
-         foreach (Affix affix in algorithm.affixes.Cast<Affix>()) {
+         foreach (Affix affix in algorithm.Affixes.Cast<Affix>()) {
             Emit(affix.affixType == AffixType.std ? TT.AFFIXSEP : TT.STRINGAFFIXSEP);
             if (affix.IsInput) Emit(TT.AFFIXDIR);
             Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
             if (affix.IsOutput) Emit(TT.AFFIXDIR);
          }
-         if (algorithm.locals.Any()) {
-            foreach (Local local in algorithm.locals) {
+         if (algorithm.Locals.Any()) {
+            foreach (Local local in algorithm.Locals) {
                Emit(" ",TT.LOCALSEP,local.Id.Decorate(Emitter,SE.Local));
             }
          }

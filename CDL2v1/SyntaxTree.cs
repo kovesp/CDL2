@@ -294,8 +294,9 @@ namespace CDL2v1 {
       /// <returns></returns>
       public string FQDN() => $"{AncestorContainer<Module>().WithSpace()}{AncestorContainer<Layer>().WithSpace()}{AncestorContainer<Section>().WithSpace()}{ToString()}";
 
-      public static NamedElement? From(Guid guid) => Database.Instance.NamedElements.TryGetValue(guid, out NamedElement? element) ? element : null;
-      public static bool From(Guid guid,out NamedElement? element) => Database.Instance.NamedElements.TryGetValue(guid, out element) && element != null;
+      public static T? From<T>(Guid guid) where T: NamedElement => Database.Instance.NamedElements.TryGetValue(guid, out NamedElement? element) && element is T typedElement ? typedElement : null;
+      public static bool From<T>(Guid guid, out T? element) where T : NamedElement => (element = NamedElement.From<T>(guid)) is not null;
+
    }
 
    /// <summary>
@@ -477,8 +478,8 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(44)] public  Set<ID> import = [];
 
       public class DeclarationDictionary : IDDictionary<Guid> {
-         public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => Values.Select(guid => NamedElement.From(guid)).OfType<T>();
-         public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => Values.Select(guid => NamedElement.From(guid)).OfType<T>().Where(pred);
+         public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => Values.Select(From<T>).OfType<T>();
+         public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => Values.Select(From<T>).OfType<T>().Where(pred);
 
          public bool TryGetValue<T>(ID id, out T? value) where T : CDL2Object {
             if (base.TryGetValue(id, out Guid guid) && Database.Instance.NamedElements[guid] is T elem) {
@@ -655,14 +656,16 @@ namespace CDL2v1 {
    public /*abstract*/ class Algorithm : CDL2Object, IProvidable, IImportable, IExportable {
       [JsonInclude][JsonPropertyOrder(50)] public RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
       [JsonInclude][JsonPropertyOrder(51)] public TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
-      [JsonInclude][JsonPropertyOrder(52)] public List<Affix> affixes = [];    // The affixes of this algorithm. A List because they are ordered.
-      [JsonInclude][JsonPropertyOrder(53)] public Set<Local> locals = [];     // The Declarations variables of this algorithm.
+      [JsonInclude][JsonPropertyOrder(52)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
+      [JsonInclude][JsonPropertyOrder(53)] public Set<Guid> localGuids = [];   // The Dlocals of this algorithm.
 
+      [JsonIgnore] public List<Affix> Affixes => [.. affixGuids.Select(guid => NamedElement.From<Affix>(guid))];
+      [JsonIgnore] public Set<Local> Locals => [.. localGuids.Select(guid => NamedElement.From<Local>(guid))];
 
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
             : base(id,section,algorithmType.Comments,synthetic) {
-         this.affixes = affixes;
-         this.locals = locals;
+         affixGuids = affixes.Select(affix=>affix.GUID).ToList<Guid>();
+         localGuids = (Set<Guid>)locals.Select(local=>local.GUID).ToSet<Guid>();
          this.algorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
          this.bodyType = bodyType;
          this.SE = SE.AlgorithmName;
@@ -672,6 +675,7 @@ namespace CDL2v1 {
       [JsonConstructor]
       public Algorithm() { }
 
+      [JsonIgnore]
       public AlgorithmNameType NameType {
          get {
             AlgorithmNameType ait = AlgorithmNameType.None;
@@ -681,7 +685,7 @@ namespace CDL2v1 {
             return ait;
          }
       }
-
+      [JsonIgnore]
       public DecorationStyle NameStyle {
          get {
             AlgorithmNameType ait = NameType;
@@ -692,33 +696,36 @@ namespace CDL2v1 {
             return ds;
          }
       }
+      [JsonIgnore]
       public string AlgorithmName => $"{algorithmType} {Id}";
 
       [JsonIgnore] public bool CanFail => algorithmType == RW.TEST || algorithmType == RW.PREDICATE;
       [JsonIgnore] public bool AlwaysSucceeds => !CanFail;
       [JsonIgnore] public bool HasEffect => algorithmType == RW.PREDICATE || algorithmType == RW.ACTION;
       [JsonIgnore] public bool HasNoEffect => !HasEffect;
-      [JsonIgnore] public bool NeedsFinalization => CanFail && (affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
+      [JsonIgnore] public bool NeedsFinalization => CanFail && (Affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
       [JsonIgnore] public bool IsInlineMacro => bodyType == TT.MACROBODY;
       /// <summary>
       /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
       /// </summary>
       /// <param name="group"></param>
       /// <returns></returns>
+      [JsonIgnore]
       public virtual bool IsConditionalCompilationOff => false;
+      [JsonIgnore]
       public virtual bool IsConditionalCompilationOn => false;
       public bool IsConditionalCompilation(bool? on=null) => on is null ? IsConditionalCompilationOn || IsConditionalCompilationOff : (bool)on ? IsConditionalCompilationOn : IsConditionalCompilationOff;
-      public bool TryGetAffix(ID id,out Affix affix) => (affix = affixes.FirstOrDefault(affix => affix.Id == id,Affix.Default)) != Affix.Default;
-      public bool TryGetLocal(ID id,out Local local) => (local = locals.FirstOrDefault(local => local.Id == id,Local.Default)) != Local.Default;
+      public bool TryGetAffix(ID id,out Affix affix) => (affix = Affixes.FirstOrDefault(affix => affix.Id == id,Affix.Default)) != Affix.Default;
+      public bool TryGetLocal(ID id,out Local local) => (local = Locals.FirstOrDefault(local => local.Id == id,Local.Default)) != Local.Default;
 
       public override string ToString() {
          StringBuilder buffer = new();
          buffer.Append($"{TypeShortName} {Id.Name}");
-         foreach (Affix affix in affixes) {
+         foreach (Affix affix in Affixes) {
             buffer.Append(Token.TokenType2Glyph[affix.IsString ? TT.STRINGAFFIXSEP : TT.AFFIXSEP]);
             buffer.Append(affix);
          }
-         foreach (Local local in locals) buffer.Append(local);
+         foreach (Local local in Locals) buffer.Append(local);
          return buffer.ToString();
       }
 
@@ -790,6 +797,7 @@ namespace CDL2v1 {
       /// </summary>
       //public void ResetNameAnnotations() => sa = null;
       public virtual IEnumerable<Var> GetReferencedVariables() => [];
+      [JsonIgnore]
       override public string TypeShortName => $"{algorithmType}";
    }
 
@@ -940,7 +948,7 @@ namespace CDL2v1 {
    public class Call(ID id,Procedure containingProc,bool builtin=false) {
       [JsonInclude] public ID id = id;
       [JsonInclude] public List<IActualArg> args = [];
-      [JsonIgnore]  public Procedure ContainingProc => NamedElement.From(containingProc.GUID) as Procedure ?? throw new ArgumentException($"Containing procedure {containingProc} not found in database.");
+      [JsonIgnore]  public Procedure ContainingProc => NamedElement.From<Procedure>(containingProc.GUID) ?? throw new ArgumentException($"Containing procedure {containingProc} not found in database.");
       [JsonInclude] public Guid ContainingProcGuid = containingProc.GUID; 
       /// <summary>
       /// Set for Compiler procedures that are evaluated at code generation time.

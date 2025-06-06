@@ -85,7 +85,7 @@ namespace CDL2v1 {
          void ReportByType(IEnumerable<Note> list,bool all) {
             foreach (Note note in list) {
                // Report messages only for reachable objects
-               NamedElement? noteOwner = NamedElement.From(note.Owner);
+               NamedElement? noteOwner = NamedElement.From<NamedElement>(note.Owner);
                if (all || reachable is null || note.Owner == Guid.Empty || noteOwner is Container _ || (noteOwner is CDL2Object obj && reachable.Objects.Contains(obj))) {
                   string head = $"{note.Type,7} {note.Number:D3}: ";
                   Log(0, $"   {head} {noteOwner?.FQDN()??PhaseName}\n    {new string(' ', head.Length)}{note.Text}");
