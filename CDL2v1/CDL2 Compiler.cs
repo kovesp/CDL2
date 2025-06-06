@@ -27,9 +27,9 @@ namespace CDL2v1 {
 
       public string PhaseName { get; }
       private IEnumerable<Note> Notes => (notes.Any() ? notes : Database.Instance.ElementsWithNotes.SelectMany(guid => Database.Instance.NamedElements[guid].Notes)).Where(note => note.PhaseName == PhaseName);
-      private IEnumerable<Note> Errors => Notes.Where(note => note.Type == NoteType.Error);
-      private IEnumerable<Note> Warnings => Notes.Where(note => note.Type == NoteType.Warning);
-      private IEnumerable<Note> Infos => Notes.Where(note => note.Type == NoteType.Info);
+      private IEnumerable<Note> Errors => Notes.Where(note => note.NoteType == NoteType.Error);
+      private IEnumerable<Note> Warnings => Notes.Where(note => note.NoteType == NoteType.Warning);
+      private IEnumerable<Note> Infos => Notes.Where(note => note.NoteType == NoteType.Info);
 
       /// <summary>
       /// Add a note to given subject. Increment counters.
@@ -85,9 +85,10 @@ namespace CDL2v1 {
          void ReportByType(IEnumerable<Note> list,bool all) {
             foreach (Note note in list) {
                // Report messages only for reachable objects
-               if (all || reachable is null || note.Owner == null || note.Owner is Container _ || (note.Owner is CDL2Object obj && reachable.Objects.Contains(obj))) {
+               NamedElement? noteOwner = NamedElement.From(note.Owner);
+               if (all || reachable is null || note.Owner == Guid.Empty || noteOwner is Container _ || (noteOwner is CDL2Object obj && reachable.Objects.Contains(obj))) {
                   string head = $"{note.Type,7} {note.Number:D3}: ";
-                  Log(0, $"   {head} {note.Owner?.FQDN()??PhaseName}\n    {new string(' ', head.Length)}{note.Text}");
+                  Log(0, $"   {head} {noteOwner?.FQDN()??PhaseName}\n    {new string(' ', head.Length)}{note.Text}");
                }
             }
          }
@@ -134,9 +135,7 @@ namespace CDL2v1 {
                   Parser.Parse(source);
                }
             }
-            if (Parser.AbortCompilation())
-               return;
-
+            if (Parser.AbortCompilation()) return;
 
             Program? MainProgram = null;
             string? ProgramName = Settings.SettingValue<string>("ProgramName");

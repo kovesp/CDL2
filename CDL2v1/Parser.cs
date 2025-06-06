@@ -694,7 +694,7 @@ namespace CDL2v1 {
       /// <param Id="idList"></param>
       /// <param Id="idList2"></param>
       /// <param Id="processID"></param>
-      private void ParseIDDeclarationList(Section.DeclartaionDictionary declarations,string comments,Func<ID,CDL2Object?> getObject,Notes notes) {
+      private void ParseIDDeclarationList(Section.DeclarationDictionary declarations,string comments,Func<ID,CDL2Object?> getObject,Notes notes) {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());

@@ -27,14 +27,9 @@ namespace CDL2v1 {
       /// <returns></returns>
       public static ID From(Token token) {
          Debug.Assert(token.type == TT.ID && token.StringValue != null,"CreateID: Token is not an ID type or StringValue is null");
-         //if (Database.Instance.UniqueIDs.TryGetValue(token.StringValue,out ID? id)) {
-         //   return id;
-         //} else {
-         //   return Database.Instance.UniqueIDs[token.StringValue] = new ID(name:token.TokenString);
-         //}
-         return new ID(Database.Instance.AddCanonicalName(token.StringValue));
+         return ID.From(token.TokenString);
       }
-      public static ID From(string name) => new(name);
+      public static ID From(string name) => new(Database.Instance.AddCanonicalName(name));
       /// <summary>
       /// Used to create the Procedures for SectionById Ludes.
       /// </summary>
@@ -87,13 +82,37 @@ namespace CDL2v1 {
          writer.WriteStartObject();
          foreach (ID key in value.Keys) {
             //Debug.WriteLine($"{key} -> {value[key]}");
-            writer.WritePropertyName(key.Name);
+            writer.WritePropertyName(key.CanonicalName);
             try {
                JsonSerializer.Serialize(writer, value[key], options);
             } catch (Exception e) {
                Debug.WriteLine(e.Message);
                Debugger.Break();
             }
+         }
+         writer.WriteEndObject();
+      }
+   }
+   public class DeclarationDictionaryJsonConverter : JsonConverter<Section.DeclarationDictionary> {
+      public override Section.DeclarationDictionary Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         var dictionary = new Section.DeclarationDictionary();
+         if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException();
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndObject) break;
+            // Read the key as a string
+            string keyString = reader.GetString()!;
+            // Read the value
+            reader.Read();
+            dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<Guid>(ref reader, options)!;
+         }
+         return dictionary;
+      }
+      public override void Write(Utf8JsonWriter writer, Section.DeclarationDictionary value, JsonSerializerOptions options) {
+         writer.WriteStartObject();
+         foreach (ID key in value.Keys) {
+            writer.WritePropertyName(key.CanonicalName);
+            JsonSerializer.Serialize(writer, value[key], options);
          }
          writer.WriteEndObject();
       }
@@ -117,7 +136,7 @@ namespace CDL2v1 {
       public override void Write(Utf8JsonWriter writer, IDSet value, JsonSerializerOptions options) {
          writer.WriteStartArray();
          foreach (ID key in value) {
-            writer.WriteStringValue(key.Name);
+            writer.WriteStringValue(key.CanonicalName);
          }
          writer.WriteEndArray();
       }

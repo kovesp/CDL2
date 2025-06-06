@@ -630,12 +630,12 @@ namespace CDL2v1 {
          if (IncludeComments) {
             if (comments != null) Emitnl(NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
-               if (note.Type == NoteType.Note) {
+               if (note.NoteType == NoteType.Note) {
                   NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));
                   Emitnl(RW.NOTE, Token.TokenType2Glyph[TT.END]);
                } else {
                   Emitnl(string.Concat("#", Note.Marker, (note.Type.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
-                     .Decorate(Emitter, note.Type switch {
+                     .Decorate(Emitter, note.NoteType switch {
                         NoteType.Error => SE.NoteError,
                         NoteType.Warning => SE.NoteWarning,
                         NoteType.Info => SE.NoteInfo,

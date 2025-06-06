@@ -2,6 +2,8 @@
 
 
 
+using System.Text.Json.Serialization;
+
 namespace CDL2v1 {
    /// <summary>
    /// Notes are used to annotate objects with error/warning/info messages.
@@ -22,22 +24,24 @@ namespace CDL2v1 {
    /// <param name="type"></param>
    /// <param name="text"></param>
    /// <param name="number"></param>
-   public class Note : IEquatable<Note?> {
-      public readonly NoteType Type;
-      public readonly string Text;
-      public readonly int Number;
-      public readonly string PhaseName;
-      public NamedElement? Owner = null;
+   public class Note : SerializationBase, IEquatable<Note?>  {
+      [JsonInclude][JsonPropertyOrder(1)] public NoteType NoteType;
+      [JsonInclude][JsonPropertyOrder(2)] public string Text = "";
+      [JsonInclude][JsonPropertyOrder(3)] public int Number;
+      [JsonInclude][JsonPropertyOrder(4)] public string PhaseName = "";
+      [JsonInclude][JsonPropertyOrder(5)] public Guid Owner = Guid.Empty;
       public Note(NoteType type, int number, string text, string phaseName = "") {
-         Type = type;
+         NoteType = type;
          Text = text;
          Number = number;
          PhaseName = phaseName;
       }
+      [JsonConstructor]
+      public Note() { }
       public Note(Note template, string phaseName, NamedElement? owner, params object[] args)
-         : this(template.Type, template.Number, 
+         : this(template.NoteType, template.Number, 
               string.Format(template.Text, [.. args.Select(arg => arg is Affix aff ? $"<{aff.Id}>" : arg is Local loc ? $"<{loc.Id}>" : $"<{arg}>")]), 
-              phaseName) => Owner = owner;
+              phaseName) => Owner = owner?.GUID ?? Guid.Empty;
 
       public static readonly string Marker = " >>> ";
 
@@ -98,10 +102,10 @@ namespace CDL2v1 {
       public static readonly Note LocalNotReferenced                = new(NoteType.Info   , 202, "Local {0} was not used in procedure {1}");
       public static readonly Note UnreferenceObject                 = new(NoteType.Info   , 203, "Object is defined but not used in program. This may be due to conditional compilation");
 
-      public override string ToString() => $"{Type} {Number}: {Text}";
+      public override string ToString() => $"{NoteType} {Number}: {Text}";
       public override bool Equals(object? obj) => Equals(obj as Note);
-      public bool Equals(Note? other) => other is not null && Type == other.Type && Text == other.Text && Number == other.Number;
-      public override int GetHashCode() => HashCode.Combine(Type, Text, Number);
+      public bool Equals(Note? other) => other is not null && NoteType == other.NoteType && Text == other.Text && Number == other.Number;
+      public override int GetHashCode() => HashCode.Combine(NoteType, Text, Number);
 
       public static bool operator ==(Note? left, Note? right) => EqualityComparer<Note>.Default.Equals(left, right);
       public static bool operator !=(Note? left, Note? right) => !(left == right);

@@ -12,7 +12,7 @@
     },
     "Database Save": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--parse-only --save",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--parse-only --save --allow-errors",
       "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
     },
     "FileCG": {

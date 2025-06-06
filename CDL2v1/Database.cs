@@ -16,36 +16,85 @@ using System.Xml.Linq;
 
 namespace CDL2v1 {
    /// <summary>
+   /// Base class for all classes that will be serialize.
+   /// This is just a convenience so that items in the serliazied form can be more easily identified.
+   /// </summary>
+   public class SerializationBase {
+#if DEBUG_SERIALIZATION
+      [JsonInclude][JsonPropertyOrder(0)]
+      public string Type;
+      [JsonConstructor]
+      public SerializationBase() => Type = GetType().Name;
+#else
+      public SerializationBase() { }
+#endif // DEBUG_SERIALIZATION
+   }
+   /// <summary>
    /// Entrypoint for all data maintanined by the Compiler.
    /// In memory dta holder for a future CDL2 Lab implementation.
    /// </summary>
-   public class Database {
+   public class Database : SerializationBase {
       /// <summary>
       /// This is a singleton class.
       /// </summary>
       public Database() { }
-      public static Database Instance { get; private set; } = new Database();
+      public static Database Instance => DatabaseStack.Count > 0 ? DatabaseStack.Peek() : throw new InvalidOperationException("Database stack is empty. No database instance available.");
 
-      private static Stack<Database> DatabaseStack = [];
+      private static readonly Stack<Database> DatabaseStack = [];
+      static Database() => PushDatabase();
 
-      public static void PushDatabase(Database db) {
-         DatabaseStack.Push(Instance);
-         Instance = db;
-      }
-      public static void PopDatabase() {
-         if (DatabaseStack.Count > 0) {
-            Instance = DatabaseStack.Pop();
+      public static void PushDatabase(Database? db = null) => DatabaseStack.Push(db ?? new Database());
+      public static void PopDatabase()  {
+         if (DatabaseStack.Count > 1) {
+            DatabaseStack.Pop();
          } else {
-            throw new InvalidOperationException("Cannot pop database stack, stack is empty.");
+            throw new InvalidOperationException("Cannot pop the last database instance from the stack.");
          }
       }
 
       /// <summary>
       /// Maps the cannonical form of identifiers (i.e., with whitespace removed) to the original form.
       /// </summary>
-      [JsonInclude]
-      [JsonPropertyOrder(0)]
+      [JsonInclude][JsonPropertyOrder(1)]
       public Dictionary<string, string> CanonicalNames = [];
+      /// <summary>
+      /// All the named elements in the database. Every other reference uses the GUID.
+      /// </summary>
+      [JsonInclude][JsonPropertyOrder(2)]
+      public Dictionary<Guid,NamedElement> NamedElements = [];
+      /// <summary>
+      /// Undo records for NamedElements.  entries are inserted wheneer an elment is changed or removed.
+      /// Each entry is a stack of undo records for the element.
+      /// A record contains
+      /// <ol>
+      /// <li> The time the record was created.</li>
+      /// <li> An optional tag</li>
+      /// <li> The type of the element (required for deserialization</li>
+      /// <li> The serialized element</li>"
+      /// </ol>
+      /// </summary>
+      [JsonInclude][JsonPropertyOrder(3)]
+      public Dictionary<Guid,Stack<UndoRecord<NamedElement>>> NamedElementUndoRecords = [];
+      /// <summary>
+      /// Contains the guids of all the programs in the syntax tree.
+      /// </summary>
+      [JsonInclude][JsonPropertyOrder(4)]
+      public List<Guid> Programs = [];
+      /// <summary>
+      /// All the modules in the database.
+      /// </summary>
+      [JsonInclude][JsonPropertyOrder(5)]
+      public List<Guid> Modules = [];
+      /// <summary>
+      /// When a note is added to an element, the element is also added here.
+      /// Should be cleared at the begining of compilation.
+      /// In database mode, i.e., when operating on smaller units (e.g., algorithms) the Parser and SemanticAnalyzer must ensure that
+      /// analyzed elements are appropriately removed or added.
+      /// </summary>
+      [JsonInclude][JsonPropertyOrder(6)]
+      public Set<Guid> ElementsWithNotes = [];
+
+
       /// <summary>
       /// Add a name to the canonical name list.
       /// If the canonical form is already in the dictioary make no changes. this preserves the first seen spaacing of the name.
@@ -54,7 +103,7 @@ namespace CDL2v1 {
       /// <returns>The canonical name.</returns>
       public string AddCanonicalName(string name) {
          string canonicalName = name.Replace(" ", "");
-         if (CanonicalNames.TryGetValue(canonicalName, out string? _)) Instance.CanonicalNames[canonicalName] = name;
+         CanonicalNames.TryAdd(canonicalName,name);
          return canonicalName;
       }
       /// <summary>
@@ -78,21 +127,14 @@ namespace CDL2v1 {
       /// <returns></returns>
       public string DisplayName(string name) => CanonicalNames.TryGetValue(name.Replace(" ", ""), out string? displayName) ? displayName : name;
 
-      /// <summary>
-      /// All the named elements in the database. Every other reference uses the GUID.
-      /// </summary>
-      [JsonInclude]
-      [JsonPropertyOrder(1)]
-      public Dictionary<Guid,NamedElement> NamedElements = [];
-
-      public class UndoRecord<T> where T : NamedElement {
-         [JsonInclude] [JsonPropertyOrder(0)] public DateTime Timestamp { get; } = DateTime.Now;
-         [JsonInclude] [JsonPropertyOrder(1)] public string Tag { get; set; } = "";
-         [JsonInclude] [JsonPropertyOrder(2)] public string Type { get; set; } = "";
-         [JsonInclude] [JsonPropertyOrder(3)] public string SerializedElement { get; set; }
+      public class UndoRecord<T> : SerializationBase where T : NamedElement {
+         [JsonInclude] [JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
+         [JsonInclude] [JsonPropertyOrder(2)] public string Tag { get; set; } = "";
+         [JsonInclude] [JsonPropertyOrder(3)] public string RecordType { get; set; } = "";
+         [JsonInclude] [JsonPropertyOrder(4)] public string SerializedElement { get; set; }
 
          public UndoRecord(T element) {
-            Type = element.GetType().Name;
+            RecordType = element.GetType().Name;
 
             SerializedElement = Serializer.Instance.SerializeElement(element)??"";
          }
@@ -101,20 +143,6 @@ namespace CDL2v1 {
          public UndoRecord() => SerializedElement = "";
       }
 
-      /// <summary>
-      /// Undo records for NamedElements.  entries are inserted wheneer an elment is changed or removed.
-      /// Each entry is a stack of undo records for the element.
-      /// A record contains
-      /// <ol>
-      /// <li> The time the record was created.</li>
-      /// <li> An optional tag</li>
-      /// <li> The type of the element (required for deserialization</li>
-      /// <li> The serialized element</li>"
-      /// </ol>
-      /// </summary>
-      [JsonInclude]
-      [JsonPropertyOrder(1)]
-      public Dictionary<Guid,Stack<UndoRecord<NamedElement>>> NamedElementUndoRecords = [];
       /// <summary>
       /// Create an undo record for the given named element.
       /// </summary>
@@ -142,8 +170,8 @@ namespace CDL2v1 {
       public bool TagUndoRecord(NamedElement element, string label) => TagUndoRecord(element.GUID, label);
       public T GetUndo<T>(Guid guid) where T : NamedElement {
          if (NamedElementUndoRecords.TryGetValue(guid, out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
-            if (undoStack.Peek().Type != typeof(T).Name) {
-               throw new InvalidCastException($"Cannot cast undo record of type {undoStack.Peek().Type} to {typeof(T).Name}");
+            if (undoStack.Peek().RecordType != typeof(T).Name) {
+               throw new InvalidCastException($"Cannot cast undo record of type {undoStack.Peek().RecordType} to {typeof(T).Name}");
             }
             return Serializer.Instance.DeserializeElement<T>(undoStack.Pop())!;
          } else {
@@ -191,23 +219,14 @@ namespace CDL2v1 {
       public static ID NextGroupLabel => ID.AnonID;
 #endif // GroupCounter
 
-      /// <summary>
-      /// Contains the guids of all the programs in the syntax tree.
-      /// </summary>
-      [JsonInclude]
-      [JsonPropertyOrder(2)]
-      public List<Guid> Programs = [];      
+
 
       /// <summary>
       /// Return the first program which is used as the main program if none is specified.
       /// </summary>
       [JsonIgnore]
       public Program? FirstProgram => Programs.Count == 0 ? null : NamedElements[Programs[0]] as Program;
-            /// <summary>
-      /// All the modules in the database.
-      /// </summary>
-      [JsonInclude][JsonPropertyOrder(3)]
-      public List<Guid> Modules = [];
+
 
       public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
          IEnumerable<T> typedElements = NamedElements.Values.OfType<T>();
@@ -234,75 +253,17 @@ namespace CDL2v1 {
       public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Id == name);
       public bool IsNamedElement<T>(ID id) where T : NamedElement => IsNamedElement<T>(id.CanonicalName);
 
-
-
-      /// <summary>
-      /// Used to ensure that multiple spellings of tokens produce the same ID.
-      /// </summary>
-      //[JsonInclude][JsonPropertyOrder(0)]
-      //public Dictionary<string, ID> UniqueIDs = [];
-
-
-
-
-      /// <summary>
-      /// When a note is added to an element, the element is also added here.
-      /// Should be cleared at the begining of compilation.
-      /// In database mode, i.e., when operating on smaller units (e.g., algorithms) the Parser and SemanticAnalyzer must ensure that
-      /// analyzed elements are appropriately removed or added.
-      /// </summary>
-      [JsonIgnore]
-      public Set<Guid> ElementsWithNotes = [];
-      //[JsonInclude][JsonPropertyOrder(2)]
-      //public Set<NamedElementID> ElementsWithNoteIDs = [];
-
-      /// <summary>
-      /// Contains the full id of all the named elements in the database.
-      /// THe elements themselves contain the GUID, the NamedElementID can then be used to locate the actual element.
-      /// This will be used in serializtion to avoid multiple copies of an element.
-      /// </summary>
-      //[JsonIgnore]
-      //public Dictionary<Guid,NamedElement> NamedElements = []; // Records all named elements in the database.
-      //[JsonInclude][JsonPropertyOrder(1)]
-      //public Dictionary<string, NamedElementID> NamedElementIDs = []; // Records the NamedElementIDs of all named elements in the database.
-
-      /// <summary>
-      /// Record the element in Namedelements with a NamedElementId.
-      /// </summary>
-      /// <param name="element"></param>
-      //public static void Record(NamedElement element) => Instance.NamedElements[element.GUID] = element;
-
-      //public void NamedElementsToNamedElementIDs() {
-      //   NamedElementIDs.Clear();
-      //   foreach (KeyValuePair<Guid,NamedElement> element in NamedElements) NamedElementIDs[element.Key.ToString()] = new(element.Value);
-      //   ElementsWithNoteIDs.Clear();
-      //   foreach (NamedElement element in ElementsWithNotes) ElementsWithNoteIDs.Add(NamedElementIDs[element.GUID.ToString()]);
-      //}
-      //public void NamedElementIDsToNamedElements() {
-      //   NamedElements     = NamedElenentIDsToNamedElements(NamedElementIDs);
-      //   ElementsWithNotes = NamedElenentIDsToNamedElements(ElementsWithNoteIDs,NamedElements);
-      //}
-      //public static Dictionary<Guid, NamedElement> NamedElenentIDsToNamedElements(Dictionary<string, NamedElementID> namedElements) {
-      //   Dictionary<Guid, NamedElement> elements = [];
-      //   foreach (KeyValuePair<string, NamedElementID> element in namedElements) elements[Guid.Parse(element.Key)] = element.Value.GetElement()!;
-      //   return elements;
-      //}
-      //public static Set<NamedElement> NamedElenentIDsToNamedElements(Set<NamedElementID> namedElementIDs, Dictionary<Guid, NamedElement>? namedElements = null) {
-      //   Set<NamedElement> elements = [];
-      //   namedElements ??= [];
-      //   foreach (NamedElementID element in namedElementIDs) elements.Add(namedElements.TryGetValue(element.GUID,out NamedElement? elem) ? elem : element.GetElement()!);
-      //   return elements;
-      //}
-
       internal Program? ProgramByName(string programName) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == programName);
       internal Program? ProgramByName(ID ProgramId) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == ProgramId);
       internal Module? ModuleByName(string moduleName) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleName);
       internal Module? ModuleByName(ID moduleId) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleId);
 
 
-      private static readonly JsonSerializerOptions serializationOptions = new() { 
+      private static readonly JsonSerializerOptions serializationOptions = new() {
          WriteIndented = true,
-         Converters = { 
+         Converters = {
+            new IDDictionaryJsonConverter<Guid>(),
+            new DeclarationDictionaryJsonConverter(),
             new IDDictionaryJsonConverter<string>(),
             new IDDictionaryJsonConverter<Program>(),
             new IDDictionaryJsonConverter<Module>(),
@@ -312,12 +273,11 @@ namespace CDL2v1 {
             new IDDictionaryJsonConverter<IExportable>(),
             new IDSetJsonConverter(),
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-         }, 
-         ReferenceHandler = ReferenceHandler.Preserve 
-       };
+         },
+         IncludeFields = true,
+         //ReferenceHandler = ReferenceHandler.Preserve 
+      };
       public static void SaveJSON(string filePath) {
-         //Instance.NamedElementsToNamedElementIDs();
-
          string path = Path.ChangeExtension(filePath, "JSON");
 
          string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
@@ -331,7 +291,7 @@ namespace CDL2v1 {
       }
 
 
-      public static void LoadJSON(string filePath) => Instance = JsonSerializer.Deserialize<Database>(File.ReadAllText(Path.ChangeExtension(filePath,"JSON")))!;
+      public static void LoadJSON(string filePath) => PushDatabase(JsonSerializer.Deserialize<Database>(File.ReadAllText(Path.ChangeExtension(filePath, "JSON"))));
 
       public static void Save(string filePath) => SaveJSON(filePath);
       public static void Load(string filePath) => LoadJSON(filePath);
