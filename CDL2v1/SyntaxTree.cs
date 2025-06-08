@@ -563,8 +563,8 @@ namespace CDL2v1 {
    /// Represents the common properties of Algorithms (Macros and Procedures).
    /// </summary>
    public /*abstract*/ class Algorithm : CDL2Object, IProvidable, IImportable, IExportable {
-      [JsonInclude][JsonPropertyOrder(10)] public RW algorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
-      [JsonInclude][JsonPropertyOrder(11)] public TT bodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
+      [JsonInclude][JsonPropertyOrder(10)] public RW AlgorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
+      [JsonInclude][JsonPropertyOrder(11)] public TT BodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
       [JsonInclude][JsonPropertyOrder(12)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
       [JsonInclude][JsonPropertyOrder(13)] public Set<Guid> localGuids = [];   // The Dlocals of this algorithm.
 
@@ -575,8 +575,8 @@ namespace CDL2v1 {
             : base(id,section,algorithmType.Comments,synthetic) {
          affixGuids = affixes.Select(affix=>affix.GUID).ToList<Guid>();
          localGuids = (Set<Guid>)locals.Select(local=>local.GUID).ToSet<Guid>();
-         this.algorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
-         this.bodyType = bodyType;
+         this.AlgorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
+         this.BodyType = bodyType;
          this.SE = SE.AlgorithmName;
          foreach (Affix affix in affixes) affix.ContainingAlgorithm = this;
          foreach (Local local in locals)  local.ContainingAlgorithm = this;
@@ -589,9 +589,9 @@ namespace CDL2v1 {
       public AlgorithmNameType NameType {
          get {
             AlgorithmNameType ait = AlgorithmNameType.None;
-            if (algorithmType == RW.TEST || algorithmType == RW.PREDICATE) ait |= AlgorithmNameType.CanFail;
-            if (algorithmType == RW.ACTION || algorithmType == RW.PREDICATE) ait |= AlgorithmNameType.HasEffect;
-            if (bodyType == TT.MACROBODY || bodyType == TT.MACROPROCBODY) ait |= AlgorithmNameType.Macro;
+            if (AlgorithmType == RW.TEST || AlgorithmType == RW.PREDICATE) ait |= AlgorithmNameType.CanFail;
+            if (AlgorithmType == RW.ACTION || AlgorithmType == RW.PREDICATE) ait |= AlgorithmNameType.HasEffect;
+            if (BodyType == TT.MACROBODY || BodyType == TT.MACROPROCBODY) ait |= AlgorithmNameType.Macro;
             return ait;
          }
       }
@@ -607,14 +607,14 @@ namespace CDL2v1 {
          }
       }
       [JsonIgnore]
-      public string AlgorithmName => $"{algorithmType} {Id}";
+      public string AlgorithmName => $"{AlgorithmType} {Id}";
 
-      [JsonIgnore] public bool CanFail => algorithmType == RW.TEST || algorithmType == RW.PREDICATE;
+      [JsonIgnore] public bool CanFail => AlgorithmType == RW.TEST || AlgorithmType == RW.PREDICATE;
       [JsonIgnore] public bool AlwaysSucceeds => !CanFail;
-      [JsonIgnore] public bool HasEffect => algorithmType == RW.PREDICATE || algorithmType == RW.ACTION;
+      [JsonIgnore] public bool HasEffect => AlgorithmType == RW.PREDICATE || AlgorithmType == RW.ACTION;
       [JsonIgnore] public bool HasNoEffect => !HasEffect;
       [JsonIgnore] public bool NeedsFinalization => CanFail && (Affixes.Any(affix => affix.IsOutput) || GetReferencedVariables().Any());
-      [JsonIgnore] public bool IsInlineMacro => bodyType == TT.MACROBODY;
+      [JsonIgnore] public bool IsInlineMacro => BodyType == TT.MACROBODY;
       /// <summary>
       /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
       /// </summary>
@@ -708,7 +708,7 @@ namespace CDL2v1 {
       //public void ResetNameAnnotations() => sa = null;
       public virtual IEnumerable<Var> GetReferencedVariables() => [];
       [JsonIgnore]
-      override public string TypeShortName => $"{algorithmType}";
+      override public string TypeShortName => $"{AlgorithmType}";
    }
 
    /// <summary>
@@ -854,7 +854,7 @@ namespace CDL2v1 {
          if (alternative.calls.Any(call => call.CanFail)) return false;
 
          // The procedure meets the basic criteria for inlinabilty. Apply inlining parameters if appropriate.
-         return   bodyType == TT.INLINEPROCBODY ||
+         return   BodyType == TT.INLINEPROCBODY ||
                   GetInliningParameters(reachable).NumberOfCallsInProc == 1 ||
                   GetInliningParameters(reachable).NumberOfTimesCalled <= 1 ||
                   GetInliningParameters(reachable).NumberOfTimesCalled * GetInliningParameters(reachable).NumberOfCallsInProc <= Settings.SettingValue<int>("MaxInlineCalls");

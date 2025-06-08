@@ -422,21 +422,21 @@ namespace CDL2v1 {
 
          bool hasEffect = AnalyzeEffect(proc.group);
          if (proc.HasEffect && !hasEffect) {
-            AddNote(proc,Note.NoEffect,proc.algorithmType);
-            ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.algorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
+            AddNote(proc,Note.NoEffect,proc.AlgorithmType);
+            ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.AlgorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
          } else if (!proc.HasEffect && hasEffect) {
-            AddNote(proc,Note.Defect,proc.algorithmType);
-            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.algorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
+            AddNote(proc,Note.Defect,proc.AlgorithmType);
+            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.AlgorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
          if (! proc.IsConditionalCompilation()) {
             bool canFail = AnalyzeCanFail(proc.group, section);
             if (proc.CanFail && !canFail) {
-               AddNote(proc, Note.CannotFail, proc.algorithmType);
-               ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
+               AddNote(proc, Note.CannotFail, proc.AlgorithmType);
+               ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.AlgorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
             } else if (!proc.CanFail && canFail) {
-               AddNote(proc, Note.CanFail, proc.algorithmType);
-               ReportError(section, $"Procedure {proc.AlgorithmName} can fail. Should be {(proc.algorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
+               AddNote(proc, Note.CanFail, proc.AlgorithmType);
+               ReportError(section, $"Procedure {proc.AlgorithmName} can fail. Should be {(proc.AlgorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
             }
          }
       }

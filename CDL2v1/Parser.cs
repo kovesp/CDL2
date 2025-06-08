@@ -336,7 +336,7 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.FAIL)) {
                lastCall = new LastCall(LCT.Fail);
                if (!proc.CanFail) {
-                  AddNote(proc, Note.IllegalFailOperator, proc.algorithmType);
+                  AddNote(proc, Note.IllegalFailOperator, proc.AlgorithmType);
                   ReportError($"{proc} contains fail operator", supressErrorAction: true);
                }
 
@@ -637,7 +637,7 @@ namespace CDL2v1 {
             }
             parser.tokens.CanConsumeEnd();
 
-            lude.algorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
+            lude.AlgorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
             lude.group.Alternatives.Add(new Alternative(callList,new LastCall(LCT.None),[]));
             section.Ludes[ludeType].Add(lude.Id);
             section.Declarations[lude.Id] = lude.GUID;
