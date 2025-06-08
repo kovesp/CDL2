@@ -317,6 +317,16 @@ namespace CDL2v1 {
             arg = null;
             return false;
          }
+         public bool TryGetValue(ID id, out IActualArg? arg) {
+            foreach (Parameter subst in this) {
+               if (subst.affix.Id == id) {
+                  arg = subst.arg;
+                  return true;
+               }
+            }
+            arg = null;
+            return false;
+         }
       }
       /// <summary>
       /// 
@@ -334,8 +344,23 @@ namespace CDL2v1 {
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
             case STRING s: cg.GenerateMacroElementString(s.value, firstElement:first, quoted:false); break;
             case ID id:
-               // This should be a reference to a Const, Var or List, so check which one
-               if (section.TryGetDeclaration(id, out CDL2Object? obj)) {
+               if (macro.TryGetAffix(id,out Affix aff)) {
+                  if (parameters.TryGetValue(aff, out IActualArg? arg)) {
+                     Debug.Assert(callingProc is not null, $"GenerateMacro: Calling procedure is null for inlined macro {macro}");
+                     switch (arg) {
+                        case Var vv: cg.GenerateMacroElementVar(vv, callingProc.CanFail, inlined: true); break;
+                        case Const cc: cg.GenerateMacroElementConst(callingProc.Section!.GetResolvedConstant(cc)!); break;
+                        case Local ll: cg.GenerateMacroElementLocal(ll); break;
+                        case Affix aa: cg.GenerateMacroElementAffix(aa, callingProc.CanFail); break;
+                        case STRING s: cg.GenerateMacroElementString(s.value, firstElement: false, quoted: true); break;
+                        default: Debugger.Break(); break;
+                     }
+                  } else {
+                     cg.GenerateMacroElementAffix(aff, macro.CanFail);
+                  }
+               } else if (macro.TryGetLocal(id,out Local loc)) {
+                  cg.GenerateMacroElementLocal(loc);
+               } else if (section.TryGetDeclaration(id, out CDL2Object? obj)) { // This should be a reference to an affix, local, Const, Var or List, so check which one
                   switch (obj) {
                      case Const c: cg.GenerateMacroElementConst(c); break;
                      case Var v: cg.GenerateMacroElementVar(v, macro.CanFail); break;
@@ -347,22 +372,6 @@ namespace CDL2v1 {
                   throw new NotImplementedException($"GenerateMacro: Unresolved reference to {id}");
                }
                break;
-            case Affix aff:
-               if (parameters.TryGetValue(aff, out IActualArg? arg)) {
-                  Debug.Assert(callingProc is not null, $"GenerateMacro: Calling procedure is null for inlined macro {macro}");
-                  switch (arg) {
-                     case Var   vv: cg.GenerateMacroElementVar(vv, callingProc.CanFail, inlined: true); break;
-                     case Const cc: cg.GenerateMacroElementConst(callingProc.Section!.GetResolvedConstant(cc)!); break;
-                     case Local ll: cg.GenerateMacroElementLocal(ll); break;
-                     case Affix aa: cg.GenerateMacroElementAffix(aa, callingProc.CanFail); break;
-                     case STRING s: cg.GenerateMacroElementString(s.value, firstElement:false,quoted:true); break;
-                     default: Debugger.Break(); break;
-                  }
-               } else {
-                  cg.GenerateMacroElementAffix(aff, macro.CanFail);
-               }
-               break;
-            case Local loc: cg.GenerateMacroElementLocal(loc); break;
             default:
                throw new NotImplementedException($"GenerateMacro: Unknown element type {elem.GetType()}");
          }
@@ -552,13 +561,13 @@ namespace CDL2v1 {
                   GenerateAlternative(proc, calledProc.group, calledProc.group.Alternatives[0],isLast: false, new Parameters(parameters,calledProc.Affixes, [.. call.Args]));
                } else {
                   cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
-                  parameters = new Parameters(parameters, calledProc.Affixes, [.. call.Args]);
+                  parameters = new Parameters(parameters, calledProc.Affixes, call.Args);
                   if (parameters.Count > 0) {
                      int i = 0;
                      GenerateActualArg(proc, call, calledProc.Affixes[i++], call.Args.First());
                      foreach (IActualArg arg in call.Args.Skip(1)) {
                         cg.GenerateActualArgSeparator();
-                        GenerateActualArg(proc, call, calledProc.Affixes[i], arg);
+                        GenerateActualArg(proc, call, calledProc.Affixes[i++], arg);
                      }
                   }
                   cg.GenerateCallEnd(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);

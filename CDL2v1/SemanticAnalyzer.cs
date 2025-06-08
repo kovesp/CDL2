@@ -127,7 +127,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="module"></param>
       private void AnalyzeExports(Module module) {
-         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, section.Module!.exports);
+         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, module.exports);
       }
       /// <summary>
       /// Verify the consistency of interface declarations.

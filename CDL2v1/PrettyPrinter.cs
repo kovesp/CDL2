@@ -652,7 +652,7 @@ namespace CDL2v1 {
                   NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));
                   Emitnl(RW.NOTE, Token.TokenType2Glyph[TT.END]);
                } else {
-                  Emitnl(string.Concat("#", Note.Marker, (note.Type.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
+                  Emitnl(string.Concat("#", Note.Marker, (note.NoteType.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
                      .Decorate(Emitter, note.NoteType switch {
                         NoteType.Error => SE.NoteError,
                         NoteType.Warning => SE.NoteWarning,

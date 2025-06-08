@@ -10,320 +10,68 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.IO;
-using static CDL2v1.TokenList;
 using System.IO.Enumeration;
 using System.Printing;
-#if SerializationSupport
-using static CDL2v1.Serializer;
-#endif
+
 
 namespace CDL2v1 {
 
-   public class FilePaths {
-      public string FileName;
-      public string NDJsonPath;
-#if DEBUG
-      public string ReferenceDataPath;
-      public string DBPath;
+   public static class Serializer {
+      public static string SerializeElement<T>(T element) where T : NamedElement => JsonSerializer.Serialize(element, serializationOptions);
+      public static T DeserializeElement<T>(Database.UndoRecord<NamedElement> undo) where T : NamedElement {
+         T? element = JsonSerializer.Deserialize(undo.SerializedElement, undo.RecordType.AsType(), serializationOptions) as T;
+         return element ?? throw new JsonException($"Deserializer.DeserializeElement: Could not deserialize undo record for {undo.RecordType}");
+      }
+
+      private static readonly JsonSerializerOptions serializationOptions = new() {
+#if DEBUG_SERIALIZATION
+         WriteIndented = true,
 #endif
-      public FilePaths(string filePath) {
-         FileName = Path.GetFullPath(Path.GetFileNameWithoutExtension(filePath)); ;
-         NDJsonPath = FileName + ".NDJSON";
-#if DEBUG
-         ReferenceDataPath = FileName + ".Ref.JSON";
-         DBPath = FileName + ".DB.JSON";
-#endif
+         Converters = {
+            new DeclarationDictionaryJsonConverter(),
+            new IDDictionaryJsonConverter<Guid>(),
+            new IDSetJsonConverter(),
+            new IElementListJsonConverter(),
+            //new LudeJsonConverter(),
+            new IDJsonConverter(),
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
+         },
+         IncludeFields = true,
+         //ReferenceHandler = ReferenceHandler.Preserve 
+      };
+      public static void SaveJSON(string filePath) {
+         string path = Path.ChangeExtension(filePath, "JSON");
+
+         Logger.logger.WriteLine(1, $"Saving database to {path}");
+         string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
+         File.WriteAllText(path, json);
+      }
+
+
+      public static Database? LoadJSON(string filePath, bool push = true, string databaseName="Loaded Database") {
+         string path = Path.ChangeExtension(filePath, "JSON");
+
+         Logger.logger.WriteLine(1, $"Loading database from {path}");
+         string json = File.ReadAllText(path);
+         Database? db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
+         if (db is not null) {
+            if (push) Database.PushDatabase(db);
+            db.Name = databaseName;
+            Logger.logger.WriteLine(1, $"Loaded database from {path} and name {db.Name}");
+         }
+         return db;
       }
    }
-#if SerializationSupport
-   public class Serializer {
-      private readonly JsonSerializerOptions SerializationOptionsNDJSON;
-#if DEBUG
-      private readonly JsonSerializerOptions SerializationOptionsIndentedJSON;
-#endif
 
-      public static Serializer Instance { get; } = new();
-
-      private Database Input;
-      private Database Output;
-
-      public Serializer(Database? output = null, Database? input = null) {
-         Input = input ?? Database.Instance;
-         Output = output ?? Database.Instance;
-         MacroElementListJsonConverter MacroElementListJsonConverter = new(Output);
-
-         SerializationOptionsNDJSON = new() {
-            WriteIndented = false,
-            Converters = {
-               new IDDictionaryJsonConverter<string>(),
-               new IDDictionaryJsonConverter<Program>(),
-               new IDDictionaryJsonConverter<Module>(),
-               new IDDictionaryJsonConverter<Layer>(),
-               new IDDictionaryJsonConverter<Section>(),
-               new IDDictionaryJsonConverter<IProvidable>(),
-               new IDDictionaryJsonConverter<IExportable>(),
-               new IDDictionaryJsonConverter<CDL2Object>(),
-               new IDSetJsonConverter(),
-               MacroElementListJsonConverter,
-               //new ListJsonConverter<Call>(),
-               new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-            },
-            ReferenceHandler = ReferenceHandler.Preserve
-         };
-#if DEBUG
-         SerializationOptionsIndentedJSON = new(SerializationOptionsNDJSON) { WriteIndented = true };
-#endif
-      }
-
-      public string SerializeElement(NamedElement element) => JsonSerializer.Serialize(element, SerializationOptionsNDJSON);
-      public T DeserializeElement<T>(Database.UndoRecord<NamedElement> undo) where T: NamedElement {
-         T? element = JsonSerializer.Deserialize(undo.SerializedElement, undo.Type.AsType(), SerializationOptionsNDJSON) as T;
-         return element ?? throw new JsonException($"Deserializer.DeserializeElement: Could not deserialize undo record for {undo.Type}");
-      }
-
-      private FilePaths? filePaths;
-      public void SaveJSON(string filePath) {
-         filePaths = new(filePath);
-
-         ReferenceData referenceData = ReferenceData.FromDatabase();
-
-         //object objectToSerialize = Database.Instance;
-         Module objectToSerialize = Database.Instance.Modules.Values.Skip(0).First();
-
-         using (var writer = new StreamWriter(filePaths.NDJsonPath)) {
-            string line = JsonSerializer.Serialize(referenceData, SerializationOptionsNDJSON);
-            writer.WriteLine(line);
-            line = JsonSerializer.Serialize(Input, SerializationOptionsNDJSON);
-            writer.WriteLine(line);
-         }
-#if DEBUG
-         File.WriteAllText(filePaths.ReferenceDataPath, JsonSerializer.Serialize(referenceData, SerializationOptionsIndentedJSON));
-         File.WriteAllText(filePaths.DBPath, JsonSerializer.Serialize(objectToSerialize, SerializationOptionsIndentedJSON));
-#endif
-
-         Database result = LoadJSON<Database>()!;
-
-
-         // No need to go back to do all the fixups.
-         // 1. Macro Elements
-         foreach (Macro macro in Output.NamedElements.Values.OfType<Macro>()) {
-            for (int i = 0 ; i < macro.elements.Count ; i++) {
-               if (macro.elements[i] is MacroElementPlaceholder placeholder) {
-                  if (Output.NamedElements.TryGetValue(placeholder.GUID, out NamedElement? element)) {
-                     macro.elements[i] = (IElement)element;
-                  } else {
-                     Debug.WriteLine($"Serializer.LoadJSON: {placeholder.typeName} {placeholder.GUID} not found");
-                     Debugger.Break();
-                  }
-               }
-
-            }
-         }
-         // 2. ...
-      }
-
-
-      public T? LoadJSON<T>() {
-         using StreamReader reader = new(filePaths!.NDJsonPath);
-         string? line;
-         if ((line = reader.ReadLine()) != null) {
-            ReferenceData referenceData = JsonSerializer.Deserialize<ReferenceData>(line, SerializationOptionsNDJSON)!;
-            referenceData?.SetDatabaseReferrenceData(Output);
-         }
-         if ((line = reader.ReadLine()) != null) {
-            T result = JsonSerializer.Deserialize<T>(line, SerializationOptionsNDJSON)!;
-            Output.NamedElementIDsToNamedElements();
-            return result;
-         }
-         return default;
-      }
-
-      public class IDDictionaryJsonConverter<V> : JsonConverter<IDDictionary<V>> {
-         public override IDDictionary<V> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-            var dictionary = new IDDictionary<V>("IDDictionaryJsonConverter.Read.dictionary");
-
-            if (reader.TokenType != JsonTokenType.StartObject)
-               throw new JsonException();
-
-            while (reader.Read()) {
-               if (reader.TokenType == JsonTokenType.EndObject) break;
-               // Read the key as a string
-               string keyString = reader.GetString()!;
-               (string key, string typeName) = keyString.Split2('-');
-               Type? type = Type.GetType($"CDL2v1.{typeName}");
-               // Read the value
-               reader.Read();
-               try {
-                  dictionary[ID.From(key)] = (V)JsonSerializer.Deserialize(ref reader, type!, options)!;
-               } catch (Exception e) {
-                  Debug.WriteLine($"IDDictionaryJsonConverter: {keyString} -> {e.Message}");
-                  Debugger.Break();
-               }
-            }
-            return dictionary;
-         }
-
-         public override void Write(Utf8JsonWriter writer, IDDictionary<V> value, JsonSerializerOptions options) {
-            writer.WriteStartObject();
-            foreach (ID key in value.Keys) {
-               writer.WritePropertyName($"{key.Name}-{value[key]!.GetType().Name}");
-               try {
-                  JsonSerializer.Serialize(writer, value[key], value[key]!.GetType(), options);
-               } catch (Exception e) {
-                  Debug.WriteLine(e.Message);
-                  Debugger.Break();
-               }
-            }
-            writer.WriteEndObject();
-         }
-      }
-
-      public class IDSetJsonConverter : JsonConverter<IDSet> {
-         public override IDSet Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-            IDSet set = new();
-            if (reader.TokenType != JsonTokenType.StartArray)
-               throw new JsonException();
-
-            while (reader.Read()) {
-               if (reader.TokenType == JsonTokenType.EndArray) break;
-               // Read the key as a string
-               string keyString = reader.GetString()!;
-               set.Add(ID.From(keyString));
-            }
-            return set;
-         }
-
-         public override void Write(Utf8JsonWriter writer, IDSet value, JsonSerializerOptions options) {
-            // Debug.WriteLine($"JsonConverter.Write(IDSet {value.Name})");
-            writer.WriteStartArray();
-            foreach (ID key in value) {
-               writer.WriteStringValue(key.Name);
-            }
-            writer.WriteEndArray();
-         }
-      }
-
-      public class MacroElementPlaceholder(string typeName, string guid) : IElement {
-         public string GUID = guid;
-         public string typeName = typeName;
-         public ID Id { get; set; } = ID.AnonID; // Not use but needed for interface
-      }
-
-      public class MacroElementListJsonConverter(Database output) : JsonConverter<List<IElement>> {
-         private readonly Database Output = output;
-
-         public override List<IElement> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-            List<IElement> list = [];
-
-            if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("MacroElementListJsonConverter.Read expected [ for element list");
-
-            while (reader.Read()) {
-               if (reader.TokenType == JsonTokenType.EndArray) break;
-               if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("MacroElementListJsonConverter.Read expected [ for element");
-               reader.Read();
-               string typeName = reader.GetString()!;
-               reader.Read();
-               switch (typeName) {
-                  case "INT":
-                     list.Add(new INT(reader.GetInt64()));
-                     break;
-                  case "FLOAT":
-                     list.Add(new FLOAT(reader.GetDouble()));
-                     break;
-                  case "STRING":
-                     list.Add(new STRING(reader.GetString()!));
-                     break;
-                  default:
-                     string guid = reader.GetString()!;
-                     list.Add(new MacroElementPlaceholder(typeName, guid));
-                     //if (Output.NamedElements.TryGetValue(new Guid(guid), out NamedElement? element) && element is IElement macroElement) {
-                     //   list.Add(macroElement);
-                     //} else {
-                     //   throw new JsonException($"MacroElementListJsonConverter.Read: {typeName} {guid} not found");
-                     //}
-                     break;
-               }
-               reader.Read();
-               if (reader.TokenType != JsonTokenType.EndArray) throw new JsonException("MacroElementListJsonConverter.Read expected ] for element list");
-            }
-            return list;
-         }
-
-         public override void Write(Utf8JsonWriter writer, List<IElement> value, JsonSerializerOptions options) {
-
-            writer.WriteStartArray();
-            foreach (IElement elem in value) {
-               writer.WriteStartArray();
-               writer.WriteStringValue(elem.GetType().Name);
-               switch (elem) {
-                  case INT ei: writer.WriteNumberValue(ei.value); break;
-                  case FLOAT ef: writer.WriteNumberValue(ef.value); break;
-                  case STRING es: writer.WriteStringValue(es.value); break;
-                  case NamedElement n: writer.WriteStringValue(n.GUID); break;
-               }
-               writer.WriteEndArray();
-            }
-            writer.WriteEndArray();
-         }
-      }
-
-   //   public class ListJsonConverter<T>() : JsonConverter<List<T>> {
-   //      public override List<T> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-   //         List<T> list = [];
-
-   //         if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("ListJsonConverter.Read expected [ for element list");
-
-   //         while (reader.Read()) {
-   //            if (reader.TokenType == JsonTokenType.EndArray) break;
-   //            T elem = JsonSerializer.Deserialize<T>(ref reader, options)!;
-   //            list.Add(elem);
-   //         }
-   //         return list;
-   //      }
-
-   //      public override void Write(Utf8JsonWriter writer, List<T> value, JsonSerializerOptions options) {
-
-   //         writer.WriteStartArray();
-   //         foreach (T elem in value) {
-   //            JsonSerializer.Serialize(writer, elem, options);
-   //         }
-   //         writer.WriteEndArray();
-   //      }
-   //   }
-   //   public class CallJsonConverter() : JsonConverter<Call> {
-   //      public override Call Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-   //         Call call;
-
-   //         if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException("MacroElementListJsonConverter.Read expected [ for element list");
-
-
-   //         return call;
-   //      }
-
-   //      public override void Write(Utf8JsonWriter writer, Call value, JsonSerializerOptions options) {
-   //         writer.WriteStartObject();
-   //         writer.WritePropertyName("id");
-   //         writer.WriteStringValue(value.id.Name);
-   //         writer.WritePropertyName("args");
-   //         JsonSerializer.Serialize(writer, value.args, options);
-   //         writer.WritePropertyName("ContainingProc");
-   //         writer.WriteStringValue(value.ContainingProc.GUID);
-   //         writer.WritePropertyName("IsBuiltin");
-   //         writer.WriteBooleanValue(value.IsBuiltin);
-   //         writer.WriteEndObject();
-   //      }
-   //   }
-   }
-#else
-   public class Serializer {
-      public static Serializer Instance { get; } = new();
-      public void SaveJSON(string filePath) => throw new NotImplementedException("Serializer.SaveJSON is not implemented when SerializationSupport is off");
-      public T? LoadJSON<T>() => throw new NotImplementedException("Serializer.LoadJSON is not implemented when SerializationSupport is off");
-      internal string? SerializeElement<T>(T element) where T : NamedElement => "";
-      internal T? DeserializeElement<T>(Database.UndoRecord<NamedElement> undoRecord) where T : NamedElement => default;
-   }
-#endif
-
+   /// <summary>
+   /// Provides custom JSON serialization and deserialization for a <see cref="List{T}"/> of <see cref="IElement"/>
+   /// objects.
+   /// </summary>
+   /// <remarks>This converter handles the serialization and deserialization of <see cref="IElement"/> objects
+   /// by encoding their type and value into JSON. During deserialization, the converter expects each element to be
+   /// represented as an object containing a "type" property and a "value" property. Supported types include "INT",
+   /// "FLOAT", "STRING", and "ID".
+   /// </remarks>
    public class IElementListJsonConverter : JsonConverter<List<IElement>> {
       public override List<IElement> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
          var list = new List<IElement>();
@@ -383,6 +131,183 @@ namespace CDL2v1 {
                case ID id: writer.WriteString("value", id.CanonicalName); break;
             }
             writer.WriteEndObject();
+         }
+         writer.WriteEndArray();
+      }
+   }
+   /// <summary>
+   /// Provides custom JSON serialization and deserialization for a <see cref="Dictionary{TKey, TValue}"/> where the key is
+   /// of type <see cref="RW"/> and the value is a <see cref="List{T}"/> of <see cref="ID"/> objects.
+   /// </summary>
+   /// <remarks>This converter is designed to handle JSON objects where the keys are string representations of the
+   /// <see cref="RW"/> enum and the values are arrays of string representations of <see cref="ID"/> objects. It ensures
+   /// proper parsing and validation of the JSON structure, throwing exceptions for invalid formats.
+   /// 
+   /// It is designed specifically for the Lude JSON format used in CDL2v1, where reserved words (RW) are used as keys.
+   /// Not currently used as the standard mechanism handles it correctly, but kept for reference.
+   /// </remarks>
+   public class LudeJsonConverter : JsonConverter<Dictionary<RW, List<ID>>> {
+      public override Dictionary<RW, List<ID>> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         var dict = new Dictionary<RW, List<ID>>();
+         if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException("Expected start of object for Dictionary<RW, List<ID>>.");
+         while(reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndObject) break;
+            if (reader.TokenType != JsonTokenType.PropertyName) throw new JsonException("Expected property name for Dictionary<RW, List<ID>>.");
+            string propertyName = reader.GetString()!;
+            if (!Enum.TryParse<RW>(propertyName, out RW ludeType)) {
+               throw new JsonException($"Unknown reserved word '{propertyName}' for Lude.");
+            }
+            reader.Read(); // Move to the start of the array
+            if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("Expected start of array for List<ID>.");
+            var ids = new List<ID>();
+            while (reader.Read()) {
+               if (reader.TokenType == JsonTokenType.EndArray) break;
+               if (reader.TokenType != JsonTokenType.String) throw new JsonException("Expected string value for ID.");
+               ids.Add(ID.From(reader.GetString()!));
+            }
+            dict[ludeType] = ids;
+         }
+         return dict;
+      }
+
+      public override void Write(Utf8JsonWriter writer, Dictionary<RW, List<ID>> value, JsonSerializerOptions options) {
+         writer.WriteStartObject();
+         foreach (RW ludeType in value.Keys) {
+            writer.WritePropertyName(ludeType.ToString());
+            writer.WriteStartArray();
+            foreach (ID id in value[ludeType]) {
+               writer.WriteStringValue(id.CanonicalName);
+            }
+            writer.WriteEndArray();
+         }
+         writer.WriteEndObject();
+      }
+   }
+
+   /// <summary>
+   /// Provides custom JSON serialization and deserialization for the <see cref="ID"/> type.
+   /// </summary>
+   /// <remarks>This converter handles the conversion of <see cref="ID"/> objects to and from their string
+   /// representations during JSON serialization and deserialization. The string representation is expected to match the
+   /// format defined by the <see cref="ID"/> type.
+   /// 
+   /// This is an optimization as IDs occur often in the CDL2v1 format, and using a custom converter avoids the overhead of writing it as an object with a single property.
+   /// </remarks>
+   public class IDJsonConverter : JsonConverter<ID> {
+      public override ID Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         if (reader.TokenType != JsonTokenType.String)
+            throw new JsonException("Expected string value for ID.");
+         string idString = reader.GetString()!;
+         return ID.From(idString);
+      }
+
+      public override void Write(Utf8JsonWriter writer, ID value, JsonSerializerOptions options) {
+         writer.WriteStringValue(value.CanonicalName);
+      }
+   }
+
+   /// <summary>
+   /// Provides custom JSON serialization and deserialization for <see cref="IDDictionary{V}"/> objects.
+   /// </summary>
+   /// <remarks>This converter handles the serialization of <see cref="IDDictionary{V}"/> objects by writing
+   /// their keys as strings using the canonical name of the <see cref="ID"/> type. During deserialization, it
+   /// reconstructs the dictionary by parsing the keys back into <see cref="ID"/> instances and deserializing the
+   /// associated values.
+   /// </remarks>
+   /// <typeparam name="V">The type of the values stored in the <see cref="IDDictionary{V}"/>.</typeparam>
+   public class IDDictionaryJsonConverter<V> : JsonConverter<IDDictionary<V>> {
+      public override IDDictionary<V> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         var dictionary = new IDDictionary<V>();
+
+         if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException();
+
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndObject) break;
+            // Read the key as a string
+            string keyString = reader.GetString()!;
+            // Read the value
+            reader.Read();
+            dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<V>(ref reader, options)!;
+         }
+         return dictionary;
+      }
+
+      public override void Write(Utf8JsonWriter writer, IDDictionary<V> value, JsonSerializerOptions options) {
+         //Debug.WriteLine($"Write(IDDictionary<{typeof(V)}>)");
+         writer.WriteStartObject();
+         foreach (ID key in value.Keys) {
+            //Debug.WriteLine($"{key} -> {value[key]}");
+            writer.WritePropertyName(key.CanonicalName);
+            try {
+               JsonSerializer.Serialize(writer, value[key], options);
+            } catch (Exception e) {
+               Debug.WriteLine(e.Message);
+               Debugger.Break();
+            }
+         }
+         writer.WriteEndObject();
+      }
+   }
+   /// <summary>
+   /// Provides custom JSON serialization and deserialization for the <see cref="Section.DeclarationDictionary"/> type.
+   /// </summary>
+   /// <remarks>This converter handles the serialization and deserialization of <see
+   /// cref="Section.DeclarationDictionary"/>,  where the keys are <see cref="ID"/> objects and the values are <see
+   /// cref="Guid"/> instances.  During serialization, the keys are written as their canonical string representations. 
+   /// During deserialization, the keys are reconstructed from their string representations.
+   /// </remarks>
+   public class DeclarationDictionaryJsonConverter : JsonConverter<Section.DeclarationDictionary> {
+      public override Section.DeclarationDictionary Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         var dictionary = new Section.DeclarationDictionary();
+         if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException();
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndObject) break;
+            // Read the key as a string
+            string keyString = reader.GetString()!;
+            // Read the value
+            reader.Read();
+            dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<Guid>(ref reader, options)!;
+         }
+         return dictionary;
+      }
+      public override void Write(Utf8JsonWriter writer, Section.DeclarationDictionary value, JsonSerializerOptions options) {
+         writer.WriteStartObject();
+         foreach (ID key in value.Keys) {
+            writer.WritePropertyName(key.CanonicalName);
+            JsonSerializer.Serialize(writer, value[key], options);
+         }
+         writer.WriteEndObject();
+      }
+   }
+   /// <summary>
+   /// Provides custom JSON serialization and deserialization for the <see cref="IDSet"/> type.
+   /// </summary>
+   /// <remarks>This converter serializes an <see cref="IDSet"/> as a JSON array of strings, where each string
+   /// represents the canonical name of an <see cref="ID"/> in the set. During deserialization, it reconstructs the <see
+   /// cref="IDSet"/> from the array of strings.
+   /// </remarks>
+   public class IDSetJsonConverter : JsonConverter<IDSet> {
+      public override IDSet Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+         var set = new IDSet();
+         if (reader.TokenType != JsonTokenType.StartArray)
+            throw new JsonException();
+
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndArray) break;
+            // Read the key as a string
+            string keyString = reader.GetString()!;
+            set.Add(ID.From(keyString));
+         }
+         return set;
+      }
+
+      public override void Write(Utf8JsonWriter writer, IDSet value, JsonSerializerOptions options) {
+         writer.WriteStartArray();
+         foreach (ID key in value) {
+            writer.WriteStringValue(key.CanonicalName);
          }
          writer.WriteEndArray();
       }

@@ -52,6 +52,8 @@ namespace CDL2v1 {
          }
       }
 
+      public string Name = "Database";
+
       /// <summary>
       /// Maps the cannonical form of identifiers (i.e., with whitespace removed) to the original form.
       /// </summary>
@@ -136,7 +138,7 @@ namespace CDL2v1 {
          public UndoRecord(T element) {
             RecordType = element.GetType().Name;
 
-            SerializedElement = Serializer.Instance.SerializeElement(element)??"";
+            SerializedElement = Serializer.SerializeElement(element)??"";
          }
 
          [JsonConstructor]
@@ -173,7 +175,7 @@ namespace CDL2v1 {
             if (undoStack.Peek().RecordType != typeof(T).Name) {
                throw new InvalidCastException($"Cannot cast undo record of type {undoStack.Peek().RecordType} to {typeof(T).Name}");
             }
-            return Serializer.Instance.DeserializeElement<T>(undoStack.Pop())!;
+            return Serializer.DeserializeElement<T>(undoStack.Pop())!;
          } else {
             throw new KeyNotFoundException($"No undo record found for element with GUID {guid}");
          }
@@ -259,43 +261,8 @@ namespace CDL2v1 {
       internal Module? ModuleByName(ID moduleId) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleId);
 
 
-      private static readonly JsonSerializerOptions serializationOptions = new() {
-         WriteIndented = true,
-         Converters = {
-            new IDDictionaryJsonConverter<Guid>(),
-            new DeclarationDictionaryJsonConverter(),
-            new IDDictionaryJsonConverter<string>(),
-            new IDDictionaryJsonConverter<Program>(),
-            new IDDictionaryJsonConverter<Module>(),
-            new IDDictionaryJsonConverter<Layer>(),
-            new IDDictionaryJsonConverter<Section>(),
-            new IDDictionaryJsonConverter<IProvidable>(),
-            new IDDictionaryJsonConverter<IExportable>(),
-            new IDSetJsonConverter(),
-            new IElementListJsonConverter(),
-            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-         },
-         IncludeFields = true,
-         //ReferenceHandler = ReferenceHandler.Preserve 
-      };
-      public static void SaveJSON(string filePath) {
-         string path = Path.ChangeExtension(filePath, "JSON");
-
-         string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
-         File.WriteAllText(path, json);
-
-         //json = File.ReadAllText(path);
-
-         var db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
-         //db?.NamedElementIDsToNamedElements();
-
-      }
-
-
-      public static void LoadJSON(string filePath) => PushDatabase(JsonSerializer.Deserialize<Database>(File.ReadAllText(Path.ChangeExtension(filePath, "JSON"))));
-
-      public static void Save(string filePath) => SaveJSON(filePath);
-      public static void Load(string filePath) => LoadJSON(filePath);
+      public static void Save(string filePath) => Serializer.SaveJSON(filePath);
+      public static void Load(string filePath) => Serializer.LoadJSON(filePath);
 
    }
 

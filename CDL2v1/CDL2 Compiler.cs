@@ -87,7 +87,7 @@ namespace CDL2v1 {
                // Report messages only for reachable objects
                NamedElement? noteOwner = NamedElement.From<NamedElement>(note.Owner);
                if (all || reachable is null || note.Owner == Guid.Empty || noteOwner is Container _ || (noteOwner is CDL2Object obj && reachable.Objects.Contains(obj))) {
-                  string head = $"{note.Type,7} {note.Number:D3}: ";
+                  string head = $"{note.NoteType,7} {note.Number:D3}: ";
                   Log(0, $"   {head} {noteOwner?.FQDN()??PhaseName}\n    {new string(' ', head.Length)}{note.Text}");
                }
             }
@@ -125,7 +125,7 @@ namespace CDL2v1 {
          Log(0, $"Options: --sources {string.Join(',', args)} {Settings.IntOption("VerbosityLevel")}{Settings.IntOption("DebugVerbosityLevel")}" +
                                     $"{Settings.StringOption("Target")}{Settings.StringOption("ProgramName")}{Settings.BoolOption("SaveDB")}" +
                                     $"{Settings.BoolOption("ParseOnly")}{Settings.BoolOption("StopOnWarnings")}{Settings.BoolOption("AllowErrors")}" +
-                                    $"{Settings.StringOption("PrettyPrint")}");
+                                    $"{Settings.StringOption("PrettyPrint")}{Settings.BoolOption("SaveDB")}");
          if (args.Length > 0) {
             Parser = new Parser(this);
             foreach (string arg in args) {
@@ -135,6 +135,7 @@ namespace CDL2v1 {
                   Parser.Parse(source);
                }
             }
+
             if (Parser.AbortCompilation()) return;
 
             Program? MainProgram = null;
@@ -156,19 +157,17 @@ namespace CDL2v1 {
                //if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4) ID.Dump();            
 
                // Perform semantic checks
-               SemanticAnalyzer = new SemanticAnalyzer(this);
-               if (Database.Instance.Programs.Count >= 1) {
-                  // TODO: If errors are found, null out the program object.
 
-                  SemanticAnalyzer.Analyze(MainProgram);
-                  Reachable.CollectAllObjects(MainProgram);       // Collect all the objects in the modules comprising the program, so we can report unused objects.
-                  Reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
-                  SemanticAnalyzer.AnalyzeUnused(MainProgram, Reachable);
-               }
 
+               SemanticAnalyzer = SemanticAnalysis(MainProgram,Reachable);
                if (SemanticAnalyzer.AbortCompilation()) return;
 
-               if (Settings.SettingValue<bool>("SaveDB")) Database.Save("CDL2v1");
+               if (Settings.SettingValue<bool>("SaveDB")) {
+                  Database.Save("CDL2v1");
+                  Database.Load("CDL2v1");
+                  SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
+                  if (SemanticAnalyzer.AbortCompilation()) return;
+               }
 
                string? PrettyPrint = Settings.SettingValue<string>("PrettyPrint");
                if (PrettyPrint != "" && (Database.Instance.Programs.Count > 0 || Database.Instance.Modules.Count > 0)) {
@@ -193,9 +192,9 @@ namespace CDL2v1 {
 
                   if (cg != null) {
                      string targetFileName = Path.ChangeExtension(args[0], cg.FileExtension);
-                     EmitterBase emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true };
+                     EmitterBase emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SupressDebug = true };
                      Log(0, $"Generating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
-                     codeGenerator = new CodeGenerator(cg,Compiler);
+                     codeGenerator = new CodeGenerator(cg, Compiler);
                      codeGenerator.GenerateCode(MainProgram, emitter);
                      emitter.Close();
                   } else {
@@ -211,7 +210,15 @@ namespace CDL2v1 {
          }
       }
 
-
+      private SemanticAnalyzer SemanticAnalysis(Program MainProgram,Reachable reachable) {
+         SemanticAnalyzer semanticAnalyzer = new (this);
+         semanticAnalyzer.Analyze(MainProgram);
+         // The following two calls always clear any previously collected objects, so we can report unused objects.
+         reachable.CollectAllObjects(MainProgram);       // Collect all the objects in the modules comprising the program, so we can report unused objects.
+         reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
+         semanticAnalyzer.AnalyzeUnused(MainProgram, reachable);
+         return semanticAnalyzer;
+      }
 
       private static ICodeGenerator? CreateCodeGenerator(string target, string dataType = "Int64") {
          try {

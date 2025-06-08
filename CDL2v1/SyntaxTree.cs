@@ -221,11 +221,6 @@ namespace CDL2v1 {
    /// <summary>
    /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
    /// </summary>
-   //[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
-   //[JsonDerivedType(typeof(Program), "program")]
-   //[JsonDerivedType(typeof(Module), "module")]
-   //[JsonDerivedType(typeof(Layer), "layer")]
-   [JsonDerivedType(typeof(Section), "section")]
    public /*abstract*/ class Container : NamedElement {
       [JsonConstructor]
       public Container() : base() { }
@@ -242,7 +237,6 @@ namespace CDL2v1 {
 
       public Container(ID id,Container? parent,string? comments = null,Notes? notes = null) : this(id,comments,notes) { 
          Parent = parent?.GUID ?? Guid.Empty;
-         ContainerName = $"{parent?.ContainerName ?? ""} {TypeShortName} {id.Name}".Trim();
          if (parent != null && parent.Children.Contains(GUID)) {
             Logger.ReportError($"{ContainerName} is already a child of {parent.ContainerName}");
          } else {
@@ -251,9 +245,9 @@ namespace CDL2v1 {
       }
 
       // The Ludes are stored in a dictionary with the reserved word as the key. The values are lists of IDs.
-      // SectionById Ludes will be generated as Procedures and given the Id of the lude type (which are not legal as a CDL2 Id).
+      // Section Ludes will be generated as Procedures and given the Id of the lude type (which are not legal as a CDL2 Id).
       [JsonInclude][JsonPropertyOrder(11)]
-      public Dictionary<RW,List<ID>> Ludes { get; } = new() {
+      public Dictionary<RW,List<ID>> Ludes { get; set; } = new() {
          { RW.PRELUDE,[] },
          { RW.ROOT,[] },
          { RW.POSTLUDE,[] }
@@ -270,7 +264,7 @@ namespace CDL2v1 {
       /// The short Id of the container with its type. Used in the ToString method.
       /// </summary>
       [JsonIgnore]
-      public string ContainerName = string.Empty;
+      public string ContainerName => $"{ParentElement<Container>()?.ContainerName ?? ""} {TypeShortName} {Id.Name}".Trim();
    }
 
    /// <summary>
@@ -284,12 +278,15 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="ludeType"></param>
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
-      public IEnumerable<Module> Lude(RW ludeType) => Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id))!;
+      public List<Module> Lude(RW ludeType) => [.. Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id))!];
 
       [JsonInclude][JsonPropertyOrder(20)]
       public IDSet Parts = [];
-      [JsonIgnore]
-      public IEnumerable<Module> Modules => Database.Instance.NamedElements.Values.OfType<Module>().Where(mod=>Parts.Contains(mod.Id));
+      /// <summary>
+      /// Gets the collection of modules associated with the current program.
+      /// </summary>
+      /// <remarks>Note that here and elsewhere the iteration must be fixed to avoid multiple calls interferring with each other.</remarks>
+      [JsonIgnore] public List<Module> Modules => [.. Database.Instance.NamedElements.Values.OfType<Module>().Where(mod=>Parts.Contains(mod.Id)) ];
       /// <summary>
       /// Maps all identifiers exported by the modules in the program to the exporting module.
       /// </summary>
@@ -329,7 +326,7 @@ namespace CDL2v1 {
          Comments = comments;
       }
       [JsonConstructor]
-      public Module() { LudeParser = Parser.ParseLudeOfIDs;  }
+      public Module() => LudeParser = Parser.ParseLudeOfIDs;
 
       public Section? SectionById(ID id) {
          foreach (Section section in Sections) if (section.Id == id) return section;
@@ -340,11 +337,10 @@ namespace CDL2v1 {
          return section != null;
       }
 
-      [JsonIgnore]
-      public IEnumerable<Section> Sections => Layers.SelectMany(layer => layer.Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section))!;
+      [JsonIgnore] public List<Layer> Layers => [.. Children.Select(GUID => Database.Instance.NamedElements[GUID] as Layer)!];
+      [JsonIgnore] public List<Section> Sections => [..Layers.SelectMany(layer => layer.Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section))!];
 
-      [JsonIgnore]
-      public IEnumerable<Layer> Layers => Children.Select(GUID => Database.Instance.NamedElements[GUID] as Layer)!;
+
    }
 
    /// <summary>
@@ -377,7 +373,7 @@ namespace CDL2v1 {
       public IDDictionary<IProvidable> Visible { get; } = [];
 
       [JsonIgnore]
-      public IEnumerable<Section> Sections => Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section)!;
+      public List<Section> Sections => [..Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section)!];
    }
 
    /// <summary>
@@ -397,11 +393,11 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(44)] public  Set<ID> import = [];
 
       public class DeclarationDictionary : IDDictionary<Guid> {
-         public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => Values.Select(From<T>).OfType<T>();
-         public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => Values.Select(From<T>).OfType<T>().Where(pred);
+         public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => [.. Values.Select(From<T>).OfType<T>() ];
+         public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => [.. Values.Select(From<T>).OfType<T>().Where(pred) ];
 
          public bool TryGetValue<T>(ID id, out T? value) where T : CDL2Object {
-            if (base.TryGetValue(id, out Guid guid) && Database.Instance.NamedElements[guid] is T elem) {
+            if (base.TryGetValue(id, out Guid guid) && NamedElement.From<T>(guid,out T? elem)) {
                value = elem;
                return true;
             }
@@ -415,16 +411,17 @@ namespace CDL2v1 {
       /// <summary>
       /// Holds the Declarations of the SectionById. The key is the ID of the declaration.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(45)]
-      public DeclarationDictionary Declarations = [];
+      [JsonInclude][JsonPropertyOrder(45)] public DeclarationDictionary Declarations = [];
 
-      [JsonIgnore] public IEnumerable<Const> Constants => Declarations.AsCDL2Objects<Const>();
-      [JsonIgnore] public IEnumerable<Var> Variables => Declarations.AsCDL2Objects<Var>();
-      [JsonIgnore] public IEnumerable<LIST> Lists => Declarations.AsCDL2Objects<LIST>();
-      [JsonIgnore] public IEnumerable<Macro> Macros => Declarations.AsCDL2Objects<Macro>();
-      [JsonIgnore] public IEnumerable<Procedure> Procedures => Declarations.AsCDL2Objects<Procedure>();
-      [JsonIgnore] public IEnumerable<Algorithm> Algorithms => Declarations.AsCDL2Objects<Algorithm>();
-      [JsonIgnore] public IEnumerable<Algorithm> NonSyntheticAlgorithms => Declarations.AsCDL2Objects<Algorithm>(alg=>!alg.IsSynthetic);
+      [JsonIgnore] public List<Const> Constants => [.. Declarations.AsCDL2Objects<Const>()];
+      [JsonIgnore] public List<Var> Variables => [.. Declarations.AsCDL2Objects<Var>()];
+      [JsonIgnore] public List<LIST> Lists => [.. Declarations.AsCDL2Objects<LIST>() ];
+      [JsonIgnore] public List<Macro> Macros => [.. Declarations.AsCDL2Objects<Macro>() ];
+      [JsonIgnore] public List<Procedure> Procedures => [.. Declarations.AsCDL2Objects<Procedure>() ];
+      [JsonIgnore] public List<Algorithm> Algorithms => [.. Declarations.AsCDL2Objects<Algorithm>() ];
+      [JsonIgnore] public List<Algorithm> NonSyntheticAlgorithms => [.. Declarations.AsCDL2Objects<Algorithm>(alg=>!alg.IsSynthetic) ];
+      [JsonIgnore] public List<Procedure> NonSyntheticProcedures => [.. Declarations.AsCDL2Objects<Procedure>(proc => !proc.IsSynthetic) ];
+      [JsonIgnore] public List<Procedure> SyntheticProcedures   => [.. Declarations.AsCDL2Objects<Procedure>(proc => proc.IsSynthetic) ];
 
       /// <summary>
       /// Get the object with the given ID. If the object is not found in this Section, then if it is invoked it is looked for in the layer.
@@ -473,13 +470,6 @@ namespace CDL2v1 {
       /// <param name="c"></param>
       /// <returns></returns>
       public Const? GetResolvedConstant(Const c) => GetResolvedObject(c.Id) as Const; 
-
-      /// <summary>
-      /// The non-synthetic procedures.
-      /// Synthetic procedures are generated by the parser for container ludes.
-      /// </summary>
-      [JsonIgnore] public IEnumerable<Procedure> NonSyntheticProcedures => Procedures.Where(proc => !proc.IsSynthetic);
-      [JsonIgnore] public IEnumerable<Procedure> SyntheticProcedures => Procedures.Where(proc => proc.IsSynthetic);
 
       /// <summary>
       /// Sections have Ludes each of which contains the ID of generated FUNCTION or ACTION which consist of a single alternative.
@@ -593,6 +583,7 @@ namespace CDL2v1 {
       }
       [JsonConstructor]
       public Algorithm() { }
+      public bool HasLocal(ID id) => Locals.FirstOrDefault(aff => aff.Id == id) is not null;
 
       [JsonIgnore]
       public AlgorithmNameType NameType {
@@ -737,31 +728,29 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a macro in the syntax tree.
    /// </summary>
-   /// <param Id="Id"></param>
-   /// <param Id="affixes"></param>
-   /// <param Id="locals"></param>
-   /// <param Id="algorithmType"></param>
-   /// <param Id="bodyType"></param>
-   /// <param Id="container"></param>
-   public class Macro(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section) : Algorithm(id,affixes,locals,algorithmType,bodyType,section) {
+   public class Macro : Algorithm {
       [JsonInclude]
       [JsonPropertyOrder(60)]
       public List<IElement> elements = [];
+
+      /// <param Id="Id"></param>
+      /// <param Id="affixes"></param>
+      /// <param Id="locals"></param>
+      /// <param Id="algorithmType"></param>
+      /// <param Id="bodyType"></param>
+      /// <param Id="container"></param>
+      public Macro(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section) : base(id,affixes,locals,algorithmType,bodyType,section) { }
+      [JsonConstructor]
+      public Macro() : base() { } // For deserialization
+
       public override IEnumerable<Var> GetReferencedVariables() => elements.OfType<ID>().Select(id=>Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
    }
    /// <summary>
    /// Represents a procedure in the syntax tree.
    /// </summary>
-   /// <param Id="Id"></param>
-   /// <param Id="affixes"></param>
-   /// <param Id="locals"></param>
-   /// <param Id="algorithmType"></param>
-   /// <param Id="bodyType"></param>
-   /// <param Id="SectionById"></param>
-   public class Procedure(ID id,List<Affix> affxies,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
-         : Algorithm(id,affxies,locals,algorithmType,bodyType,section,synthetic) {
+   public class Procedure : Algorithm {
       [JsonInclude][JsonPropertyOrder(20)]
-      public Group group = Group.Empty;
+      public Group group = new();
       /// <summary>
       /// True if the procedure is an Action or Function that has only a single alternative (which is a sequence of calls none of which can fail ... which will be guarenteed by the sematic analyzer)
       /// </summary>
@@ -805,6 +794,15 @@ namespace CDL2v1 {
       /// The parser will set this if a repeat operator reference the procedure itself.
       /// </summary>
       [JsonInclude] public bool repeatsProcedure = false;
+      /// <param Id="Id"></param>
+      /// <param Id="affixes"></param>
+      /// <param Id="locals"></param>
+      /// <param Id="algorithmType"></param>
+      /// <param Id="bodyType"></param>
+      /// <param Id="SectionById"></param>
+      public Procedure(ID id,List<Affix> affxies,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,affxies,locals,algorithmType,bodyType,section,synthetic) { }
+      [JsonConstructor]
+      public Procedure() { }
 
       public Procedure(RW ludeType,Section section) : this(ID.From(ludeType),[],[],Token.ACTIONToken,TT.PROCBODY,section,true) { } // Used for container Ludes which are parameterless actions with no locals.
       public override IEnumerable<Var> GetReferencedVariables() {
@@ -864,17 +862,17 @@ namespace CDL2v1 {
 
    }
 
-   public class Call(ID id,Procedure containingProc,bool builtin=false) {
+   public class Call {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Call";
 #pragma warning restore CS0414
 #endif
-      [JsonInclude][JsonPropertyOrder(51)] public ID id = id;
-      [JsonIgnore] public IEnumerable<IActualArg> Args {
+      [JsonInclude][JsonPropertyOrder(51)] public ID id;
+      [JsonIgnore] public List<IActualArg> Args {
          get {
             Procedure containingProc = ContainingProc;
-            return argRefs.Select<IElement,IActualArg>(argRef => {
+            return [.. argRefs.Select<IElement,IActualArg>(argRef => {
                if (argRef is ID id) {
                   if (containingProc.TryGetLocal(id, out Local? local)) return local;
                   if (containingProc.TryGetAffix(id, out Affix? affix)) return affix;
@@ -886,19 +884,28 @@ namespace CDL2v1 {
                } else {
                   throw new ArgumentException($"Call {this} has an argument referrence that is not an ID or a str: {argRef}.");
                }
-            });
+            })];
          }
       }
       [JsonInclude][JsonPropertyOrder(52)] public List<IElement> argRefs = []; // Restricted to ID-s and strings
-      [JsonIgnore]  public Procedure ContainingProc => NamedElement.From<Procedure>(containingProc.GUID) ?? throw new ArgumentException($"Containing procedure {containingProc} not found in database.");
-      [JsonInclude][JsonPropertyOrder(53)] public Guid ContainingProcGuid = containingProc.GUID; 
+      [JsonIgnore] public Procedure ContainingProc => NamedElement.From<Procedure>(ContainingProcGuid)!;
+      [JsonInclude][JsonPropertyOrder(53)] public Guid ContainingProcGuid;
+      
       /// <summary>
       /// Set for Compiler procedures that are evaluated at code generation time.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(54)] public readonly bool IsBuiltin = builtin;
+      [JsonInclude][JsonPropertyOrder(54)] public bool IsBuiltin;
 
       [JsonIgnore] public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
       [JsonIgnore] public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: true);
+      public Call(ID id, Procedure containingProc, bool builtin = false) {
+         this.id = id;
+         this.ContainingProcGuid = containingProc.GUID;
+         this.IsBuiltin = builtin;
+      }
+      [JsonConstructor]
+      public Call() => id = ID.AnonID; // For deserialization
+
       private bool IsConditionalCompilation(bool on) {
          if (Called != null) {
             return Called.IsConditionalCompilation(on);
@@ -938,18 +945,21 @@ namespace CDL2v1 {
    /// Success, Fail, Abort - i.e., +, -, or?.
    /// Repeat - * with a reference to the group that is repeated possibly using the label
    /// Group - a nested group.
-   /// </summary>
-   /// <param Id="type"></param>   
-   public class LastCall(LCT type) {
+   /// </summary>   
+   public class LastCall {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "LastCall";
 #pragma warning restore CS0414
 #endif
-      [JsonInclude][JsonPropertyOrder(51)] public readonly LCT type = type;
-      [JsonInclude][JsonPropertyOrder(52)] public readonly Group? group;
-      [JsonInclude][JsonPropertyOrder(53)] public readonly Call? call;
-      [JsonInclude][JsonPropertyOrder(54)] public readonly ID? label = ID.AnonID;
+      [JsonInclude][JsonPropertyOrder(51)] public LCT type;
+      [JsonInclude][JsonPropertyOrder(52)] public Group? group;
+      [JsonInclude][JsonPropertyOrder(53)] public Call? call;
+      [JsonInclude][JsonPropertyOrder(54)] public ID? label = ID.AnonID;
+      /// <param Id="type"></param>   
+      public LastCall(LCT type) => this.type = type;
+      [JsonConstructor]
+      public LastCall() { } // For deserialization
 
       public LastCall(Call call) : this(LCT.Standard) => this.call = call;
       public LastCall(Group group) : this(LCT.Group) => this.group = group;
@@ -1012,8 +1022,6 @@ namespace CDL2v1 {
          Alternatives = alternatives;
       }
 
-      public static Group Empty { get; } = new();
-
       [JsonIgnore] public bool HasAnonymousRepeat => HasAnAnonymousRepeat();
       [JsonIgnore] public bool HasNoAnonymousRepeat => ! HasAnonymousRepeat;
       [JsonIgnore] public bool CanFail => Alternatives.Any(alternative => alternative.lastCall.type == LastCallType.Fail) || Alternatives.Last().CanFail;
@@ -1040,6 +1048,8 @@ namespace CDL2v1 {
          value = (long)intToken.intValue;
       }
       public INT(long value) => this.value = value;
+      [JsonConstructor]
+      public INT() : this(0) { } // For deserialization
       override public string ToString() => value.ToString();
    }
    public class FLOAT : IElement {
@@ -1049,6 +1059,8 @@ namespace CDL2v1 {
          value = (double)floatToken.floatValue;
       }
       public FLOAT(double value) => this.value = value;
+      [JsonConstructor]
+      public FLOAT() : this(0.0) { } // For deserialization
       override public string ToString() => value.ToString();
    }
    public class STRING : IElement, IActualArg {
@@ -1058,6 +1070,8 @@ namespace CDL2v1 {
          value = str.StringValue;
       }
       public STRING(string str) => value = str;
+      [JsonConstructor]
+      public STRING() : this("") { } // For deserialization
       public ID Id => ID.AnonID;
 
       private static string EscapedCDL2(string str) {
@@ -1083,10 +1097,17 @@ namespace CDL2v1 {
          this.upb = upb;
          SE = SE.List;
       }
+      [JsonConstructor]
+      public LIST() : base() {
+         lwb = ID.AnonID;
+         upb = ID.AnonID;
+      } // For deserialization
       override public string ToString() => $"LIST {Id}({lwb}:{upb})";
    }
    public class Var : CDL2Object, IFailureProtected, IActualArg, ITrackedVar {
       public Var(ID id, Section section) : base(id, section, null) => SE = SE.Var;
+      [JsonConstructor]
+      public Var() : base() { } // For deserialization
 
       override public string ToString() => $"VAR {Id.Name}";
    }
@@ -1095,11 +1116,17 @@ namespace CDL2v1 {
       public List<IElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
       public Const(ID id,Section section) : base(id,section,null) => SE = SE.Const;
+      [JsonConstructor]
+      public Const() : base() { } // For deserialization
    }
 
-   public class ImportedConst(ID id,Section section) : Const(id,section), IImportable {
+   public class ImportedConst : Const, IImportable {
+
       public override string ToString() => "IMPORTED " + base.ToString();
       public override bool IsImported => true;
+
+      public ImportedConst(ID id,Section section) : base(id,section) { }
+      public ImportedConst() : base() { } // For deserialization
    }
 
 
@@ -1125,6 +1152,8 @@ namespace CDL2v1 {
          affixDir = dir;
          affixType = type;
       }
+      [JsonConstructor]
+      public Affix() : base() { } // For deserialization
 
       [JsonIgnore] public bool IsInput => affixDir == AffixDir.input || affixDir == AffixDir.transput;
       [JsonIgnore] public bool IsInputOnly => affixDir == AffixDir.input;
