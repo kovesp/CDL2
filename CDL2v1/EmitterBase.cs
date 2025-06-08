@@ -16,7 +16,7 @@ namespace CDL2v1 {
          if (!SupressDebug) EmitterDebug.WriteDebug(s);
       }
 
-      public bool SupressDebug = false;
+      protected bool SupressDebug = false;
 
       public virtual string Target { get; set; } = "";
       /// <summary>

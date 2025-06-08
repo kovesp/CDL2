@@ -44,7 +44,7 @@ namespace CDL2v1 {
    ///   - If a is a string (i.e., *a), then x is a string ("...") or a string affix of the containing ContainingProc.
    /// 
    /// 
-   /// 1. Verify that all imports are consistent with exports in the modules in the program.
+   /// 1. Verify that all Imports are consistent with exports in the modules in the program.
    /// 2. Resolve all invocations to their corresponding extensions and abstractions.
    /// 3. Perform local analysis to verify that
    ///    a. References to other constants in a constants's elements are resolved.
@@ -74,47 +74,47 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Analyze the imports of the given program.
-      /// Ensure that all imports used in the modules are found and are consistent with the exports.
+      /// Analyze the Imports of the given program.
+      /// Ensure that all Imports used in the modules are found and are consistent with the exports.
       /// </summary>
       /// <param name="mainProgram"></param>
       internal void AnalyzeImportsAndExports(Program mainProgram) {
-         Log(3,$"Analyzing imports and exports");
+         Log(3,$"Analyzing Imports and exports");
          // Collect all the exports from the modules in the program.
          mainProgram.Exports.Clear();
          foreach (Module module in mainProgram.Modules) {
             AnalyzeExports(module);
-            foreach (IExportable export in module.exports.Values.Cast<IExportable>()) {
+            foreach (IExportable export in module.Exports.Values.Cast<IExportable>()) {
                mainProgram.Exports[export.Id] = export;
             }
          }
          // Now verify that each import has a corresponding export and that the specs match.
          foreach (Module module in mainProgram.Modules) {
-            // First collect all the imports in the sections into the imports table of the module.
+            // First collect all the Imports in the sections into the Imports table of the module.
             // While doing this check for consistency in case an object is imported inot multiple sections.
             foreach (Section section in module.Sections) {
                foreach (ID elemid in section.import) {
                   if (section.Declarations.TryGetValue(elemid, out CDL2Object? obj)) {
                      if (obj is IImportable imported) {
-                        if (module.imports.TryGetValue(elemid, out IImportable? importedObj)) {
+                        if (module.Imports.TryGetValue(elemid, out IImportable? importedObj)) {
                            CheckImportConsistency(obj, obj, (CDL2Object)importedObj);
                         } else {
-                           module.imports[elemid] = imported;
+                           module.Imports[elemid] = imported;
                         }
                      } else {
-                        AddNote(section, Note.InterfaceElementNotProvidable, obj!.Id, RW.IMPORT,obj.TypeShortName);
+                        AddNote(section, Note.InterfaceElementNotProvidable, obj.Id, RW.IMPORT,obj.TypeShortName);
                      }
                   } else {
                      AddNote(section, Note.InterfaceElementMissing, elemid, RW.IMPORT);
                   }
                }
             }
-            // Now check that all the imports are in the exports table of the program and are consistent with those exports.
+            // Now check that all the Imports are in the exports table of the program and are consistent with those exports.
             // Also insert the target of the import into the resolvedImports table of the module
-            foreach (CDL2Object imported in module.imports.Values.Cast<CDL2Object>()) {
+            foreach (CDL2Object imported in module.Imports.Values.Cast<CDL2Object>()) {
                if (mainProgram.Exports.TryGetValue(imported.Id, out IExportable? exported)) {
                   CheckImportConsistency(imported,imported, (CDL2Object)exported);
-                  module.resolvedImports[imported.Id] = (IImportable)exported;
+                  module.ResolvedImports[imported.Id] = (IImportable)exported;
                } else {
                   AddNote(mainProgram, Note.MissingImport, imported);
                }
@@ -127,7 +127,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="module"></param>
       private void AnalyzeExports(Module module) {
-         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, module.exports);
+         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, section.Module!.Exports);
       }
       /// <summary>
       /// Verify the consistency of interface declarations.
@@ -169,7 +169,7 @@ namespace CDL2v1 {
             if (Reachable.Objects.Contains(obj) || mainProgram.Exports.ContainsKey(obj.Id)) {
                obj.Notes.Remove(Note.UnreferenceObject);
             } else {
-               AddNote(obj, new Note(Note.UnreferenceObject,PhaseName,obj.ParentElement<CDL2Object>()!));
+               AddNote(obj, new Note(Note.UnreferenceObject,PhaseName,obj.Parent!));
                unused++;
             }
          }
@@ -177,11 +177,10 @@ namespace CDL2v1 {
       }
 
       private void AnalyzeProgram(Program program) {
-         IDDictionary<Module> validModules = [];
+         IDDictionary<Module> validModules = new();
          Log(3, $"Analyzing module presence of {program.ContainerName}");
          foreach (ID modId in program.Parts) {
-            Module? mod;
-            if ((mod = Database.Instance.ModuleByName(modId)) is not null) {
+            if (Database.Instance.Modules.TryGetValue(modId, out Module? mod)) {
                validModules[modId] = mod;
             } else {
                AddNote(program, Note.ModuleNotFound, modId);
@@ -213,7 +212,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Analyze a module.
-      /// Notice that a check is made to ensure that all objects are exported from a single module. As a result, the exports table can be used to resolve imports.
+      /// Notice that a check is made to ensure that all objects are exported from a single module. As a result, the exports table can be used to resolve Imports.
       /// </summary>
       /// <param name="prog"></param>
       /// <param name="module"></param>
@@ -296,8 +295,8 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Compare obj1 to obj2.
-      /// Both are imported when checking consistency beetween imports in the same module.
-      /// One is imported and the other is not when checking consistency between imports and exports.
+      /// Both are imported when checking consistency beetween Imports in the same module.
+      /// One is imported and the other is not when checking consistency between Imports and exports.
       /// If they are both constants return true.
       /// If they are both algorithms, then their affix counts ahd directions must match.
       /// If there is any mismatch attach an apropriate note or notes to the first object
@@ -347,7 +346,7 @@ namespace CDL2v1 {
                   } else if (decl is IProvidable providable) {
                      providables[elemId] = providable;
                   } else {
-                     AddNote(section, Note.InterfaceElementNotProvidable, elemId, kind, decl!.TypeShortName);
+                     AddNote(section, Note.InterfaceElementNotProvidable, elemId, kind, decl.TypeShortName);
                   }
                }
             } else {
@@ -422,21 +421,21 @@ namespace CDL2v1 {
 
          bool hasEffect = AnalyzeEffect(proc.group);
          if (proc.HasEffect && !hasEffect) {
-            AddNote(proc,Note.NoEffect,proc.algorithmType);
-            ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.algorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
+            AddNote(proc,Note.NoEffect,proc.AlgorithmType);
+            ReportError(section,$"Procedure {proc.AlgorithmName} does not have an effect. Should be {(proc.AlgorithmType == RW.PREDICATE ? RW.TEST : RW.FUNCTION)}?");
          } else if (!proc.HasEffect && hasEffect) {
-            AddNote(proc,Note.Defect,proc.algorithmType);
-            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.algorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
+            AddNote(proc,Note.Defect,proc.AlgorithmType);
+            ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.AlgorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
          if (! proc.IsConditionalCompilation()) {
             bool canFail = AnalyzeCanFail(proc.group, section);
             if (proc.CanFail && !canFail) {
-               AddNote(proc, Note.CannotFail, proc.algorithmType);
-               ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.algorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
+               AddNote(proc, Note.CannotFail, proc.AlgorithmType);
+               ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.AlgorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
             } else if (!proc.CanFail && canFail) {
-               AddNote(proc, Note.CanFail, proc.algorithmType);
-               ReportError(section, $"Procedure {proc.AlgorithmName} can fail. Should be {(proc.algorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
+               AddNote(proc, Note.CanFail, proc.AlgorithmType);
+               ReportError(section, $"Procedure {proc.AlgorithmName} can fail. Should be {(proc.AlgorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
             }
          }
       }
@@ -450,7 +449,7 @@ namespace CDL2v1 {
       /// <returns>true if there are any undefined calls.</returns>
       private bool AnalyzeGroup(Procedure proc, Group group, DataFlowInfo info) {
          bool missingDefinitions = false;
-         foreach (Alternative alt in group.Alternatives) {
+         foreach (Alternative alt in group.alternatives) {
             missingDefinitions = AnalyzeAlternative(proc, alt, info) || missingDefinitions;
             // info.Reset(DataFlowInfo.VarSet.neverWrittenLocals | DataFlowInfo.VarSet.writableLocals | DataFlowInfo.VarSet.readableLocals);
          }
@@ -489,48 +488,48 @@ namespace CDL2v1 {
             if (call.Called is null) {
                proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
                return true;
-            } else if (call.Called.Affixes.Count != call.Args.Count()) {
-               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.Args.Count(), call.Called.Affixes.Count);
+            } else if (call.Called.Affixes.Count != call.args.Count) {
+               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.args.Count, call.Called.Affixes.Count);
                return true;
-            } else if (!call.Args.Any()) {
+            } else if (call.args.Count == 0) {
                return false;
             } else {
                List<Affix> affix = call.Called.Affixes;
-               List<IActualArg> args = [.. call.Args];
-               for (int i = 0; i < args.Count; i++) {
-                  if (args[i] is ID id) {
+               List<IActualArg> arg = call.args;
+               for (int i = 0; i < call.args.Count; i++) {
+                  if (arg[i] is ID id) {
                      // ID that was not resolved during parsing
                      if (proc.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {                           
                         switch (obj) {
                            case Var var:
-                              args[i] = var; break;
+                              arg[i] = var; break;
                            case Const c:
-                              args[i] = c; break;
+                              arg[i] = c; break;
                            default:
-                              proc.AddNote(PhaseName, Note.InvalidArgumentType, args[i],call);
+                              proc.AddNote(PhaseName, Note.InvalidArgumentType, arg[i],call);
                               break;
                         }               
                      } else {
-                        proc.AddNote(PhaseName, Note.UnresolvedArgument, args[i],call);
+                        proc.AddNote(PhaseName, Note.UnresolvedArgument, arg[i],call);
                         return true; // No point in continuing
                      }
                   }
 
                   if (affix[i].IsString) {
                      // The actual argument must be a constant, a string or a string affix of the containing procedure.
-                     switch (args[i]) {
+                     switch (arg[i]) {
                         case Const _:
                         case Affix stringArg when stringArg.IsString:
                         case STRING _:
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidStringArg, args[i], call);
+                           proc.AddNote(PhaseName, Note.InvalidStringArg, arg[i], call);
                            break;
                      }
                   } else if (affix[i].IsInputOnly) {
                      // The actual argument must be a constant, a variable, an input or transput affix of the containing procedure,
                      // or a local or output affix that has already received a value.
-                     switch (args[i]) {
+                     switch (arg[i]) {
                         case Const _:
                         case Var _:
                         case Affix inputArg when inputArg.IsInput:   // Includes transput
@@ -542,13 +541,13 @@ namespace CDL2v1 {
                            if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidInputArg, args[i], call);
+                           proc.AddNote(PhaseName, Note.InvalidInputArg, arg[i], call);
                            break;
                      }
                   } else if (affix[i].IsOutputOnly) {
                      // The actual argument must be a variable, a local or an affix (output or transput) of the containing procedure.
                      // The local or affix must have been read since it was last written (this is a warning).
-                     switch (args[i]) {
+                     switch (arg[i]) {
                         case Var _:
                            break;
                         case Affix outputArg when outputArg.IsOutput:   // Includes transput
@@ -562,13 +561,13 @@ namespace CDL2v1 {
                            info.MakeUnwritable(local);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidOutputArg, args[i], call);
+                           proc.AddNote(PhaseName, Note.InvalidOutputArg, arg[i], call);
                            break;
                      }
                   } else {
                      Debug.Assert(affix[i].IsTransput, "Transput affix expected");
                      // The actual argument must be a variable, a transput affix or a local or an output affix which has already been assigned a value of the containing procedure.
-                     switch (args[i]) {
+                     switch (arg[i]) {
                         case Var _:
                            break;
                         case Affix transputArg when transputArg.IsTransput:
@@ -589,7 +588,7 @@ namespace CDL2v1 {
                            info.MakeUnwritable(local);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidTransputArg, args[i], call);
+                           proc.AddNote(PhaseName, Note.InvalidTransputArg, arg[i], call);
                            break;
                      }
                   }
@@ -608,15 +607,15 @@ namespace CDL2v1 {
       /// <returns></returns>
       private bool AnalyzeEffect(Group group) {
          bool effect = false;
-         foreach (Alternative alt in group.Alternatives) effect |= AnalyzeEffect(alt);
+         foreach (Alternative alt in group.alternatives) effect |= AnalyzeEffect(alt);
          return effect;
       }
       private bool AnalyzeCanFail(Group group,Section section) {
-         foreach (Alternative alternative in group.Alternatives) {
+         foreach (Alternative alternative in group.alternatives) {
             if (alternative.lastCall.type == LCT.Fail) return true;
             if (alternative.lastCall.type == LCT.Group && AnalyzeCanFail(alternative.lastCall.group!,section)) return true;
          }
-         Alternative lastAlternative = group.Alternatives.Last();
+         Alternative lastAlternative = group.alternatives.Last();
          if (lastAlternative.CanFail) return true;
          LastCall lc = lastAlternative.lastCall;
          return lc.type == LCT.Standard && lc.call!.CanFail;   // Group and Fail already handled above.

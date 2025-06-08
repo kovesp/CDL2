@@ -26,10 +26,10 @@ namespace CDL2v1 {
       public Notes notes = [];
 
       public string PhaseName { get; }
-      private IEnumerable<Note> Notes => (notes.Any() ? notes : Database.Instance.ElementsWithNotes.SelectMany(guid => Database.Instance.NamedElements[guid].Notes)).Where(note => note.PhaseName == PhaseName);
-      private IEnumerable<Note> Errors => Notes.Where(note => note.NoteType == NoteType.Error);
-      private IEnumerable<Note> Warnings => Notes.Where(note => note.NoteType == NoteType.Warning);
-      private IEnumerable<Note> Infos => Notes.Where(note => note.NoteType == NoteType.Info);
+      private IEnumerable<Note> Notes => (notes.Any() ? notes : Database.Instance.ElementsWithNotes.SelectMany(elem => elem.Notes)).Where(note => note.PhaseName == PhaseName);
+      private IEnumerable<Note> Errors => Notes.Where(note => note.Type == NoteType.Error);
+      private IEnumerable<Note> Warnings => Notes.Where(note => note.Type == NoteType.Warning);
+      private IEnumerable<Note> Infos => Notes.Where(note => note.Type == NoteType.Info);
 
       /// <summary>
       /// Add a note to given subject. Increment counters.
@@ -85,10 +85,9 @@ namespace CDL2v1 {
          void ReportByType(IEnumerable<Note> list,bool all) {
             foreach (Note note in list) {
                // Report messages only for reachable objects
-               NamedElement? noteOwner = NamedElement.From<NamedElement>(note.Owner);
-               if (all || reachable is null || note.Owner == Guid.Empty || noteOwner is Container _ || (noteOwner is CDL2Object obj && reachable.Objects.Contains(obj))) {
-                  string head = $"{note.NoteType,7} {note.Number:D3}: ";
-                  Log(0, $"   {head} {noteOwner?.FQDN()??PhaseName}\n    {new string(' ', head.Length)}{note.Text}");
+               if (all || reachable is null || note.Owner == null || note.Owner is Container _ || (note.Owner is CDL2Object obj && reachable.Objects.Contains(obj))) {
+                  string head = $"{note.Type,7} {note.Number:D3}: ";
+                  Log(0, $"   {head} {note.Owner?.FQDN()??PhaseName}\n    {new string(' ', head.Length)}{note.Text}");
                }
             }
          }
@@ -125,7 +124,7 @@ namespace CDL2v1 {
          Log(0, $"Options: --sources {string.Join(',', args)} {Settings.IntOption("VerbosityLevel")}{Settings.IntOption("DebugVerbosityLevel")}" +
                                     $"{Settings.StringOption("Target")}{Settings.StringOption("ProgramName")}{Settings.BoolOption("SaveDB")}" +
                                     $"{Settings.BoolOption("ParseOnly")}{Settings.BoolOption("StopOnWarnings")}{Settings.BoolOption("AllowErrors")}" +
-                                    $"{Settings.StringOption("PrettyPrint")}{Settings.BoolOption("SaveDB")}");
+                                    $"{Settings.StringOption("PrettyPrint")}");
          if (args.Length > 0) {
             Parser = new Parser(this);
             foreach (string arg in args) {
@@ -135,15 +134,16 @@ namespace CDL2v1 {
                   Parser.Parse(source);
                }
             }
+            if (Parser.AbortCompilation())
+               return;
 
-            if (Parser.AbortCompilation()) return;
 
             Program? MainProgram = null;
             string? ProgramName = Settings.SettingValue<string>("ProgramName");
             if (ProgramName == "" && Database.Instance.FirstProgram != null) {
                MainProgram = Database.Instance.FirstProgram;
             } else if (ProgramName != null && ProgramName != "") {
-               MainProgram = Database.Instance.ProgramByName(ProgramName);
+               MainProgram = Database.Instance.FindProgramByName(ProgramName);
                if (MainProgram is null) {
                   if (Database.Instance.FirstProgram != null) {
                      MainProgram = Database.Instance.FirstProgram;
@@ -154,20 +154,22 @@ namespace CDL2v1 {
                }
             }
             if (MainProgram != null) {
-               //if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4) ID.Dump();            
+               if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4)               ID.Dump();            
 
                // Perform semantic checks
+               SemanticAnalyzer = new SemanticAnalyzer(this);
+               if (Database.Instance.Programs.Count >= 1) {
+                  // TODO: If errors are found, null out the program object.
 
+                  SemanticAnalyzer.Analyze(MainProgram);
+                  Reachable.CollectAllObjects(MainProgram);       // Collect all the objects in the modules comprising the program, so we can report unused objects.
+                  Reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
+                  SemanticAnalyzer.AnalyzeUnused(MainProgram, Reachable);
+               }
 
-               SemanticAnalyzer = SemanticAnalysis(MainProgram,Reachable);
                if (SemanticAnalyzer.AbortCompilation()) return;
 
-               if (Settings.SettingValue<bool>("SaveDB")) {
-                  Database.Save("CDL2v1");
-                  Database.Load("CDL2v1");
-                  SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
-                  if (SemanticAnalyzer.AbortCompilation()) return;
-               }
+               if (Settings.SettingValue<bool>("SaveDB")) Database.Save("CDL2v1");
 
                string? PrettyPrint = Settings.SettingValue<string>("PrettyPrint");
                if (PrettyPrint != "" && (Database.Instance.Programs.Count > 0 || Database.Instance.Modules.Count > 0)) {
@@ -181,7 +183,7 @@ namespace CDL2v1 {
                   } else {
                      emitter = new EmitterDebug();
                   }
-                  new PrettyPrinter(emitter).Print(Database.Instance.NamedElements.Values.OfType<Program>(), Database.Instance.NamedElements.Values.OfType<Module>());
+                  new PrettyPrinter(emitter).Print(Database.Instance.Programs, Database.Instance.Modules);
                   emitter.Close();
                }
 
@@ -192,9 +194,9 @@ namespace CDL2v1 {
 
                   if (cg != null) {
                      string targetFileName = Path.ChangeExtension(args[0], cg.FileExtension);
-                     EmitterBase emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SupressDebug = true };
+                     EmitterBase emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true };
                      Log(0, $"Generating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
-                     codeGenerator = new CodeGenerator(cg, Compiler);
+                     codeGenerator = new CodeGenerator(cg,Compiler);
                      codeGenerator.GenerateCode(MainProgram, emitter);
                      emitter.Close();
                   } else {
@@ -208,16 +210,6 @@ namespace CDL2v1 {
                SemanticAnalyzer.ReportNoteCounts(Reachable);
             }
          }
-      }
-
-      private SemanticAnalyzer SemanticAnalysis(Program MainProgram,Reachable reachable) {
-         SemanticAnalyzer semanticAnalyzer = new (this);
-         semanticAnalyzer.Analyze(MainProgram);
-         // The following two calls always clear any previously collected objects, so we can report unused objects.
-         reachable.CollectAllObjects(MainProgram);       // Collect all the objects in the modules comprising the program, so we can report unused objects.
-         reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
-         semanticAnalyzer.AnalyzeUnused(MainProgram, reachable);
-         return semanticAnalyzer;
       }
 
       private static ICodeGenerator? CreateCodeGenerator(string target, string dataType = "Int64") {

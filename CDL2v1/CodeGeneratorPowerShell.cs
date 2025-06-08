@@ -305,7 +305,7 @@ function Remove-Const([string[]]$names) {
             emitter.Emit(PSVar(affix));
          }
       }
-      void ICodeGenerator.GenerateMacroElementLocal(Local loc) => emitter.Emit(PSVar(loc));
+      void ICodeGenerator.GenerateMacroElementLocal(Local local) => emitter.Emit(PSVar(local));
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
          if (macro.NeedsFinalization) IncrementIndent();
@@ -479,12 +479,10 @@ function Remove-Const([string[]]$names) {
       private static string PSVar(CDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
       private static string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(affix),PSVarType.Affix,prefix,suffix,isRef);
       private static string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(local),PSVarType.Local,prefix,suffix,isRef);
-      //private static string PSVar(ID id, string prefix = "", string suffix = "", bool isRef = false) => PS_Var(PSName(id), PSVarType.Local, prefix, suffix, isRef);
 
       private static string PSName(CDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
       private static string PSName(Affix affix) => affix.Id.Name.AsIdentifier(camelCase: true);
       private static string PSName(Local local) => local.Id.Name.AsIdentifier(camelCase: true);
-      //private static string PSName(ID id) => id.Name.AsIdentifier(camelCase: true);
       #endregion Helpers
    }
 }

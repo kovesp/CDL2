@@ -416,8 +416,8 @@ namespace CDL2v1 {
       void GenerateMacroElementConst(Const constant);
       void GenerateMacroElementVar(Var var, bool macroCanFail, bool inlined = false);
       void GenerateMacroElementList(LIST list);
-      void GenerateMacroElementAffix(Affix aff, bool macroCanFail);
-      void GenerateMacroElementLocal(Local id);
+      void GenerateMacroElementAffix(Affix affix, bool macroCanFail);
+      void GenerateMacroElementLocal(Local local);
       void GenerateMacroInlineStart(Macro macro);
       void GenerateMacroInlineEnd(Macro macro);
       #endregion Macros

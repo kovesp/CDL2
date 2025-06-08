@@ -2,12 +2,12 @@
   "profiles": {
     "CodeGen": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v3 -d3 --allow-errors\r\n--messages Info --save",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v3 -d3 --allow-errors\r\n--messages Info",
       "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
     },
     "Pretty Print": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--pretty-print window --parse-only\r\n--allow-errors --save\r\n",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--pretty-print window --parse-only\r\n--allow-errors\r\n",
       "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
     },
     "Database Save": {
