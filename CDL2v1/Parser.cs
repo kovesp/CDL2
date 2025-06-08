@@ -130,12 +130,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param PhaseName="programId"></param>
       private void ParseProgram(ID programId,string? comments,Notes notes) {
-         if (Database.Instance.Programs.ContainsKey(programId)) {
-            ReportError($"Program {programId} already exists");
+         if (Database.Instance.IsNamedElement<Program>(programId)) {
+            AddNote(Note.DuplicateContainer, programId.Name);
             return;
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
-            Database.Instance.Programs[programId] = currentProgram = new Program(programId,comments,notes);
+            currentProgram = new Program(programId,comments,notes);
             Log(1,$"Parsing {currentProgram}");
          }
 
@@ -174,12 +174,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="moduleId">The ID (Id) of the module.</param>
       private void ParseModule(ID moduleId,string? comments,Notes notes) {
-         if (Database.Instance.Modules.ContainsKey(moduleId)) {
-            ReportError($"Program {moduleId} already exists");
+         if (Database.Instance.IsNamedElement<Module>(moduleId)) {
+            AddNote(Note.DuplicateContainer, moduleId.Name);
             return;
          } else {
-            Database.Instance.Modules[moduleId] = currentModule = new Module(moduleId,comments,notes);
             currentObject.Object = (RW.MODULE, moduleId);
+            currentModule = new Module(moduleId,comments,notes);
             Log(1,$"Parsing {currentObject}");
          }
          
@@ -237,7 +237,7 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.CONST)) {
                ParseConstants(internalNotes);
             } else {
-               ReportError("Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST");
+               ReportError($"Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST. Seeing {tokens.Peek()}");
             }
          }
 
@@ -259,8 +259,9 @@ namespace CDL2v1 {
             if (formals == null) return;
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
-               // IMPORT declaration. Check if it is in the Imports list.
+               // IMPORT declaration. Check if it is in the imports list.
                algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
+               algorithm.AddNotes(PhaseName, notes);
                if (!currentSection.import.Contains(id)) {
                   AddNote(currentSection,Note.ObjectNotImported,algorithm);
                   return;
@@ -287,7 +288,7 @@ namespace CDL2v1 {
                   return;
                }
             }
-            currentSection.Declarations[id] = algorithm;
+            currentSection.Declarations[id] = algorithm.GUID;
          } else {
             ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
@@ -295,38 +296,19 @@ namespace CDL2v1 {
 
       private bool DuplicateDeclaration(ID id,RW type) {
          if (currentSection!.Declarations.TryGetValue(id, out CDL2Object? value)) {
-            AddNote(currentSection, Note.DuplicateDeclaration, $"{type} {id}", value);
+            AddNote(currentSection, Note.DuplicateDeclaration, $"{type} {id}", value!);
             return true;
          }
          return false;
       }
 
       private void ParseMacroBody(Macro macro) {
-         Debug.Assert(currentSection != null);
-         while (!tokens.Optional(TT.END)) {
-            if (tokens.Optional(TT.ID,out Token idToken)) {
-               ID id = ID.From(idToken);
-               if (macro.TryGetAffix(id,out Affix? affix)) {
-                  macro.elements.Add(affix);
-               } else if (macro.TryGetLocal(id,out Local local)) {
-                  macro.elements.Add(local);
-               } else {
-                  // Can be a Var, Const, or List. TODO: Semantic Analysis to verify.
-                  macro.elements.Add(id);
-               }
-            } else if (tokens.Optional(TT.STRING,out Token str)) {
-               macro.elements.Add(new STRING(str));
-            } else if (tokens.Optional(TT.INT,out Token i)) {
-               macro.elements.Add(new INT(i));
-            } else if (tokens.Optional(TT.FLOAT,out Token f)) {
-               macro.elements.Add(new FLOAT(f));
-            } else {
-               ReportError("Expected ID, Affix, Local, STRING, INT, or FLOAT");
-            }
-         }
+         ParseElementList(macro, macro.elements, "ID, Affix, Local, STRING, INT, or FLOAT");
+         if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
+
       private void ParseProcedureBody(Procedure proc) {
-         proc.group.alternatives = ParseAlternatives(proc,group:null);
+         proc.group.Alternatives = ParseAlternatives(proc,group:null);
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
       private List<Alternative> ParseAlternatives(Procedure proc,Group? group) {
@@ -354,7 +336,7 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.FAIL)) {
                lastCall = new LastCall(LCT.Fail);
                if (!proc.CanFail) {
-                  AddNote(proc, Note.IllegalFailOperator, proc.AlgorithmType);
+                  AddNote(proc, Note.IllegalFailOperator, proc.algorithmType);
                   ReportError($"{proc} contains fail operator", supressErrorAction: true);
                }
 
@@ -370,7 +352,7 @@ namespace CDL2v1 {
                         found = true;
                         break;
                      }
-                     g = g.Parent;
+                     g = g.ParentElement<Group>();
                   }
                   if (!found && label != proc.Id) { // The label can be the ContainingProc Id
                      AddNote(proc, Note.LabelNotFound, label.Name);
@@ -410,7 +392,7 @@ namespace CDL2v1 {
          LastCall? lastCall;
          ID? label = ParseOptionalLabel(containingGroup,proc);
          Group group = new(label,[],containingGroup,synthetic:label is null);
-         group.alternatives = ParseAlternatives(proc,group);
+         group.Alternatives = ParseAlternatives(proc,group);
          if (!tokens.CanConsume(TT.GRPCLOSE)) ReportError("Expected )");
          lastCall = new LastCall(group);
          return lastCall;
@@ -429,7 +411,7 @@ namespace CDL2v1 {
                   ReportError($"Duplicate label {label}");
                   return ID.AnonID;
                }
-               g = g.Parent;
+                    g = g.ParentElement<Group>();
             }
             return label;
          } else {
@@ -442,31 +424,14 @@ namespace CDL2v1 {
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
       /// <param Id="call"></param>
-      // private void ParseActualArgs(Call call) => ParseActualArgs(this,call);
       private static void ParseActualArgs(Parser parser, Call call, Procedure proc) {
-         Debug.Assert(parser.currentSection != null);
+         Debug.Assert(parser.currentSection != null);         
          while (parser.tokens.Optional(TT.AFFIXSEP)) {
             if (parser.tokens.Optional(out ID id)) {
-               if (proc.TryGetAffix(id, out Affix affix)) {
-                  call.args.Add(affix);
-               } else if (proc.TryGetLocal(id, out Local local)) {
-                  call.args.Add(local);
-               } else if (parser.currentSection.Declarations.TryGetValue(id, out CDL2Object? obj)) {
-                  if (obj is Const c) {
-                     call.args.Add(c);
-                  } else if (obj is Var v) {
-                     call.args.Add(v);
-                  } else {
-                     parser.ReportError($"Expected Affix, Local, Const, or Var got {obj}");
-                  }
-               } else {
-                  // Resolve later
-                  call.args.Add(id);
-               }
+                call.argRefs.Add(id);
             } else if (parser.tokens.CanConsume(TT.STRING, out Token str)) {
-               call.args.Add(new STRING(str));
-            }
-            else {
+               call.argRefs.Add(new STRING(str));
+            } else {
                parser.ReportError("Expected ID or STRING");
             }
          }
@@ -571,7 +536,7 @@ namespace CDL2v1 {
                return null;
             } else {
                Const c = new(id,currentSection);
-               ParseConstElements(c);
+               ParseElementList(c, c.elements, "ID, STRING, INT, or FLOAT",secondaryTerminator:TT.SEP);
                return c;
             }
          } else if (!currentSection.import.Contains(id)) {
@@ -587,29 +552,21 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="c"></param>
       /// <exception cref="Exception"></exception>
-      private void ParseConstElements(Const c) {
+      private void ParseElementList(NamedElement parent, List<IElement> elements, string expected, TT secondaryTerminator = TokenType.END) {
          Debug.Assert(currentSection != null);
-         while (!tokens.IsNext(TT.END) && !tokens.IsNext(TT.SEP)) {
-            if (tokens.Optional(TT.ID,out Token elemId)) {
-               //ID id = ID.From(elemId);
-               //if (currentSection.Declarations.GetElement(id,out CDL2Object? value)) {
-               //   // The ID is already declared in this container. It can only be a constant or undeclared.
-               //   // That will be true even if it is invoked or imported.
-               //   Debug.Assert(value is Const || value is Undeclared);
-               //   c.elements.Add(id);
-               //} else if (currentSection.import.Contains(id)) {
-               //   currentSection.Declarations[id] = Undeclared.Instance;
-               //   c.elements.Add(id);
-               //}
-               c.elements.Add(ID.From(elemId));
-            } else if (tokens.Optional(TT.STRING,out Token str)) {
-               c.elements.Add(new STRING(str));
-            } else if (tokens.Optional(TT.INT,out Token i)) {
-               c.elements.Add(new INT(i));
-            } else if (tokens.Optional(TT.FLOAT,out Token f)) {
-               c.elements.Add(new FLOAT(f));
+         while (!tokens.IsNext(TT.END) && !tokens.IsNext(secondaryTerminator)) {
+            if (tokens.Optional(TT.ELEMSEP,out Token _)) {
+               continue;
+            } else if (tokens.Optional(TT.ID, out Token elemId)) {
+               elements.Add(ID.From(elemId));
+            } else if (tokens.Optional(TT.STRING, out Token str)) {
+               elements.Add(new STRING(str));
+            } else if (tokens.Optional(TT.INT, out Token i)) {
+               elements.Add(new INT(i));
+            } else if (tokens.Optional(TT.FLOAT, out Token f)) {
+               elements.Add(new FLOAT(f));
             } else {
-               throw new Exception("Expected ID, STRING, INT, or FLOAT");
+               AddNote(parent, Note.UnexpectedToken, expected, tokens.Peek().ToString());
             }
          }
       }
@@ -680,10 +637,10 @@ namespace CDL2v1 {
             }
             parser.tokens.CanConsumeEnd();
 
-            lude.AlgorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
-            lude.group.alternatives.Add(new Alternative(callList,new LastCall(LCT.None),[]));
+            lude.algorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
+            lude.group.Alternatives.Add(new Alternative(callList,new LastCall(LCT.None),[]));
             section.Ludes[ludeType].Add(lude.Id);
-            section.Declarations[lude.Id] = lude;
+            section.Declarations[lude.Id] = lude.GUID;
          }
       }
 
@@ -694,16 +651,13 @@ namespace CDL2v1 {
       /// <param Id="idList"></param>
       /// <param Id="idList2"></param>
       /// <param Id="processID"></param>
-      private void ParseIDDeclarationList(IDDictionary<CDL2Object> idList,string comments,Func<ID,CDL2Object?> processID,Notes notes) {
+      private void ParseIDDeclarationList(Section.DeclarationDictionary declarations,string comments,Func<ID,CDL2Object?> getObject,Notes notes) {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            CDL2Object? CDL2Object = processID(id);            
-            if (CDL2Object != null) {
-               if (!idList.ContainsKey(id)) {
-                  idList[id] = CDL2Object;
-                  firstObject ??= (NamedElement)CDL2Object;
-               }
+            CDL2Object? CDL2Object = getObject(id);            
+            if (CDL2Object != null && declarations.TryAdd(id, CDL2Object.GUID)) {
+               firstObject ??= (NamedElement)CDL2Object;
             }
 
             if (!tokens.CanConsumeSep()) break;

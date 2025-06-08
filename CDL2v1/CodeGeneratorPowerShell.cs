@@ -115,7 +115,7 @@ function Remove-Const([string[]]$names) {
          if (isSeparate) {
             // Changes the target file name to be the module name with the extension. Ignored by emitters except for the file Emitter.
             // This causes the file Emitter to close the current file and switch to the new file.
-            emitter.Target = Path.Combine(Path.GetDirectoryName(emitter.Target)??"",module.Id.InternalName+((ICodeGenerator)this).FileExtension);
+            emitter.Target = Path.Combine(Path.GetDirectoryName(emitter.Target)??"",module.Id.CanonicalName+((ICodeGenerator)this).FileExtension);
          }
          EmitUnitStartComment(module);
       }
@@ -157,7 +157,7 @@ function Remove-Const([string[]]$names) {
          IncrementIndent();
       }
       void ICodeGenerator.GenerateModuleLude(RW ludeType, Module module, Section section)
-         => emitter.Emitnl(section.SyntheticProcedures.Where(p=>p.Id.InternalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true, literalObjectName:true)!);
+         => emitter.Emitnl(section.SyntheticProcedures.Where(p=>p.Id.CanonicalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true, literalObjectName:true)!);
       void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType, Module module, bool wrapped) {
          DecrementIndent();
          if (wrapped) emitter.Emitnl("}");
@@ -305,7 +305,7 @@ function Remove-Const([string[]]$names) {
             emitter.Emit(PSVar(affix));
          }
       }
-      void ICodeGenerator.GenerateMacroElementLocal(Local local) => emitter.Emit(PSVar(local));
+      void ICodeGenerator.GenerateMacroElementLocal(Local loc) => emitter.Emit(PSVar(loc));
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
          if (macro.NeedsFinalization) IncrementIndent();
@@ -342,7 +342,7 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateProcedureBodyStart(Procedure proc,PBT bodyType) {
          if (proc.NeedsWrapper) {
-            emitter.Emitnl(":", proc.Id.InternalName, " do {");
+            emitter.Emitnl(":", proc.Id.CanonicalName, " do {");
             IncrementIndent();
          }
       }
@@ -360,7 +360,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc, Group group, int i) => GenerateComment($"Alternative {i}");
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc, Group group, int i, Alternative alternative, bool removed) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
-            emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.Id.InternalName}" : "return $true") : "return");            
+            emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.Id.CanonicalName}" : "return $true") : "return");            
          while (ifDepth > 0) {
             DecrementIndent();
             ifDepth--;
@@ -374,7 +374,7 @@ function Remove-Const([string[]]$names) {
       #region Groups
       void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
          GenerateComment("Group");
-         if (!group.IsSynthetic) emitter.Emit(":",group.Id.InternalName," ");
+         if (!group.IsSynthetic) emitter.Emit(":",group.Id.CanonicalName," ");
          if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("do {");
          ifDepth.Push(0);
          IncrementIndent();
@@ -420,7 +420,7 @@ function Remove-Const([string[]]$names) {
          => emitter.Emit(PSVar(v, needFinalization ? "_" : "", isRef: calledAffix.IsOutput));
 
       void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label, bool canFail)
-         => emitter.Emitnl("continue ",label != ID.AnonID? label.InternalName : "");
+         => emitter.Emitnl("continue ",label != ID.AnonID? label.CanonicalName : "");
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (!proc.IsVerySimple) {
             emitter.Emitnl(proc.CanFail ? "return $false" : "return");
@@ -479,10 +479,12 @@ function Remove-Const([string[]]$names) {
       private static string PSVar(CDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
       private static string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(affix),PSVarType.Affix,prefix,suffix,isRef);
       private static string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(local),PSVarType.Local,prefix,suffix,isRef);
+      //private static string PSVar(ID id, string prefix = "", string suffix = "", bool isRef = false) => PS_Var(PSName(id), PSVarType.Local, prefix, suffix, isRef);
 
       private static string PSName(CDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
       private static string PSName(Affix affix) => affix.Id.Name.AsIdentifier(camelCase: true);
       private static string PSName(Local local) => local.Id.Name.AsIdentifier(camelCase: true);
+      //private static string PSName(ID id) => id.Name.AsIdentifier(camelCase: true);
       #endregion Helpers
    }
 }

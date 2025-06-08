@@ -16,6 +16,7 @@ using System.Xml.Serialization;
 using System.Windows;
 using System.Text.Json.Serialization;
 using System.Collections;
+using System.Text.Json;
 
 namespace CDL2v1 {  
    public class Set<T> : HashSet<T> {
@@ -162,18 +163,16 @@ namespace CDL2v1 {
    }
 
    public static class Extensions {
-      /// <summary>
-      /// Split a string into two parts at the first occurrence of the separator.
-      /// </summary>
-      /// <param name="input"></param>
-      /// <param name="separator"></param>
-      /// <returns></returns>
-      /// <exception cref="ArgumentException"></exception>
-      public static (string, string) Split2(this string input, char separator) {
-         var parts = input.Split(separator, 2);
-         if (parts.Length != 2)
-            throw new ArgumentException($"Input '{input}' does not contain exactly one '{separator}'");
-         return (parts[0], parts[1]);
+      public static Type AsType(this string typeName) {
+         if (string.IsNullOrWhiteSpace(typeName)) {
+            throw new ArgumentException("Type name cannot be null or whitespace.", nameof(typeName));
+         }
+         Type? type = Type.GetType(typeName);
+         type ??= Type.GetType($"{typeof(Module).Namespace}.{typeName}");
+         if (type == null) {
+            throw new TypeLoadException($"Could not load type '{typeName}'.");
+         }
+         return type;
       }
 
       public static bool IsValidFileName(this string? fileName) {

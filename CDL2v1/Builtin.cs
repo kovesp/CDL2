@@ -21,11 +21,11 @@ namespace CDL2v1 {
       private static readonly Set<string> BuiltinFunctions = ["date","time", "version", "option", "environmentvariable"];
       private static readonly Set<string> BuiltinTests     = ["isoption", "isoptionvalue", "isenvironmentvariable", "istarget"]; 
 
-      public static bool IsFunction(Call call) => BuiltinFunctions.Contains(call.id.InternalName);
-      public static bool IsTest(Call call) => BuiltinTests.Contains(call.id.InternalName);
+      public static bool IsFunction(Call call) => BuiltinFunctions.Contains(call.id.CanonicalName);
+      public static bool IsTest(Call call) => BuiltinTests.Contains(call.id.CanonicalName);
 
       public static string EvalFunction(Call call) {
-         switch (call.id.InternalName) {
+         switch (call.id.CanonicalName) {
             case "datestring":
                return DateTime.Now.ToString("yyyy-MM-dd");
             case "timestring":
@@ -33,49 +33,49 @@ namespace CDL2v1 {
             case "versionstring":
                return CDL2.Version;
             case "option":
-               if (call.args.Count >= 1 && call.args[0] is STRING option) {
+               if (call.Args.FirstOrDefault() is STRING option) {
                   return Settings.TryGetSettingValue(option.value, out string? value) ? value : "";
                } else {
                   return "";
                }
             case "environmentvariable":
-               if (call.args.Count >= 1 && call.args[0] is STRING envName) {
+               if (call.Args.FirstOrDefault() is STRING envName) {
                   return Environment.GetEnvironmentVariable(envName.value) ?? "";
                } else {
                   return "";
                }
             default:
-               throw new NotImplementedException($"Builtin function {call.id.InternalName} not implemented.");
+               throw new NotImplementedException($"Builtin function {call.id.CanonicalName} not implemented.");
          }
       }
       public static bool EvalTest(Call call) {
-         switch (call.id.InternalName) {
+         switch (call.id.CanonicalName) {
             case "isoption":
-               if (call.args.Count >= 1 && call.args[0] is STRING option) {
+               if (call.Args.FirstOrDefault() is STRING option) {
                   return Settings.TryGetSettingValue(option.value, out _);
                } else {
                   return false;
                }
             case "isoptionvalue":
-               if (call.args.Count >= 2 && call.args[0] is STRING option1 && call.args[1] is STRING value) {
+               if (call.Args.FirstOrDefault() is STRING option1 && call.Args.Skip(1).FirstOrDefault() is STRING value) {
                   return Settings.TryGetSettingValue(option1.value, out string? settingValue) && settingValue == value.value;
                } else {
                   return false;
                }
             case "isenvironmentvariable":
-               if (call.args.Count >= 1 && call.args[0] is STRING envName) {
+               if (call.Args.FirstOrDefault() is STRING envName) {
                   return Environment.GetEnvironmentVariable(envName.value) != null;
                } else {
                   return false;
                }
             case "istarget":
-               if (call.args.Count >= 1 && call.args[0] is STRING target) {
+               if (call.Args.FirstOrDefault() is STRING target) {
                   return target.value == Settings.SettingValue<string>("Target");
                } else {
                   return false;
                }
             default:
-               throw new NotImplementedException($"Builtin test {call.id.InternalName} not implemented.");
+               throw new NotImplementedException($"Builtin test {call.id.CanonicalName} not implemented.");
          }
       }
    }

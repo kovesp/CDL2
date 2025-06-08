@@ -11,7 +11,7 @@ using System.Windows.Media;
 using System.Windows.Documents;
 
 namespace CDL2v1 {
-   internal class EmitterWindow : EmitterBase {
+   internal partial class EmitterWindow : EmitterBase {
       private Window? window;
       private TextBlock? outputTextBlock;
       private readonly Dictionary<string,Brush> colorMap = [];
@@ -317,11 +317,10 @@ namespace CDL2v1 {
          textSegmentBuffer.Clear();
       }
 
-      private const char ThinSpace = '\u2009';
-      private static string FormatAlgorithmBodySeparators(string text) => Regex.Replace(text,
-                      @"( := | =: | = | : )\s*$",
-                      $"{ThinSpace}$1",
-                      RegexOptions.IgnorePatternWhitespace | RegexOptions.Compiled);
+      private const char SeparatorSpace   = (char)SpaceCharacters.ThreePerEm;
+
+      private static string FormatAlgorithmBodySeparators(string text) => BodySeparatorRE().Replace(text, $"{SeparatorSpace}$1{SeparatorSpace}");
+
       // Helper to find parent element of specific type
       private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject => VisualTreeHelper.GetParent(child) switch {
          null => null,
@@ -342,5 +341,8 @@ namespace CDL2v1 {
             outputTextBlock.FontSize /= (100 + pct) / 100.0;
          }
       }
+
+      [GeneratedRegex(@"\s*( := | =: | = | : )\s*$", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
+      private static partial Regex BodySeparatorRE();
    }
 }

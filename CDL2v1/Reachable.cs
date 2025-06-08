@@ -28,7 +28,7 @@ namespace CDL2v1 {
       } = [];
       public Set<CDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
 
-      public IDDictionary<int> ProcedureCalls = new("Reachable.ProcedureCalls"); // The number of times a procedure is called
+      public IDDictionary<int> ProcedureCalls = []; // The number of times a procedure is called
 
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
       public Set<ITrackedVar> ReadVars { get;  private set; } = [];
@@ -39,7 +39,7 @@ namespace CDL2v1 {
          foreach (Module module in program.Modules) {
             foreach (Layer layer in module.Layers) {
                foreach (Section section in layer.Sections) {
-                  foreach (CDL2Object cdl2object in section.Declarations.Values) {
+                  foreach (CDL2Object cdl2object in section.Declarations.AsCDL2Objects<CDL2Object>()) {
                      AllObjects.Add(cdl2object);
                   }
                }
@@ -52,12 +52,13 @@ namespace CDL2v1 {
          Objects = [];
          ReadVars = [];
          AmbigousVars = [];
-         ProcedureCalls = new();
+         ProcedureCalls = [];
          collected = false;
          collecting = true;
          foreach (RW ludeType in Container.LudeTypes) {
             foreach (ID id in prog.Ludes[ludeType]) {
-               if (Database.Instance.Modules.TryGetValue(id, out Module? module)) {
+               Module? module = Database.Instance.ModuleByName(id);
+               if (module is not null) {
                   CollectReachableObjects(ludeType, module);
                }
             }
@@ -90,7 +91,7 @@ namespace CDL2v1 {
       }
       private void CollectReachableObjects(Group proc) {
          // Collect all the objects reachable from this group.
-         foreach (Alternative alt in proc.alternatives) if (CollectReachableObjects(alt)) break;
+         foreach (Alternative alt in proc.Alternatives) if (CollectReachableObjects(alt)) break;
       }
 
       /// <summary>
@@ -139,9 +140,9 @@ namespace CDL2v1 {
             }
 
             // Collect objects referrenced in actual args
-            for (int i = 0 ; i < call.args.Count ; i++) {
-               IActualArg arg = call.args[i];
-               Affix affix = called.Affixes[i];
+            int i = 0;
+            foreach (IActualArg arg in call.Args) {
+               Affix affix = called.Affixes[i++];
                switch (arg) {
                   case Const c:
                      CollectReachableObjects(c);
@@ -154,7 +155,7 @@ namespace CDL2v1 {
                      if (call.Called.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {
                         if (obj is Const c) {
                            CollectReachableObjects(c);
-                        } else if (obj is ImportedConst ic1 && ic1.Module!.ResolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
+                        } else if (obj is ImportedConst ic1 && ic1.Module!.resolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
                            CollectReachableObjects(rc1);
                         } else if (obj is Var v) {
                            Objects.Add(v);
@@ -176,12 +177,12 @@ namespace CDL2v1 {
          return true;
       }
       private void CollectReachableObjects(Const constant) {
-         if (constant is ImportedConst) constant = (constant.Module!.ResolvedImports[constant.Id] as Const)!;
+         if (constant is ImportedConst) constant = (constant.Module!.resolvedImports[constant.Id] as Const)!;
          if (Objects.Add(constant)) {
-            foreach (IConstElement elem in constant.elements) {
+            foreach (IElement elem in constant.elements) {
                switch (elem) {
                   case ID id:
-                     if (((Section)constant.Parent!).TryGetDeclaration(id, out CDL2Object? obj)) {
+                     if (constant.ParentElement<Section>()!.TryGetDeclaration(id, out CDL2Object? obj)) {
                         if (obj is Const c) CollectReachableObjects(c);
                      } else {
                         throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
@@ -192,7 +193,7 @@ namespace CDL2v1 {
          }
       }
       private void CollectReachableObjects(Macro macro) {
-         foreach (IMacroElement element in macro.elements) {
+         foreach (IElement element in macro.elements) {
             switch (element) {
                case Affix:
                case Local:

@@ -14,6 +14,11 @@ MODULE powershell kernel.
          EXPORT gt, lt, ge, le, eq, ne.
          EXPORT less or equal.
 
+         #CONST x = 1.
+         #VAR y.
+         #LIST z(x:x).
+         #FUNCTION test macro +>a -l = a ; l ; x ; y ; z ; 10 ; 3.14159 "string".
+
          FUNCTION incr+>a> = a "++".
          FUNCTION decr+>a> = a "--".
          FUNCTION incr with +>a>+>b = a " += " b.
