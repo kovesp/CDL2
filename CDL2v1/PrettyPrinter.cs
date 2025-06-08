@@ -191,10 +191,10 @@ namespace CDL2v1 {
          { typeof(Section),new (RW.SECTION, RW.ENDSEC)},
       };
 
-      public void Print(IDDictionary<Program> programs,IDDictionary<Module> modules) {
+      public void Print(IEnumerable<Program> programs,IEnumerable<Module> modules) {
          Emitter.BeginUpdate();
-         foreach (Program program in programs.Values) Print(program);
-         foreach (Module module in modules.Values) Print(module);
+         foreach (Program program in programs) Print(program);
+         foreach (Module module in modules) Print(module);
          Emitter.EndUpdate();
       }
 
@@ -253,7 +253,7 @@ namespace CDL2v1 {
                Emit(ludeType.Decorate(Emitter,SE.ReservedWord)," ");
                // SectionById Ludes are stored as ids of a generated Procedure item.
                if (section.TryGetLocalDeclaration(section.Ludes[ludeType].First(),out Procedure? proc)) { // This should always be the case
-                  Print(proc!.group.alternatives.First(),section);
+                  Print(proc!.group.Alternatives.First(),section);
                   EmitSeparatorWithNL(TT.END);
                } else {
                   ReportError($"Internal error: {ludeType} lude is not a Procedure item.");
@@ -313,7 +313,7 @@ namespace CDL2v1 {
       private void Print(Group group,Section section) => Indented(() => {
          NlEmit(TT.GRPOPEN);
          if (! group.IsSynthetic) Emit(group.Id.Name.Decorate(Emitter,SE.Label),TT.LABELSEP);
-         Print(group.alternatives,section);
+         Print(group.Alternatives,section);
          Emit(TT.GRPCLOSE);
       });
 
@@ -346,7 +346,7 @@ namespace CDL2v1 {
          } else { 
             EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, AlgorithmNameDecorators[callDecorator]));
          }
-         foreach (IActualArg arg in call.args) {
+         foreach (IActualArg arg in call.Args) {
             Emit(TT.AFFIXSEP);
             switch (arg) {
                case STRING s:
@@ -478,9 +478,9 @@ namespace CDL2v1 {
          Debug.Assert(!proc.IsSynthetic,"Synthetic procedures should not be printed");
          PrintAlgorithmHeader(proc);
          Indented(() => {
-            Debug.Assert(proc.group.alternatives.Count != 0,"alternatives list is empty");
-            Print(proc.group.alternatives.First(),section);
-            foreach (Alternative alt in proc.group.alternatives.Skip(1)) {
+            Debug.Assert(proc.group.Alternatives.Count != 0,"alternatives list is empty");
+            Print(proc.group.Alternatives.First(),section);
+            foreach (Alternative alt in proc.group.Alternatives.Skip(1)) {
                EmitSeparatorWithNL(TT.ALTSEP);
                Print(alt,section);
             }
@@ -496,15 +496,25 @@ namespace CDL2v1 {
          PrintAlgorithmHeader(macro);
          Indented(() => {
             Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
-            PrintMacroElement(macro.elements.First(),withNl: false);
-            foreach (IMacroElement elem in macro.elements.Skip(1)) {
-               PrintMacroElement(elem,withSpace: true);
+
+            IElement elem1 = macro.elements.First();
+            bool wasID = PrintMacroElement(elem1,withNl: false);
+            foreach (IElement elem in macro.elements.Skip(1)) {
+               wasID = PrintMacroElement(elem,withSpace: true,wasID:wasID);
             }
             EmitSeparatorWithNL(TT.END);
          });
       }
 
-      private void PrintMacroElement(IMacroElement elem,bool withSpace = false,bool withNl = true) {
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="elem"></param>
+      /// <param name="withSpace"></param>
+      /// <param name="withNl"></param>
+      /// <returns>True if the element printed was an ID.</returns>
+      /// <exception cref="NotImplementedException"></exception>
+      private bool PrintMacroElement(IElement elem,bool withSpace = false,bool withNl = true,bool wasID=false) {
          if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
@@ -517,22 +527,26 @@ namespace CDL2v1 {
                Emit(f.value.Decorate(Emitter));
                break;
             case ID id:
+               if (wasID) Emit(TT.ELEMSEP," "); // If the previous element was an ID, add a separator.
                Emit(id.Name);
                break;
             case Affix affix:
+               if (wasID) Emit(TT.ELEMSEP, " ");
                Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
                break;
             case Local local:
+               if (wasID) Emit(TT.ELEMSEP, " ");
                Emit(local.Id.Decorate(Emitter,SE.Local));
                break;
             default:
                throw new NotImplementedException();
          }
+         return elem is ID || elem is Affix || elem is Local; // Return true if the element printed was an ID.
       }
 
       private void PrintAlgorithmHeader(Algorithm algorithm) {
          PrintComment(algorithm);
-         Emit(algorithm.AlgorithmType.Decorate(Emitter,SE.ReservedWord)," ",
+         Emit(algorithm.algorithmType.Decorate(Emitter,SE.ReservedWord)," ",
             algorithm.Id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
          foreach (Affix affix in algorithm.Affixes.Cast<Affix>()) {
             Emit(affix.affixType == AffixType.std ? TT.AFFIXSEP : TT.STRINGAFFIXSEP);
@@ -545,7 +559,7 @@ namespace CDL2v1 {
                Emit(" ",TT.LOCALSEP,local.Id.Decorate(Emitter,SE.Local));
             }
          }
-         Emitnl(" ",algorithm.BodyType);
+         Emitnl(" ",algorithm.bodyType);
       }
       private Decoration AlgorithmNameDecorator(Algorithm alg) 
          => alg.IsConditionalCompilationOn ? Decorators[SE.ConditionalCompilationOn] : 
@@ -555,8 +569,11 @@ namespace CDL2v1 {
       public void Print(Const constant) {
          //PrintIDComment(item,SE.Const);
          Emit(constant.Id.Decorate(Emitter, SE.Const));
+         if (constant.IsImported) return;
          Emit(" ",TT.EQUALS," ");
-         foreach (IConstElement element in constant.elements) {
+         bool wasID;
+         foreach (IElement element in constant.elements) {
+            wasID = false;
             switch (element) {
                case STRING s:
                   Emit(s.value.Decorate(Emitter,SE.String));
@@ -571,7 +588,9 @@ namespace CDL2v1 {
                   Emit(c.Id.Decorate(Emitter,SE.Const));
                   break;
                case ID id:
+                  if (wasID) Emit(TT.ELEMSEP," "); // If the previous element was an ID, add a separator.
                   Emit(id.Name);
+                  wasID = true;
                   break;
                default:
                   throw new NotImplementedException();
@@ -629,12 +648,12 @@ namespace CDL2v1 {
          if (IncludeComments) {
             if (comments != null) Emitnl(NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
-               if (note.Type == NoteType.Note) {
+               if (note.NoteType == NoteType.Note) {
                   NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));
                   Emitnl(RW.NOTE, Token.TokenType2Glyph[TT.END]);
                } else {
-                  Emitnl(string.Concat("#", Note.Marker, (note.Type.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
-                     .Decorate(Emitter, note.Type switch {
+                  Emitnl(string.Concat("#", Note.Marker, (note.NoteType.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
+                     .Decorate(Emitter, note.NoteType switch {
                         NoteType.Error => SE.NoteError,
                         NoteType.Warning => SE.NoteWarning,
                         NoteType.Info => SE.NoteInfo,

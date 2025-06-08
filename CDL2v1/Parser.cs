@@ -261,6 +261,7 @@ namespace CDL2v1 {
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the Imports list.
                algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
+               algorithm.AddNotes(PhaseName, notes);
                if (!currentSection.import.Contains(id)) {
                   AddNote(currentSection,Note.ObjectNotImported,algorithm);
                   return;
@@ -325,6 +326,7 @@ namespace CDL2v1 {
             }
          }
       }
+
       private void ParseProcedureBody(Procedure proc) {
          proc.group.alternatives = ParseAlternatives(proc,group:null);
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
