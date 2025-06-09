@@ -17,6 +17,8 @@ using System.Printing;
 namespace CDL2v1 {
 
    public static class Serializer {
+
+      private const string dbextension = ".lab"; // Database file extension
       public static string SerializeElement<T>(T element) where T : NamedElement => JsonSerializer.Serialize(element, serializationOptions);
       public static T DeserializeElement<T>(Database.UndoRecord<NamedElement> undo) where T : NamedElement {
          T? element = JsonSerializer.Deserialize(undo.SerializedElement, undo.RecordType.AsType(), serializationOptions) as T;
@@ -40,7 +42,7 @@ namespace CDL2v1 {
          //ReferenceHandler = ReferenceHandler.Preserve 
       };
       public static void SaveJSON(string filePath) {
-         string path = Path.ChangeExtension(filePath, "JSON");
+         string path = Path.ChangeExtension(filePath, dbextension);
 
          Logger.logger.WriteLine(1, $"Saving database to {path}");
          string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
@@ -49,7 +51,7 @@ namespace CDL2v1 {
 
 
       public static Database? LoadJSON(string filePath, bool push = true, string databaseName="Loaded Database") {
-         string path = Path.ChangeExtension(filePath, "JSON");
+         string path = Path.ChangeExtension(filePath, dbextension);
 
          Logger.logger.WriteLine(1, $"Loading database from {path}");
          string json = File.ReadAllText(path);
