@@ -29,7 +29,7 @@
 5. Code Generation framework essentially complete, as well as can be verified by a single target code generator.
    - Target code generator selectable via command line.
    - First codegenerator (for PowerShell) complete. Code generated for CDL2 quicksort program runs correctly.
-   - Working together, correctly implements the requirement that outut/transput affixed cannot be modified if the
+   - Working together, correctly implements the requirement that outut/transput affixes cannot be modified if the
      algorithm fails.
    - Separate compilation of modules not currently supported, tough some hooks are there in the target-independent code generator.
 6. The database (syntax tree resulting from parsing) can be serialized to a JSON and gzipped into a file. It can be
