@@ -29,7 +29,7 @@ Selectors are composed of a syntactic unit type followed by an absolute (no sign
 relative (with a `+` or `-` sign) offset or the name of the slected unit (e.g., the
 name of an algorithm); a regular expression may be used here.
 
-### Selector Syntac
+### Selector Syntax
 ```
 single selector : unit type, offset or name selector option.
 offset : plus token, DIGIT sequence ; minus token, DIGIT sequence ; DIGIT sequence.
@@ -121,7 +121,8 @@ Settings may be set globally (see the `set` command) or locally
 is changed for the duration of the command, in the former case it is changed globally.
 Any setting may be specified for commands, tough of course not all are relevant for all commands.
 For boolean settings the leading + or - determines whether the setting is on or off. For
-other settings the setting is followed by the value of the setting, for example `print -print-depth 3`.
+other settings the setting is followed by the value of the setting, for
+example `print -print-depth 3`.
 
 ### Focus Change Commands
 
@@ -190,6 +191,65 @@ is omitted as in the above example.
 Here is another example: `print -print-depth 3 ALG`. This will print the above structure, but also
 add all the algorithm headers without the locals if any.
 
+### Settings
+
+#### Set
+
+```
+set command : set token, setting sequence option.
+```
+
+If no settings are given, all current settings are listed. The following is a list of settings.
+
+##### General Settings
+
+| Setting Name | Type | Default | Description |
+|--------------|------|---------|-------------|
+| auto-print   | bool | false   | If true, then the focus is printed after the command. |
+| print-depth  | int  | -1      | The depth of printing. If -1, then the entire object is printed. |
+| auto-save-count  | int | 10    | The database is saved after this many commands that modify it (the editing commands).
+| auto-save-interval | int | 60 | The database is saved after this many seconds if there are any modifications. |
+
+##### Command Line Settings
+
+| Setting Name | Type | Default | Description |
+|--------------|------|---------|-------------|
+| verbose | int  | 0    | Logging verbosity |
+| debug-log | int  | 0 | Debug logging verbosity |
+| target | string | "PowerShell" | The target code generator |
+| program | string | "" | The default program to generate |
+| stop-on-warmings | bool | false | If true, then code code cannot be generated if the program or any parts have warnings. |
+| allow-errors | bool | false | If true, then code code can be generated even if there are errors. |
+| gen-debug-info | bool | false | If true, then debug information is generated. Not implemented. |
+| output-dir | string | "" | The directory where the generated code is written. If empty, then the current directory is used. |
+| lab | string | "" | The name of the lab database file. it is in output-dir with extension `.lab.gz`. |
+| no-macro-inlining | bool | false | If true, then macros are not inlined. This is useful for debugging. |
+| no-proc-inlining | bool | false | If true, then procedures are not inlined. This is useful for debugging. |
+| messages | string | "all" | The messages to show. Can be "all", "errors", "warnings", "info", or "none". |
+| report-all | bool | false | If true, then all messages are reported, otherwise only those that pertain to reachable objects. |
+
+
+#### Editing Commands
+
+#### Code Generation
+
+####  General Commands
+
+##### Help
+
+```
+help command : help token, command name option.
+```
+
+Displays the list of commands, or the help for the given command.
+
+##### Quit
+```
+quit command : quit token.
+```
+
+Exits the CDL2 Lab after saving the database.
+
 ### Command names and abreviations
 
 Comands are always given in all lower case, but may be abbreviated. In the following list,
@@ -209,3 +269,4 @@ the minimal apreviation is given in ***bold italic***.
 ***u***ndo  
 ***g***enerate  
 ***quit***
+***h***elp
