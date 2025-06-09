@@ -1,24 +1,26 @@
 ﻿#define Debug
-#define SerializationSupportOff
+#define COMPRESSED_DATABASE
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.IO.Enumeration;
 using System.Linq;
+using System.Printing;
 using System.Text;
-using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using System.IO;
-using System.IO.Enumeration;
-using System.Printing;
 
 
 namespace CDL2v1 {
 
    public static class Serializer {
 
-      private const string dbextension = ".lab"; // Database file extension
+      private const string DBExtension = ".lab"; // Database file extension
+      private const string compressedDBExtension = ".lab.gz";
       public static string SerializeElement<T>(T element) where T : NamedElement => JsonSerializer.Serialize(element, serializationOptions);
       public static T DeserializeElement<T>(Database.UndoRecord<NamedElement> undo) where T : NamedElement {
          T? element = JsonSerializer.Deserialize(undo.SerializedElement, undo.RecordType.AsType(), serializationOptions) as T;
@@ -41,7 +43,56 @@ namespace CDL2v1 {
          IncludeFields = true,
          //ReferenceHandler = ReferenceHandler.Preserve 
       };
-      public static void SaveJSON(string filePath) {
+
+#if COMPRESSED_DATABASE
+      /// <summary>
+      /// Saves the database as compressed JSON.
+      /// </summary>
+      /// <param name="filePath">Base path for the file (extension will be replaced)</param>
+      /// TODO: Add a backup capbility to save the previous database as a backup before overwriting
+      public static void SaveDB(string filePath) {
+         string path = Path.ChangeExtension(filePath, compressedDBExtension);
+         Logger.logger.WriteLine(1, $"CDL2: Saving compressed database to {path}");
+
+         // Serialize to JSON first
+         string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
+
+         CompressStringToFile(json, path);
+
+         Logger.logger.WriteLine(1, $"CDL2: Compressed database saved to {path}");
+      }
+
+      /// <summary>
+      /// Loads a compressed JSON database from a file.
+      /// </summary>
+      /// <param name="filePath">Base path for the file (extension will be replaced)</param>
+      /// <param name="push">Whether to push the loaded database onto the stack</param>
+      /// <param name="databaseName">Name for the loaded database</param>
+      /// <returns>The loaded database or null if loading failed</returns>
+      public static Database? LoadDB(string filePath, bool push = true, string databaseName = "Loaded Compressed Database") {
+         string path = Path.ChangeExtension(filePath, compressedDBExtension);
+         Logger.logger.WriteLine(1, $"CDL2: Loading compressed database from {path}");
+
+         try {
+            string json = DecompressFileToString(path);
+
+            // Deserialize the JSON
+            Database? db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
+
+            if (db is not null) {
+               if (push) Database.PushDatabase(db);
+               db.Name = databaseName;
+               Logger.logger.WriteLine(1, $"CDL2: Loaded compressed database from {path} with name {db.Name}");
+            }
+
+            return db;
+         } catch (Exception ex) {
+            Logger.logger.WriteLine(0, $"CDL2: Error loading compressed database: {ex.Message}");
+            return null;
+         }
+      }
+#else
+      public static void SaveDB(string filePath) {
          string path = Path.ChangeExtension(filePath, dbextension);
 
          Logger.logger.WriteLine(1, $"Saving database to {path}");
@@ -50,7 +101,7 @@ namespace CDL2v1 {
       }
 
 
-      public static Database? LoadJSON(string filePath, bool push = true, string databaseName="Loaded Database") {
+      public static Database? LoadDB(string filePath, bool push = true, string databaseName="Loaded Database") {
          string path = Path.ChangeExtension(filePath, dbextension);
 
          Logger.logger.WriteLine(1, $"Loading database from {path}");
@@ -63,7 +114,37 @@ namespace CDL2v1 {
          }
          return db;
       }
+#endif
+
+
+
+      /// <summary>
+      /// Compresses a string and saves it to a file.
+      /// </summary>
+      /// <param name="data">The string to compress</param>
+      /// <param name="filePath">The path to save the compressed data to</param>
+      public static void CompressStringToFile(string data, string filePath) {
+         using FileStream fileStream = File.Create(filePath);
+         using GZipStream gzipStream = new(fileStream, CompressionLevel.Optimal);
+         using StreamWriter writer = new(gzipStream);
+
+         writer.Write(data);
+      }
+
+      /// <summary>
+      /// Reads and decompresses a file to a string.
+      /// </summary>
+      /// <param name="filePath">The path of the compressed file</param>
+      /// <returns>The decompressed string</returns>
+      public static string DecompressFileToString(string filePath) {
+         using FileStream fileStream = File.OpenRead(filePath);
+         using GZipStream gzipStream = new(fileStream, CompressionMode.Decompress);
+         using StreamReader reader = new(gzipStream);
+
+         return reader.ReadToEnd();
+      }
    }
+
 
    /// <summary>
    /// Provides custom JSON serialization and deserialization for a <see cref="List{T}"/> of <see cref="IElement"/>
