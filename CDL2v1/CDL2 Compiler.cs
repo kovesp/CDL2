@@ -1,12 +1,14 @@
 ﻿using System;
-using System.IO;
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.Diagnostics;
+using System.IO;
+using System.Reflection.Metadata.Ecma335;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Windows;
 
 using static CDL2v1.Logger;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
-using System.Reflection.Metadata.Ecma335;
 using static CDL2v1.TokenList;
 
 namespace CDL2v1 {
@@ -123,10 +125,36 @@ namespace CDL2v1 {
 
       public void CompileSources(string[] args) {
          Log(0, $"Options: --sources {string.Join(',', args)} {Settings.IntOption("VerbosityLevel")}{Settings.IntOption("DebugVerbosityLevel")}" +
-                                    $"{Settings.StringOption("Target")}{Settings.StringOption("ProgramName")}{Settings.BoolOption("SaveDB")}" +
+                                    $"{Settings.StringOption("Target")}{Settings.StringOption("ProgramName")}{Settings.BoolOption("SaveDB")}{Settings.StringOption("LoadDB")}" +
                                     $"{Settings.BoolOption("ParseOnly")}{Settings.BoolOption("StopOnWarnings")}{Settings.BoolOption("AllowErrors")}" +
-                                    $"{Settings.StringOption("PrettyPrint")}{Settings.BoolOption("SaveDB")}");
-         if (args.Length > 0) {
+                                    $"{Settings.StringOption("PrettyPrint")}");
+
+         string? labOption = Settings.SettingValue<string>("LoadDB");
+         if (labOption == string.Empty) labOption = "CDL2v1";
+         if (labOption is not null) {
+            Database.Load(labOption);
+
+            Thread CLIThread = new(() => {
+               Application app = new();
+               // Create and show the window
+               CommandPromptWindow commandWindow = new();
+               CommandInterpreter CLI = new();
+               
+
+               // Handle commands
+               commandWindow.CommandEntered += (sender, command) => {
+                  // Parse and execute command
+                  Command.Type commandType = Command.Identify(command);
+                  CLI.IntepretCommand(command, commandType, commandWindow);
+               };
+               commandWindow.Closed += (s, e) => app.Shutdown();
+               app.Run(commandWindow);
+            });
+            CLIThread.SetApartmentState(ApartmentState.STA);
+            CLIThread.Start();
+            CLIThread.Join(); // Wait for the command window to close before continuing
+
+         } else if (args.Length > 0) {
             Parser = new Parser(this);
             foreach (string arg in args) {
                string source = Path.GetFullPath(arg);
@@ -159,7 +187,7 @@ namespace CDL2v1 {
                // Perform semantic checks
 
 
-               SemanticAnalyzer = SemanticAnalysis(MainProgram,Reachable);
+               SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
                if (SemanticAnalyzer.AbortCompilation()) return;
 
                if (Settings.SettingValue<bool>("SaveDB")) {

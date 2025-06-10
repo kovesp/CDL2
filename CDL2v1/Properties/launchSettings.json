@@ -2,7 +2,7 @@
   "profiles": {
     "CodeGen": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v3 -d3 --allow-errors\r\n--messages Info --save",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v3 -d3 --allow-errors\r\n--messages Info --lab CDL2v1",
       "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
     },
     "Pretty Print": {
