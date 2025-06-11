@@ -129,6 +129,7 @@ namespace CDL2v1 {
       //      parse clockins mellish.
       //   
       BUILTIN,
+      NONE,
    }
 
    /// <summary>

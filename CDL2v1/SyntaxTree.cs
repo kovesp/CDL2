@@ -57,6 +57,8 @@ namespace CDL2v1 {
    /// </summary>
    public interface ITrackedVar { }
 
+   public interface IUnrecordedElement { }
+
    /// <summary>
    /// Base class for all elements that have names in the syntax tree.
    /// To support serialization all references to NamedElements are by GUID through <see cref="Database.Instance.NamedElements"/>.
@@ -121,7 +123,7 @@ namespace CDL2v1 {
          Id = id;
          IsSynthetic = synthetic;
          GUID = Guid.NewGuid();
-         Database.Instance.AddNamedElement(this); // Register the element in the database.
+         if (this is not IUnrecordedElement) Database.Instance.AddNamedElement(this); // Register the element in the database.
       }
       /// <summary>
       /// Use when deserializing the element.
@@ -862,7 +864,7 @@ namespace CDL2v1 {
 
    }
 
-   public class Call {
+   public class Call : NamedElement, IUnrecordedElement {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Call";
@@ -888,9 +890,8 @@ namespace CDL2v1 {
          }
       }
       [JsonInclude][JsonPropertyOrder(52)] public List<IElement> argRefs = []; // Restricted to ID-s and strings
-      [JsonIgnore] public Procedure ContainingProc => NamedElement.From<Procedure>(ContainingProcGuid)!;
-      [JsonInclude][JsonPropertyOrder(53)] public Guid ContainingProcGuid;
-      
+      [JsonIgnore] public Procedure ContainingProc => NamedElement.From<Procedure>(Parent)!;
+     
       /// <summary>
       /// Set for Compiler procedures that are evaluated at code generation time.
       /// </summary>
@@ -900,7 +901,7 @@ namespace CDL2v1 {
       [JsonIgnore] public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: true);
       public Call(ID id, Procedure containingProc, bool builtin = false) {
          this.id = id;
-         this.ContainingProcGuid = containingProc.GUID;
+         Parent = containingProc.GUID;
          this.IsBuiltin = builtin;
       }
       [JsonConstructor]
@@ -946,7 +947,7 @@ namespace CDL2v1 {
    /// Repeat - * with a reference to the group that is repeated possibly using the label
    /// Group - a nested group.
    /// </summary>   
-   public class LastCall {
+   public class LastCall : NamedElement, IUnrecordedElement {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "LastCall";
@@ -981,16 +982,22 @@ namespace CDL2v1 {
          _ => "ERROR",
       };
    }
-   public class Alternative(List<Call> calls,LastCall lastCall,Notes notes) {
+   public class Alternative : NamedElement, IUnrecordedElement {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Alternative";
 #pragma warning restore CS0414
 #endif
-      [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls = calls;
-      [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall = lastCall;
-      [JsonInclude][JsonPropertyOrder(43)] public Notes Notes = notes;
+      [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls;
+      [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall;
       [JsonIgnore] public bool IsConditionalOff = false;
+
+      public Alternative(List<Call> calls, LastCall lastCall, Notes notes, Group containingGroup) : base(ID.AnonID, synthetic:false) {
+         this.calls = calls;
+         this.lastCall = lastCall;
+         Notes = notes;
+         Parent = containingGroup.GUID;
+      }
 
       [JsonIgnore] public bool CanFail =>  calls.Any(call => call.CanFail) || 
                               (lastCall.type == LCT.Standard && lastCall.call!.CanFail) || 
@@ -1013,10 +1020,10 @@ namespace CDL2v1 {
       [JsonIgnore] public bool IsConditionalCompilationOff => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOff;
    }
    // Note that the Id in this case is the label.
-   public class Group : NamedElement {
+   public class Group : NamedElement, IUnrecordedElement {
       [JsonInclude][JsonPropertyOrder(30)] public List<Alternative> Alternatives = [];
       [JsonConstructor]
-      public Group() { }
+      public Group() : base(ID.AnonID,synthetic: false) { }
       public Group(ID? label,List<Alternative> alternatives,Group? parent,bool synthetic) : base(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
          Parent = parent?.GUID ?? Guid.Empty;
          Alternatives = alternatives;

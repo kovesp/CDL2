@@ -308,10 +308,10 @@ namespace CDL2v1 {
       }
 
       private void ParseProcedureBody(Procedure proc) {
-         proc.group.Alternatives = ParseAlternatives(proc,group:null);
+         proc.group.Alternatives = ParseAlternatives(proc,group:proc.group);
          if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
       }
-      private List<Alternative> ParseAlternatives(Procedure proc,Group? group) {
+      private List<Alternative> ParseAlternatives(Procedure proc,Group group) {
          List<Alternative> alternatives = [];
          do {
             Notes notes = ParseNotes();
@@ -320,7 +320,7 @@ namespace CDL2v1 {
          return alternatives;
       }
 
-      private Alternative ParseAlternative(Procedure proc,Group? group,Notes notes) {
+      private Alternative ParseAlternative(Procedure proc,Group group,Notes notes) {
          List<Call> calls = [];
          LastCall? lastCall =null;
          do {
@@ -377,7 +377,7 @@ namespace CDL2v1 {
             lastCall = new LastCall(calls.Last());
             calls.RemoveAt(calls.Count - 1);
          }
-         return new Alternative(calls,lastCall,notes);
+         return new Alternative(calls, lastCall, notes, group);
       }
 
       private Call ParseCall(ID id, Procedure proc, bool builtin = false) => ParseCall(this, id, proc,builtin);
@@ -638,7 +638,7 @@ namespace CDL2v1 {
             parser.tokens.CanConsumeEnd();
 
             lude.AlgorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
-            lude.group.Alternatives.Add(new Alternative(callList,new LastCall(LCT.None),[]));
+            lude.group.Alternatives.Add(new Alternative(callList, new LastCall(LCT.None), [], lude.group));
             section.Ludes[ludeType].Add(lude.Id);
             section.Declarations[lude.Id] = lude.GUID;
          }

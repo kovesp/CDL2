@@ -96,6 +96,12 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(6)]
       public Set<Guid> ElementsWithNotes = [];
 
+      /// <summary>
+      /// Bookmarks are managed in the Focus class.
+      /// </summary>
+      [JsonInclude][JsonPropertyOrder(7)]
+      public Dictionary<string,Focus> Bookmarks = [];
+
 
       /// <summary>
       /// Add a name to the canonical name list.
