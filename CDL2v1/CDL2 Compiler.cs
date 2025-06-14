@@ -130,8 +130,8 @@ namespace CDL2v1 {
                                     $"{Settings.StringOption("PrettyPrint")}");
 
          string? labOption = Settings.SettingValue<string>("LoadDB");
-         if (labOption == string.Empty) labOption = "CDL2v1";
-         if (labOption is not null) {
+         if (labOption == null) labOption = "CDL2v1";
+         if (labOption != "") {
             Database.Load(labOption);
 
             Thread CLIThread = new(() => {

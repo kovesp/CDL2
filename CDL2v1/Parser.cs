@@ -255,12 +255,12 @@ namespace CDL2v1 {
             RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
             currentObject.Object = (algTypeRW, id);
             if (DuplicateDeclaration(id, algTypeRW)) return;
-            List<Affix>? formals = ParseAffixes();
-            if (formals == null) return;
+            List<Affix>? affixes = ParseAffixes();
+            if (affixes == null) return;
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the imports list.
-               algorithm = new ImportedAlgorithm(id,formals,algType,currentSection);
+               algorithm = new ImportedAlgorithm(id,affixes,algType,currentSection);
                algorithm.AddNotes(PhaseName, notes);
                if (!currentSection.import.Contains(id)) {
                   AddNote(currentSection,Note.ObjectNotImported,algorithm);
@@ -272,12 +272,12 @@ namespace CDL2v1 {
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {                  
                   if (bodyType.type == TT.PROCBODY || bodyType.type == TT.INLINEPROCBODY) {
                      // Parse the code body
-                     algorithm = new Procedure(id,formals,locals,algType,bodyType.type,currentSection);
+                     algorithm = new Procedure(id,affixes,locals,algType,bodyType.type,currentSection);
                      algorithm.AddNotes(PhaseName, notes);
                      ParseProcedureBody((Procedure)algorithm);
                   } else {
                      // Parse the macro body
-                     algorithm = new Macro(id,formals,locals,algType,bodyType.type,currentSection);
+                     algorithm = new Macro(id,affixes,locals,algType,bodyType.type,currentSection);
                      algorithm.AddNotes(PhaseName, notes);
                      ParseMacroBody((Macro)algorithm);
                   }
@@ -321,102 +321,84 @@ namespace CDL2v1 {
       }
 
       private Alternative ParseAlternative(Procedure proc,Group group,Notes notes) {
-         List<Call> calls = [];
-         LastCall? lastCall =null;
+         Alternative alternative = new(notes, group);
          do {
-            if (lastCall != null) {
+            if (alternative.lastCall.type != LCT.None) {
                // If we have a last call, then we should NOT have see a separator
                ReportError("Unexpected ,");
             } else if (tokens.Optional(RW.BUILTIN) && tokens.Optional(out ID id)) {
-               calls.Add(ParseCall(id, proc, builtin: true));
+               alternative.calls.Add(ParseCall(id, proc, alternative, builtin: true));
             } else if (tokens.Optional(out id)) {
-               calls.Add(ParseCall(id, proc));
+               alternative.calls.Add(ParseCall(id, proc, alternative));
             } else if (tokens.Optional(TT.SUCCEED)) {
-               lastCall = new LastCall(LCT.Succeed);
+               alternative.lastCall = new LastCall(LCT.Succeed, alternative);
             } else if (tokens.Optional(TT.FAIL)) {
-               lastCall = new LastCall(LCT.Fail);
+               alternative.lastCall = new LastCall(LCT.Fail, alternative);
                if (!proc.CanFail) {
                   AddNote(proc, Note.IllegalFailOperator, proc.AlgorithmType);
                   ReportError($"{proc} contains fail operator", supressErrorAction: true);
                }
 
             } else if (tokens.Optional(TT.ABORT)) {
-               lastCall = new LastCall(LCT.Abort);
+               alternative.lastCall = new LastCall(LCT.Abort, alternative);
             } else if (tokens.Optional(TT.REPEAT)) {
                if (tokens.Optional(out ID label)) {
-                  // Go up the group hierarchy to see if the label can be use
-                  Group? g = group;
-                  bool found = false;
-                  while (g != null) {
-                     if (g.Id == label) {
-                        found = true;
-                        break;
-                     }
-                     g = g.ParentElement<Group>();
-                  }
-                  if (!found && label != proc.Id) { // The label can be the ContainingProc Id
+                  if (group.HasLabeledAncestorGroup(label)) {
                      AddNote(proc, Note.LabelNotFound, label.Name);
-                     ReportError($"Label {label} not found in group hierarchy");
+
                   }
-                  lastCall = new LastCall(label);
+
+
+                  alternative.lastCall = new LastCall(label, alternative);
                   if (id == proc.Id) proc.repeatsProcedure = true;
                } else {
-                  lastCall = new LastCall(LCT.Repeat);
+                  alternative.lastCall = new LastCall(LCT.Repeat, alternative);
                }
             } else if (tokens.Optional(TT.GRPOPEN)) {
-               lastCall = ParseGroup(proc, containingGroup: group);
+               alternative.lastCall = ParseGroup(proc, containingGroup: group, containingAlternative: alternative);
             } else if (tokens.IsNext(TT.END) || tokens.IsNext(TT.ALTSEP)) {
                // The last item in an alternative can be empty which is equivalent to a succeed and is represented as such.
-               lastCall = new LastCall(LCT.Succeed);
+               alternative.lastCall = new LastCall(LCT.Succeed, alternative);
             } else {
                ReportError("Expected ID, +, -, ?, or *");
             }
          } while (tokens.Optional(TT.CALLSEP));
-         if (lastCall == null) {
-            // The last call position contained an actual call so convert it to a last call
-            lastCall = new LastCall(calls.Last());
-            calls.RemoveAt(calls.Count - 1);
-         }
-         return new Alternative(calls, lastCall, notes, group);
+         alternative.NormalizeCalls();
+         return alternative;
       }
 
-      private Call ParseCall(ID id, Procedure proc, bool builtin = false) => ParseCall(this, id, proc,builtin);
-      private static Call ParseCall(Parser parser, ID id, Procedure containingProc, bool builtin = false) {
+      private Call ParseCall(ID id, Procedure proc, Alternative containingAlternative, bool builtin = false) => ParseCall(this, id, proc,containingAlternative, builtin);
+      private static Call ParseCall(Parser parser, ID id, Procedure containingProc, Alternative containingAlternative, bool builtin = false) {
          Debug.Assert(parser.currentSection != null);
-         Call call = new(id,containingProc,builtin);
+         Call call = new(id,containingProc,containingAlternative,builtin);
          ParseActualArgs(parser, call, containingProc);
          return call;
       }
 
-      private LastCall ParseGroup(Procedure proc,Group? containingGroup) {
+      private LastCall ParseGroup(Procedure proc,Group containingGroup,Alternative containingAlternative) {
          LastCall? lastCall;
          ID? label = ParseOptionalLabel(containingGroup,proc);
-         Group group = new(label,[],containingGroup,synthetic:label is null);
+         Group group = new(label,[],containingAlternative.GUID,synthetic:label is null);
          group.Alternatives = ParseAlternatives(proc,group);
          if (!tokens.CanConsume(TT.GRPCLOSE)) ReportError("Expected )");
-         lastCall = new LastCall(group);
+         lastCall = new LastCall(group, containingAlternative);
          return lastCall;
       }
 
-      private ID? ParseOptionalLabel(Group? group,Procedure proc) {
+      private ID? ParseOptionalLabel(Group group,Procedure proc) {
          if (tokens.Peek().type == TT.ID && tokens.Peek(1).type == TT.LABELSEP) {
             // Consume the label and the colon
             ID label = ID.From(tokens.Next());
             tokens.Next();
             // Go up the group hierarchy to see if the label is already defined.
-            Group? g = group;
-            while (g != null) {
-               if (g.Id == label) {
-                  AddNote(proc,Note.DuplicateLabel,label.Name);
-                  ReportError($"Duplicate label {label}");
-                  return ID.AnonID;
-               }
-                    g = g.ParentElement<Group>();
+            if (group.HasLabeledAncestorGroup(label)) {
+               AddNote(proc, Note.DuplicateLabel, label.Name);
+               return ID.AnonID; // Return a dummy ID to indicate the error
+            } else {
+               return label;
             }
-            return label;
-         } else {
-            return null;
          }
+         return null;
       }
 
       /// <summary>
@@ -630,19 +612,26 @@ namespace CDL2v1 {
             Section section = (Section)container;
             Procedure lude = new(ludeType,section);
 
-            List<Call> callList =[];
+            Alternative alternative = new(parser.ParseNotes(), lude.group);
+
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               callList.Add(ParseCall(parser, ID.From(id), lude));
+               alternative.calls.Add(ParseCall(parser, ID.From(id), lude, alternative));
                if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
+            if (alternative.calls.Count >= 1) {
+               alternative.NormalizeCalls();
+            } else {
+               parser.AddNote(container, Note.EmptyLude, ludeType);
+            }
 
-            lude.AlgorithmType = callList.All(call=>call.HasEffect) ? RW.ACTION : RW.FUNCTION;
-            lude.group.Alternatives.Add(new Alternative(callList, new LastCall(LCT.None), [], lude.group));
+               lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
+            lude.group.Alternatives.Add(alternative);
             section.Ludes[ludeType].Add(lude.Id);
             section.Declarations[lude.Id] = lude.GUID;
          }
       }
+           
 
       /// <summary>
       /// Parse a list of IDs. The list is terminated by a period. The lists are normally sets.

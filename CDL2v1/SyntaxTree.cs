@@ -132,7 +132,8 @@ namespace CDL2v1 {
       public NamedElement() => Id = ID.AnonID;
 
       /// <summary>
-      /// Retrun the ancestor of the required type which must be a container.
+      /// Return the ancestor of the required type which must be a container.
+      /// Thus this not work for Groups, or alternatives.
       /// </summary>
       /// <typeparam name="T">Module,Layer,Section. Not useful for Program.</typeparam>
       /// <returns></returns>
@@ -142,7 +143,6 @@ namespace CDL2v1 {
          } else if (this is T self) {
             return self;   // The element is of the given type
          } else if (Database.Instance.NamedElements.TryGetValue(Parent, out NamedElement? parent)) {
-            Debug.Assert(parent is Container && parent != null, $"Ancestor: Parent {parent} is not a Container, but element is {GetType().Name}");
             if (parent is T container) return container;
             return parent!.AncestorContainer<T>();
          } else {
@@ -802,7 +802,10 @@ namespace CDL2v1 {
       /// <param Id="algorithmType"></param>
       /// <param Id="bodyType"></param>
       /// <param Id="SectionById"></param>
-      public Procedure(ID id,List<Affix> affxies,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,affxies,locals,algorithmType,bodyType,section,synthetic) { }
+      public Procedure(ID id,List<Affix> affxies,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,affxies,locals,algorithmType,bodyType,section,synthetic) {
+         group.Parent = GUID;
+         group.Id = id; // The group has the same ID as the procedure.
+      }
       [JsonConstructor]
       public Procedure() { }
 
@@ -870,6 +873,9 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Call";
 #pragma warning restore CS0414
 #endif
+      /// <summary>
+      /// The id of the algorithm being called.
+      /// </summary>
       [JsonInclude][JsonPropertyOrder(51)] public ID id;
       [JsonIgnore] public List<IActualArg> Args {
          get {
@@ -890,7 +896,9 @@ namespace CDL2v1 {
          }
       }
       [JsonInclude][JsonPropertyOrder(52)] public List<IElement> argRefs = []; // Restricted to ID-s and strings
-      [JsonIgnore] public Procedure ContainingProc => NamedElement.From<Procedure>(Parent)!;
+      [JsonInclude][JsonPropertyOrder(53)] public Guid containingProc;
+
+      [JsonIgnore] public Procedure ContainingProc => NamedElement.From<Procedure>(containingProc)!;
      
       /// <summary>
       /// Set for Compiler procedures that are evaluated at code generation time.
@@ -899,10 +907,11 @@ namespace CDL2v1 {
 
       [JsonIgnore] public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
       [JsonIgnore] public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: true);
-      public Call(ID id, Procedure containingProc, bool builtin = false) {
+      public Call(ID id, Procedure containingProc,Alternative containingAlternative, bool builtin = false) : base (id) {
          this.id = id;
-         Parent = containingProc.GUID;
-         this.IsBuiltin = builtin;
+         Parent = containingAlternative.GUID;
+         IsBuiltin = builtin;
+         this.containingProc = containingProc.GUID;
       }
       [JsonConstructor]
       public Call() => id = ID.AnonID; // For deserialization
@@ -953,18 +962,21 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "LastCall";
 #pragma warning restore CS0414
 #endif
-      [JsonInclude][JsonPropertyOrder(51)] public LCT type;
+      [JsonInclude][JsonPropertyOrder(51)] public LCT type = LCT.None;
       [JsonInclude][JsonPropertyOrder(52)] public Group? group;
       [JsonInclude][JsonPropertyOrder(53)] public Call? call;
       [JsonInclude][JsonPropertyOrder(54)] public ID? label = ID.AnonID;
-      /// <param Id="type"></param>   
-      public LastCall(LCT type) => this.type = type;
+ 
+      public LastCall(LCT type, Alternative containingAlternative) {
+         this.type = type;
+         Parent = containingAlternative.GUID;
+      }
       [JsonConstructor]
-      public LastCall() { } // For deserialization
+      public LastCall() { type = LCT.None; } // For deserialization
 
-      public LastCall(Call call) : this(LCT.Standard) => this.call = call;
-      public LastCall(Group group) : this(LCT.Group) => this.group = group;
-      public LastCall(ID? label) : this(LCT.Repeat) => this.label = label;
+      public LastCall(Call call, Alternative containingAlternative) : this(LCT.Standard, containingAlternative) => this.call = call;
+      public LastCall(Group group, Alternative containingAlternative) : this(LCT.Group, containingAlternative) => this.group = group;
+      public LastCall(ID? label, Alternative containingAlternative) : this(LCT.Repeat, containingAlternative) => this.label = label;
 
       public bool TryGetCalled(out Algorithm? called) {
          if (type == LCT.Standard && call!.ContainingProc.Section!.TryGetDeclaration(call.id,out called)) return true;
@@ -988,8 +1000,8 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Alternative";
 #pragma warning restore CS0414
 #endif
-      [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls;
-      [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall;
+      [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls = [];
+      [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall = new();
       [JsonIgnore] public bool IsConditionalOff = false;
 
       public Alternative(List<Call> calls, LastCall lastCall, Notes notes, Group containingGroup) : base(ID.AnonID, synthetic:false) {
@@ -999,13 +1011,20 @@ namespace CDL2v1 {
          Parent = containingGroup.GUID;
       }
 
+      public Alternative(Notes notes, Group group) : base(ID.AnonID, synthetic: false) {
+         Notes = notes;
+         Parent = group.GUID;
+      }
+
+      [JsonConstructor] public Alternative() : base(ID.AnonID, synthetic: false) { } // For deserialization
+
       [JsonIgnore] public bool CanFail =>  calls.Any(call => call.CanFail) || 
-                              (lastCall.type == LCT.Standard && lastCall.call!.CanFail) || 
+                              (lastCall!.type == LCT.Standard && lastCall.call!.CanFail) || 
                               lastCall.type == LCT.Fail || 
                               (lastCall.type == LCT.Group && lastCall.group!.CanFail);
       private Call? FirstCall() {
          if (calls.Count > 0) return calls[0];
-         if (lastCall.type == LCT.Standard) return lastCall.call;
+         if (lastCall!.type == LCT.Standard) return lastCall.call;
          return null;
       }
 
@@ -1018,17 +1037,53 @@ namespace CDL2v1 {
       [JsonIgnore] public bool Terminates => lastCall.type == LCT.Fail || lastCall.type == LCT.Abort;
       [JsonIgnore] public bool IsConditionalCompilationOn => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOn;
       [JsonIgnore] public bool IsConditionalCompilationOff => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOff;
+
+      /// <summary>
+      /// If the last call position contained an actual call convert it to a LastCall
+      /// </summary>
+      public void NormalizeCalls() {
+         if (lastCall.type == LCT.None) {
+            lastCall = new LastCall(calls.Last(), this);
+            calls.RemoveAt(calls.Count - 1);
+         }
+      }
    }
-   // Note that the Id in this case is the label.
+
+   /// <summary>
+   /// Represents a group of alternatives
+   /// </summary>
+   /// <remarks>A group contains a collection of <see cref="Alternative"/>-s.
+   /// <see cref="Procedure"/>-s contain a single top level group. In this case the parent is the procedures.
+   /// A group nested in an alternative has the alteernative as its parent. Use 
+   /// </remarks>
    public class Group : NamedElement, IUnrecordedElement {
       [JsonInclude][JsonPropertyOrder(30)] public List<Alternative> Alternatives = [];
       [JsonConstructor]
       public Group() : base(ID.AnonID,synthetic: false) { }
-      public Group(ID? label,List<Alternative> alternatives,Group? parent,bool synthetic) : base(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
-         Parent = parent?.GUID ?? Guid.Empty;
+      public Group(ID label,Guid parentGuid) : base(label, synthetic: false) {
+         Parent = parentGuid;
+      }
+      public Group(ID? label,List<Alternative> alternatives,Guid parentGuid,bool synthetic) : base(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
+         Parent = parentGuid;
          Alternatives = alternatives;
       }
 
+      public Group? ParentGroup() {
+         NamedElement? parent = NamedElement.From<Group>(Parent);
+         if (parent is Group group) return group;
+         if (parent is Alternative alternative && alternative.lastCall.type == LCT.Group) {
+            return alternative.lastCall.group;
+         }
+         return null;
+      }
+      public bool HasLabeledAncestorGroup(ID label) {
+         Group? group = ParentGroup();
+         while (group != null) {
+            if (group.Id == label) return true;
+            group = group.ParentGroup();
+         }
+         return false;
+      }
       [JsonIgnore] public bool HasAnonymousRepeat => HasAnAnonymousRepeat();
       [JsonIgnore] public bool HasNoAnonymousRepeat => ! HasAnonymousRepeat;
       [JsonIgnore] public bool CanFail => Alternatives.Any(alternative => alternative.lastCall.type == LastCallType.Fail) || Alternatives.Last().CanFail;
