@@ -38,10 +38,10 @@ namespace CDL2v1 {
       /// <param Id="modulesWithLudes"></param>
       /// <param Id="Emitter"></param>
       /// <param Id="isSeparate"></param>
-      public void GenerateCode(Program program, EmitterBase emitter, bool isSeparate = false) {
+      public void GenerateCode(Program program, Emitter emitter, bool isSeparate = false) {
          foreach (Var var in Compiler.Reachable.Objects.OfType<Var>()) {
             if (Compiler.Reachable.AmbigousVars.Contains(var)) {
-               // We know the variable was written to, but we can't tell whther it was read (becasue it was only referenced in an ACTION/PREDICATE macro).
+               // We know the variable was written to, but we can't tell whether it was read (becasue it was only referenced in an ACTION/PREDICATE macro).
                var.AddNote("CodeGeneration", Note.VariableMayNotHaveBeenRead, var);
                Logger.ReportError($"Variable {var} may not have been read. It was only referenced in an ACTION/PREDICATE macro.");
             } else if (!Compiler.Reachable.ReadVars.Contains(var)) {
@@ -425,7 +425,7 @@ namespace CDL2v1 {
             sourceCommentPrinter.Print(alg);
             cg.GenerateSourceComment();
          } else {
-            cg.GenerateComment(alg.ToString());
+            cg.GenerateComment(alg.FQDN());
          }
       }
       /// <summary>
@@ -436,7 +436,7 @@ namespace CDL2v1 {
       private void GenerateProcedure(Procedure proc, int _) {
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
-         } else if (proc.IsInlinable(Compiler.Reachable)) {
+         } else if (!proc.IsSynthetic &&  proc.IsInlinable(Compiler.Reachable)) { // TODO: Inline synthetics if applicable
             GenerateAlgorithmComment(proc);
             cg.GenerateComment($"Procedure inlined");
          //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Compiler.Reachable).NumberOfTimesCalled == 0) {

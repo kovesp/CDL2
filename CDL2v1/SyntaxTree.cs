@@ -123,7 +123,7 @@ namespace CDL2v1 {
          Id = id;
          IsSynthetic = synthetic;
          GUID = Guid.NewGuid();
-         if (this is not IUnrecordedElement) Database.Instance.AddNamedElement(this); // Register the element in the database.
+         Database.Instance.AddNamedElement(this); // Register the element in the database.
       }
       /// <summary>
       /// Use when deserializing the element.
@@ -1147,7 +1147,7 @@ namespace CDL2v1 {
          }
          return sb.ToString();
       }
-      public string AsDecoratedCDL2String(EmitterBase emitter) => $"\"{EscapedCDL2(value)}\"".Decorate(emitter,SE.String);
+      public string AsDecoratedCDL2String(Emitter emitter) => $"\"{EscapedCDL2(value)}\"".Decorate(emitter,SE.String);
       override public string ToString() => $"\"{value}\"";
    }
    public class LIST : CDL2Object {

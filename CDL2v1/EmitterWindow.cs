@@ -11,7 +11,7 @@ using System.Windows.Media;
 using System.Windows.Documents;
 
 namespace CDL2v1 {
-   internal partial class EmitterWindow : EmitterBase {
+   internal partial class EmitterWindow : Emitter {
       private Window? window;
       private TextBlock? outputTextBlock;
       private readonly Dictionary<string,Brush> colorMap = [];

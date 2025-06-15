@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   internal class EmitterString : EmitterBase {
+   internal class EmitterString : Emitter {
 
       private string prefix = "";
       private string suffix = "";

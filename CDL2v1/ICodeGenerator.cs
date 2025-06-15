@@ -110,7 +110,7 @@ namespace CDL2v1 {
       ///   Only EmitterFile currently supports this.
       /// </param>
       /// <param name="isSeparate"></param>
-      void GenerateProgramStart(Program program, EmitterBase emitter, bool isSeparate = false);
+      void GenerateProgramStart(Program program, Emitter emitter, bool isSeparate = false);
       /// <summary>
       /// This is called at the end of the program.
       /// </summary>
@@ -530,7 +530,7 @@ namespace CDL2v1 {
       /// Provides the source comment printer for the target language.
       /// This is used to generate source code as comments into the target program.
       /// </summary>
-      EmitterBase SourceEmitter { get; }
+      Emitter SourceEmitter { get; }
       #endregion Support
    }
 }

@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   internal class EmitterDebug : EmitterBase {
+   internal class EmitterDebug : Emitter {
       private static readonly EmitterDebug Instance = new();
       public EmitterDebug() {
          Target = "Debug";

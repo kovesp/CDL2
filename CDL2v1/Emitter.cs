@@ -9,8 +9,8 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   public abstract class EmitterBase {
-      protected EmitterBase() { }
+   public abstract class Emitter {
+      protected Emitter() { }
 
       private void WriteDebug(string s) {
          if (!SupressDebug) EmitterDebug.WriteDebug(s);

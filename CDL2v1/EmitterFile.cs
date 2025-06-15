@@ -2,7 +2,7 @@
 using System.IO;
 
 namespace CDL2v1 {
-   internal class EmitterFile : EmitterBase {
+   internal class EmitterFile : Emitter {
       private StreamWriter? writer = null;
       private string? target = null;
 

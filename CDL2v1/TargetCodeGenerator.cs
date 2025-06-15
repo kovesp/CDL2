@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace CDL2v1 {
    internal partial class TargetCodeGenerator {
 
-      protected EmitterBase emitter = new EmitterSink();
+      protected Emitter emitter = new EmitterSink();
       #region Helpers
       protected void Newline(bool optional = false) {
          if (optional) emitter.EmitnlOption(); else emitter.Emitnl();

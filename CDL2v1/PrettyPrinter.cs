@@ -31,7 +31,7 @@ namespace CDL2v1 {
       private int IndentMultiplier { get; set; }        = DEFAULT_INDENT_MULTIPLIER;        // The indent multiplier
       private int MaxIndentIncrement { get; set; }      = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
    
-      public readonly EmitterBase Emitter;
+      public readonly Emitter Emitter;
 
       private bool IncludeComments = true;
 
@@ -155,7 +155,7 @@ namespace CDL2v1 {
       ///   or simpler
       ///    PrettyPrinter pp = new("output.txt");
       /// </example>
-      public PrettyPrinter(int width,int indent,int maxIndentIncrement,EmitterBase emitter,bool includeComments=true) {
+      public PrettyPrinter(int width,int indent,int maxIndentIncrement,Emitter emitter,bool includeComments=true) {
          this.LineLength = width;
          this.IndentMultiplier = indent;
          this.MaxIndentIncrement = maxIndentIncrement;
@@ -176,7 +176,7 @@ namespace CDL2v1 {
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified Emitter.
       /// </summary>
       /// <param Id="Emitter"></param>
-      public PrettyPrinter(EmitterBase emitter,bool includeComments=true) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter,includeComments) { }
+      public PrettyPrinter(Emitter emitter,bool includeComments=true) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter,includeComments) { }
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file Id.
       /// </summary>

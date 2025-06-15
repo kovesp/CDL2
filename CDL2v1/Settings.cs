@@ -63,6 +63,11 @@ namespace CDL2v1 {
             SettingsDict[SettingsList[i].Name] = SettingsList[i];
          }
       }
+
+      public static bool Verbosity(int level) => SettingValue<int>("VerbosityLevel") >= level;
+      public static bool DebugVerbosity(int level) => SettingValue<int>("DebugVerbosityLevel") >= level;
+      public static bool AnyVerbosity(int level) => Verbosity(level) || DebugVerbosity(level);
+
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static Setting<T>? Setting<T>(string name) {
          if (Instance.SettingsDict.TryGetValue(name, out ISetting? setting) && setting is Setting<T> typedSetting) {

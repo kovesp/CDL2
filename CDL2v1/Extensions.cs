@@ -163,6 +163,20 @@ namespace CDL2v1 {
    }
 
    public static class Extensions {
+      public static bool TRUE<T>(T _) => true;
+
+      /// <summary>
+      /// Eauivalent to pred ?? _ => true, but that syntax doesn't work.
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="predicate"></param>
+      /// <returns></returns>
+      public static Predicate<T> OrTrue<T>(this Predicate<T> predicate) => predicate ?? TRUE;
+      public static Func<T, bool> OrTrue<T>(this Func<T, bool> predicate) => predicate ?? TRUE;
+
+      public static IEnumerable<T> OptMap<T>(this IEnumerable<T> source,bool cond, Func<IEnumerable<T>, IEnumerable<T>> func) => cond ? func(source) : source;
+      public static IEnumerable<T> OptWhere<T>(this IEnumerable<T> source, Func<T,bool>? pred=null) => pred is not null ? source.Where(pred) : source;
+
       public static Type AsType(this string typeName) {
          if (string.IsNullOrWhiteSpace(typeName)) {
             throw new ArgumentException("Type name cannot be null or whitespace.", nameof(typeName));
@@ -212,25 +226,36 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Return the plural of the word word for count.
+      /// Does NOT handle words that are not pluralizable, such as "fish" or "sheep".
       /// </summary>
       /// <param name="count">Number of items.</param>
       /// <param name="word">The item name.</param>
       /// <param name="plural">If given the plural of word. Otherwise an s, es, or ies is added as ap appropriate.</param>
+      /// <param name="pad">If given, the plural is padded with spaces to the extent of what would be added after inserting the pad.</param>
+      /// <param name="countWidth">Width of the count in characters. Default is 3.</param>
       /// <returns></returns>
-      public static string Plural(this int count, string word, string? plural = null) {
-         string items;
-         if (count == 1) {
-            items = word;
-         } else if (plural != null) {
-            items = plural;
-         } else if (Regex.IsMatch(word, @"(s|sh|ch|x|z)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
-            items =  word + "es";
-         } else if (Regex.IsMatch(word, @"[^aeiou]y$", RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
-           items = Regex.Replace(word, "y$", "ies", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-         } else {
-            items = word + "s";
+      public static string Plural(this int count, string word, string? pad = null, string ? plural = null,int countWidth=3) {
+         string suffix;
+         if (plural is null) {
+            if (Regex.IsMatch(word, @"(s|sh|ch|x|z)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
+               suffix = "es";
+            } else if (Regex.IsMatch(word, @"[^aeiou]y$", RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
+               suffix = "ies";
+            } else {
+               suffix = "s";
+            }
+            if (count == 1) {
+               plural = $"{word}{(pad is not null?pad:"")}{new string(' ',suffix.Length)}";
+            } else {
+               if (suffix == "ies") {
+                  plural = Regex.Replace(word, "y$", "ies", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+               } else {
+                  plural = word + suffix;
+               }
+               plural += pad is not null ? pad : "";
+            }  
          }
-         return $"{count:N0} {items}";
+         return $"{string.Format($"{{0,{countWidth}:N0}}", count)} {plural}";
       }
       public static string Plural(this string word,int count,string? plural=null) => count.Plural(word, plural);
       /// <summary>
@@ -316,7 +341,7 @@ namespace CDL2v1 {
       /// <param name="element"></param>
       /// <param name="decoration"></param>
       /// <returns></returns>
-      internal static string Decorate(this string str,EmitterBase emitter,SE element,PrettyPrinter.Decoration? decoration=null) {
+      internal static string Decorate(this string str,Emitter emitter,SE element,PrettyPrinter.Decoration? decoration=null) {
          if (str == null) return "";
          if (emitter.SupportsDecoration) {
             if (element != SE.AlgorithmName) {
@@ -330,13 +355,13 @@ namespace CDL2v1 {
             return str;
          }
       }
-      internal static string Decorate(this RW rw,EmitterBase emitter,SE element) => rw.ToString().Decorate(emitter,element);
+      internal static string Decorate(this RW rw,Emitter emitter,SE element) => rw.ToString().Decorate(emitter,element);
       //internal static string Decorate(this string str,EmitterBase Emitter,SE element) =>str.Decorate(Emitter,element);
-      internal static string Decorate(this Token token,EmitterBase emitter,SE element) => token.TokenString.Decorate(emitter,element);
-      internal static string Decorate(this ID id,EmitterBase emitter,SE element) 
+      internal static string Decorate(this Token token,Emitter emitter,SE element) => token.TokenString.Decorate(emitter,element);
+      internal static string Decorate(this ID id,Emitter emitter,SE element) 
          => /*Id.Comments!.Decorate(Emitter,SE.Comment) +*/ id.Name.Decorate(emitter,element);
-      internal static string Decorate(this long i,EmitterBase emitter) => i.ToString().Decorate(emitter,SE.Number);
-      internal static string Decorate(this double d,EmitterBase emitter) => d.ToString().Decorate(emitter,SE.Number);
-      internal static string Decorate(this ID algorithmId,EmitterBase emitter,PrettyPrinter.Decoration decoration) => algorithmId.ToString().Decorate(emitter,SE.AlgorithmName,decoration);
+      internal static string Decorate(this long i,Emitter emitter) => i.ToString().Decorate(emitter,SE.Number);
+      internal static string Decorate(this double d,Emitter emitter) => d.ToString().Decorate(emitter,SE.Number);
+      internal static string Decorate(this ID algorithmId,Emitter emitter,PrettyPrinter.Decoration decoration) => algorithmId.ToString().Decorate(emitter,SE.AlgorithmName,decoration);
    }
 }

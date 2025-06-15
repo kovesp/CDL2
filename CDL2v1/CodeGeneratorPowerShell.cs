@@ -87,7 +87,7 @@ function Remove-Const([string[]]$names) {
       #endregion Instance and Static Varibles, Constructors
 
       #region Programs, Modules, Layers, Sections
-      void ICodeGenerator.GenerateProgramStart(Program program,EmitterBase emitter,bool isSeparate) {
+      void ICodeGenerator.GenerateProgramStart(Program program,Emitter emitter,bool isSeparate) {
          this.emitter = emitter;
          emitter.Emitnl(string.Format(ProgramHeader,CDL2.Version,program.Id.Name,DateTime.Now,DataType));
          if (program != null) {
@@ -440,7 +440,7 @@ function Remove-Const([string[]]$names) {
       string ICodeGenerator.FileExtension { get; } = ".ps1";
 
       private readonly EmitterString sourceEmitter = new(prefix:"# ");
-      EmitterBase ICodeGenerator.SourceEmitter => sourceEmitter;
+      Emitter ICodeGenerator.SourceEmitter => sourceEmitter;
       #endregion Support
 
       #region Helpers

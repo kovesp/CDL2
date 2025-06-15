@@ -105,8 +105,8 @@ namespace CDL2v1 {
       /// <param Id="level"></param>
       /// <param Id="message"></param>
       private static void _WriteLine(int level,string message) {
-         if (level <= Settings.SettingValue<int>("VerbosityLevel")) Console.WriteLine(message);
-         if (level <= Settings.SettingValue<int>("DebugVerbosityLevel")) Debug.WriteLine(message);
+         if (Settings.Verbosity(level)) Console.WriteLine(message);
+         if (Settings.DebugVerbosity(level)) Debug.WriteLine(message);
       }
    }
 }

@@ -75,7 +75,7 @@ namespace CDL2v1 {
       /// <param name="message">Optional termination message.</param>
       /// <returns></returns>
       public virtual void ReportNoteCounts(Reachable? reachable,string? message = null) {
-         Log(0, $"{PhaseName}: {Errors.Count().Plural("error")}, {Warnings.Count().Plural("warning")}, {Infos.Count().Plural("info message")}");
+         Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error",",")} {Warnings.Count().Plural("warning",",")} {Infos.Count().Plural("info message")}");
          if (message != null) Log(0, message);
 
          NoteType messages = Settings.SettingValue<NoteType>("Messages")!;
@@ -182,11 +182,7 @@ namespace CDL2v1 {
                }
             }
             if (MainProgram != null) {
-               //if (Settings.SettingValue<int>("DebugVerbosityLevel") >= 4) ID.Dump();            
-
                // Perform semantic checks
-
-
                SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
                if (SemanticAnalyzer.AbortCompilation()) return;
 
@@ -199,7 +195,7 @@ namespace CDL2v1 {
 
                string? PrettyPrint = Settings.SettingValue<string>("PrettyPrint");
                if (PrettyPrint != "" && (Database.Instance.Programs.Count > 0 || Database.Instance.Modules.Count > 0)) {
-                  EmitterBase emitter;
+                  Emitter emitter;
                   if (PrettyPrint == null) {
                      emitter = new EmitterDebug();
                   } else if (Regex.IsMatch(PrettyPrint, @"^w(?:indow)$", RegexOptions.IgnoreCase)) {
@@ -220,11 +216,12 @@ namespace CDL2v1 {
 
                   if (cg != null) {
                      string targetFileName = Path.ChangeExtension(args[0], cg.FileExtension);
-                     EmitterBase emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SupressDebug = true };
-                     Log(0, $"Generating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
+                     Emitter emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SupressDebug = true };
+                     Log(0, $"\nGenerating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
                      codeGenerator = new CodeGenerator(cg, Compiler);
                      codeGenerator.GenerateCode(MainProgram, emitter);
                      emitter.Close();
+                     Log(0, $"Code generation complete. Output written to {targetFileName}");
                   } else {
                      ReportError("No target code generator");
                   }

@@ -165,15 +165,18 @@ namespace CDL2v1 {
       /// <param name="Reachable"></param>
       public void AnalyzeUnused(Program mainProgram, Reachable Reachable) {
          int unused = 0;
+         SortedList<string,CDL2Object> unusedObjects = [];
          foreach (CDL2Object obj in Reachable.AllObjects) {
-            if (Reachable.Objects.Contains(obj) || mainProgram.Exports.ContainsKey(obj.Id)) {
+            if (Reachable.Objects.Contains(obj) /*|| mainProgram.Exports.ContainsKey(obj.Id)*/) {
                obj.Notes.Remove(Note.UnreferenceObject);
             } else {
                AddNote(obj, new Note(Note.UnreferenceObject,PhaseName,obj.ParentElement<CDL2Object>()!));
                unused++;
+               unusedObjects.Add(obj.Id.Name,obj);
             }
          }
          Log(0, $"There are {unused.Plural("unused object")} in the program");
+         if (Settings.AnyVerbosity(4)) foreach (CDL2Object obj in unusedObjects.Values) Log(1, $"  {obj}");
       }
 
       private void AnalyzeProgram(Program program) {

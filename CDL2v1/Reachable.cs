@@ -35,7 +35,7 @@ namespace CDL2v1 {
       public Set<ITrackedVar> AmbigousVars { get; private set; } = [];
       
       public void CollectAllObjects(Program program) {
-         AllObjects = Database.Instance.NamedElements.Values.OfType<CDL2Object>().ToSet<CDL2Object>();
+         AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => ! elem.IsImported,Extensions.ToSet);
          //foreach (Module module in program.Modules) {
          //   foreach (Layer layer in module.Layers) {
          //      foreach (Section section in layer.Sections) {
@@ -50,12 +50,13 @@ namespace CDL2v1 {
       }
 
       public void CollectReachableObjects(Program prog) {
+         collected = false;
+         collecting = true;
          Objects = [];
          ReadVars = [];
          AmbigousVars = [];
          ProcedureCalls = [];
-         collected = false;
-         collecting = true;
+
          foreach (RW ludeType in Container.LudeTypes) {
             foreach (ID id in prog.Ludes[ludeType]) {
                Module? module = Database.Instance.ModuleByName(id);
@@ -70,9 +71,9 @@ namespace CDL2v1 {
       }
 
       private static void LogObjectCount(Set<CDL2Object> objects, string sort) {
-         string CountObjects(Type type, Set<CDL2Object> objects) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name);
+         string CountObjects(Type type, Set<CDL2Object> objects,bool noComma = false) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name,noComma?null:",");
          Logger.Log(0, $"Collected {objects.Count.Plural("object")} {sort} ...");
-         Logger.Log(0, $"   {CountObjects(typeof(Const), objects)}, {CountObjects(typeof(Var), objects)}, {CountObjects(typeof(LIST), objects)}, {CountObjects(typeof(Macro), objects)}, {CountObjects(typeof(Procedure), objects)}.");
+         Logger.Log(0, $"   {CountObjects(typeof(Const),objects)} {CountObjects(typeof(Var),objects)} {CountObjects(typeof(LIST),objects)} {CountObjects(typeof(Macro),objects)} {CountObjects(typeof(Procedure),objects,noComma:true)}.");
       }
 
       public void CollectReachableObjects(Module module) => throw new NotImplementedException($"CollectReachableObjects: Not yet implemented for modules.");

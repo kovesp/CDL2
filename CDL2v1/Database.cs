@@ -193,13 +193,32 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="element"></param>
       public void AddNamedElement(NamedElement element) {
-         NamedElements[element.GUID] = element;
-         if (element is Program) {
-            Programs.Add(element.GUID);
-         } else if(element is Module) {
-            Modules.Add(element.GUID);
+         if (element is not IUnrecordedElement) {
+            NamedElements[element.GUID] = element;
+            if (element is Program) {
+               Programs.Add(element.GUID);
+            } else if (element is Module) {
+               Modules.Add(element.GUID);
+            }
          }
       }
+
+      /// <summary>
+      /// All named elements of a given type.
+      /// Mostly a debug convenience.
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <returns></returns>
+      public static IEnumerable<T> NamedElementsOfType<T>(Func<T, bool>? pred = null, Func<IEnumerable<T>,IEnumerable<T>>? mapper = null) where T : NamedElement
+         => Instance.NamedElements.Values.OfType<T>().OptWhere(pred).OptMap(mapper is not null, mapper!);
+      public static IEnumerable<T> NamedElementsOfType<T>(Func<T,bool>? pred=null,bool asList=false) where T : NamedElement => NamedElementsOfType<T>(pred, asList ? Enumerable.ToList : null);
+      public static IEnumerable<Const> NamedConsts(Func<Const,bool>? pred=null) => NamedElementsOfType<Const>(pred,true);
+      public static IEnumerable<LIST> NamedLists(Func<LIST, bool>? pred = null) => NamedElementsOfType<LIST>(pred, true);
+      public static IEnumerable<Var> NamedVars(Func<Var, bool>? pred = null) => NamedElementsOfType<Var>(pred, true);
+      public static IEnumerable<Algorithm> NamedAlgorithms(Func<Algorithm, bool>? pred = null) => NamedElementsOfType<Algorithm>(pred, true);
+      public static IEnumerable<Macro> NamedMacros(Func<Macro, bool>? pred = null) => NamedElementsOfType<Macro>(pred, true);
+      public static IEnumerable<Procedure> NamedProcedures(Func<Procedure, bool>? pred = null) => NamedElementsOfType<Procedure>(pred, true);
+
       /// <summary>
       /// Remove an element
       /// </summary>
