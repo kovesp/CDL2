@@ -10,24 +10,14 @@
       "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--pretty-print window --parse-only\r\n--allow-errors --save\r\n",
       "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
     },
-    "Database Save": {
-      "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--parse-only --save --allow-errors",
-      "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
-    },
-    "FileCG": {
-      "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v3 -d3",
-      "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
-    },
-    "ControlStructures": {
-      "commandName": "Project",
-      "commandLineArgs": "--sources ControlStructures.cdl2 -v3 -d3 --allow-errors",
-      "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
-    },
     "ParseOnly": {
       "commandName": "Project",
       "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d3\r\n--parse-only --allow-errors\r\n--messages Info --report-all",
+      "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
+    },
+    "LAB": {
+      "commandName": "Project",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v3 -d3 --allow-errors\r\n--messages Warning --lab",
       "workingDirectory": "C:\\Users\\koves\\source\\repos\\CDL2\\CDL2v1\\CDL2"
     }
   }

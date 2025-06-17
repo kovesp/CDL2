@@ -125,14 +125,14 @@ namespace CDL2v1 {
 
       public void CompileSources(string[] args) {
          Log(0, $"Options: --sources {string.Join(',', args)} {Settings.IntOption("VerbosityLevel")}{Settings.IntOption("DebugVerbosityLevel")}" +
-                                    $"{Settings.StringOption("Target")}{Settings.StringOption("ProgramName")}{Settings.BoolOption("SaveDB")}{Settings.StringOption("LoadDB")}" +
-                                    $"{Settings.BoolOption("ParseOnly")}{Settings.BoolOption("StopOnWarnings")}{Settings.BoolOption("AllowErrors")}" +
+                                    $"{Settings.StringOption("Target")}{Settings.StringOption("ProgramName")}{Settings.BoolOption("Lab")}{Settings.StringOption("DB")}" +
+                                    $"{Settings.BoolOption("ParseOnly")}{Settings.BoolOption("StopOnWarnings")}{Settings.BoolOption("AllowErrors")}{Settings.IntOption("Backups")}" +
                                     $"{Settings.StringOption("PrettyPrint")}");
 
-         string? labOption = Settings.SettingValue<string>("LoadDB");
-         if (labOption == null) labOption = "CDL2v1";
-         if (labOption != "") {
-            Database.Load(labOption);
+         if (Settings.LabMode) {
+            Database.Load();
+            SemanticAnalyzer = SemanticAnalysis(GetMainProgram()!, Reachable);
+            if (SemanticAnalyzer.AbortCompilation()) return;
 
             Thread CLIThread = new(() => {
                Application app = new();
@@ -153,8 +153,8 @@ namespace CDL2v1 {
             CLIThread.SetApartmentState(ApartmentState.STA);
             CLIThread.Start();
             CLIThread.Join(); // Wait for the command window to close before continuing
-
-         } else if (args.Length > 0) {
+            Database.Save();  // and save the dabase at exit.
+         } else if (args.Length > 0) { // File compiler mode
             Parser = new Parser(this);
             foreach (string arg in args) {
                string source = Path.GetFullPath(arg);
@@ -167,31 +167,14 @@ namespace CDL2v1 {
             if (Parser.AbortCompilation()) return;
 
             Program? MainProgram = null;
-            string? ProgramName = Settings.SettingValue<string>("ProgramName");
-            if (ProgramName == "" && Database.Instance.FirstProgram != null) {
-               MainProgram = Database.Instance.FirstProgram;
-            } else if (ProgramName != null && ProgramName != "") {
-               MainProgram = Database.Instance.ProgramByName(ProgramName);
-               if (MainProgram is null) {
-                  if (Database.Instance.FirstProgram != null) {
-                     MainProgram = Database.Instance.FirstProgram;
-                     ReportError($"Program {ProgramName} not found, using {MainProgram.Id} instead.");
-                  } else {
-                     ReportError("No program found");
-                  }
-               }
-            }
+            MainProgram = GetMainProgram();
             if (MainProgram != null) {
                // Perform semantic checks
                SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
                if (SemanticAnalyzer.AbortCompilation()) return;
 
-               if (Settings.SettingValue<bool>("SaveDB")) {
-                  Database.Save("CDL2v1");
-                  Database.Load("CDL2v1");
-                  SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
-                  if (SemanticAnalyzer.AbortCompilation()) return;
-               }
+               // Save the databse after parsing and semantic analysis
+               Database.Save();
 
                string? PrettyPrint = Settings.SettingValue<string>("PrettyPrint");
                if (PrettyPrint != "" && (Database.Instance.Programs.Count > 0 || Database.Instance.Modules.Count > 0)) {
@@ -233,6 +216,26 @@ namespace CDL2v1 {
                SemanticAnalyzer.ReportNoteCounts(Reachable);
             }
          }
+      }
+
+      private static Program? GetMainProgram() {
+         Program? program = null;
+         string? ProgramName = Settings.SettingValue<string>("ProgramName");
+         if (ProgramName == "" && Database.Instance.FirstProgram != null) {
+            program = Database.Instance.FirstProgram;
+         } else if (ProgramName != null && ProgramName != "") {
+            program = Database.Instance.ProgramByName(ProgramName);
+            if (program is null) {
+               if (Database.Instance.FirstProgram != null) {
+                  program = Database.Instance.FirstProgram;
+                  ReportError($"Program {ProgramName} not found, using {program.Id} instead.");
+               } else {
+                  ReportError("No program found");
+               }
+            }
+         }
+
+         return program;
       }
 
       private SemanticAnalyzer SemanticAnalysis(Program MainProgram,Reachable reachable) {

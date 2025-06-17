@@ -18,9 +18,6 @@ using System.Windows.Input;
 namespace CDL2v1 {
 
    public static class Serializer {
-
-      private const string DBExtension = ".lab"; // Database file extension
-      private const string compressedDBExtension = ".lab.gz";
       public static string SerializeElement<T>(T element) where T : NamedElement => JsonSerializer.Serialize(element, serializationOptions);
       public static T DeserializeElement<T>(Database.UndoRecord<NamedElement> undo) where T : NamedElement {
          T? element = JsonSerializer.Deserialize(undo.SerializedElement, undo.RecordType.AsType(), serializationOptions) as T;
@@ -45,13 +42,17 @@ namespace CDL2v1 {
       };
 
 #if COMPRESSED_DATABASE
+      public const string DBExtension = ".lab.gz";
+
       /// <summary>
       /// Saves the database as compressed JSON.
       /// </summary>
-      /// <param name="filePath">Base path for the file (extension will be replaced)</param>
+      /// <param name="path">Base path for the file (extension will be replaced)</param>
       /// TODO: Add a backup capbility to save the previous database as a backup before overwriting
-      public static void SaveDB(string filePath) {
-         string path = Path.ChangeExtension(filePath, compressedDBExtension);
+      public static void SaveDB(string? path=null) {
+         path ??= Settings.LabDB; // Use the default lab database path if not provided
+         if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
+         //TODO: Add a backup capability to save the previous database as a backup before overwriting
          Logger.logger.WriteLine(1, $"CDL2: Saving compressed database to {path}");
 
          // Serialize to JSON first
@@ -65,12 +66,15 @@ namespace CDL2v1 {
       /// <summary>
       /// Loads a compressed JSON database from a file.
       /// </summary>
-      /// <param name="filePath">Base path for the file (extension will be replaced)</param>
+      /// <param name="path">Path for the file (extension will be replaced). Use the path form settings if not given.</param>
       /// <param name="push">Whether to push the loaded database onto the stack</param>
       /// <param name="databaseName">Name for the loaded database</param>
       /// <returns>The loaded database or null if loading failed</returns>
-      public static Database? LoadDB(string filePath, bool push = true, string databaseName = "Loaded Compressed Database") {
-         string path = Path.ChangeExtension(filePath, compressedDBExtension);
+      public static Database? LoadDB(string? path=null, bool push = true, string databaseName = "Loaded Compressed Database") {
+         path ??= Settings.LabDB; // Use the default lab database path if not provided
+         if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
+         if (!Path.Exists(path)) throw new FileNotFoundException($"CDL2: Database file not found at {path}");
+
          Logger.logger.WriteLine(1, $"CDL2: Loading compressed database from {path}");
 
          try {
@@ -92,8 +96,9 @@ namespace CDL2v1 {
          }
       }
 #else
+      public const string DBExtension = ".lab";
       public static void SaveDB(string filePath) {
-         string path = Path.ChangeExtension(filePath, dbextension);
+         string path = Path.ChangeExtension(filePath, DBExtension);
 
          Logger.logger.WriteLine(1, $"Saving database to {path}");
          string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
@@ -102,7 +107,7 @@ namespace CDL2v1 {
 
 
       public static Database? LoadDB(string filePath, bool push = true, string databaseName="Loaded Database") {
-         string path = Path.ChangeExtension(filePath, dbextension);
+         string path = Path.ChangeExtension(filePath, DBExtension);
 
          Logger.logger.WriteLine(1, $"Loading database from {path}");
          string json = File.ReadAllText(path);

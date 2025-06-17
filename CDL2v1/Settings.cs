@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.ComponentModel;
+using System.IO;
 
 namespace CDL2v1 {
    public interface ISetting {
@@ -32,12 +33,12 @@ namespace CDL2v1 {
 
    public class Settings {
       private readonly List<ISetting> SettingsList = [
-         new Setting<string[]>("Sources",            "--sources","The source files to compile"),
+         new Setting<string[]>("Sources",            "--sources",                          "The source files to compile. Ignored if the --lab option is given."),
          new Setting<int>(     "VerbosityLevel",     ["-v", "--verbose"],   -1,            "Set the verbosity level (0-3)"),
          new Setting<int>(     "DebugVerbosityLevel",["-d", "--debug-log"], -1,            "Set the debug verbosity level (0-3)"),
          new Setting<string>(  "Target",             ["-t","--target"],     "PowerShell",  "Generate code for the specified target language. Default is PowerShell."),
          new Setting<string>(  "ProgramName",        ["-p","--program"],    "",            "Make program the one for which code is generated. The default is the first or only program that has been read."),
-         new Setting<bool>(    "SaveDB",              "--save",             false,         "Save the parsed code to a file using JSON"),
+         new Setting<bool>(    "Lab",                 "--lab",              false,         "Run in CDL2 Lab mode. The database is opened from the file specified in the --db option in --output-dir and the lab prompt is shown."),
          new Setting<bool>(    "ParseOnly",           "--parse-only",       false,         "Do not generate code. Verifies whether the source is syntactically and semantically valid."),
          new Setting<bool>(    "StopOnWarnings",      "--stop-on-warnings", false,         "Stop processing if any warnings are generated."),
          new Setting<bool>(    "AllowErrors",         "--allow-errors",     false,         "Continue even if there are errors. Mainly for debugging the Compiler."),
@@ -49,9 +50,8 @@ namespace CDL2v1 {
          new Setting<int>(     "MaxInlineCalls",      "--max-inline-calls", 9,             "Maximum number of calls that can be inlined. This is a product of the number of calls in the procedure and the number of times the procedure is called. However, if the procedure contains a single call, it is always inlineable."),
          new Setting<bool>(    "ReportAll",           "--report-all",       false,         "Report all messages (subject to --messages). Normally messages for non-reachable objects are suppressed"),
          new Setting<NoteType>("Messages",            "--messages",         NoteType.Error,"Which messages should be shown: Error, Warning, Info. Default is errors only"),
-         new Setting<string?>( "LoadDB",              "--lab",              "",            "If given --sources is ignored and the code is loaded from the specified database file.",ArgumentArity.ZeroOrOne),
-
-
+         new Setting<string>(  "DB",                  "--db",               "CDL2v1",      "The filename in --output-dir that contains the serialized lab data. The extension is .lab.gz. At exit the current parse tree is always saved."),
+         new Setting<int>(     "Backups",             "--backups",          3,             "The number of backups of the lab file to keep. Extensions are .lab.gz.1 ...NOT IMPLEMENTED."),
       ];
       private readonly Dictionary<string, ISetting> SettingsDict = [];
 
@@ -67,6 +67,10 @@ namespace CDL2v1 {
       public static bool Verbosity(int level) => SettingValue<int>("VerbosityLevel") >= level;
       public static bool DebugVerbosity(int level) => SettingValue<int>("DebugVerbosityLevel") >= level;
       public static bool AnyVerbosity(int level) => Verbosity(level) || DebugVerbosity(level);
+
+      public static string OutputDirectory => SettingValue<string>("OutputDirectory") ?? Directory.GetCurrentDirectory();
+      public static string LabDB => Path.ChangeExtension(Path.Combine(OutputDirectory,SettingValue<string>("DB") ?? "CDL2v1"), Serializer.DBExtension);
+      public static bool LabMode => SettingValue<bool>("Lab");
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static Setting<T>? Setting<T>(string name) {

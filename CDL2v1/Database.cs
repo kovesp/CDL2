@@ -286,8 +286,8 @@ namespace CDL2v1 {
       internal Module? ModuleByName(ID moduleId) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleId);
 
 
-      public static void Save(string filePath) => Serializer.SaveDB(filePath);
-      public static void Load(string filePath) => Serializer.LoadDB(filePath);
+      public static void Save(string? filePath=null) => Serializer.SaveDB(filePath);
+      public static void Load(string? filePath=null) => Serializer.LoadDB(filePath);
 
    }
 
