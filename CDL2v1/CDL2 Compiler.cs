@@ -109,10 +109,13 @@ namespace CDL2v1 {
       public static readonly CDL2 Compiler;
 
       public CompilationPhase? CompilationPhase;
-
       private static void Main(string[] args) {
          Log(0, $"CDL2 Compiler v{Version}");
 
+         // Load saved settings first
+         Settings.LoadSettings();
+         
+         // Then process command line args (they'll override saved settings)
          Settings.ProcessCommandLine(args);
 
          Compiler.CompileSources(Settings.SettingValue<string[]>("Sources")!);

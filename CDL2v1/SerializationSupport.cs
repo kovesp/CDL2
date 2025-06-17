@@ -290,9 +290,7 @@ namespace CDL2v1 {
          return ID.From(idString);
       }
 
-      public override void Write(Utf8JsonWriter writer, ID value, JsonSerializerOptions options) {
-         writer.WriteStringValue(value.CanonicalName);
-      }
+      public override void Write(Utf8JsonWriter writer, ID value, JsonSerializerOptions options) => writer.WriteStringValue(value.CanonicalName);
    }
 
    /// <summary>
