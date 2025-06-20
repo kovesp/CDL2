@@ -146,7 +146,7 @@ namespace CDL2v1 {
                // Handle commands
                commandWindow.CommandEntered += (sender, command) => {
                   // Parse and execute command
-                  Command.Type commandType = Command.Identify(command);
+                  CommandType commandType = Abbreviation<CommandType>.IdentifyCommand(command);
                   CLI.IntepretCommand(command, commandType, commandWindow);
                };
                commandWindow.Closed += (s, e) => app.Shutdown();

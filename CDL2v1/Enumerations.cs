@@ -106,7 +106,7 @@ namespace CDL2v1 {
       PREDICATE,
       NOTE,
 
-      // Reserved for future as a call qualifier. 
+      // Reserved for use as a call qualifier. 
       // Examples of called built-ins might be:
       // FUNCTION date string+date>.
       // FUNCTION time string+time>.
@@ -117,7 +117,7 @@ namespace CDL2v1 {
       // FUNCTION environment variable*name+value>.
       // TEST     is environment variable*name.       // Is it defined?
       // TEST     is target*target                    // The target the given one? In principle can be used to select code for different targets.
-      // Syntex and usage examples:
+      // Syntax and usage examples:
       //   FUNCTION add+>a+>b+c>:
       //      BUILTIN is target*"PowerShell", ps add+a+b+c;
       //      BUILTIN is target*"C#", cs add+a+b+c;
@@ -130,6 +130,64 @@ namespace CDL2v1 {
       //   
       BUILTIN,
       NONE,
+   }
+
+   /// <summary>
+   /// Command types for the command interpreter. See the Commands set in Abbreviations.
+   /// </summary>
+   public enum CommandType {
+      INVALID,
+      focus,
+      next,
+      prev,
+      list,
+      print,
+      set,
+      replace,
+      rename,
+      append,
+      insert,
+      edit,
+      undo,
+      generate,
+      status,
+      quit,
+      help,
+   }
+
+   /// <summary>
+   /// Focus types. Note that the END... RW are omitted but sub parts (e.g., CALL) are added. See the FocustTypes set in Abbreviations
+   /// </summary>
+   public enum FocusType {
+      INVALID,
+      PROGRAM,
+      PART,
+      MODULE,
+      LAYER,
+      SECTION,
+      ABSTR,
+      EXT,
+      INV,
+      EXPORT,
+      IMPORT,
+      ROOT,
+      PRELUDE,
+      POSTLUDE,
+      CONST,
+      VAR,
+      LIST,
+      ACTION,
+      FUNCTION,
+      TEST,
+      PREDICATE,
+      NOTE,
+      ALTERNATIVE,
+      GROUP,
+      CALL,
+      ALGORITHM,
+      AFFIX,
+      LOCAL,
+      ARG,
    }
 
    /// <summary>

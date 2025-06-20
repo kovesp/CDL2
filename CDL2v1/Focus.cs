@@ -1,11 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.CommandLine;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
+
+   public class FocusSegment { }
+   public class  UnitSegment(FocusType type) : FocusSegment {
+      public FocusType Type { get; set; } = type;
+   }
+   public class IDSegment(string name) : FocusSegment {
+      public string Name { get; set; } = name;
+   }
 
    /// <summary>
    /// Provides fuctionality releated to the current object, the Focus, of the CDL2 Laboratory
@@ -55,7 +65,7 @@ namespace CDL2v1 {
       /// To dive in, the top level group will be the element. In deeper groups that group will be the element.
       /// </remarks>
       [JsonInclude, JsonPropertyOrder(0)]
-      public Guid ElementGuid = Guid.Empty;
+      public Guid ObjectGuid = Guid.Empty;
       /// <summary>
       /// The currently focused suebelment.
       /// 0 if the focus is on the entrie NamedElement, > 0 otherwise.
@@ -88,10 +98,101 @@ namespace CDL2v1 {
       [JsonInclude, JsonPropertyOrder(4)]
       public RW ListType = RW.NONE;
 
+      /// <summary>
+      /// Parse the focus string and set the focus if it is valid.
+      /// Currently supports format of the form: RW1 name1 RW2 name2 ... where RW is a reserved word (all capital letters)
+      /// and name is an ID (starting with lowercase and can contain special characters).
+      /// </summary>
+      /// <param name="focusString">String in format "UPPERlowerUPPERlower"</param>
+      /// <returns>True if focus was successfully set, false otherwise</returns>
+      public static bool SetFocus(string focusString) {
+         if (string.IsNullOrWhiteSpace(focusString)) return false;
+         
+         // Match alternating patterns of uppercase and lowercase segments
+         Regex regex = new Regex(@"([A-Z]+)|([a-z][a-z\W]*)", RegexOptions.Compiled);
+         MatchCollection matches = regex.Matches(focusString);
+
+         List<FocusSegment> parts = [];
+         bool expectUppercase = true; // Start expecting uppercase
+         
+         foreach (Match match in matches) {
+            string segment = match.Value;
+            bool isUppercase = segment.All(char.IsUpper);
+            
+            // Check if we're following the alternating pattern
+            if ((expectUppercase && !isUppercase) || (!expectUppercase && isUppercase)) {
+               // Pattern violation - not alternating as expected
+               return false;
+            }
+            
+            if (expectUppercase) {
+               FocusType type = Abbreviation<FocusType>.IdentifyFocusType(segment);
+               if (type == FocusType.INVALID) return false;
+               parts.Add(new UnitSegment(type));
+            } else {
+               parts.Add(new IDSegment(segment)); // Add as ID segment
+            }
+            expectUppercase = !expectUppercase; // Toggle for next iteration
+         }
+
+         // Using the parts locate the actual focus
+         Focus newFocus = new Focus();
+
+         // Add the new focus to the stack
+         Stack.Push(newFocus);
+         return true;
+      }
+
+      /// <summary>
+      /// Try to find a named element based on the uppercase type and lowercase name
+      /// </summary>
+      private static bool TryGetObjectFromPattern(string upperType, string lowerName, out NamedElement? element) {
+         element = null;
+         
+         // Map the uppercase part to a specific type of element to search for
+         switch (upperType) {
+            case "PROG":
+               element = Database.Instance.ProgramByName(lowerName);
+               break;
+            case "MOD":
+               element = Database.Instance.ModuleByName(lowerName);
+               break;
+            case "LAY":
+               // Would need to search through layers of relevant module
+               // This is a simplification - you'd need proper hierarchy traversal
+               break;
+            case "SEC":
+               // Would need to search through sections in a layer
+               break;
+            // Add other cases as needed
+         }
+         
+         return element != null;
+      }
+
+      /// <summary>
+      /// Process the second pair of uppercase/lowercase parts to set additional focus properties
+      /// </summary>
+      private static void ProcessSecondPair(Focus focus, string upperType, string lowerDetail) {
+         // Based on the uppercase type, set appropriate properties
+         if (Enum.TryParse<RW>(upperType, out RW listType)) {
+            focus.ListType = listType;
+            focus.SubObjectDepth = 1;
+            
+            // Try to parse the lowercase detail as an index/ordinal if applicable
+            if (int.TryParse(lowerDetail, out int ordinal)) {
+               focus.SubObjectOrdinal = ordinal;
+            }
+         }
+      }
+
+      /// <summary>
+      /// The currently focused NamedElement
+      /// </summary>
       [JsonIgnore]
-      public NamedElement? Element {
-         get => ElementGuid == Guid.Empty ? null : NamedElement.From<NamedElement>(ElementGuid);
-         set => ElementGuid = value?.GUID ?? Guid.Empty;
+      public NamedElement? Object {
+         get => ObjectGuid == Guid.Empty ? null : NamedElement.From<NamedElement>(ObjectGuid);
+         set => ObjectGuid = value?.GUID ?? Guid.Empty;
       }
    }
 }

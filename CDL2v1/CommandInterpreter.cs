@@ -6,86 +6,31 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   public class Command(string name, int minLength) {
-      public readonly string Name = name;
-      public readonly int MinLength = minLength;
-      public readonly Type CommandType = (Type)Enum.Parse(typeof(Type), name, true);
-      public enum Type {
-         INVALID,
-         focus,
-         next,
-         prev,
-         list,
-         print,
-         set,
-         replace,
-         rename,
-         append,
-         insert,
-         edit,
-         undo,
-         generate,
-         status,
-         quit,
-         help,
-      }
-      private readonly static Set<Command> Commands = [
-         new ("focus"   , 1),
-         new ("next"    , 1),
-         new ("prev"    , 1),
-         new ("list"    , 1),
-         new ("print"   , 2),
-         new ("set"     , 3),
-         new ("replace" , 1),
-         new ("rename"  , 3),
-         new ("append"  , 1),
-         new ("insert"  , 1),
-         new ("edit"    , 1),
-         new ("undo"    , 1),
-         new ("generate", 1),
-         new ("quit"    , 4),
-         new ("help"    , 1),
-         new ("status"  , 4),
-      ];
-
-      public static Type Identify(string command) {
-         if (string.IsNullOrWhiteSpace(command)) return Type.INVALID;
-         command = command.Trim().ToLower();
-         foreach (Command cmd in Commands) {
-            if (command.Length >= cmd.MinLength && cmd.Name.StartsWith(command)) {
-               return cmd.CommandType;
-            }
-         }
-         return Type.INVALID;
-      }
-
-      public override string ToString() => $"CMD[{Name[..MinLength].ToUpper()}{Name[MinLength..]}]";
-   }
    internal class CommandInterpreter {
-      internal void IntepretCommand(string command, Command.Type commandType, CommandPromptWindow commandWindow) {
+      internal void IntepretCommand(string command, CommandType commandType, CommandPromptWindow commandWindow) {
          IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          switch (commandType) {
-            case Command.Type.INVALID:
+            case CommandType.INVALID:
                commandWindow.WriteLine($"Invalid command: {command}");
                return;
-            case Command.Type.focus:
+            case CommandType.focus:
                // Handle focus command
                commandWindow.WriteLine("Focus command executed");
                break;
-            case Command.Type.next:
+            case CommandType.next:
                // Handle next command
                commandWindow.WriteLine("Next command executed");
                break;
-            case Command.Type.prev:
+            case  CommandType.prev:
                // Handle previous command
                commandWindow.WriteLine("Previous command executed");
                break;
-            case Command.Type.list:
+            case CommandType.list:
                // Trial command to list modules
                Database.Instance.Modules.ForEach(modGuid => commandWindow.WriteLine(NamedElement.From<Module>(modGuid)?.FQDN()??""));
                break;
-            case Command.Type.print:
+            case CommandType.print:
                // Handle print command
                string[] parts = command.Split(' ', 2);
                if (parts.Length < 2) {
@@ -95,7 +40,7 @@ namespace CDL2v1 {
                string message = parts[1];
                commandWindow.WriteLine($"Print: {message}");
                break;
-            case Command.Type.set:
+            case CommandType.set:
                // Handle set command
                parts = command.Split(' ', 3);
                if (parts.Length < 3) {
@@ -107,26 +52,26 @@ namespace CDL2v1 {
                // Set logic here
                commandWindow.WriteLine($"Set {key} to {value}");
                break;
-            case Command.Type.status:
+            case CommandType.status:
                Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,"in all modules",commandWindow.WriteLine);
                break;
-            case Command.Type.rename:
+            case CommandType.rename:
                break;
-            case Command.Type.replace:
-            case Command.Type.append:
-            case Command.Type.insert:
-            case Command.Type.edit:
-            case Command.Type.undo:
+            case CommandType.replace:
+            case CommandType.append:
+            case CommandType.insert:
+            case CommandType.edit:
+            case CommandType.undo:
                break;
-            case Command.Type.quit:
+            case CommandType.quit:
                commandWindow.Close();
                return;
-            case Command.Type.help:
+            case CommandType.help:
                commandWindow.WriteLine("Available commands:");
                commandWindow.WriteLine("  generate        - Generate code");
                commandWindow.WriteLine("  quit            - Close this window");
                break;
-            case Command.Type.generate:
+            case CommandType.generate:
                // TDOD: Pass the program derivable from the focus or settings. Same for the target code generator.
                Program? program = CDL2.GetMainProgram();
                if (program is not null) {
