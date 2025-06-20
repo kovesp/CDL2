@@ -19,41 +19,47 @@ namespace CDL2v1 {
          print,
          set,
          replace,
+         rename,
          append,
          insert,
          edit,
          undo,
          generate,
+         status,
          quit,
          help,
       }
       private readonly static Set<Command> Commands = [
          new ("focus"   , 1),
-            new ("next"    , 1),
-            new ("prev"    , 1),
-            new ("list"    , 1),
-            new ("print"   , 2),
-            new ("set"     , 3),
-            new ("replace" , 1),
-            new ("append"  , 1),
-            new ("insert"  , 1),
-            new ("edit"    , 1),
-            new ("undo"    , 1),
-            new ("generate", 1),
-            new ("quit"    , 4),
-            new ("help"    , 1),
-         ];
+         new ("next"    , 1),
+         new ("prev"    , 1),
+         new ("list"    , 1),
+         new ("print"   , 2),
+         new ("set"     , 3),
+         new ("replace" , 1),
+         new ("rename"  , 3),
+         new ("append"  , 1),
+         new ("insert"  , 1),
+         new ("edit"    , 1),
+         new ("undo"    , 1),
+         new ("generate", 1),
+         new ("quit"    , 4),
+         new ("help"    , 1),
+         new ("status"  , 4),
+      ];
 
       public static Type Identify(string command) {
          if (string.IsNullOrWhiteSpace(command)) return Type.INVALID;
-         command = command.Trim().ToLowerInvariant();
+         command = command.Trim().ToLower();
          foreach (Command cmd in Commands) {
-            if (command.Length >= cmd.MinLength && command.StartsWith(cmd.Name)) {
+            if (command.Length >= cmd.MinLength && cmd.Name.StartsWith(command)) {
                return cmd.CommandType;
             }
          }
          return Type.INVALID;
       }
+
+      public override string ToString() => $"CMD[{Name[..MinLength].ToUpper()}{Name[MinLength..]}]";
    }
    internal class CommandInterpreter {
       internal void IntepretCommand(string command, Command.Type commandType, CommandPromptWindow commandWindow) {
@@ -77,7 +83,7 @@ namespace CDL2v1 {
                break;
             case Command.Type.list:
                // Trial command to list modules
-               Database.Instance.Modules.ForEach(modGuid => commandWindow.WriteLine(NamedElement.From<Module>(modGuid).FQDN()));
+               Database.Instance.Modules.ForEach(modGuid => commandWindow.WriteLine(NamedElement.From<Module>(modGuid)?.FQDN()??""));
                break;
             case Command.Type.print:
                // Handle print command
@@ -101,6 +107,11 @@ namespace CDL2v1 {
                // Set logic here
                commandWindow.WriteLine($"Set {key} to {value}");
                break;
+            case Command.Type.status:
+               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,"in all modules",commandWindow.WriteLine);
+               break;
+            case Command.Type.rename:
+               break;
             case Command.Type.replace:
             case Command.Type.append:
             case Command.Type.insert:
@@ -116,9 +127,13 @@ namespace CDL2v1 {
                commandWindow.WriteLine("  quit            - Close this window");
                break;
             case Command.Type.generate:
-
+               // TDOD: Pass the program derivable from the focus or settings. Same for the target code generator.
+               Program? program = CDL2.GetMainProgram();
+               if (program is not null) {
+                  CDL2.GenerateCode(out string targetFileName,program);
+                  commandWindow.WriteLine($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
+               }
                break;
-
             default:
                   // Handle other commands as needed
                break;

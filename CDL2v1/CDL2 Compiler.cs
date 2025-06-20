@@ -124,7 +124,6 @@ namespace CDL2v1 {
       public Parser? Parser;
       public Reachable Reachable = new();
       public SemanticAnalyzer? SemanticAnalyzer;
-      public CodeGenerator? codeGenerator;
 
       public void CompileSources(string[] args) {
          Log(0, $"Options: --sources {string.Join(',', args)} {Settings.IntOption("VerbosityLevel")}{Settings.IntOption("DebugVerbosityLevel")}" +
@@ -196,21 +195,7 @@ namespace CDL2v1 {
                }
 
                if (!Settings.SettingValue<bool>("ParseOnly")) {
-                  ICodeGenerator? cg = CreateCodeGenerator(Settings.SettingValue<string>("Target")!);
-
-                  Debug.Assert(MainProgram != null);
-
-                  if (cg != null) {
-                     string targetFileName = Path.ChangeExtension(args[0], cg.FileExtension);
-                     Emitter emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SupressDebug = true };
-                     Log(0, $"\nGenerating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
-                     codeGenerator = new CodeGenerator(cg, Compiler);
-                     codeGenerator.GenerateCode(MainProgram, emitter);
-                     emitter.Close();
-                     Log(0, $"Code generation complete. Output written to {targetFileName}");
-                  } else {
-                     ReportError("No target code generator");
-                  }
+                  GenerateCode(out _,MainProgram);
                }
 
                Log(0, "");
@@ -221,7 +206,26 @@ namespace CDL2v1 {
          }
       }
 
-      private static Program? GetMainProgram() {
+      public static void GenerateCode(out string targetFileName,Program? MainProgram = null,string? Target=null) {
+         MainProgram ??= CDL2.GetMainProgram();
+         ICodeGenerator? cg = CreateCodeGenerator(Target ?? Settings.SettingValue<string>("Target")!);
+
+         targetFileName = "";
+
+         if (cg != null) {
+            targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name, cg.FileExtension));
+            Emitter emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SupressDebug = true };
+            Log(0, $"\nGenerating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
+            CodeGenerator codeGenerator = new(cg, Compiler);
+            codeGenerator.GenerateCode(MainProgram, emitter);
+            emitter.Close();
+            Log(0, $"Code generation complete. Output written to {targetFileName}");
+         } else {
+            ReportError("No target code generator");
+         }
+      }
+
+      public static Program? GetMainProgram() {
          Program? program = null;
          string? ProgramName = Settings.SettingValue<string>("ProgramName");
          if (ProgramName == "" && Database.Instance.FirstProgram != null) {
@@ -245,7 +249,7 @@ namespace CDL2v1 {
          SemanticAnalyzer semanticAnalyzer = new (this);
          semanticAnalyzer.Analyze(MainProgram);
          // The following two calls always clear any previously collected objects, so we can report unused objects.
-         reachable.CollectAllObjects(MainProgram);       // Collect all the objects in the modules comprising the program, so we can report unused objects.
+         reachable.CollectAllObjects();       // Collect all the objects in the modules comprising the program, so we can report unused objects.
          reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
          semanticAnalyzer.AnalyzeUnused(MainProgram, reachable);
          return semanticAnalyzer;

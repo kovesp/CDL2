@@ -12,10 +12,10 @@ namespace CDL2v1 {
    public partial class CommandPromptWindow : Window {
       private readonly ObservableCollection<string> _outputLines = [];
       private readonly History _commandHistory = new();
-      private bool _isInitializing = true;
+      // private bool _isInitializing = true;
 
       // Event raised when a command is entered
-      public event EventHandler<string> CommandEntered;
+      public event EventHandler<string>? CommandEntered;
 
       // Store the last height of the output area for restore functionality
       private double _lastOutputHeight = 0;
@@ -49,7 +49,7 @@ namespace CDL2v1 {
          // Focus on the window so it can receive keyboard input
          Loaded += (s, e) => {
             Keyboard.Focus(this);
-            _isInitializing = false;
+            //_isInitializing = false;
          };
       }
 

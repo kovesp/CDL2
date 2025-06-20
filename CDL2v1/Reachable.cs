@@ -34,18 +34,8 @@ namespace CDL2v1 {
       public Set<ITrackedVar> ReadVars { get;  private set; } = [];
       public Set<ITrackedVar> AmbigousVars { get; private set; } = [];
       
-      public void CollectAllObjects(Program program) {
+      public void CollectAllObjects() {
          AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => ! elem.IsImported,Extensions.ToSet);
-         //foreach (Module module in program.Modules) {
-         //   foreach (Layer layer in module.Layers) {
-         //      foreach (Section section in layer.Sections) {
-         //         foreach (CDL2Object cdl2object in section.Declarations.AsCDL2Objects<CDL2Object>()) {
-         //            AllObjects.Add(cdl2object);
-         //         }
-         //      }
-         //   }
-         //}
-
          LogObjectCount(AllObjects, "in all modules");
       }
 
@@ -70,10 +60,11 @@ namespace CDL2v1 {
          LogObjectCount(Objects, $"reachable from {prog}");
       }
 
-      private static void LogObjectCount(Set<CDL2Object> objects, string sort) {
+      public static void LogObjectCount(Set<CDL2Object> objects, string sort,Action<string>? logger=null) {
+         logger ??= str => Logger.Log(0,str);
          string CountObjects(Type type, Set<CDL2Object> objects,bool noComma = false) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name,noComma?null:",");
-         Logger.Log(0, $"Collected {objects.Count.Plural("object")} {sort} ...");
-         Logger.Log(0, $"   {CountObjects(typeof(Const),objects)} {CountObjects(typeof(Var),objects)} {CountObjects(typeof(LIST),objects)} {CountObjects(typeof(Macro),objects)} {CountObjects(typeof(Procedure),objects,noComma:true)}.");
+         logger($"Collected {objects.Count.Plural("object")} {sort} ...");
+         logger($"   {CountObjects(typeof(Const),objects)} {CountObjects(typeof(Var),objects)} {CountObjects(typeof(LIST),objects)} {CountObjects(typeof(Macro),objects)} {CountObjects(typeof(Procedure),objects,noComma:true)}.");
       }
 
       public void CollectReachableObjects(Module module) => throw new NotImplementedException($"CollectReachableObjects: Not yet implemented for modules.");
