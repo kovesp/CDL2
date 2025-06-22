@@ -265,10 +265,10 @@ namespace CDL2v1 {
             }
          } else {
             name = name.RemoveWhitespace();
-            if (name.IsAlphanumeric()) {
-               elements = typedElements.Where(e => e.Id.CanonicalName.Contains(name));
+            if (name.StartsWith('/')) {
+               elements = typedElements.Where(e => Regex.IsMatch(e.Id.Name,name.Trim('/')));
             } else { // Assume name is an RE
-               elements = typedElements.Where(e => Regex.IsMatch(e.Id.Name,name));
+               elements = typedElements.Where(e => e.Id.CanonicalName.Contains(name));
             }
          }
          return elements.Any();

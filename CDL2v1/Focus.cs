@@ -112,7 +112,7 @@ namespace CDL2v1 {
          if (string.IsNullOrWhiteSpace(focusString)) return false;
          
          // Match alternating patterns of uppercase and lowercase segments
-         Regex regex = new Regex(@"([A-Z][a-z]+)|([a-z][a-z\s]*)", RegexOptions.Compiled);
+         Regex regex = new Regex(@"([A-Z][A-Za-z]*)|([a-z][a-z\s]*|^(/.*))", RegexOptions.Compiled);
          MatchCollection matches = regex.Matches(focusString);
 
          List<FocusSegment> parts = [];
