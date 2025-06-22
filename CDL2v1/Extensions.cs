@@ -198,6 +198,30 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// Convert the strig to the case of the first letter.
+      /// </summary>
+      /// <param name="str"></param>
+      /// <returns></returns>
+      public static string ToFirstLetterCase(this string str) => string.IsNullOrEmpty(str) ? str : char.IsUpper(str[0]) ? str.ToUpper() : str.ToLower();
+
+      /// <summary>
+      /// Return true if the string is composed of alphanumeric characters only.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
+      public static bool IsAlphanumeric(this string input) {
+         if (string.IsNullOrEmpty(input)) return false;
+         foreach (char c in input) if (!char.IsLetterOrDigit(c)) return false;
+         return true;
+      }
+      /// <summary>
+      /// Return the string with whitespece removed.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
+      public static string RemoveWhitespace(this string input) => string.IsNullOrEmpty(input) ? input : Regex.Replace(input, @"\s+", "", RegexOptions.Compiled);
+
+      /// <summary>
       /// Return the types that implement the given interface.
       /// </summary>
       /// <typeparam name="TInterface"></typeparam>

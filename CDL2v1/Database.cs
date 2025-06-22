@@ -13,6 +13,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Collections;
 using System.Diagnostics;
 using System.Xml.Linq;
+using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    /// <summary>
@@ -254,8 +255,7 @@ namespace CDL2v1 {
       [JsonIgnore]
       public Program? FirstProgram => Programs.Count == 0 ? null : NamedElements[Programs[0]] as Program;
 
-
-      public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
+      public bool TryGetNamedElements<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
          IEnumerable<T> typedElements = NamedElements.Values.OfType<T>();
          if (name == null) {
             if (typedElements.Any()) {
@@ -264,12 +264,17 @@ namespace CDL2v1 {
                elements = [];
             }
          } else {
-            elements = typedElements.Where(e => e.Id == name);
+            name = name.RemoveWhitespace();
+            if (name.IsAlphanumeric()) {
+               elements = typedElements.Where(e => e.Id.CanonicalName.Contains(name));
+            } else { // Assume name is an RE
+               elements = typedElements.Where(e => Regex.IsMatch(e.Id.Name,name));
+            }
          }
          return elements.Any();
       }
-      public bool TryGetSingleNamedelement<T>(string name, [MaybeNullWhen(false)] out T element) where T : NamedElement {
-         if (TryGetNamedElement(name, out IEnumerable<T>? elements) && elements.Count() == 1) {
+      public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out T element) where T : NamedElement {
+         if (TryGetNamedElements(name, out IEnumerable<T>? elements) && elements.Count() == 1) {
             element = elements.First();
             return true;
          } else {

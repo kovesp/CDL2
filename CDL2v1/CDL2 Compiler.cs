@@ -141,13 +141,16 @@ namespace CDL2v1 {
                // Create and show the window
                CommandPromptWindow commandWindow = new();
                CommandInterpreter CLI = new();
-               
+
 
                // Handle commands
-               commandWindow.CommandEntered += (sender, command) => {
+               commandWindow.CommandEntered += (sender, commandString) => {
                   // Parse and execute command
-                  CommandType commandType = Abbreviation<CommandType>.IdentifyCommand(command);
-                  CLI.IntepretCommand(command, commandType, commandWindow);
+                  Match match = Regex.Match(commandString, @"^\s*(?<verb>[a-z]+)(?:\s+(?<settings>[+-][a-z-]+(?:[:=]\S+?)?))?(?:\s+(?<args>.*))?$", RegexOptions.IgnoreCase);
+                  if (match.Success) {
+                     CommandType commandType = Abbreviation<CommandType>.Identify(match.Groups["verb"].Value);
+                     CLI.IntepretCommand(commandString, commandType, match.Groups["settings"].Value, match.Groups["args"].Value,commandWindow);
+                  }
                };
                commandWindow.Closed += (s, e) => app.Shutdown();
                app.Run(commandWindow);

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
    internal class CommandInterpreter {
-      internal void IntepretCommand(string command, CommandType commandType, CommandPromptWindow commandWindow) {
+      internal void IntepretCommand(string command, CommandType commandType, string settings, string args,CommandPromptWindow commandWindow) {
          IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          switch (commandType) {
@@ -15,8 +15,8 @@ namespace CDL2v1 {
                commandWindow.WriteLine($"Invalid command: {command}");
                return;
             case CommandType.focus:
-               // Handle focus command
-               commandWindow.WriteLine("Focus command executed");
+               Focus.SetFocus(args);
+               commandWindow.WriteLine(Focus.Current.ToString());
                break;
             case CommandType.next:
                // Handle next command

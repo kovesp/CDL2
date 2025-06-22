@@ -9,11 +9,14 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
 
-   public class FocusSegment { }
+   public class FocusSegment {
+      public FocusType SegmentType => this is UnitSegment unit ? unit.Type : FocusType.INVALID;
+      public string SegmentName => this is NameSegment id ? id.Name : "";
+   }
    public class  UnitSegment(FocusType type) : FocusSegment {
       public FocusType Type { get; set; } = type;
    }
-   public class IDSegment(string name) : FocusSegment {
+   public class NameSegment(string name) : FocusSegment {
       public string Name { get; set; } = name;
    }
 
@@ -109,7 +112,7 @@ namespace CDL2v1 {
          if (string.IsNullOrWhiteSpace(focusString)) return false;
          
          // Match alternating patterns of uppercase and lowercase segments
-         Regex regex = new Regex(@"([A-Z]+)|([a-z][a-z\W]*)", RegexOptions.Compiled);
+         Regex regex = new Regex(@"([A-Z][a-z]+)|([a-z][a-z\s]*)", RegexOptions.Compiled);
          MatchCollection matches = regex.Matches(focusString);
 
          List<FocusSegment> parts = [];
@@ -117,7 +120,7 @@ namespace CDL2v1 {
          
          foreach (Match match in matches) {
             string segment = match.Value;
-            bool isUppercase = segment.All(char.IsUpper);
+            bool isUppercase = char.IsUpper(segment[0]);
             
             // Check if we're following the alternating pattern
             if ((expectUppercase && !isUppercase) || (!expectUppercase && isUppercase)) {
@@ -126,21 +129,63 @@ namespace CDL2v1 {
             }
             
             if (expectUppercase) {
-               FocusType type = Abbreviation<FocusType>.IdentifyFocusType(segment);
+               FocusType type = Abbreviation<FocusType>.Identify(segment.ToUpper());
                if (type == FocusType.INVALID) return false;
                parts.Add(new UnitSegment(type));
             } else {
-               parts.Add(new IDSegment(segment)); // Add as ID segment
+               parts.Add(new NameSegment(segment)); // Add as name segment
             }
             expectUppercase = !expectUppercase; // Toggle for next iteration
          }
 
          // Using the parts locate the actual focus
-         Focus newFocus = new Focus();
+         // Simplistic for now to enable testing of commands that need the focus
+         if (parts.Count == 0) return false; // No valid parts found
+         if (parts.Count % 2 == 1) parts.Add(new NameSegment("")); // Add an empty name segment
+         Focus newFocus = new();
+         int segNo = 0;
+         FocusType segmentType = parts[segNo++].SegmentType;
+         string segmentName = parts[segNo].SegmentName;
+         switch (segmentType) {
+            case FocusType.PROGRAM:
+               if (TryGetFocusElement<Program>(segmentName,Database.Instance.FirstProgram,out Program? prog)) {
+                  newFocus.Object = prog;
+               } else {
+                  return false;
+               }
+               break;
+            case FocusType.MODULE:
+               if (TryGetFocusElement<Module>(segmentName,Database.NamedElementsOfType<Module>(asList:false).First(), out Module? mod)) {
+                  newFocus.Object = mod;
+               } else {
+                  return false;
+               }
+               break;
+            case FocusType.SECTION:
+               break;
+            default:
+               return false; // Unsupported type for now
+         }
 
          // Add the new focus to the stack
          Stack.Push(newFocus);
          return true;
+      }
+
+      private static bool TryGetFocusElement<T>(string segmentName,T? defaultElement,out T? element) where T : NamedElement {
+         element = null;
+         if (segmentName != "") {
+            if (Database.Instance.TryGetNamedElements<T>(segmentName, out IEnumerable<T>? elements)) {
+               element = elements.First(); // Get the first matching element
+               return true;
+            } else {
+               return false; // element not found
+            }
+         } else {
+            // TODO Go up the focus chain if it is higher than the currnet focus, or go down otherwise
+            element = defaultElement; // No specific name, return the default element  
+            return true;
+         }
       }
 
       /// <summary>
@@ -193,6 +238,13 @@ namespace CDL2v1 {
       public NamedElement? Object {
          get => ObjectGuid == Guid.Empty ? null : NamedElement.From<NamedElement>(ObjectGuid);
          set => ObjectGuid = value?.GUID ?? Guid.Empty;
+      }
+
+      public override string ToString() {
+         if (Object == null) return "Nothing";
+         string focusString = Object.FQDN();
+         // TODO: Add more details based on SubObjectDepth and SubObjectOrdinal
+         return focusString;
       }
    }
 }
