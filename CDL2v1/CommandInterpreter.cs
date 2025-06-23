@@ -27,9 +27,18 @@ namespace CDL2v1 {
                commandWindow.WriteLine("Previous command executed");
                break;
             case CommandType.list:
-               // Trial command to list modules
-               Database.Instance.Modules.ForEach(modGuid => commandWindow.WriteLine(NamedElement.From<Module>(modGuid)?.FQDN()??""));
-               break;
+               if (args == "") {
+                  if (Focus.Current.Object is not null) {
+                     //TODO: Ignore Focus subojbest for now
+                     commandWindow.WriteLine(Focus.Current.Object.FQDN());
+                  } else {
+                     commandWindow.WriteLine($"Nothing");
+                  }
+                  return;
+               } else {
+
+               }
+                  break;
             case CommandType.print:
                // Handle print command
                string[] parts = command.Split(' ', 2);

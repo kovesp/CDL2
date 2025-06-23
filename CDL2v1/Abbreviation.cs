@@ -26,6 +26,11 @@ namespace CDL2v1 {
       };
       private static string ShortTypeName => ShortTypeNames.TryGetValue(typeof(T), out string? type) ? type : typeof(T).Name;
 
+      /// <summary>
+      /// Compare on the Name of the abbreviation to support SortedSet.
+      /// </summary>
+      /// <param name="other"></param>
+      /// <returns></returns>
       public int CompareTo(Abbreviation<T>? other) => other is null ? 1 : string.Compare(Name,other.Name,StringComparison.Ordinal);
 
       public override bool Equals(object? obj) => obj is Abbreviation<T> other && Name.Equals(other.Name);
@@ -36,8 +41,8 @@ namespace CDL2v1 {
       /// Must match with the names in the CommandType enum.
       /// </summary>
       public readonly static SortedSet<Abbreviation<CommandType>> Commands = [
-         new ("append"  , 1,"append [SELECTOR] object:    append the object (which must be of the correct type) after the SELECTOR"),
-         new ("edit"    , 1,"edit [SELECTOR]:             edit the selected object"),
+         new ("append"  , 1,"append   [SELECTOR] object:  append the object (which must be of the correct type) after the SELECTOR"),
+         new ("edit"    , 1,"edit     [SELECTOR]:         edit the selected object"),
          new ("focus"   , 1,"focus    [SELECTOR]:         set the focus to the object described by the selector and display it"),
          new ("generate", 1,"generate [SELECTOR]:         generate code for the selected object which must be a PROGRAM or a MODULE"),
          new ("help"    , 1,"help     [command]:          display this list, or details for a command"),
