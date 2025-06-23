@@ -7,11 +7,12 @@ using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CDL2v1 {
-   public class Abbreviation<T> where T : struct, Enum {
+   public class Abbreviation<T> : IComparable<Abbreviation<T>> where T : struct, Enum {
       public readonly string Name;
       public readonly int MinLength;
       public readonly T Type;
       public readonly List<T>? Nesting; // Use to determine hierarhcy of focus kewywords, not used for commands
+      public string HelpText;
 
       /// <summary>
       /// Enumeration value that represents an invalid abbreviation. This is used when the input does not match any known abbreviation.
@@ -23,36 +24,42 @@ namespace CDL2v1 {
          { typeof(CommandType)   , "Cmd" },
          { typeof(FocusType)     , "Focus" },
       };
-      private string ShortTypeName => ShortTypeNames.TryGetValue(typeof(T), out string? type) ? type : typeof(T).Name;
+      private static string ShortTypeName => ShortTypeNames.TryGetValue(typeof(T), out string? type) ? type : typeof(T).Name;
 
+      public int CompareTo(Abbreviation<T>? other) => other is null ? 1 : string.Compare(Name,other.Name,StringComparison.Ordinal);
 
+      public override bool Equals(object? obj) => obj is Abbreviation<T> other && Name.Equals(other.Name);
+
+      public override int GetHashCode() => Name.GetHashCode();
 
       /// <summary>
       /// Must match with the names in the CommandType enum.
       /// </summary>
-      private readonly static Set<Abbreviation<CommandType>> Commands = [
-         new ("append"  , 1),
-         new ("edit"    , 1),
-         new ("focus"   , 1),
-         new ("generate", 1),
-         new ("help"    , 1),
-         new ("insert"  , 1),
-         new ("list"    , 1),
-         new ("next"    , 1),
-         new ("prev"    , 1),
-         new ("print"   , 2),
-         new ("quit"    , 4),
-         new ("rename"  , 3),
-         new ("replace" , 1),
-         new ("set"     , 3),
-         new ("status"  , 4),
-         new ("undo"    , 1),
+      public readonly static SortedSet<Abbreviation<CommandType>> Commands = [
+         new ("append"  , 1,"append [SELECTOR] object:    append the object (which must be of the correct type) after the SELECTOR"),
+         new ("edit"    , 1,"edit [SELECTOR]:             edit the selected object"),
+         new ("focus"   , 1,"focus    [SELECTOR]:         set the focus to the object described by the selector and display it"),
+         new ("generate", 1,"generate [SELECTOR]:         generate code for the selected object which must be a PROGRAM or a MODULE"),
+         new ("help"    , 1,"help     [command]:          display this list, or details for a command"),
+         new ("insert"  , 1,"insert   [SELECTOR] object:  insert the object (which must be of the correct type) before the SELECTOR"),
+         new ("list"    , 1,"list     [SELECTOR]:         list objects that the selector matches"),
+         new ("next"    , 1,"next     [SELECTOR]:         move the focus to the next object of the given type"),
+         new ("previous", 3,"previous [SELECTOR]:         move the focus to the previous object of the given type"),
+         new ("print"   , 1,"print    [SELECTOR]:         pretty print the selected object"),
+         new ("quit"    , 4,"quit:                        exit the lab after saving the database"),
+         new ("rename"  , 3,"rename   [SELECTOR] name:    rename tbe selected object; may be used just to add/remove spaces"),
+         new ("replace" , 1,"replace  [SELECTOR] object:  replaced the selection with the new object"),
+         new ("save"    , 1,"save:                        save the database to disk now"),
+         new ("set"     , 3,"set      option:             set an option; +/-option for boolean, option=value otherwise"),
+         new ("status"  , 4,"status:                      display information about the status of the database"),
+         new ("undo"    , 1,"undo:                        undo the last modification; may be repeated (NOT IMPLEMENTED)"),
       ];
 
       /// <summary>
       /// Must match with the names in the FocusType enum.
       /// </summary>
-      private readonly static Set<Abbreviation<FocusType>> FocusTypes = [
+      public readonly static SortedSet<Abbreviation<FocusType>> FocusTypes = [
+         new ("ABORT"      ,5,FocusType.ALTERNATIVE),
          new ("ABSTR"      ,5,FocusType.SECTION),
          new ("ACTION"     ,2,FocusType.SECTION),
          new ("AFFIX"      ,3,FocusType.ALGORITHM),
@@ -60,9 +67,10 @@ namespace CDL2v1 {
          new ("ALTERNATIVE",3,FocusType.GROUP),
          new ("ARG"        ,3,FocusType.CALL),
          new ("CALL"       ,1,FocusType.ALTERNATIVE),
-         new ("CONST"      ,1,FocusType.SECTION),
+         new ("CONST"      ,3,FocusType.SECTION),
          new ("EXPORT"     ,3,FocusType.SECTION),
          new ("EXT"        ,3,FocusType.SECTION),
+         new ("FAIL"       ,4,FocusType.ALTERNATIVE),
          new ("FUNCTION"   ,2,FocusType.SECTION),
          new ("GROUP"      ,1,FocusType.ALGORITHM),
          new ("IMPORT"     ,3,FocusType.SECTION),
@@ -70,15 +78,19 @@ namespace CDL2v1 {
          new ("LAYER"      ,3,FocusType.MODULE),
          new ("LIST"       ,4,FocusType.SECTION),
          new ("LOCAL"      ,3,FocusType.ALGORITHM),
+         new ("MACRO"      ,3,FocusType.SECTION),
          new ("MODULE"     ,1),
          new ("NOTE"       ,4),
          new ("PART"       ,4,FocusType.PROGRAM),
          new ("POSTLUDE"   ,4,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
          new ("PREDICATE"  ,2,FocusType.SECTION),
          new ("PRELUDE"    ,3,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
+         new ("PROCEDURE"  ,4,FocusType.SECTION),
          new ("PROGRAM"    ,4),
+         new ("REPEAT"     ,3,FocusType.ALTERNATIVE),
          new ("ROOT"       ,4,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
          new ("SECTION"    ,1,FocusType.LAYER),
+         new ("SUCCEED"    ,7,FocusType.ALTERNATIVE),
          new ("TEST"       ,2,FocusType.SECTION),
          new ("VAR"        ,3,FocusType.SECTION),
       ];
@@ -89,14 +101,16 @@ namespace CDL2v1 {
          _ => throw new ArgumentException($"Unknown abbreviation type: {typeof(T).Name}"),
       };
 
-      public Abbreviation(string name, int minLength, List<T>? nesting = null) {
+      public Abbreviation(string name, int minLength,List<T>? nesting,string help = "") {
          Name = name;
          MinLength = minLength;
          Type = Enum.Parse<T>(name, true);
          Nesting = nesting;
+         HelpText = help;
       }
 
-      public Abbreviation(string name, int minLength, T nesting) : this(name,minLength,[nesting]) {}
+      public Abbreviation(string name, int minLength, T nesting,string help="") : this(name,minLength,[nesting],help) {}
+      public Abbreviation(string name, int minLength, string help = "") : this(name, minLength, [], help) { }
 
       /// <summary>
       /// Identifies the type associated with the specified word based on predefined abbreviations.
@@ -115,6 +129,7 @@ namespace CDL2v1 {
             (word => Abbreviations.FirstOrDefault(abbrev => word.Length >= abbrev.MinLength && abbrev.Name.StartsWith(word))?.Type ?? Abbreviation<T>.Invalid)
          )(name.Trim().ToFirstLetterCase());
 
-      public override string ToString() => $"{ShortTypeName}[{Name[..MinLength].ToUpper()}{Name[MinLength..]}]";
+      public override string ToString() => $"{ShortTypeName}[{NameWithAbbreviation}]";
+      public string NameWithAbbreviation => $"{Name[..MinLength].ToUpper()}{Name[MinLength..]}";
    }
 }

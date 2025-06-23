@@ -22,7 +22,7 @@ namespace CDL2v1 {
                // Handle next command
                commandWindow.WriteLine("Next command executed");
                break;
-            case  CommandType.prev:
+            case  CommandType.previous:
                // Handle previous command
                commandWindow.WriteLine("Previous command executed");
                break;
@@ -53,7 +53,7 @@ namespace CDL2v1 {
                commandWindow.WriteLine($"Set {key} to {value}");
                break;
             case CommandType.status:
-               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,"in all modules",commandWindow.WriteLine);
+               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}", commandWindow.WriteLine);
                break;
             case CommandType.rename:
                break;
@@ -67,9 +67,12 @@ namespace CDL2v1 {
                commandWindow.Close();
                return;
             case CommandType.help:
-               commandWindow.WriteLine("Available commands:");
-               commandWindow.WriteLine("  generate        - Generate code");
-               commandWindow.WriteLine("  quit            - Close this window");
+               if (args == "") {
+                  commandWindow.WriteLine("Capital letters denote the minimum abbreviation of the command.\n");
+                  foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
+                     commandWindow.WriteLine(Regex.Replace(cmd.HelpText,@"^[a-z]+","   "+cmd.NameWithAbbreviation,RegexOptions.Compiled));
+                  }
+               }
                break;
             case CommandType.generate:
                // TDOD: Pass the program derivable from the focus or settings. Same for the target code generator.

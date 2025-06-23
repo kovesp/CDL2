@@ -36,7 +36,7 @@ namespace CDL2v1 {
       
       public void CollectAllObjects() {
          AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => ! elem.IsImported,Extensions.ToSet);
-         LogObjectCount(AllObjects, "in all modules");
+         LogObjectCount(AllObjects, $"in {Database.Instance.Modules.Count.Plural("module")}");
       }
 
       public void CollectReachableObjects(Program prog) {
@@ -63,7 +63,7 @@ namespace CDL2v1 {
       public static void LogObjectCount(Set<CDL2Object> objects, string sort,Action<string>? logger=null) {
          logger ??= str => Logger.Log(0,str);
          string CountObjects(Type type, Set<CDL2Object> objects,bool noComma = false) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name,noComma?null:",");
-         logger($"Collected {objects.Count.Plural("object")} {sort} ...");
+         logger($"{objects.Count.Plural("object")} {sort} ...");
          logger($"   {CountObjects(typeof(Const),objects)} {CountObjects(typeof(Var),objects)} {CountObjects(typeof(LIST),objects)} {CountObjects(typeof(Macro),objects)} {CountObjects(typeof(Procedure),objects,noComma:true)}.");
       }
 

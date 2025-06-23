@@ -52,10 +52,10 @@ expression to be more specific, e.g., `ALG ^^le.*` matches only algorithms that 
 - A regular expression is what is allowed in dotnet regular expressions. An example is
 `ALG ^^(less|greater)` which, for example, matches *less*, *less or equal*, *greater*,
 *greater or equal*, and possibly others.
-- `Single selectors` must be given in hierarchichal sequence. Thus `MOD sort SEC arith` is valid, 
-but `SEC arith MOD sort` is not.`
+- `Single selectors` must be given in hierarchical sequence. Thus `MOD sort SEC arith` is valid, 
+but `SEC arith MOD sort` is not.
 - The `unit type`-s must start with a capital letter, but unlike in the code, they need not be
-all caps. This is also true end entering code. Notice that some of the unit types are not
+all caps. This is also true when entering code. Notice that some of the unit types are *not*
 CDL2 reserved words, rather they extend the syntax to enable sub units.
 - In a `selector` one needs specify only those units that select what you are looking for. There
 is a concept of *current unit* or *focus* ... many commands change the focus, about which
@@ -76,7 +76,7 @@ applied to the whole `selector`.
 #### List of Unit Types
 
 In the following list of unit types captialization shows the minimal abreviation that is allowed.
-So for example, the selector `S ^^a T ^^le : 100` will select the last `TEST` whose name starts
+So for example, the selector `S ^^a Te ^^le : 100` will select the last `TEST` whose name starts
 with *le* in from all the such algorithms in any section whose name starts with *a*. Note however that this is
 not deterministic because the order of `MODULE`s in the database is undefined. As well, this selector selccts
 a single object, not the last object in each matching section.
@@ -84,32 +84,38 @@ a single object, not the last object in each matching section.
 ```
 ABORT
 ABSTR
-Action
-AFfix
+ACtion
+AFFix
 ALGorithm
 ALTernative
+ARG
 Call
-CONstant
+CONst
 EXPort
-Ext
+EXT
 FAIL
-Function
+FUnction
 Group
 IMPort
 INV
 LAYer
 LIST
-Local
+LOCal
 MACro
 Module
-Predicate
+NOTE
+PART
+POSTlude
+PRedicate
+PRElude
 PROCedure
 PROGram
 REPEAT
+ROOT
 Section
 SUCCEED
-Test
-Variable
+TEst
+VAR
 ```
 
 ## Commands
