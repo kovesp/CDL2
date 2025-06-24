@@ -21,6 +21,93 @@ namespace CDL2v1 {
    }
 
    /// <summary>
+   /// Represents a selection of a single object.
+   /// </summary>
+   /// <remarks>
+   /// Details of the different types used:
+   /// <list type="bullet">
+   ///   <item>Simple objects.
+   ///      <list type="bullet">
+   ///         <item>Program</item>
+   ///         <item>Module</item>
+   ///         <item>Layer</item>
+   ///         <item>Section</item>
+   ///         <item>Local</item>
+   ///         <item>LastCall</item>
+   ///      </list>
+   ///   </item>
+   ///   <item>Complex objects.
+   ///      <list type="table">
+   ///         <item><term>List</term> <description>Ordinal=-1: the whole List, =0: the LWB, =1: the UPB</description></item>
+   ///         <item><term>Const</term> <description>Ordinal=-1: the whole Const, >=0: the index of the Const element</description></item>
+   ///         <item><term>Macro</term> <description>Ordinal=-1: the whole Macro, >=0: the index of the Macro element</description></item>
+   ///         <item><term>Alternative</term> <description>Ordinal>=0: idex of the alternative within the group</description></item>
+   ///         <item><term>Call</term>
+   ///            <description>
+   ///               <list type="number">
+   ///                  <item>Ordinal>=0: the index of the Call in the alternative</item>
+   ///                  <item>Arg=-1: the call itself, Arg>=0: the index of the call argument.</item>
+   ///               </list>
+   ///            </description>
+   ///         </item>
+   ///         <item><term>Affix</term> <description>Ordinal>=0: the index of the Affix in the algorithm</description></item>      ///         
+   ///      </list>
+   ///   </item>
+   /// </list>  
+   /// </remarks>
+   public class SingleSelection {
+      [JsonConstructor]
+      public SingleSelection() { }
+
+      public static SingleSelection Empty => new ();
+      /// <summary>
+      /// The Guid of a NamedElement in the selection.
+      /// For "simple" objects (e.g., Vars, Layers) this uniquely identifiest the objct.
+      /// For others, further identification is needed.
+      /// </summary>
+      [JsonInclude, JsonPropertyOrder(0)]
+      public Guid ObjectGuid = Guid.Empty;
+      [JsonIgnore]
+      public NamedElement? Object {
+         get => ObjectGuid == Guid.Empty ? null : NamedElement.From<NamedElement>(ObjectGuid);
+         set {
+            if (value == null) {
+               ObjectGuid = Guid.Empty;
+            } else {
+               ObjectGuid = value.GUID;
+            }
+         }
+      }
+
+      /// <summary>
+      /// The ordianl of the selection sub element for types where this makes sense, -1 otherwise.
+      /// </summary>
+      [JsonInclude, JsonPropertyOrder(1)]
+      public int Ordinal = -1;
+      /// <summary>
+      /// The ordinal of the argument of a call.
+      /// </summary>
+      [JsonInclude, JsonPropertyOrder(2)]
+      public int Arg = -1;
+
+      /// <summary>
+      /// Specifies the selection type in certain cases.
+      /// When the selection is a Section, this specifies that one of the interface lists is selected, the Ordinal is then the index within the list.
+      /// It may be
+      /// NONE when other then a PROGRAM, MODULE, or SECTION is selected, or when the whole object is the selection.
+      /// PRELUDE, ROOT, POSTLUDE for a PROGRAM, MODULE or SECTION
+      /// ABSTR, EXT, INV, IMPORT, EXPORT for a SECTION.
+      /// </summary>
+      [JsonInclude, JsonPropertyOrder(3)]
+      public RW ListType = RW.NONE;
+   }
+
+   /// <summary>
+   /// Represents the objects selected by a selector. A valid selector will always select at least one object.
+   /// </summary>
+   public class Selection : List<SingleSelection> {}
+
+   /// <summary>
    /// Provides fuctionality releated to the current object, the Focus, of the CDL2 Laboratory
    /// </summary>
    public class Focus {
@@ -59,47 +146,9 @@ namespace CDL2v1 {
       }
       public static void ClearBookmarks() => Database.Instance.Bookmarks.Clear();
 
-      /// <summary>
-      /// The currently focused NamedElement represented as it's Guid.
-      /// null when nothing is focused.      /// 
-      /// </summary>
-      /// <remarks>
-      /// When the element is a procedure, then the entire procedure is focusesed.
-      /// To dive in, the top level group will be the element. In deeper groups that group will be the element.
-      /// </remarks>
       [JsonInclude, JsonPropertyOrder(0)]
-      public Guid ObjectGuid = Guid.Empty;
-      /// <summary>
-      /// The currently focused suebelment.
-      /// 0 if the focus is on the entrie NamedElement, > 0 otherwise.
-      /// For Const and Macro, this will be 1 if a const or macro element is focused and SubObjectOrdinal contains the position within elements with the first element being 0.
-      /// For a List, this will be 1, with SubObjectOrdinal 0 for the LWB and 1 for the UPB.
-      /// For a Group,
-      ///    0 for the group itself,
-      ///    1 for the alterantives of the group, the ordinal is the alternative number (0 for the first alternative, 1 for the second, etc.)      ///    
-      ///    2 for the calls in the alternative, the ordinal is the call number (0 for the first call, 1 for the second, etc.)
-      ///    3 for the actual args of a call, the ordinal is the argument number (0 for the first argument, 1 for the second, etc.)
-      ///    3 also when the ordi
-      /// </summary>
-      [JsonInclude, JsonPropertyOrder(1)]
-      public int SubObjectDepth = 0;
-      /// <summary>
-      /// The ordianl of the focused sub element for types where this makes sense, 0 otherwise.
-      /// </summary>
-      [JsonInclude, JsonPropertyOrder(2)]
-      public int SubObjectOrdinal = 0;
-      [JsonInclude, JsonPropertyOrder(3)]
-      public int ActualArgOrdinal = -1; // -1 means not applicable, 0 means the first actual argument, 1 the second, etc.
-      /// <summary>
-      /// Specifies the focused list type when the NamedElement is a Container.
-      /// When used, Depth will be set to 1 (but not relevant) and Ordinal to the postion in the list.
-      /// It may be
-      /// NONE when other then a PROGRAM, MODULE, or SECTION is in focus.
-      /// PRELUDE, ROOT, POSTLUDE for PROGRAM, MODULE and SECTION
-      /// ABSTR, EXT, INV, IMPORT, EXPORT for SECTION.
-      /// </summary>
-      [JsonInclude, JsonPropertyOrder(4)]
-      public RW ListType = RW.NONE;
+      public SingleSelection Selection = SingleSelection.Empty;
+
 
       /// <summary>
       /// Parse the focus string and set the focus if it is valid.
@@ -188,58 +237,15 @@ namespace CDL2v1 {
          }
       }
 
-      /// <summary>
-      /// Try to find a named element based on the uppercase type and lowercase name
-      /// </summary>
-      private static bool TryGetObjectFromPattern(string upperType, string lowerName, out NamedElement? element) {
-         element = null;
-         
-         // Map the uppercase part to a specific type of element to search for
-         switch (upperType) {
-            case "PROG":
-               element = Database.Instance.ProgramByName(lowerName);
-               break;
-            case "MOD":
-               element = Database.Instance.ModuleByName(lowerName);
-               break;
-            case "LAY":
-               // Would need to search through layers of relevant module
-               // This is a simplification - you'd need proper hierarchy traversal
-               break;
-            case "SEC":
-               // Would need to search through sections in a layer
-               break;
-            // Add other cases as needed
-         }
-         
-         return element != null;
-      }
-
-      /// <summary>
-      /// Process the second pair of uppercase/lowercase parts to set additional focus properties
-      /// </summary>
-      private static void ProcessSecondPair(Focus focus, string upperType, string lowerDetail) {
-         // Based on the uppercase type, set appropriate properties
-         if (Enum.TryParse<RW>(upperType, out RW listType)) {
-            focus.ListType = listType;
-            focus.SubObjectDepth = 1;
-            
-            // Try to parse the lowercase detail as an index/ordinal if applicable
-            if (int.TryParse(lowerDetail, out int ordinal)) {
-               focus.SubObjectOrdinal = ordinal;
-            }
-         }
-      }
 
       /// <summary>
       /// The currently focused NamedElement
       /// </summary>
       [JsonIgnore]
       public NamedElement? Object {
-         get => ObjectGuid == Guid.Empty ? null : NamedElement.From<NamedElement>(ObjectGuid);
-         set => ObjectGuid = value?.GUID ?? Guid.Empty;
+         get => Selection.Object;
+         set => Selection.Object = value;
       }
-
       public override string ToString() {
          if (Object == null) return "Nothing";
          string focusString = Object.FQDN();
