@@ -22,7 +22,7 @@ namespace CDL2v1 {
 
       private static readonly Dictionary<Type,string> ShortTypeNames = new() {
          { typeof(CommandType)   , "Cmd" },
-         { typeof(FocusType)     , "Focus" },
+         { typeof(SelectionType)     , "Focus" },
       };
       private static string ShortTypeName => ShortTypeNames.TryGetValue(typeof(T), out string? type) ? type : typeof(T).Name;
 
@@ -63,46 +63,46 @@ namespace CDL2v1 {
       /// <summary>
       /// Must match with the names in the FocusType enum.
       /// </summary>
-      public readonly static SortedSet<Abbreviation<FocusType>> FocusTypes = [
-         new ("ABORT"      ,5,FocusType.ALTERNATIVE),
-         new ("ABSTR"      ,5,FocusType.SECTION),
-         new ("ACTION"     ,2,FocusType.SECTION),
-         new ("AFFIX"      ,3,FocusType.ALGORITHM),
-         new ("ALGORITHM"  ,3,FocusType.SECTION),
-         new ("ALTERNATIVE",3,FocusType.GROUP),
-         new ("ARG"        ,3,FocusType.CALL),
-         new ("CALL"       ,1,FocusType.ALTERNATIVE),
-         new ("CONST"      ,3,FocusType.SECTION),
-         new ("EXPORT"     ,3,FocusType.SECTION),
-         new ("EXT"        ,3,FocusType.SECTION),
-         new ("FAIL"       ,4,FocusType.ALTERNATIVE),
-         new ("FUNCTION"   ,2,FocusType.SECTION),
-         new ("GROUP"      ,1,FocusType.ALGORITHM),
-         new ("IMPORT"     ,3,FocusType.SECTION),
-         new ("INV"        ,3,FocusType.SECTION),
-         new ("LAYER"      ,3,FocusType.MODULE),
-         new ("LIST"       ,4,FocusType.SECTION),
-         new ("LOCAL"      ,3,FocusType.ALGORITHM),
-         new ("MACRO"      ,3,FocusType.SECTION),
+      public readonly static SortedSet<Abbreviation<SelectionType>> FocusTypes = [
+         new ("ABORT"      ,5,SelectionType.ALTERNATIVE),
+         new ("ABSTR"      ,5,SelectionType.SECTION),
+         new ("ACTION"     ,2,SelectionType.SECTION),
+         new ("AFFIX"      ,3,SelectionType.ALGORITHM),
+         new ("ALGORITHM"  ,3,SelectionType.SECTION),
+         new ("ALTERNATIVE",3,SelectionType.GROUP),
+         new ("ARG"        ,3,SelectionType.CALL),
+         new ("CALL"       ,1,SelectionType.ALTERNATIVE),
+         new ("CONST"      ,3,SelectionType.SECTION),
+         new ("EXPORT"     ,3,SelectionType.SECTION),
+         new ("EXT"        ,3,SelectionType.SECTION),
+         new ("FAIL"       ,4,SelectionType.ALTERNATIVE),
+         new ("FUNCTION"   ,2,SelectionType.SECTION),
+         new ("GROUP"      ,1,SelectionType.ALGORITHM),
+         new ("IMPORT"     ,3,SelectionType.SECTION),
+         new ("INV"        ,3,SelectionType.SECTION),
+         new ("LAYER"      ,3,SelectionType.MODULE),
+         new ("LIST"       ,4,SelectionType.SECTION),
+         new ("LOCAL"      ,3,SelectionType.ALGORITHM),
+         new ("MACRO"      ,3,SelectionType.SECTION),
          new ("MODULE"     ,1),
          new ("NOTE"       ,4),
-         new ("PART"       ,4,FocusType.PROGRAM),
-         new ("POSTLUDE"   ,4,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
-         new ("PREDICATE"  ,2,FocusType.SECTION),
-         new ("PRELUDE"    ,3,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
-         new ("PROCEDURE"  ,4,FocusType.SECTION),
+         new ("PART"       ,4,SelectionType.PROGRAM),
+         new ("POSTLUDE"   ,4,[SelectionType.PROGRAM,SelectionType.MODULE,SelectionType.SECTION]),
+         new ("PREDICATE"  ,2,SelectionType.SECTION),
+         new ("PRELUDE"    ,3,[SelectionType.PROGRAM,SelectionType.MODULE,SelectionType.SECTION]),
+         new ("PROCEDURE"  ,4,SelectionType.SECTION),
          new ("PROGRAM"    ,4),
-         new ("REPEAT"     ,3,FocusType.ALTERNATIVE),
-         new ("ROOT"       ,4,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
-         new ("SECTION"    ,1,FocusType.LAYER),
-         new ("SUCCEED"    ,7,FocusType.ALTERNATIVE),
-         new ("TEST"       ,2,FocusType.SECTION),
-         new ("VAR"        ,3,FocusType.SECTION),
+         new ("REPEAT"     ,3,SelectionType.ALTERNATIVE),
+         new ("ROOT"       ,4,[SelectionType.PROGRAM,SelectionType.MODULE,SelectionType.SECTION]),
+         new ("SECTION"    ,1,SelectionType.LAYER),
+         new ("SUCCEED"    ,7,SelectionType.ALTERNATIVE),
+         new ("TEST"       ,2,SelectionType.SECTION),
+         new ("VAR"        ,3,SelectionType.SECTION),
       ];
 
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {
          nameof(CommandType) => Commands.Cast<Abbreviation<T>>().ToSet(),
-         nameof(FocusType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
+         nameof(SelectionType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
          _ => throw new ArgumentException($"Unknown abbreviation type: {typeof(T).Name}"),
       };
 

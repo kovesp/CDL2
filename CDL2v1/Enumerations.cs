@@ -159,7 +159,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Focus types. Note that the END... RW are omitted but sub parts (e.g., CALL) are added. See the FocustTypes set in Abbreviations
    /// </summary>
-   public enum FocusType {
+   public enum SelectionType {
       INVALID,
       ABORT,
       ABSTR,

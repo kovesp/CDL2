@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -9,14 +11,14 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
 
-   public class FocusSegment {
-      public FocusType SegmentType => this is UnitSegment unit ? unit.Type : FocusType.INVALID;
+   public class SelectionSegment {
+      public SelectionType SegmentType => this is UnitSegment unit ? unit.Type : SelectionType.INVALID;
       public string SegmentName => this is NameSegment id ? id.Name : "";
    }
-   public class  UnitSegment(FocusType type) : FocusSegment {
-      public FocusType Type { get; set; } = type;
+   public class  UnitSegment(SelectionType type) : SelectionSegment {
+      public SelectionType Type { get; set; } = type;
    }
-   public class NameSegment(string name) : FocusSegment {
+   public class NameSegment(string name) : SelectionSegment {
       public string Name { get; set; } = name;
    }
 
@@ -58,6 +60,10 @@ namespace CDL2v1 {
    public class SingleSelection {
       [JsonConstructor]
       public SingleSelection() { }
+
+      public SingleSelection(NamedElement? obj) {
+         Object = obj;
+      }
 
       public static SingleSelection Empty => new ();
       /// <summary>
@@ -105,7 +111,94 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents the objects selected by a selector. A valid selector will always select at least one object.
    /// </summary>
-   public class Selection : List<SingleSelection> {}
+   public class Selection : List<SingleSelection> {
+      /// <summary>
+      /// Create a new empty selection.
+      /// </summary>
+      public Selection() : base() { }
+      /// <summary>
+      /// Create a new selection with the given object.
+      /// </summary>
+      /// <param name="obj">The object to select.</param>
+      public Selection(string focusString) : base() {
+         if (string.IsNullOrWhiteSpace(focusString)) return;
+
+         // Match alternating patterns of uppercase and lowercase segments
+         Regex regex = new Regex(@"([A-Z][A-Za-z]*)|([a-z][a-z\s]*|^(/.*))", RegexOptions.Compiled);
+         MatchCollection matches = regex.Matches(focusString);
+
+         List<SelectionSegment> parts = [];
+         bool expectUppercase = true; // Start expecting uppercase
+
+         foreach (Match match in matches) {
+            string segment = match.Value;
+            bool isUppercase = char.IsUpper(segment[0]);
+
+            // Check if we're following the alternating pattern
+            if ((expectUppercase && !isUppercase) || (!expectUppercase && isUppercase)) {
+               // Pattern violation - not alternating as expected
+               return;
+            }
+
+            if (expectUppercase) {
+               SelectionType type = Abbreviation<SelectionType>.Identify(segment.ToUpper());
+               if (type == SelectionType.INVALID) return;
+               parts.Add(new UnitSegment(type));
+            } else {
+               parts.Add(new NameSegment(segment)); // Add as name segment
+            }
+            expectUppercase = !expectUppercase; // Toggle for next iteration
+         }
+
+         // Using the parts locate the actual focus
+         // Simplistic for now to enable testing of commands that need the focus
+         if (parts.Count == 0) return; // No valid parts found
+         if (parts.Count % 2 == 1) parts.Add(new NameSegment("")); // Add an empty name segment
+         int segNo = 0;
+         SelectionType segmentType = parts[segNo++].SegmentType;
+         string segmentName = parts[segNo].SegmentName;
+         switch (segmentType) {
+            case SelectionType.PROGRAM:
+               AddSelected<Program>(segmentName);
+               break;
+            case SelectionType.MODULE:
+               AddSelected<Module>(segmentName);
+               break;
+            case SelectionType.LAYER:
+               AddSelected<Layer>(segmentName);
+               break;
+            case SelectionType.SECTION:
+               AddSelected<Section>(segmentName);
+               break;
+            default:
+               return; // Unsupported type for now
+         }
+
+         return;
+      }
+
+      private void AddSelected<T>(string segmentName) where T : NamedElement {
+         if (TryGetSelectionElements<T>(segmentName, out IEnumerable<T>? mods)) {
+            if (mods is not null) foreach (T mod in mods) Add(new SingleSelection(mod));
+         }
+      }
+
+      private static bool TryGetSelectionElements<T>(string segmentName, out IEnumerable<T>? elements) where T : NamedElement {
+         elements = null;
+         if (segmentName != "") {
+            if (Database.Instance.TryGetNamedElements<T>(segmentName, out elements)) {
+               return true;
+            } else {
+               return false; // element not found
+            }
+         } else {
+            // TODO Go up the focus chain if it is higher than the current focus, or go down otherwise
+            elements = Database.NamedElementsOfType<T>(asList: false);
+            return true;
+         }
+      }
+
+   }
 
    /// <summary>
    /// Provides fuctionality releated to the current object, the Focus, of the CDL2 Laboratory
@@ -149,6 +242,11 @@ namespace CDL2v1 {
       [JsonInclude, JsonPropertyOrder(0)]
       public SingleSelection Selection = SingleSelection.Empty;
 
+      [JsonConstructor]
+      public Focus() { }
+      public Focus(SingleSelection selection) => Selection = selection;
+      public Focus(Selection selection) => Selection = selection.Count > 0 ? selection.First() : SingleSelection.Empty;
+
 
       /// <summary>
       /// Parse the focus string and set the focus if it is valid.
@@ -159,84 +257,12 @@ namespace CDL2v1 {
       /// <returns>True if focus was successfully set, false otherwise</returns>
       public static bool SetFocus(string focusString) {
          if (string.IsNullOrWhiteSpace(focusString)) return false;
-         
-         // Match alternating patterns of uppercase and lowercase segments
-         Regex regex = new Regex(@"([A-Z][A-Za-z]*)|([a-z][a-z\s]*|^(/.*))", RegexOptions.Compiled);
-         MatchCollection matches = regex.Matches(focusString);
 
-         List<FocusSegment> parts = [];
-         bool expectUppercase = true; // Start expecting uppercase
-         
-         foreach (Match match in matches) {
-            string segment = match.Value;
-            bool isUppercase = char.IsUpper(segment[0]);
-            
-            // Check if we're following the alternating pattern
-            if ((expectUppercase && !isUppercase) || (!expectUppercase && isUppercase)) {
-               // Pattern violation - not alternating as expected
-               return false;
-            }
-            
-            if (expectUppercase) {
-               FocusType type = Abbreviation<FocusType>.Identify(segment.ToUpper());
-               if (type == FocusType.INVALID) return false;
-               parts.Add(new UnitSegment(type));
-            } else {
-               parts.Add(new NameSegment(segment)); // Add as name segment
-            }
-            expectUppercase = !expectUppercase; // Toggle for next iteration
-         }
-
-         // Using the parts locate the actual focus
-         // Simplistic for now to enable testing of commands that need the focus
-         if (parts.Count == 0) return false; // No valid parts found
-         if (parts.Count % 2 == 1) parts.Add(new NameSegment("")); // Add an empty name segment
-         Focus newFocus = new();
-         int segNo = 0;
-         FocusType segmentType = parts[segNo++].SegmentType;
-         string segmentName = parts[segNo].SegmentName;
-         switch (segmentType) {
-            case FocusType.PROGRAM:
-               if (TryGetFocusElement<Program>(segmentName,Database.Instance.FirstProgram,out Program? prog)) {
-                  newFocus.Object = prog;
-               } else {
-                  return false;
-               }
-               break;
-            case FocusType.MODULE:
-               if (TryGetFocusElement<Module>(segmentName,Database.NamedElementsOfType<Module>(asList:false).First(), out Module? mod)) {
-                  newFocus.Object = mod;
-               } else {
-                  return false;
-               }
-               break;
-            case FocusType.SECTION:
-               break;
-            default:
-               return false; // Unsupported type for now
-         }
-
-         // Add the new focus to the stack
-         Stack.Push(newFocus);
+         Selection selection = new(focusString);
+         if (selection.Count == 0) return false;
+         Stack.Push(new Focus(selection));
          return true;
       }
-
-      private static bool TryGetFocusElement<T>(string segmentName,T? defaultElement,out T? element) where T : NamedElement {
-         element = null;
-         if (segmentName != "") {
-            if (Database.Instance.TryGetNamedElements<T>(segmentName, out IEnumerable<T>? elements)) {
-               element = elements.First(); // Get the first matching element
-               return true;
-            } else {
-               return false; // element not found
-            }
-         } else {
-            // TODO Go up the focus chain if it is higher than the currnet focus, or go down otherwise
-            element = defaultElement; // No specific name, return the default element  
-            return true;
-         }
-      }
-
 
       /// <summary>
       /// The currently focused NamedElement
