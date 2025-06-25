@@ -2,8 +2,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -170,6 +172,36 @@ namespace CDL2v1 {
             case SelectionType.SECTION:
                AddSelected<Section>(segmentName);
                break;
+            case SelectionType.ALGORITHM:
+               AddSelected<Algorithm>(segmentName);
+               break;
+            case SelectionType.PROCEDURE:
+               AddSelected<Procedure>(segmentName);
+               break;
+            case SelectionType.MACRO:
+               AddSelected<Macro>(segmentName);
+               break;
+            case SelectionType.FUNCTION:
+               AddSelected<Algorithm>(segmentName, alg => alg.IsFunction);
+               break;
+            case SelectionType.ACTION:
+               AddSelected<Algorithm>(segmentName, alg => alg.IsAction);
+               break;
+            case SelectionType.TEST:
+               AddSelected<Algorithm>(segmentName, alg => alg.IsTest);
+               break;
+            case SelectionType.PREDICATE:
+               AddSelected<Algorithm>(segmentName, alg => alg.IsPredicate);
+               break;
+            case SelectionType.CONST:
+               AddSelected<Const>(segmentName);
+               break;
+            case SelectionType.VAR:
+               AddSelected<Var>(segmentName);
+               break;
+            case SelectionType.LIST:
+               AddSelected<LIST>(segmentName);
+               break;
             default:
                return; // Unsupported type for now
          }
@@ -178,8 +210,13 @@ namespace CDL2v1 {
       }
 
       private void AddSelected<T>(string segmentName) where T : NamedElement {
-         if (TryGetSelectionElements<T>(segmentName, out IEnumerable<T>? mods)) {
-            if (mods is not null) foreach (T mod in mods) Add(new SingleSelection(mod));
+         if (TryGetSelectionElements<T>(segmentName, out IEnumerable<T>? elements)) {
+            if (elements is not null) foreach (T mod in elements) Add(new SingleSelection(mod));
+         }
+      }
+      private void AddSelected<T>(string segmentName,Func<T,bool> pred) where T : NamedElement {
+         if (TryGetSelectionElements<T>(segmentName, out IEnumerable<T>? elements)) {
+            if (elements is not null) foreach (T mod in elements.Where(pred)) Add(new SingleSelection(mod));
          }
       }
 
@@ -197,7 +234,6 @@ namespace CDL2v1 {
             return true;
          }
       }
-
    }
 
    /// <summary>

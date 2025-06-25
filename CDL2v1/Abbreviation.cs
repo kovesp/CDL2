@@ -101,7 +101,7 @@ namespace CDL2v1 {
       ];
 
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {
-         nameof(CommandType) => Commands.Cast<Abbreviation<T>>().ToSet(),
+         nameof(CommandType)     => Commands.Cast<Abbreviation<T>>().ToSet(),
          nameof(SelectionType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
          _ => throw new ArgumentException($"Unknown abbreviation type: {typeof(T).Name}"),
       };

@@ -573,9 +573,16 @@ namespace CDL2v1 {
       [JsonIgnore] public List<Affix> Affixes => [.. affixGuids.Select(guid => NamedElement.From<Affix>(guid))];
       [JsonIgnore] public Set<Local> Locals => [.. localGuids.Select(guid => NamedElement.From<Local>(guid))];
 
+      public bool IsAlgorithmType(RW algorithmType) => AlgorithmType == algorithmType;
+      public bool IsAction => IsAlgorithmType(RW.ACTION);
+      public bool IsFunction => IsAlgorithmType(RW.FUNCTION);
+      public bool IsTest => IsAlgorithmType(RW.TEST);
+      public bool IsPredicate => IsAlgorithmType(RW.PREDICATE);
+
+
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
             : base(id,section,algorithmType.Comments,synthetic) {
-         affixGuids = affixes.Select(affix=>affix.GUID).ToList<Guid>();
+         affixGuids = [.. affixes.Select(affix=>affix.GUID)];
          localGuids = (Set<Guid>)locals.Select(local=>local.GUID).ToSet<Guid>();
          this.AlgorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
          this.BodyType = bodyType;

@@ -36,9 +36,12 @@ namespace CDL2v1 {
                   }
                   return;
                } else {
-
+                  Selection selection = new(args);
+                  foreach (SingleSelection sel in selection) {
+                     commandWindow.WriteLine(sel.Object!.FQDN());
+                  }
                }
-                  break;
+               break;
             case CommandType.print:
                // Handle print command
                string[] parts = command.Split(' ', 2);
