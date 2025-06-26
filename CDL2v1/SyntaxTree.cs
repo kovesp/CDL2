@@ -113,6 +113,7 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(5)] public string? Comments { get; set; }
       [JsonInclude][JsonPropertyOrder(6)] public Notes Notes { get; set; } = [];
 
+
       /// <summary>
       /// Create a new NamedElement with the given ID.
       /// The Guid is generated and the element is added to the database.

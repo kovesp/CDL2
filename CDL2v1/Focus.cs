@@ -126,7 +126,7 @@ namespace CDL2v1 {
          if (string.IsNullOrWhiteSpace(focusString)) return;
 
          // Match alternating patterns of uppercase and lowercase segments
-         Regex regex = new Regex(@"([A-Z][A-Za-z]*)|([a-z][a-z\s]*|^(/.*))", RegexOptions.Compiled);
+         Regex regex = new Regex(@"([A-Z][A-Za-z]*)|(/.*)|([a-z][a-z\s]*)", RegexOptions.Compiled);
          MatchCollection matches = regex.Matches(focusString);
 
          List<SelectionSegment> parts = [];
@@ -173,34 +173,37 @@ namespace CDL2v1 {
                AddSelected<Section>(segmentName);
                break;
             case SelectionType.ALGORITHM:
-               AddSelected<Algorithm>(segmentName);
+               AddSelected<Algorithm>(segmentName,alg => !alg.IsImported);
                break;
             case SelectionType.PROCEDURE:
-               AddSelected<Procedure>(segmentName);
+               AddSelected<Procedure>(segmentName,alg=>!alg.IsImported);
                break;
             case SelectionType.MACRO:
-               AddSelected<Macro>(segmentName);
+               AddSelected<Macro>(segmentName,alg=>!alg.IsImported);
                break;
             case SelectionType.FUNCTION:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsFunction);
+               AddSelected<Algorithm>(segmentName, alg => alg.IsFunction && !alg.IsImported);
                break;
             case SelectionType.ACTION:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsAction);
+               AddSelected<Algorithm>(segmentName, alg => alg.IsAction && !alg.IsImported);
                break;
             case SelectionType.TEST:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsTest);
+               AddSelected<Algorithm>(segmentName, alg => alg.IsTest && !alg.IsImported);
                break;
             case SelectionType.PREDICATE:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsPredicate);
+               AddSelected<Algorithm>(segmentName, alg => alg.IsPredicate && !alg.IsImported);
                break;
             case SelectionType.CONST:
-               AddSelected<Const>(segmentName);
+               AddSelected<Const>(segmentName,con=>!con.IsImported);
                break;
             case SelectionType.VAR:
                AddSelected<Var>(segmentName);
                break;
             case SelectionType.LIST:
                AddSelected<LIST>(segmentName);
+               break;
+            case SelectionType.IMPORTED:
+               AddSelected<CDL2Object>(segmentName,obj=>obj.IsImported);
                break;
             default:
                return; // Unsupported type for now

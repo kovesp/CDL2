@@ -222,6 +222,34 @@ namespace CDL2v1 {
       public static string RemoveWhitespace(this string input) => string.IsNullOrEmpty(input) ? input : Regex.Replace(input, @"\s+", "", RegexOptions.Compiled);
 
       /// <summary>
+      /// Formats a byte count with appropriate unit suffix
+      /// </summary>
+      /// <param name="bytes">Number of bytes</param>
+      /// <param name="useDecimalUnits">If true, uses decimal units (KB, MB, GB), otherwise binary units (KiB, MiB, GiB)</param>
+      /// <returns>Formatted string representing size with appropriate unit</returns>
+      public static string FormatByteSize(this long bytes, bool useDecimalUnits = false) {
+         string[] binarySuffixes = { "bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" };
+         string[] decimalSuffixes = { "bytes", "KB", "MB", "GB", "TB", "PB", "EB" };
+
+         string[] suffixes = useDecimalUnits ? decimalSuffixes : binarySuffixes;
+         int factor = useDecimalUnits ? 1000 : 1024;
+
+         if (bytes == 0)
+            return "0 bytes";
+
+         int place = Convert.ToInt32(Math.Floor(Math.Log(bytes, factor)));
+         double num = Math.Round(bytes / Math.Pow(factor, place), 0);
+
+         // Don't use the "bytes" suffix for values larger than 1
+         if (place == 0 && num > 1)
+            return $"{num} bytes";
+         else if (place == 0)
+            return $"{num} byte";
+         else
+            return $"{num} {suffixes[place]}";
+      }
+
+      /// <summary>
       /// Return the types that implement the given interface.
       /// </summary>
       /// <typeparam name="TInterface"></typeparam>

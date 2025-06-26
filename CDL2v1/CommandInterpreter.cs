@@ -75,7 +75,11 @@ namespace CDL2v1 {
             case CommandType.edit:
             case CommandType.undo:
                break;
+            case CommandType.save:
+               commandWindow.WriteLine($"Saved: {Database.Save()}");               
+               break;
             case CommandType.quit:
+            case CommandType.exit:
                commandWindow.Close();
                return;
             case CommandType.help:
