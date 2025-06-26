@@ -13,17 +13,6 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
 
-   public class SelectionSegment {
-      public SelectionType SegmentType => this is UnitSegment unit ? unit.Type : SelectionType.INVALID;
-      public string SegmentName => this is NameSegment id ? id.Name : "";
-   }
-   public class  UnitSegment(SelectionType type) : SelectionSegment {
-      public SelectionType Type { get; set; } = type;
-   }
-   public class NameSegment(string name) : SelectionSegment {
-      public string Name { get; set; } = name;
-   }
-
    /// <summary>
    /// Represents a selection of a single object.
    /// </summary>
@@ -114,22 +103,114 @@ namespace CDL2v1 {
    /// Represents the objects selected by a selector. A valid selector will always select at least one object.
    /// </summary>
    public class Selection : List<SingleSelection> {
+      #region SelectionSegments
+      /// ================================================================================================================
+      /// <summary>
+      /// SelectionSegments are used during the parsing of the selection string to identify the segments of the selection.
+      /// </summary>
+      private abstract class SelectionSegment {
+         public SelectionType SegmentType => this is UnitSegment unit ? unit.Type : SelectionType.INVALID;
+         public string SegmentName => this is NameSegment id ? id.Name : "";
+         public int SegmentOffset => this is OffsetSegment offset ? offset.Offset : 0;
+      }
+      private class UnitSegment(SelectionType type) : SelectionSegment {
+         public SelectionType Type { get; private set; } = type;
+         public override string ToString() => Type.ToString();
+      }
+      private class NameSegment(string name) : SelectionSegment {
+         public string Name { get; private set; } = name;
+         public override string ToString() => Name.ToString();
+
+      }
+      private class OffsetSegment(string offset) : SelectionSegment {
+         public int Offset { get; private set; } = int.Parse(offset.RemoveWhitespace());
+         public override string ToString() => Offset.ToString("+#;-#;0");
+      }
+
+      /// <summary>
+      /// Collects the segments into a list.
+      /// </summary>
+      /// <remarks>
+      /// Construction of instance will guarantted that there is always an even number of elements in the list.
+      /// The elments alternate between a Unit and a Nameor Offset segment.
+      /// The Index is normaly 0, but can be set by the optional ": <index>" segment at the end of the selection string.
+      /// </remarks>
+      private class SelectionSegments : List<SelectionSegment> {
+         public int Index = 0;
+         public override string ToString() => "SelectionSegments<" + (this.Aggregate("", (a, b) => $"{a} {b}")).TrimStart() + (Index > 0 ? $" : {Index}>" : ">");
+      }
+      /// ================================================================================================================
+      #endregion SelectionSegments
+      
       /// <summary>
       /// Create a new empty selection.
       /// </summary>
       public Selection() : base() { }
       /// <summary>
-      /// Create a new selection with the given object.
+      /// Create a new selection from a selection string.
       /// </summary>
       /// <param name="obj">The object to select.</param>
-      public Selection(string focusString) : base() {
-         if (string.IsNullOrWhiteSpace(focusString)) return;
+      public Selection(string selectionString) : base() {
+         if (string.IsNullOrWhiteSpace(selectionString)) return;
+         selectionString = selectionString.Trim();
+
+         NamedElement? selectionRoot = null;
+         SelectionSegments segments = [];
+
+         if (selectionString.StartsWith('^')) {
+            selectionString = selectionString[1..].Trim();
+         } else {
+            selectionRoot = Focus.Current.Object;
+         }
+
+         Regex regex = new(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z\s]*)", RegexOptions.Compiled);
+
+         bool previousSegmentWasUnit = false;
+         bool previousSegmentWasNameOrOffset = false;
+         while (selectionString.Length > 0) {
+            Match match = regex.Match(selectionString);
+            if (!match.Success) break; // No more matches, exit loop
+            selectionString = selectionString[match.Length..].Trim(); // Remove the matched segment from the string
+            string segment = match.Value.Trim();
+            if (char.IsAsciiLetterUpper(segment[0])) {
+               // Uppercase segment, identify as a unit type
+               SelectionType type = Abbreviation<SelectionType>.Identify(segment.ToUpper());
+               if (type == SelectionType.INVALID) return; // Invalid type, exit
+               segments.Add(new UnitSegment(type));
+               if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if previous was uppercase
+               previousSegmentWasUnit = true;
+               previousSegmentWasNameOrOffset = false;
+            } else if (segment.StartsWith(':')) {  // index into the selections
+               segments.Index = int.Parse(match.Groups["index"].Value.Trim()); // Parse the index from the segment
+               //if (Count == 0) return; // No selections to index into
+               //SingleSelection item;
+               //if (index > Count) {
+               //   item = this.Last(); // If index is out of bounds, select the last item
+               //} else {
+               //   item = this[index-1]; // Select the item at the specified index (which is 1-based)
+               //}
+               //Clear();
+               //Add(item); // keep only the indexed item
+            } else if (previousSegmentWasNameOrOffset) {
+               return; // Invalid sequence, can't have adjacent name and offsset segments
+            } else if (char.IsAsciiLetterLower(segment[0])) { // Name segment
+               segments.Add(new NameSegment(segment));
+               previousSegmentWasUnit = false;
+               previousSegmentWasNameOrOffset = true;
+            } else {
+               segments.Add(new OffsetSegment(segment));
+               previousSegmentWasUnit = false;
+               previousSegmentWasNameOrOffset = true;
+            }
+         }
+         Debug.Assert(segments.Count > 0 && segments.Count % 2 == 0, "No valid segments found in selection string, or number of selection aprts is odd");
+
+
 
          // Match alternating patterns of uppercase and lowercase segments
-         Regex regex = new Regex(@"([A-Z][A-Za-z]*)|([a-z][a-z\s]*|^(/.*))", RegexOptions.Compiled);
-         MatchCollection matches = regex.Matches(focusString);
 
-         List<SelectionSegment> parts = [];
+         MatchCollection matches = regex.Matches(selectionString);
+
          bool expectUppercase = true; // Start expecting uppercase
 
          foreach (Match match in matches) {
@@ -145,20 +226,20 @@ namespace CDL2v1 {
             if (expectUppercase) {
                SelectionType type = Abbreviation<SelectionType>.Identify(segment.ToUpper());
                if (type == SelectionType.INVALID) return;
-               parts.Add(new UnitSegment(type));
+               segments.Add(new UnitSegment(type));
             } else {
-               parts.Add(new NameSegment(segment)); // Add as name segment
+               segments.Add(new NameSegment(segment)); // Add as name segment
             }
             expectUppercase = !expectUppercase; // Toggle for next iteration
          }
 
          // Using the parts locate the actual focus
          // Simplistic for now to enable testing of commands that need the focus
-         if (parts.Count == 0) return; // No valid parts found
-         if (parts.Count % 2 == 1) parts.Add(new NameSegment("")); // Add an empty name segment
+         if (segments.Count == 0) return; // No valid parts found
+         if (segments.Count % 2 == 1) segments.Add(new NameSegment("")); // Add an empty name segment
          int segNo = 0;
-         SelectionType segmentType = parts[segNo++].SegmentType;
-         string segmentName = parts[segNo].SegmentName;
+         SelectionType segmentType = segments[segNo++].SegmentType;
+         string segmentName = segments[segNo].SegmentName;
          switch (segmentType) {
             case SelectionType.PROGRAM:
                AddSelected<Program>(segmentName);
@@ -173,34 +254,37 @@ namespace CDL2v1 {
                AddSelected<Section>(segmentName);
                break;
             case SelectionType.ALGORITHM:
-               AddSelected<Algorithm>(segmentName);
+               AddSelected<Algorithm>(segmentName,alg => !alg.IsImported);
                break;
             case SelectionType.PROCEDURE:
-               AddSelected<Procedure>(segmentName);
+               AddSelected<Procedure>(segmentName,alg=>!alg.IsImported);
                break;
             case SelectionType.MACRO:
-               AddSelected<Macro>(segmentName);
+               AddSelected<Macro>(segmentName,alg=>!alg.IsImported);
                break;
             case SelectionType.FUNCTION:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsFunction);
+               AddSelected<Algorithm>(segmentName, alg => alg.IsFunction && !alg.IsImported);
                break;
             case SelectionType.ACTION:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsAction);
+               AddSelected<Algorithm>(segmentName, alg => alg.IsAction && !alg.IsImported);
                break;
             case SelectionType.TEST:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsTest);
+               AddSelected<Algorithm>(segmentName, alg => alg.IsTest && !alg.IsImported);
                break;
             case SelectionType.PREDICATE:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsPredicate);
+               AddSelected<Algorithm>(segmentName, alg => alg.IsPredicate && !alg.IsImported);
                break;
             case SelectionType.CONST:
-               AddSelected<Const>(segmentName);
+               AddSelected<Const>(segmentName,con=>!con.IsImported);
                break;
             case SelectionType.VAR:
                AddSelected<Var>(segmentName);
                break;
             case SelectionType.LIST:
                AddSelected<LIST>(segmentName);
+               break;
+            case SelectionType.IMPORTED:
+               AddSelected<CDL2Object>(segmentName,obj=>obj.IsImported);
                break;
             default:
                return; // Unsupported type for now

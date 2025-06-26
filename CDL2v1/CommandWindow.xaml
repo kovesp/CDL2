@@ -3,8 +3,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="CDL2 Command Window" Height="1200" Width="800"
-        Background="Black">
-    <Grid x:Name="MainGrid">
+        Background="DarkSlateGray">
+    <Grid x:Name="MainGrid" Background="DarkSlateGray">
         <Grid.RowDefinitions>
             <RowDefinition x:Name="OutputRow" Height="*" />
             <RowDefinition Height="Auto" />
@@ -25,7 +25,7 @@
 
         <!-- Splitter -->
         <GridSplitter Grid.Row="1"
-                      Height="5"
+                      Height="10"
                       Background="#444444"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Center"
@@ -35,28 +35,69 @@
             <GridSplitter.Template>
                 <ControlTemplate TargetType="{x:Type GridSplitter}">
                     <Grid Background="{TemplateBinding Background}">
-                        <StackPanel Orientation="Horizontal" 
-                                  HorizontalAlignment="Center" 
-                                  VerticalAlignment="Center">
-                            <Button Content="≡" 
+                        <!-- Make toggle button much more visible -->
+                        <Border Width="40" 
+                                Height="10" 
+                                Background="#666666" 
+                                BorderBrush="#999999" 
+                                BorderThickness="1" 
+                                CornerRadius="5"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                            <Button Content=" " 
                                     Background="Transparent" 
                                     BorderThickness="0"
-                                    Foreground="LightGray"
+                                    Foreground="White"
+                                    FontSize="18"
+                                    FontWeight="Bold"
                                     ToolTip="Toggle output area"
-                                    Click="ToggleOutputArea_Click"/>
-                        </StackPanel>
+                                    Click="ToggleOutputArea_Click"
+                                    Cursor="Hand"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" 
+                                                            BorderBrush="{TemplateBinding BorderBrush}" 
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                            Width="40"
+                                                            Height="10"
+                                                            CornerRadius="5">
+                                                        <ContentPresenter HorizontalAlignment="Center" 
+                                                                         VerticalAlignment="Center" 
+                                                                         Margin="0,-2,0,0" />
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#888888"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter Property="Background" Value="#AAAAAA"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Border>
                     </Grid>
                 </ControlTemplate>
             </GridSplitter.Template>
         </GridSplitter>
 
-        <!-- Input Area -->
-        <DockPanel Grid.Row="2" LastChildFill="True">
+        <!-- Input Area - Set Background explicitly for all elements -->
+        <DockPanel Grid.Row="2" LastChildFill="True" Background="DarkSlateGray">
             <TextBlock x:Name="PromptTextBlock" 
                        DockPanel.Dock="Left"
                        Text="> " 
                        Foreground="LightGray" 
-                       Background="Black"
+                       Background="DarkSlateGray"
                        FontFamily="Consolas"
                        VerticalAlignment="Center"
                        Margin="2,0,0,0" />
@@ -67,7 +108,7 @@
                      BorderThickness="0"
                      FontFamily="Consolas"
                      CaretBrush="White"
-                     KeyDown="InputTextBox_KeyDown" />
+                     PreviewKeyDown="InputTextBox_PreviewKeyDown" />
         </DockPanel>
     </Grid>
 </Window>

@@ -31,47 +31,56 @@ name of an algorithm); a regular expression may be used here.
 
 ### Selector Syntax
 ```
+UNIT : program ; module ; layer ; section ; abstr ; ext ; inv ; import ; imported ; export ;
+       algorithm ; procedure ; macro ; function ; action ; test ; predicate ;
+       variable ; constant ; list ; affix ; local ; alternative ; group ; call ; 
+       succeed ; fail ; abort ; repeat.
 single selector : unit type, offset or name selector option.
 offset : plus token, DIGIT sequence ; minus token, DIGIT sequence ; DIGIT sequence.
-name selector : ALPHA sequence ; regular expression.
-selector : single selector sequence, ordinal option.
+name selector : ALPHA sequence option ; regex token, regular expression.
+selector : top token option, single selector sequence, ordinal option.
 ordinal : colon token, offset.
-unit type : program token ; module token ; layer token ; section token ;
-   abstr token ; ext token ; inv token ; import token ; export token ;
-   algorithm token ; procedure token ; macro token ; function token ; action token ; test token ; predicate token ;
-   variable token ; constant token ; list token ; affix token ; local token ;
-   alternative token ; group token ; call token ; succeed token ; fail token ; abort token ;
-   repeat token.
+unit type : UNIT token.
+top token : ^.
+regex token : /.
 setting : plus or minus token, setting name, setting argument option.
 ```
 #### Notes
 
+- The `top token` is used to indicate that the current focus is to be ignored.  
+  Thus `^ ALG le` will select all algorithms that have *le* in their name, regardless
+  of the current focus.
+- If the `top token` is not given, then the current focus is used as the starting point
+  for the selection. Thus `ALG le` will select all algorithms that have *le* in their name
+  in the current module, section, layer, etc. If the current focus is a module, then it will
+  select all algorithms in that module that have *le* in their name.
 - The `name selector` matches any name that contains these characters. So `ALG le` matches
   any algorithm that has *le* in its name, e.g., `less`, `less than`, `clear`, etc. Use a regular
-expression to be more specific, e.g., `ALG ^^le.*` matches only algorithms that start with *le*.
+  expression to be more specific, e.g., `ALG /^le` matches only algorithms that start with *le*.
 - A regular expression is what is allowed in dotnet regular expressions. An example is
-`ALG ^^(less|greater)` which, for example, matches *less*, *less or equal*, *greater*,
-*greater or equal*, and possibly others.
+  `ALG /^(less|greater)` which, for example, matches *less*, *less or equal*, *greater*,
+  *greater or equal*, and possibly others.
 - `Single selectors` must be given in hierarchical sequence. Thus `MOD sort SEC arith` is valid, 
-but `SEC arith MOD sort` is not.
+   but `SEC arith MOD sort` is not.
 - The `unit type`-s must start with a capital letter, but unlike in the code, they need not be
-all caps. This is also true when entering code. Notice that some of the unit types are *not*
-CDL2 reserved words, rather they extend the syntax to enable sub units.
+  all caps. This is also true when entering code. Notice that some of the unit types are *not*
+  CDL2 reserved words, rather they extend the syntax to enable sub units.
 - In a `selector` one needs specify only those units that select what you are looking for. There
-is a concept of *current unit* or *focus* ... many commands change the focus, about which
-more later.
+  is a concept of *current unit* or *focus* ... many commands change the focus, about which
+  more later.
 - When the `offset or name selector` is omitted, then any unit of the given type is matches.\
-Note that measn that the `unit type` is also redundant. Thus `MOD sort LAY ALG le` is the same as
-`MOD sort ALG le` and `LAY ALG le` is the same as `ALG le`.
+  Note that measn that the `unit type` is also redundant. Thus `MOD sort LAY ALG le` is the same as
+  `MOD sort ALG le` and `LAY ALG le` is the same as `ALG le`.
 - A selector clearly may select multiple objects of the same type (this type is the last `unit type`
-in the sequence.). If the contxt requires a single object, then the first one is selected, otherwise
-all are (e.g., this is the case in the `print` command). 
-- The ordinal may be used to select a specific object from what is selected by the reset of the
-selector. It is OK to give an ordinal that is greater than the number of selected objects, in
-which case the last object is selected. For example, `SEC arithmetic ALG less : 100` selects the
-last algorithm in the section `arithmetic` that has less in its name.
+  in the sequence.). If the contxt requires a single object, then the first one is selected, otherwise
+  all are (e.g., this is the case in the `print` command). 
+- The ordinal may be used to select a specific object from what is selected by the rest of the
+  selector. It is OK to give an ordinal that is greater than the number of selected objects, in
+  which case the last object is selected. For example, `SEC arithmetic ALG less : 100` selects the
+  last algorithm in the section `arithmetic` that has less in its name. If the ordinal is not given,
+  then the first object is selected. If the ordinal is given, then it must be a positive integer.
 - Just to be clear, the `ordinal` is not a part of the last `single selector`, but rather is
-applied to the whole `selector`.
+  applied to the whole `selector`.
 
 #### List of Unit Types
 

@@ -153,6 +153,7 @@ namespace CDL2v1 {
       save,
       status,
       quit,
+      exit,
       help,
    }
 
@@ -176,6 +177,7 @@ namespace CDL2v1 {
       FUNCTION,
       GROUP,
       IMPORT,
+      IMPORTED,
       INV,
       LAYER,
       LIST,

@@ -129,8 +129,12 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Handle input text box key down events
+      /// This works, but KeyDown does not receive Up and Down.
       /// </summary>
-      private void InputTextBox_KeyDown(object sender, KeyEventArgs e) {
+      /// <remarks>
+      /// Note that Ctrl-C, Ctrl-X, and Ctrl-V are handled by the TextBox control itself.
+      /// </remarks>
+      private void InputTextBox_PreviewKeyDown(object sender, KeyEventArgs e) {
          switch (e.Key) {
             case Key.Enter:
                ExecuteCommand();
@@ -161,6 +165,15 @@ namespace CDL2v1 {
             // Restore output area
             OutputRow.Height = new GridLength(_lastOutputHeight > 0 ? _lastOutputHeight : 1, GridUnitType.Star);
          }
+         
+         // Ensure consistent background colors
+         MainGrid.Background = new SolidColorBrush(Colors.DarkSlateGray);
+         OutputListBox.Background = new SolidColorBrush(Colors.DarkSlateGray);
+         InputTextBox.Background = new SolidColorBrush(Colors.DarkSlateGray);
+         PromptTextBlock.Background = new SolidColorBrush(Colors.DarkSlateGray);
+         
+         // Focus back on the input box
+         InputTextBox.Focus();
       }
 
       /// <summary>

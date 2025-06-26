@@ -49,7 +49,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="path">Base path for the file (extension will be replaced)</param>
       /// TODO: Add a backup capbility to save the previous database as a backup before overwriting
-      public static void SaveDB(string? path=null) {
+      public static string SaveDB(string? path=null) {
          path ??= Settings.LabDB; // Use the default lab database path if not provided
          if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
          //TODO: Add a backup capability to save the previous database as a backup before overwriting
@@ -60,7 +60,9 @@ namespace CDL2v1 {
 
          CompressStringToFile(json, path);
 
-         Logger.logger.WriteLine(1, $"CDL2: Compressed database saved to {path}");
+         string pathWithSize = $"{path}, {new FileInfo(path).Length.FormatByteSize()}";
+         Logger.logger.WriteLine(1, $"CDL2: Compressed database saved to {pathWithSize}");
+         return pathWithSize;
       }
 
       /// <summary>

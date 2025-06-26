@@ -43,6 +43,7 @@ namespace CDL2v1 {
       public readonly static SortedSet<Abbreviation<CommandType>> Commands = [
          new ("append"  , 1,"append   [SELECTOR] object:  append the object (which must be of the correct type) after the SELECTOR"),
          new ("edit"    , 1,"edit     [SELECTOR]:         edit the selected object"),
+         new ("exit"    , 4,"exit:                        exit the lab after saving the database"),
          new ("focus"   , 1,"focus    [SELECTOR]:         set the focus to the object described by the selector and display it"),
          new ("generate", 1,"generate [SELECTOR]:         generate code for the selected object which must be a PROGRAM or a MODULE"),
          new ("help"    , 1,"help     [command]:          display this list, or details for a command"),
@@ -79,6 +80,7 @@ namespace CDL2v1 {
          new ("FUNCTION"   ,2,SelectionType.SECTION),
          new ("GROUP"      ,1,SelectionType.ALGORITHM),
          new ("IMPORT"     ,3,SelectionType.SECTION),
+         new ("IMPORTED"   ,8,SelectionType.SECTION),
          new ("INV"        ,3,SelectionType.SECTION),
          new ("LAYER"      ,3,SelectionType.MODULE),
          new ("LIST"       ,4,SelectionType.SECTION),
