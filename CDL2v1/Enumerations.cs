@@ -197,6 +197,7 @@ namespace CDL2v1 {
       SUCCEED,
       TEST,
       VAR,
+      LASTCALL,
    }
 
    /// <summary>

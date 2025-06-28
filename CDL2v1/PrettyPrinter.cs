@@ -198,6 +198,36 @@ namespace CDL2v1 {
          Emitter.EndUpdate();
       }
 
+      internal void Print(NamedElement namedElement) {
+         switch (namedElement) {
+            case Program program:
+               Print(program);
+               break;
+            case Module module:
+               Print(module);
+               break;
+            case Layer layer:
+               Print(layer);
+               break;
+            case Section section:
+               Print(section);
+               break;
+            case Algorithm algorithm:
+               Print(algorithm);
+               break;
+            case Const constant:
+               Print(constant);
+               break;
+            case Var variable:
+               Print(variable);
+               break;
+            case LIST list:
+               Print(list, list.Section!);
+               break;
+            default:
+               throw new NotImplementedException($"Cannot print {namedElement.GetType()}");
+         }
+      }
       public void Print(Program program) => PrintContainer(program,() => {
          PrintList(RW.PART,program.Parts,decorate:false);
          PrintLudes(program);
@@ -688,5 +718,6 @@ namespace CDL2v1 {
       private void Emitnl(params object[] items) => Emitter.Emitnl(TranslateTokens(items));
       private void NlEmit(params object[] items) => Emitter.NlEmit(TranslateTokens(items));
       private void NlEmitnl(params object[] items) => Emitter.NlEmitnl(TranslateTokens(items));
+
    }
 }

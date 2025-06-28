@@ -6,10 +6,20 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   internal class CommandInterpreter {
+   public class CommandInterpreter {
+      private readonly CommandPromptWindow commandWindow;
+      private readonly PrettyPrinter pp;
+
+      public CommandInterpreter(CommandPromptWindow window) {
+         commandWindow = window;
+         pp = new(new CommandWindowEmitter(commandWindow), includeComments: true);
+      }
+
       internal void IntepretCommand(string command, CommandType commandType, string settings, string args,CommandPromptWindow commandWindow) {
          IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
+         string[] parts;
+
          switch (commandType) {
             case CommandType.INVALID:
                commandWindow.WriteLine($"Invalid command: {command}");
@@ -43,14 +53,21 @@ namespace CDL2v1 {
                }
                break;
             case CommandType.print:
-               // Handle print command
-               string[] parts = command.Split(' ', 2);
-               if (parts.Length < 2) {
-                  commandWindow.WriteLine("Usage: print <message>");
+               if (args == "") {
+                  if (Focus.Current.Object is not null) {
+                     //TODO: Ignore Focus subojbest for now
+                     commandWindow.WriteLine(Focus.Current.Object.FQDN());
+                  } else {
+                     commandWindow.WriteLine($"Nothing");
+                  }
                   return;
+               } else {
+                  Selection selection = new(args);
+                  foreach (SingleSelection sel in selection) {
+                     pp.Print(sel.Object!);
+                  }
                }
-               string message = parts[1];
-               commandWindow.WriteLine($"Print: {message}");
+
                break;
             case CommandType.set:
                // Handle set command

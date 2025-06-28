@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.ComponentModel;
+using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
@@ -120,11 +121,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="id"></param>
       /// <param name="synthetic"></param>
-      public NamedElement(ID id,bool synthetic = false) {
+      public NamedElement(ID id,bool synthetic = false, SelectionType selectionType = SelectionType.INVALID) {
          Id = id;
          IsSynthetic = synthetic;
          GUID = Guid.NewGuid();
          Database.Instance.AddNamedElement(this); // Register the element in the database.
+         SelectionType = selectionType;
       }
       /// <summary>
       /// Use when deserializing the element.
@@ -156,6 +158,8 @@ namespace CDL2v1 {
       /// <returns></returns>
       public T? ParentElement<T>() where T : NamedElement => Parent != Guid.Empty && Database.Instance.NamedElements.TryGetValue(Parent,out NamedElement? parent) && parent is T element ? element : default;
 
+      [JsonIgnore]
+      public SelectionType SelectionType = SelectionType.INVALID;
       /// <summary>
       /// The section which contains this object or null
       /// Valid (non-null) only for Section and objects that are contained in a section. <see cref="Parent"/>.
@@ -233,12 +237,12 @@ namespace CDL2v1 {
       [JsonInclude] [JsonPropertyOrder(10)] public List<Guid> Children { get; set; } = [];
 
       /// <param Id="Id"></param>
-      public Container(ID id,string? comments,Notes? notes) : base(id) {
+      public Container(ID id,string? comments,Notes? notes, SelectionType selectionType = SelectionType.INVALID) : base(id,selectionType:selectionType) {
          Comments = comments;
          AddNotes("Parser", notes);
       }
 
-      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null) : this(id,comments,notes) { 
+      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null, SelectionType selectionType = SelectionType.INVALID) : this(id,comments,notes,selectionType) { 
          Parent = parent?.GUID ?? Guid.Empty;
          if (parent != null && parent.Children.Contains(GUID)) {
             Logger.ReportError($"{ContainerName} is already a child of {parent.ContainerName}");
@@ -299,9 +303,9 @@ namespace CDL2v1 {
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Program(ID id, string? comments, Notes notes) : base(id, null, comments, notes) => LudeParser = Parser.ParseLudeOfIDs;
+      public Program(ID id, string? comments, Notes notes) : base(id, null, comments, notes,SelectionType.PROGRAM) => LudeParser = Parser.ParseLudeOfIDs;
       [JsonConstructor]
-      public Program() { LudeParser = Parser.ParseLudeOfIDs; }
+      public Program() { LudeParser = Parser.ParseLudeOfIDs; SelectionType = SelectionType.PROGRAM; }
    }
 
    /// <summary>
@@ -324,12 +328,15 @@ namespace CDL2v1 {
       /// Module Ludes are a list of container IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Module(ID id,string? comments,Notes notes) : base(id,null,comments,notes) {
+      public Module(ID id,string? comments,Notes notes) : base(id,null,comments,notes,SelectionType.MODULE) {
          LudeParser = Parser.ParseLudeOfIDs;
          Comments = comments;
       }
       [JsonConstructor]
-      public Module() => LudeParser = Parser.ParseLudeOfIDs;
+      public Module() {
+         LudeParser = Parser.ParseLudeOfIDs;
+         SelectionType = SelectionType.MODULE;
+      }
 
       public Section? SectionById(ID id) {
          foreach (Section section in Sections) if (section.Id == id) return section;
@@ -342,8 +349,6 @@ namespace CDL2v1 {
 
       [JsonIgnore] public List<Layer> Layers => [.. Children.Select(GUID => Database.Instance.NamedElements[GUID] as Layer)!];
       [JsonIgnore] public List<Section> Sections => [..Layers.SelectMany(layer => layer.Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section))!];
-
-
    }
 
    /// <summary>
@@ -360,9 +365,10 @@ namespace CDL2v1 {
       /// <param Id="Id"></param>
       /// <param Id="module"></param>
       /// <param PhaseName="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
-      public Layer(ID id, Module module, Layer? ancestor, string? comments = null, Notes? notes = null) : base(id, module, comments, notes) => AncestorGUID = ancestor?.GUID ?? Guid.Empty;
+      public Layer(ID id, Module module, Layer? ancestor, string? comments = null, Notes? notes = null) 
+         : base(id, module, comments, notes,SelectionType.LAYER) => AncestorGUID = ancestor?.GUID ?? Guid.Empty;
       [JsonConstructor]
-      public Layer() : base() { } // For deserialization
+      public Layer() : base() => SelectionType = SelectionType.LAYER;  // For deserialization
 
       [JsonIgnore]
       public Layer? Ancestor => AncestorGUID != Guid.Empty && NamedElement.From(AncestorGUID, out NamedElement? ancestor) && ancestor is Layer layer ? layer : null;
@@ -388,7 +394,6 @@ namespace CDL2v1 {
       /// <summary>
       /// The interfaces.
       /// </summary>
-
       [JsonInclude][JsonPropertyOrder(40)] public  Set<ID> ext = [];
       [JsonInclude][JsonPropertyOrder(41)] public  Set<ID> abstr = [];
       [JsonInclude][JsonPropertyOrder(42)] public  Set<ID> inv = [];
@@ -479,9 +484,10 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="Id"></param>
       /// <param Id="layer"></param>
-      public Section(ID id,Layer layer,string? comments = null,Notes? notes = null) : base(id,layer,comments,notes) => LudeParser = Parser.ParseLudeOfCalls;
+      public Section(ID id,Layer layer,string? comments = null,Notes? notes = null) : base(id,layer,comments,notes,SelectionType.SECTION) 
+         => LudeParser = Parser.ParseLudeOfCalls;
       [JsonConstructor]
-      public Section() { LudeParser = Parser.ParseLudeOfCalls;  }
+      public Section() { LudeParser = Parser.ParseLudeOfCalls; SelectionType = SelectionType.SECTION; }
 
       public static Type[] ProvidedElementImplementors;
       static Section() => ProvidedElementImplementors = [.. Extensions.GetImplementorsOfInterface<IProvidable>()];
@@ -537,11 +543,11 @@ namespace CDL2v1 {
    /// Algorithm (Macro, Porcedure, ImportedAlgorithm), Const (ImportedConst), Var and LIST.
    /// </summary>
    public /*abstract*/ class CDL2Object : NamedElement {
-      public CDL2Object(ID id, Section section, string? comments, bool synthetic = false) : base(id, synthetic) {
+      public CDL2Object(ID id, Section section, string? comments, bool synthetic = false, SelectionType selectionType=SelectionType.INVALID) : base(id, synthetic,selectionType) {
          Parent = section.GUID;
          Comments = comments;
       }
-      public CDL2Object(ID id) : base(id) { }
+      public CDL2Object(ID id, SelectionType selectionType = SelectionType.INVALID) : base(id,selectionType:selectionType) { }
 
       [JsonConstructor]
       public CDL2Object() : base() { } // For deserialization
@@ -590,6 +596,7 @@ namespace CDL2v1 {
          this.SE = SE.AlgorithmName;
          foreach (Affix affix in affixes) affix.ContainingAlgorithm = this;
          foreach (Local local in locals)  local.ContainingAlgorithm = this;
+         SelectionType = this is Procedure ? SelectionType.PROCEDURE : SelectionType.MACRO;
       }
       [JsonConstructor]
       public Algorithm() { }
@@ -915,14 +922,17 @@ namespace CDL2v1 {
 
       [JsonIgnore] public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
       [JsonIgnore] public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: true);
-      public Call(ID id, Procedure containingProc,Alternative containingAlternative, bool builtin = false) : base (id) {
+      public Call(ID id, Procedure containingProc,Alternative containingAlternative, bool builtin = false) : base (id,selectionType:SelectionType.CALL) {
          this.id = id;
          Parent = containingAlternative.GUID;
          IsBuiltin = builtin;
          this.containingProc = containingProc.GUID;
       }
       [JsonConstructor]
-      public Call() => id = ID.AnonID; // For deserialization
+      public Call() {
+         id = ID.AnonID; // For deserialization
+         SelectionType = SelectionType.CALL;
+      }
 
       private bool IsConditionalCompilation(bool on) {
          if (Called != null) {
@@ -978,9 +988,10 @@ namespace CDL2v1 {
       public LastCall(LCT type, Alternative containingAlternative) {
          this.type = type;
          Parent = containingAlternative.GUID;
+         SelectionType = SelectionType.LASTCALL;
       }
       [JsonConstructor]
-      public LastCall() { type = LCT.None; } // For deserialization
+      public LastCall() { type = LCT.None; SelectionType = SelectionType.LASTCALL; } // For deserialization
 
       public LastCall(Call call, Alternative containingAlternative) : this(LCT.Standard, containingAlternative) => this.call = call;
       public LastCall(Group group, Alternative containingAlternative) : this(LCT.Group, containingAlternative) => this.group = group;
@@ -1012,19 +1023,19 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall = new();
       [JsonIgnore] public bool IsConditionalOff = false;
 
-      public Alternative(List<Call> calls, LastCall lastCall, Notes notes, Group containingGroup) : base(ID.AnonID, synthetic:false) {
+      public Alternative(List<Call> calls, LastCall lastCall, Notes notes, Group containingGroup) : base(ID.AnonID, synthetic:false,SelectionType.ALTERNATIVE) {
          this.calls = calls;
          this.lastCall = lastCall;
          Notes = notes;
          Parent = containingGroup.GUID;
       }
 
-      public Alternative(Notes notes, Group group) : base(ID.AnonID, synthetic: false) {
+      public Alternative(Notes notes, Group group) : base(ID.AnonID, synthetic: false, SelectionType.ALTERNATIVE) {
          Notes = notes;
          Parent = group.GUID;
       }
 
-      [JsonConstructor] public Alternative() : base(ID.AnonID, synthetic: false) { } // For deserialization
+      [JsonConstructor] public Alternative() : base(ID.AnonID, synthetic: false, SelectionType.ALTERNATIVE) { } // For deserialization
 
       [JsonIgnore] public bool CanFail =>  calls.Any(call => call.CanFail) || 
                               (lastCall!.type == LCT.Standard && lastCall.call!.CanFail) || 
@@ -1067,13 +1078,14 @@ namespace CDL2v1 {
    public class Group : NamedElement, IUnrecordedElement {
       [JsonInclude][JsonPropertyOrder(30)] public List<Alternative> Alternatives = [];
       [JsonConstructor]
-      public Group() : base(ID.AnonID,synthetic: false) { }
-      public Group(ID label,Guid parentGuid) : base(label, synthetic: false) {
+      public Group() : base(ID.AnonID,synthetic: false, SelectionType.GROUP) { }
+      public Group(ID label,Guid parentGuid) : base(label, synthetic: false, SelectionType.GROUP) {
          Parent = parentGuid;
       }
       public Group(ID? label,List<Alternative> alternatives,Guid parentGuid,bool synthetic) : base(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
          Parent = parentGuid;
          Alternatives = alternatives;
+         SelectionType = SelectionType.GROUP;
       }
 
       public Group? ParentGroup() {
@@ -1162,7 +1174,7 @@ namespace CDL2v1 {
       [JsonInclude] public ID lwb;
       [JsonInclude] public ID upb;
 
-      public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section,null) {
+      public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section,null, selectionType:SelectionType.LIST) {
          this.lwb = lwb;
          this.upb = upb;
          SE = SE.List;
@@ -1171,13 +1183,14 @@ namespace CDL2v1 {
       public LIST() : base() {
          lwb = ID.AnonID;
          upb = ID.AnonID;
+         SelectionType = SelectionType.LIST;
       } // For deserialization
       override public string ToString() => $"LIST {Id}({lwb}:{upb})";
    }
    public class Var : CDL2Object, IFailureProtected, IActualArg, ITrackedVar {
-      public Var(ID id, Section section) : base(id, section, null) => SE = SE.Var;
+      public Var(ID id, Section section) : base(id, section, null, selectionType:SelectionType.VAR) => SE = SE.Var;
       [JsonConstructor]
-      public Var() : base() { } // For deserialization
+      public Var() : base() { SelectionType = SelectionType.VAR; } // For deserialization
 
       override public string ToString() => $"VAR {Id.Name}";
    }
@@ -1185,9 +1198,9 @@ namespace CDL2v1 {
       [JsonInclude]
       public List<IElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
-      public Const(ID id,Section section) : base(id,section,null) => SE = SE.Const;
+      public Const(ID id,Section section) : base(id,section,null, selectionType:SelectionType.CONST) => SE = SE.Const;
       [JsonConstructor]
-      public Const() : base() { } // For deserialization
+      public Const() : base() { SelectionType = SelectionType.CONST;  } // For deserialization
    }
 
    public class ImportedConst : Const, IImportable {
@@ -1218,12 +1231,12 @@ namespace CDL2v1 {
       /// <param Id="Id"></param>
       /// <param Id="dir"></param>
       /// <param Id="type"></param>
-      public Affix(ID id,AffixDir dir,AffixType type) : base(id) {
+      public Affix(ID id,AffixDir dir,AffixType type) : base(id,selectionType:SelectionType.AFFIX) {
          affixDir = dir;
          affixType = type;
       }
       [JsonConstructor]
-      public Affix() : base() { } // For deserialization
+      public Affix() : base() { SelectionType = SelectionType.AFFIX; } // For deserialization
 
       [JsonIgnore] public bool IsInput => affixDir == AffixDir.input || affixDir == AffixDir.transput;
       [JsonIgnore] public bool IsInputOnly => affixDir == AffixDir.input;
@@ -1243,7 +1256,7 @@ namespace CDL2v1 {
       public static bool operator !=(Affix? left,Affix? right) => !(left == right);
    }
 
-   public class Local(ID id) : NamedElement(id), IActualArg, ITrackedVar, IParameter {
+   public class Local(ID id) : NamedElement(id,selectionType:SelectionType.LOCAL), IActualArg, ITrackedVar, IParameter {
       [JsonIgnore] public Algorithm? ContainingAlgorithm {
          get => Database.Instance.NamedElements[Parent] as Algorithm;
          set => Parent = value?.GUID ?? Guid.Empty;
@@ -1251,6 +1264,8 @@ namespace CDL2v1 {
       [JsonIgnore]
       public static readonly Local Default = new(ID.AnonID);
       override public string ToString() => $"-{Id.Name}";
+      [JsonConstructor]
+      public Local() : this(ID.AnonID) { } // For deserialization
    }
 
    public class Undeclared : CDL2Object {
