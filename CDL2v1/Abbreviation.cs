@@ -11,7 +11,7 @@ namespace CDL2v1 {
       public readonly string Name;
       public readonly int MinLength;
       public readonly T Type;
-      public readonly List<T>? Nesting; // Use to determine hierarhcy of focus kewywords, not used for commands
+      public readonly List<T>? Containers; // Use to determine hierarhcy of focus kewywords, not used for commands
       public string HelpText;
 
       /// <summary>
@@ -61,30 +61,34 @@ namespace CDL2v1 {
          new ("undo"    , 1,"undo:                        undo the last modification; may be repeated (NOT IMPLEMENTED)"),
       ];
 
-      /// <summary>
+      private static readonly List<SelectionType> AlgorithmTypes = [
+         SelectionType.ALGORITHM, SelectionType.PROCEDURE, SelectionType.ACTION, SelectionType.FUNCTION, SelectionType.PREDICATE, SelectionType.TEST
+      ];
+      private static readonly List<SelectionType> AlgorithmTypesWithMacro = AlgorithmTypes.With(SelectionType.MACRO);
+      /// <summary> 
       /// Must match with the names in the FocusType enum.
       /// </summary>
       public readonly static SortedSet<Abbreviation<SelectionType>> FocusTypes = [
          new ("ABORT"      ,5,SelectionType.ALTERNATIVE),
          new ("ABSTR"      ,5,SelectionType.SECTION),
          new ("ACTION"     ,2,SelectionType.SECTION),
-         new ("AFFIX"      ,3,SelectionType.ALGORITHM),
+         new ("AFFIX"      ,3,AlgorithmTypesWithMacro),
          new ("ALGORITHM"  ,3,SelectionType.SECTION),
          new ("ALTERNATIVE",3,SelectionType.GROUP),
          new ("ARG"        ,3,SelectionType.CALL),
-         new ("CALL"       ,1,SelectionType.ALTERNATIVE),
+         new ("CALL"       ,1,SelectionType.ALTERNATIVE),   // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
          new ("CONST"      ,3,SelectionType.SECTION),
          new ("EXPORT"     ,3,SelectionType.SECTION),
          new ("EXT"        ,3,SelectionType.SECTION),
          new ("FAIL"       ,4,SelectionType.ALTERNATIVE),
          new ("FUNCTION"   ,2,SelectionType.SECTION),
-         new ("GROUP"      ,1,SelectionType.ALGORITHM),
+         new ("GROUP"      ,1,AlgorithmTypes),
          new ("IMPORT"     ,3,SelectionType.SECTION),
          new ("IMPORTED"   ,8,SelectionType.SECTION),
          new ("INV"        ,3,SelectionType.SECTION),
          new ("LAYER"      ,3,SelectionType.MODULE),
          new ("LIST"       ,4,SelectionType.SECTION),
-         new ("LOCAL"      ,3,SelectionType.ALGORITHM),
+         new ("LOCAL"      ,3,AlgorithmTypesWithMacro),
          new ("MACRO"      ,3,SelectionType.SECTION),
          new ("MODULE"     ,1),
          new ("NOTE"       ,4),
@@ -102,6 +106,21 @@ namespace CDL2v1 {
          new ("VAR"        ,3,SelectionType.SECTION),
       ];
 
+      private readonly static Dictionary<SelectionType,Abbreviation<SelectionType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type, abbrev => abbrev);
+      /// <summary>
+      /// Return true if the first selection type is a valid ancestor of the second selection type.
+      /// </summary>
+      /// <param name="ancestor"></param>
+      /// <param name="child"></param>
+      /// <returns></returns>
+      /// <example>
+      ///   AncestorSelectionType(SelectionType.MODULE, SelectionType.CALL); // True, because MODULE => LAYER => SECTION => PROCEDURE => GROUP => ALTERNATIVE => CALL
+      /// </example>
+      public static bool AncestorSelectionType(SelectionType ancestor,SelectionType child) {
+         List<SelectionType>? containers = FocusTypeMap[child].Containers; // The direct containers of the child type
+         return containers is not null && (containers.Contains(ancestor) || containers.Any(container=>AncestorSelectionType(ancestor,container)));
+      }
+
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {
          nameof(CommandType)     => Commands.Cast<Abbreviation<T>>().ToSet(),
          nameof(SelectionType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
@@ -112,7 +131,7 @@ namespace CDL2v1 {
          Name = name;
          MinLength = minLength;
          Type = Enum.Parse<T>(name, true);
-         Nesting = nesting;
+         Containers = nesting;
          HelpText = help;
       }
 

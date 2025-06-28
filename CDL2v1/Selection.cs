@@ -141,7 +141,9 @@ namespace CDL2v1 {
       }
       /// ================================================================================================================
       #endregion SelectionSegments
-      
+
+      public string? ErrorMessage = null;
+      public bool IsValid => ErrorMessage == null;
       /// <summary>
       /// Create a new empty selection.
       /// </summary>
@@ -175,7 +177,10 @@ namespace CDL2v1 {
             if (char.IsAsciiLetterUpper(segment[0])) {
                // Uppercase segment, identify as a unit type
                SelectionType type = Abbreviation<SelectionType>.Identify(segment.ToUpper());
-               if (type == SelectionType.INVALID) return; // Invalid type, exit
+               if (type == SelectionType.INVALID) {
+                  ErrorMessage = $"Invalid selector type: {segment}";
+                  return;
+               }
                segments.Add(new UnitSegment(type));
                if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if previous was uppercase
                previousSegmentWasUnit = true;
@@ -192,6 +197,7 @@ namespace CDL2v1 {
                //Clear();
                //Add(item); // keep only the indexed item
             } else if (previousSegmentWasNameOrOffset) {
+               ErrorMessage = $"Invalid selection: {segment} after a name or offset segment";
                return; // Invalid sequence, can't have adjacent name and offsset segments
             } else if (char.IsAsciiLetterLower(segment[0])) { // Name segment
                segments.Add(new NameSegment(segment));
@@ -203,9 +209,19 @@ namespace CDL2v1 {
                previousSegmentWasNameOrOffset = true;
             }
          }
-         Debug.Assert(segments.Count > 0 && segments.Count % 2 == 0, "No valid segments found in selection string, or number of selection aprts is odd");
+         Debug.Assert(segments.Count > 0 && segments.Count % 2 == 0, "No valid segments found in selection string, or number of selection segments is odd");
+         // Verify that the types are in hierarchical order
+         for (int i = 0; i < segments.Count - 2; i += 2) {
+            if (!Abbreviation<SelectionType>.AncestorSelectionType(ancestor:segments[i].SegmentType,child:segments[i + 2].SegmentType)) {
+               // The types are not in hierarchical order, return without setting selection
+               ErrorMessage = $"Invalid selection: {segments[i+2].SegmentType} cannot follow {segments[i].SegmentType}";
+               return;
+            }
+         }
 
-
+         // If there is a selection root, there are two cases
+         // 1. The selection root is an ancestior of the first segment type, in which case the selection is relative to the root.
+         // 2. The selection root is not an ancestor, in which case the selection is absolute.
 
          // Match alternating patterns of uppercase and lowercase segments
 

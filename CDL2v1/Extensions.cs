@@ -250,6 +250,17 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// Returns a new list containing the elements of the original list combined with the specified items,  ensuring
+      /// no duplicate elements are added.
+      /// </summary>
+      /// <typeparam name="T">The type of elements in the list. Must be a non-nullable type.</typeparam>
+      /// <param name="list">The original list to which the items will be added.</param>
+      /// <param name="items">The collections of items to add to the list. Duplicate elements will not be added.</param>
+      /// <returns>A new list containing the elements of the original list and the specified items, without duplicates.</returns>
+      public static List<T> With<T>(this List<T> list, params IEnumerable<T> items) where T : notnull 
+         => items.All(item => list.Contains(item)) ? list : [.. list.Union(items)];
+
+      /// <summary>
       /// Return the types that implement the given interface.
       /// </summary>
       /// <typeparam name="TInterface"></typeparam>
