@@ -199,7 +199,7 @@ namespace CDL2v1 {
             } else if (previousSegmentWasNameOrOffset) {
                ErrorMessage = $"Invalid selection: {segment} after a name or offset segment";
                return; // Invalid sequence, can't have adjacent name and offsset segments
-            } else if (char.IsAsciiLetterLower(segment[0])) { // Name segment
+            } else if (char.IsAsciiLetterLower(segment[0]) || segment[0]=='/') { // Name segment
                segments.Add(new NameSegment(segment));
                previousSegmentWasUnit = false;
                previousSegmentWasNameOrOffset = true;
@@ -209,6 +209,7 @@ namespace CDL2v1 {
                previousSegmentWasNameOrOffset = true;
             }
          }
+         if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if the last was uppercase
          Debug.Assert(segments.Count > 0 && segments.Count % 2 == 0, "No valid segments found in selection string, or number of selection segments is odd");
          // Verify that the types are in hierarchical order
          for (int i = 0; i < segments.Count - 2; i += 2) {
@@ -220,8 +221,15 @@ namespace CDL2v1 {
          }
 
          // If there is a selection root, there are two cases
-         // 1. The selection root is an ancestior of the first segment type, in which case the selection is relative to the root.
-         // 2. The selection root is not an ancestor, in which case the selection is absolute.
+         // 1. The selection root is an ancestor of the first segment type, in which case the selection is relative to the root.
+         // 2. The selection root is not an ancestor, in which case the root is ignored.
+         if (selectionRoot is null || ! Abbreviation<SelectionType>.AncestorSelectionType(selectionRoot.SelectionType, segments[0].SegmentType)) {
+            // The selection is not rooted
+            segments.Insert(0, new UnitSegment(selectionRoot?.SelectionType ?? SelectionType.INVALID)); // Add the selection root type as the first segment
+         } else {
+            // The selection is releative to the root
+
+         }
 
          // Match alternating patterns of uppercase and lowercase segments
 
