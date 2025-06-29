@@ -44,11 +44,14 @@ namespace CDL2v1 {
                   } else {
                      commandWindow.WriteLine($"Nothing");
                   }
-                  return;
                } else {
                   Selection selection = new(args);
-                  foreach (SingleSelection sel in selection) {
-                     commandWindow.WriteLine(sel.Object!.FQDN());
+                  if (selection.Count == 0) {
+                     commandWindow.WriteLine(selection.ErrorMessage);
+                  } else {
+                     foreach (SingleSelection sel in selection) {
+                        commandWindow.WriteLine(sel.Object!.FQDN());
+                     }
                   }
                }
                break;
@@ -56,7 +59,7 @@ namespace CDL2v1 {
                if (args == "") {
                   if (Focus.Current.Object is not null) {
                      //TODO: Ignore Focus subojbest for now
-                     commandWindow.WriteLine(Focus.Current.Object.FQDN());
+                     pp.Print(Focus.Current.Object);
                   } else {
                      commandWindow.WriteLine($"Nothing");
                   }

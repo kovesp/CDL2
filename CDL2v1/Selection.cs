@@ -142,7 +142,7 @@ namespace CDL2v1 {
       /// ================================================================================================================
       #endregion SelectionSegments
 
-      public string? ErrorMessage = null;
+      public string ErrorMessage = "";
       public bool IsValid => ErrorMessage == null;
       /// <summary>
       /// Create a new empty selection.
@@ -225,7 +225,6 @@ namespace CDL2v1 {
          // 2. The selection root is not an ancestor, in which case the root is ignored.
          if (selectionRoot is null || ! Abbreviation<SelectionType>.AncestorSelectionType(selectionRoot.SelectionType, segments[0].SegmentType)) {
             // The selection is not rooted
-            segments.Insert(0, new UnitSegment(selectionRoot?.SelectionType ?? SelectionType.INVALID)); // Add the selection root type as the first segment
          } else {
             // The selection is releative to the root
 
