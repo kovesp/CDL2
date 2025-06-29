@@ -12,10 +12,11 @@ namespace CDL2v1 {
 
       public CommandInterpreter(CommandPromptWindow window) {
          commandWindow = window;
+         // Create a CommandWindowEmitter that integrates with our window
          pp = new(new CommandWindowEmitter(commandWindow), includeComments: true);
       }
 
-      internal void IntepretCommand(string command, CommandType commandType, string settings, string args,CommandPromptWindow commandWindow) {
+      internal void IntepretCommand(string command, CommandType commandType, string settings, string args, CommandPromptWindow commandWindow) {
          IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          string[] parts;

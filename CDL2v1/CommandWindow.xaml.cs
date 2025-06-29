@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -10,25 +12,23 @@ namespace CDL2v1 {
    /// Interaction logic for CommandWindow.xaml
    /// </summary>
    public partial class CommandPromptWindow : Window {
-      private readonly ObservableCollection<string> _outputLines = [];
       private readonly History _commandHistory = new();
-      // private bool _isInitializing = true;
-
-      // Event raised when a command is entered
-      public event EventHandler<string>? CommandEntered;
+      private FontFamily _textFont = new("Cascadia Mono");
 
       // Store the last height of the output area for restore functionality
       private double _lastOutputHeight = 0;
 
+      // Event raised when a command is entered
+      public event EventHandler<string>? CommandEntered;
+
       public CommandPromptWindow() {
          InitializeComponent();
-         OutputListBox.ItemsSource = _outputLines;
 
          // Set initial prompt
          WriteLine($"CDL2 Laboratory v{CDL2.Version} - Type 'help' for available commands");
          DisplayPrompt();
 
-         // ApplyED saved window position and size
+         // Apply saved window position and size
          ApplySavedWindowSettings();
 
          // Subscribe to events to save changes
@@ -48,11 +48,11 @@ namespace CDL2v1 {
 
          // Focus on the window so it can receive keyboard input
          Loaded += (s, e) => {
-            Keyboard.Focus(this);
-            //_isInitializing = false;
+            Keyboard.Focus(InputTextBox);
          };
       }
 
+      #region Window Settings
       private void ApplySavedWindowSettings() {
          // Get window settings
          double left = Settings.SettingValue<double>("WindowLeft");
@@ -84,9 +84,9 @@ namespace CDL2v1 {
             Setting<double>? widthSetting = Settings.Setting<double>("WindowWidth");
             Setting<double>? heightSetting = Settings.Setting<double>("WindowHeight");
 
-            leftSetting?.Value   = this.Left;
-            topSetting?.Value    = this.Top;
-            widthSetting?.Value  = this.Width;
+            leftSetting?.Value = this.Left;
+            topSetting?.Value = this.Top;
+            widthSetting?.Value = this.Width;
             heightSetting?.Value = this.Height;
 
             // Save to persistent storage
@@ -105,17 +105,96 @@ namespace CDL2v1 {
          if (IsLoaded && WindowState == WindowState.Normal)
             SaveWindowSettings();
       }
+      #endregion
 
+      #region Formatted Output
+      /// <summary>
+      /// Configure the output area for formatted text (called by CommandWindowEmitter)
+      /// </summary>
+      public void ConfigureFormattedOutput() {
+         OutputTextBlock.Document.PageWidth = 2000; // Wide page to avoid wrapping
+      }
+
+      /// <summary>
+      /// Add formatted text to the output area
+      /// </summary>
+      public void AddFormattedText(
+          string text,
+          Brush foreground,
+          Brush background,
+          FontWeight fontWeight = default,
+          FontStyle fontStyle = default,
+          TextDecorationCollection? textDecorations = null,
+          bool lineBreak = false) {
+         
+         // Create a styled run
+         Run run = new(text) {
+            Foreground = foreground,
+            Background = background,
+            FontWeight = fontWeight != default ? fontWeight : FontWeights.Normal,
+            FontStyle = fontStyle != default ? fontStyle : FontStyles.Normal,
+            TextDecorations = textDecorations,
+            FontFamily = _textFont
+         };
+
+         // Add the run to the last paragraph
+         FlowDocument document = OutputTextBlock.Document;
+         Paragraph lastParagraph;
+         
+         if (document.Blocks.Count == 0) {
+            lastParagraph = new Paragraph();
+            document.Blocks.Add(lastParagraph);
+         } else {
+            lastParagraph = document.Blocks.LastBlock as Paragraph;
+         }
+
+         lastParagraph?.Inlines.Add(run);
+         
+         if (lineBreak) {
+            lastParagraph?.Inlines.Add(new LineBreak());
+         }
+
+         // Ensure auto-scroll to bottom
+         OutputTextBlock.ScrollToEnd();
+      }
+
+      /// <summary>
+      /// Begin batch updating of formatted text
+      /// </summary>
+      public void BeginFormattedUpdate() {
+         OutputTextBlock.BeginChange();
+         OutputScrollViewer.SetValue(ScrollViewer.CanContentScrollProperty, false);
+      }
+
+      /// <summary>
+      /// End batch updating of formatted text
+      /// </summary>
+      public void EndFormattedUpdate() {
+         OutputTextBlock.EndChange();
+         OutputScrollViewer.SetValue(ScrollViewer.CanContentScrollProperty, true);
+         OutputTextBlock.ScrollToEnd();
+      }
+
+      /// <summary>
+      /// Force UI update during batch operations
+      /// </summary>
+      public void UpdateFormattedUI() {
+         OutputTextBlock.UpdateLayout();
+      }
+      #endregion
+
+      #region Simple Text Output
       /// <summary>
       /// Writes a line of text to the output
       /// </summary>
       public void WriteLine(string text) {
          Application.Current.Dispatcher.Invoke(() => {
-            _outputLines.Add(text);
-            OutputListBox.ScrollIntoView(_outputLines[^1]);
+            AddFormattedText(text, Brushes.LightGray, Brushes.Transparent, lineBreak: true);
          });
       }
-
+      #endregion
+      
+      #region Input Handling
       /// <summary>
       /// Displays the command prompt
       /// </summary>
@@ -129,11 +208,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Handle input text box key down events
-      /// This works, but KeyDown does not receive Up and Down.
       /// </summary>
-      /// <remarks>
-      /// Note that Ctrl-C, Ctrl-X, and Ctrl-V are handled by the TextBox control itself.
-      /// </remarks>
       private void InputTextBox_PreviewKeyDown(object sender, KeyEventArgs e) {
          switch (e.Key) {
             case Key.Enter:
@@ -150,30 +225,8 @@ namespace CDL2v1 {
                InputTextBox.CaretIndex = InputTextBox.Text.Length;
                e.Handled = true;
                break;
+            // Let standard Ctrl+C, Ctrl+V, etc. be handled by the TextBox control
          }
-      }
-
-      /// <summary>
-      /// Maximize/minimize the output area
-      /// </summary>
-      private void ToggleOutputArea_Click(object sender, RoutedEventArgs e) {
-         if (OutputRow.Height.Value > 0) {
-            // Collapse output area
-            _lastOutputHeight = OutputRow.Height.Value;
-            OutputRow.Height = new GridLength(0);
-         } else {
-            // Restore output area
-            OutputRow.Height = new GridLength(_lastOutputHeight > 0 ? _lastOutputHeight : 1, GridUnitType.Star);
-         }
-         
-         // Ensure consistent background colors
-         MainGrid.Background = new SolidColorBrush(Colors.DarkSlateGray);
-         OutputListBox.Background = new SolidColorBrush(Colors.DarkSlateGray);
-         InputTextBox.Background = new SolidColorBrush(Colors.DarkSlateGray);
-         PromptTextBlock.Background = new SolidColorBrush(Colors.DarkSlateGray);
-         
-         // Focus back on the input box
-         InputTextBox.Focus();
       }
 
       /// <summary>
@@ -190,7 +243,7 @@ namespace CDL2v1 {
          _commandHistory.Add(command);
 
          // Echo command
-         _outputLines.Add($"> {command}");
+         WriteLine($"> {command}");
 
          // Raise event to handle the command
          CommandEntered?.Invoke(this, command);
@@ -198,7 +251,69 @@ namespace CDL2v1 {
          // Display new prompt
          DisplayPrompt();
       }
+      #endregion
 
+      #region UI Controls
+      /// <summary>
+      /// Maximize/minimize the output area
+      /// </summary>
+      private void ToggleOutputArea_Click(object sender, RoutedEventArgs e) {
+         if (OutputRow.Height.Value > 0) {
+            // Collapse output area
+            _lastOutputHeight = OutputRow.Height.Value;
+            OutputRow.Height = new GridLength(0);
+         } else {
+            // Restore output area
+            OutputRow.Height = new GridLength(_lastOutputHeight > 0 ? _lastOutputHeight : 1, GridUnitType.Star);
+         }
+
+         InputTextBox.Focus();
+      }
+
+      /// <summary>
+      /// Handle mouse wheel zoom with Ctrl key
+      /// </summary>
+      private void OutputTextBlock_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+         if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) {
+            if (e.Delta > 0) {
+               ZoomIn(10);
+            } else {
+               ZoomOut(10);
+            }
+            e.Handled = true;
+         }
+      }
+
+      /// <summary>
+      /// Zoom in button click handler
+      /// </summary>
+      private void ZoomIn_Click(object sender, RoutedEventArgs e) {
+         ZoomIn(20);
+      }
+
+      /// <summary>
+      /// Zoom out button click handler
+      /// </summary>
+      private void ZoomOut_Click(object sender, RoutedEventArgs e) {
+         ZoomOut(20);
+      }
+
+      /// <summary>
+      /// Increase font size
+      /// </summary>
+      private void ZoomIn(int percentage = 20) {
+         OutputTextBlock.FontSize *= (100 + percentage) / 100.0;
+      }
+
+      /// <summary>
+      /// Decrease font size
+      /// </summary>
+      private void ZoomOut(int percentage = 20) {
+         OutputTextBlock.FontSize /= (100 + percentage) / 100.0;
+      }
+      #endregion
+
+      #region Command History
       /// <summary>
       /// Command history manager
       /// </summary>
@@ -225,5 +340,6 @@ namespace CDL2v1 {
             return _currentIndex < _history.Count ? _history[_currentIndex] : "";
          }
       }
+      #endregion
    }
 }
