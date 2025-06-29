@@ -1,4 +1,39 @@
-﻿// Ignore Spelling: Transput CDL abstr ext inv ludes lude lwb upb FQN
+// <auto-gen>
+//=======================================================================
+// <copyright file="Notes.cs" company="Peter Köves">
+//     Copyright (c) Peter Köves, 2025. All rights reserved.
+//     Licensed under the MIT License. See _LICENSE file in the project root
+//     for full license information.
+// </copyright>
+//=======================================================================
+// <author>Peter Köves</author>
+// <creation-date>2025-04-24</creation-date>
+// 
+// <summary>
+//   Notes are Annotations that can be atteched to NamedElements.
+//   They are used to annotate objects with error/warning/info messages.
+//   The name Note is used to avoid confusion with the Annotation class, which is used for other purposes.
+// </summary>
+// <attribution>
+//   This file is part of the clean room reimplementation of the
+//      CDL2 Compiler
+//      CDL2 Laboratory
+//      CDL2 Target Code Generators
+//
+//    Based on original work on CDL and CDL2 led by C. H. A. Koster
+//    and the CDL2 team at the Universities of Berlin, Germany and
+//    Nijmegen, The Netherlands.
+//
+//    The CDL2 Laboratory was the work of Epsilon GmbH, Berlin.
+//    H. M. Stahl, H. Feuerhahn, JP. Dehotay, B. Böhringer
+//    (and others I don't remember ... sorry).
+//
+//    This project is not affiliated with the original CDL2 project.
+// </attribution>
+//=======================================================================
+// </auto-gen>
+
+// Ignore Spelling: Transput CDL abstr ext inv ludes lude lwb upb FQN
 
 
 
@@ -113,3 +148,4 @@ namespace CDL2v1 {
    }
 
 }
+
