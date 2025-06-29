@@ -13,7 +13,7 @@ namespace CDL2v1 {
       public CommandInterpreter(CommandPromptWindow window) {
          commandWindow = window;
          // Create a CommandWindowEmitter that integrates with our window
-         pp = new(new CommandWindowEmitter(commandWindow), includeComments: true);
+         pp = new(new EmitterCommandWindow(commandWindow), includeComments: true);
       }
 
       internal void IntepretCommand(string command, CommandType commandType, string settings, string args, CommandPromptWindow commandWindow) {

@@ -12,7 +12,7 @@ namespace CDL2v1 {
    /// <summary>
    /// An Emitter that outputs to the CommandPromptWindow output area
    /// </summary>
-   internal class CommandWindowEmitter : Emitter {
+   internal class EmitterCommandWindow : Emitter {
       private readonly CommandPromptWindow commandWindow;
       private readonly Dictionary<string, Brush> colorMap = new();
       private FontFamily? textFont;
@@ -34,7 +34,7 @@ namespace CDL2v1 {
          bool LineBreak = false
       );
 
-      public CommandWindowEmitter(CommandPromptWindow commandWindow) {
+      public EmitterCommandWindow(CommandPromptWindow commandWindow) {
          this.commandWindow = commandWindow;
          SupportsDecoration = true;
          
