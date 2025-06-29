@@ -1,4 +1,44 @@
-﻿<!-- CommandPromptWindow.xaml -->
+<!--
+// <auto-gen>
+//=======================================================================
+// <copyright file="CommandWindow.xaml" company="Peter Köves">
+//     Copyright (c) Peter Köves, 2025. All rights reserved.
+//     Licensed under the MIT License. See _LICENSE file in the project root
+//     for full license information.
+// </copyright>
+//=======================================================================
+// <author>Peter Köves</author>
+// <creation-date>2025-06-10</creation-date>
+// 
+// <summary>
+//   Lab GUI.
+//   Contains an input and output pane.
+//   The input pane is used to enter commandsIt supports commands history via the up and down arrow keys, as well as copy, cut, and paste.
+//   The output pane is used to display the output of the commands entered in the input pane. It supports syntax highlighting for code. Font
+//   size can be adjusted with the zoom buttons or Ctrl+Mouse Wheel.
+// </summary>
+// <attribution>
+//   This file is part of the clean room reimplementation of the
+//      CDL2 Compiler
+//      CDL2 Laboratory
+//      CDL2 Target Code Generators
+//
+//    Based on original work on CDL and CDL2 led by C. H. A. Koster
+//    and the CDL2 team at the Universities of Berlin, Germany and
+//    Nijmegen, The Netherlands.
+//
+//    The CDL2 Laboratory was the work of Epsilon GmbH, Berlin.
+//    H. M. Stahl, H. Feuerhahn, JP. Dehotay, B. Böhringer
+//    (and others I don't remember ... sorry).
+//
+//    This project is not affiliated with the original CDL2 project.
+// </attribution>
+//=======================================================================
+// </auto-gen>
+
+
+-->
+<!-- CommandPromptWindow.xaml -->
 <Window x:Class="CDL2v1.CommandPromptWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -175,4 +215,5 @@
         </StackPanel>
     </Grid>
 </Window>
+
 

@@ -1,4 +1,37 @@
-﻿// Ignore Spelling: CDL
+// <auto-gen>
+//=======================================================================
+// <copyright file="Enumerations.cs" company="Peter Köves">
+//     Copyright (c) Peter Köves, 2025. All rights reserved.
+//     Licensed under the MIT License. See _LICENSE file in the project root
+//     for full license information.
+// </copyright>
+//=======================================================================
+// <author>Peter Köves</author>
+// <creation-date>2025-02-16</creation-date>
+// 
+// <summary>
+//   Contains the various enumerations used in the rest of the code.
+// </summary>
+// <attribution>
+//   This file is part of the clean room reimplementation of the
+//      CDL2 Compiler
+//      CDL2 Laboratory
+//      CDL2 Target Code Generators
+//
+//    Based on original work on CDL and CDL2 led by C. H. A. Koster
+//    and the CDL2 team at the Universities of Berlin, Germany and
+//    Nijmegen, The Netherlands.
+//
+//    The CDL2 Laboratory was the work of Epsilon GmbH, Berlin.
+//    H. M. Stahl, H. Feuerhahn, JP. Dehotay, B. Böhringer
+//    (and others I don't remember ... sorry).
+//
+//    This project is not affiliated with the original CDL2 project.
+// </attribution>
+//=======================================================================
+// </auto-gen>
+
+// Ignore Spelling: CDL
 
 global using TT  = CDL2v1.TokenType;
 global using RW  = CDL2v1.ReservedWord;
@@ -374,5 +407,6 @@ namespace CDL2v1 {
       }
    }
 }
+
 
 

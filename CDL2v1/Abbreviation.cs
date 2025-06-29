@@ -1,4 +1,38 @@
-﻿using System;
+// <auto-gen>
+//=======================================================================
+// <copyright file="Abbreviation.cs" company="Peter Köves">
+//     Copyright (c) Peter Köves, 2025. All rights reserved.
+//     Licensed under the MIT License. See _LICENSE file in the project root
+//     for full license information.
+// </copyright>
+//=======================================================================
+// <author>Peter Köves</author>
+// <creation-date>2025-06-20</creation-date>
+// 
+// <summary>
+//   Handles command and selector type abbreviations.
+//   Contains the command and selector type tables.
+// </summary>
+// <attribution>
+//   This file is part of the clean room reimplementation of the
+//      CDL2 Compiler
+//      CDL2 Laboratory
+//      CDL2 Target Code Generators
+//
+//    Based on original work on CDL and CDL2 led by C. H. A. Koster
+//    and the CDL2 team at the Universities of Berlin, Germany and
+//    Nijmegen, The Netherlands.
+//
+//    The CDL2 Laboratory was the work of Epsilon GmbH, Berlin.
+//    H. M. Stahl, H. Feuerhahn, JP. Dehotay, B. Böhringer
+//    (and others I don't remember ... sorry).
+//
+//    This project is not affiliated with the original CDL2 project.
+// </attribution>
+//=======================================================================
+// </auto-gen>
+
+using System;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
@@ -159,3 +193,4 @@ namespace CDL2v1 {
       public string NameWithAbbreviation => $"{Name[..MinLength].ToUpper()}{Name[MinLength..]}";
    }
 }
+

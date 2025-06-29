@@ -1,4 +1,38 @@
-﻿// Ignore Spelling: CDL
+// <auto-gen>
+//=======================================================================
+// <copyright file="Parser.cs" company="Peter Köves">
+//     Copyright (c) Peter Köves, 2025. All rights reserved.
+//     Licensed under the MIT License. See _LICENSE file in the project root
+//     for full license information.
+// </copyright>
+//=======================================================================
+// <author>Peter Köves</author>
+// <creation-date>2025-02-10</creation-date>
+// 
+// <summary>
+//   Responsible for parsing tokenized input into a CDL2 syntax tree.
+//   TODO: Add support for parsing token streams that are not full programs or Modules.
+// </summary>
+// <attribution>
+//   This file is part of the clean room reimplementation of the
+//      CDL2 Compiler
+//      CDL2 Laboratory
+//      CDL2 Target Code Generators
+//
+//    Based on original work on CDL and CDL2 led by C. H. A. Koster
+//    and the CDL2 team at the Universities of Berlin, Germany and
+//    Nijmegen, The Netherlands.
+//
+//    The CDL2 Laboratory was the work of Epsilon GmbH, Berlin.
+//    H. M. Stahl, H. Feuerhahn, JP. Dehotay, B. Böhringer
+//    (and others I don't remember ... sorry).
+//
+//    This project is not affiliated with the original CDL2 project.
+// </attribution>
+//=======================================================================
+// </auto-gen>
+
+// Ignore Spelling: CDL
 
 using System;
 using System.Collections;
@@ -683,3 +717,4 @@ namespace CDL2v1 {
       }
    }
 }
+
