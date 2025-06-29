@@ -39,6 +39,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace CDL2v1 {
    /// <summary>
@@ -145,8 +146,13 @@ namespace CDL2v1 {
       /// Configure the output area for formatted text (called by CommandWindowEmitter)
       /// </summary>
       public void ConfigureFormattedOutput() {
-         OutputTextBlock.Document.PageWidth = 2000; // Wide page to avoid wrapping
+         // TextBlock doesn't need special configuration
+         OutputScrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
       }
+
+      // Cache to improve scrolling performance
+      private bool _autoScrollEnabled = true;
+      private bool _scrollInProgress = false;
 
       /// <summary>
       /// Add formatted text to the output area
@@ -159,7 +165,7 @@ namespace CDL2v1 {
           FontStyle fontStyle = default,
           TextDecorationCollection? textDecorations = null,
           bool lineBreak = false) {
-         
+
          // Create a styled run
          Run run = new(text) {
             Foreground = foreground,
@@ -170,42 +176,44 @@ namespace CDL2v1 {
             FontFamily = _textFont
          };
 
-         // Add the run to the last paragraph
-         FlowDocument document = OutputTextBlock.Document;
-         Paragraph lastParagraph;
-         
-         if (document.Blocks.Count == 0) {
-            lastParagraph = new Paragraph();
-            document.Blocks.Add(lastParagraph);
-         } else {
-            lastParagraph = document.Blocks.LastBlock as Paragraph;
-         }
+         // Add the run to the TextBlock
+         OutputTextBlock.Inlines.Add(run);
 
-         lastParagraph?.Inlines.Add(run);
-         
          if (lineBreak) {
-            lastParagraph?.Inlines.Add(new LineBreak());
+            OutputTextBlock.Inlines.Add(new LineBreak());
          }
 
-         // Ensure auto-scroll to bottom
-         OutputTextBlock.ScrollToEnd();
+         // Ensure auto-scroll to bottom, but only if not in batch mode
+         if (_autoScrollEnabled && !_scrollInProgress) {
+            ScrollToEnd();
+         }
+      }
+
+      private void ScrollToEnd() {
+         if (_scrollInProgress) return;
+
+         _scrollInProgress = true;
+
+         // Use low priority dispatcher to avoid blocking the UI
+         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => {
+            OutputScrollViewer.ScrollToBottom();
+            _scrollInProgress = false;
+         }));
       }
 
       /// <summary>
       /// Begin batch updating of formatted text
       /// </summary>
       public void BeginFormattedUpdate() {
-         OutputTextBlock.BeginChange();
-         OutputScrollViewer.SetValue(ScrollViewer.CanContentScrollProperty, false);
+         _autoScrollEnabled = false;
       }
 
       /// <summary>
       /// End batch updating of formatted text
       /// </summary>
       public void EndFormattedUpdate() {
-         OutputTextBlock.EndChange();
-         OutputScrollViewer.SetValue(ScrollViewer.CanContentScrollProperty, true);
-         OutputTextBlock.ScrollToEnd();
+         _autoScrollEnabled = true;
+         ScrollToEnd();
       }
 
       /// <summary>
@@ -226,7 +234,7 @@ namespace CDL2v1 {
          });
       }
       #endregion
-      
+
       #region Input Handling
       /// <summary>
       /// Displays the command prompt
@@ -235,6 +243,22 @@ namespace CDL2v1 {
          Application.Current.Dispatcher.Invoke(() => {
             PromptTextBlock.Text = "> ";
             InputTextBox.Text = "";
+            InputTextBox.Focus();
+         });
+      }
+
+      /// <summary>
+      /// Clear the output area
+      /// </summary>
+      private void ClearOutput_Click(object sender, RoutedEventArgs e) {
+         Application.Current.Dispatcher.Invoke(() => {
+            // Clear all content from the TextBlock
+            OutputTextBlock.Inlines.Clear();
+
+            // Add initial message
+            WriteLine($"CDL2 Laboratory v{CDL2.Version} - Output cleared");
+
+            // Focus back on input box
             InputTextBox.Focus();
          });
       }
@@ -258,7 +282,7 @@ namespace CDL2v1 {
                InputTextBox.CaretIndex = InputTextBox.Text.Length;
                e.Handled = true;
                break;
-            // Let standard Ctrl+C, Ctrl+V, etc. be handled by the TextBox control
+               // Let standard Ctrl+C, Ctrl+V, etc. be handled by the TextBox control
          }
       }
 
@@ -351,7 +375,7 @@ namespace CDL2v1 {
       /// Command history manager
       /// </summary>
       private class History {
-         private readonly List<string> _history = [];
+         private readonly List<string> _history = new();
          private int _currentIndex = -1;
 
          public void Add(string command) {

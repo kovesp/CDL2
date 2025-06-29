@@ -51,36 +51,20 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Output Area - Fixing the narrow column issue -->
+        <!-- Output Area - Using TextBlock for better performance -->
         <ScrollViewer x:Name="OutputScrollViewer" Grid.Row="0" 
                       Background="DarkSlateGray" 
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Auto">
-            <RichTextBox x:Name="OutputTextBlock" 
+            <TextBlock x:Name="OutputTextBlock" 
                        Background="DarkSlateGray" 
                        Foreground="LightGray"
-                       BorderThickness="0"
                        FontFamily="Cascadia Mono"
                        FontSize="14"
-                       IsReadOnly="True"
-                       IsDocumentEnabled="True"
+                       TextWrapping="Wrap"
                        Margin="10"
-                       HorizontalAlignment="Stretch"
-                       Width="Auto">
-                <RichTextBox.Document>
-                    <FlowDocument PageWidth="2000" 
-                                 TextAlignment="Left" 
-                                 IsOptimalParagraphEnabled="True"
-                                 IsHyphenationEnabled="False">
-                        <!-- Document content goes here -->
-                    </FlowDocument>
-                </RichTextBox.Document>
-                <RichTextBox.Resources>
-                    <Style TargetType="{x:Type Paragraph}">
-                        <Setter Property="Margin" Value="0"/>
-                    </Style>
-                </RichTextBox.Resources>
-            </RichTextBox>
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"/>
         </ScrollViewer>
 
         <!-- Splitter with more visible toggle button -->
@@ -187,33 +171,45 @@
                    Margin="0,5,10,5"
                    PreviewKeyDown="InputTextBox_PreviewKeyDown" />
         </DockPanel>
-        
-        <!-- Zoom buttons -->
-        <StackPanel Grid.Row="0" 
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Top"
-                  Orientation="Horizontal"
-                  Margin="0,10,10,0">
-            <Button Content="+" 
-                   Width="25" 
-                   Height="25" 
-                   Margin="5,0,0,0"
-                   Background="#555555"
-                   Foreground="White"
-                   BorderBrush="#777777"
-                   Click="ZoomIn_Click"
-                   ToolTip="Zoom In (Ctrl+Mouse Wheel)" />
-            <Button Content="-" 
-                   Width="25" 
-                   Height="25" 
-                   Margin="5,0,0,0"
-                   Background="#555555"
-                   Foreground="White"
-                   BorderBrush="#777777"
-                   Click="ZoomOut_Click"
-                   ToolTip="Zoom Out (Ctrl+Mouse Wheel)" />
-        </StackPanel>
-    </Grid>
+      <!-- Zoom buttons and Clear button -->
+      <StackPanel Grid.Row="0" 
+          HorizontalAlignment="Right"
+          VerticalAlignment="Top"
+          Orientation="Horizontal"
+          Margin="0,10,10,0">
+         <Button Content="Õ"
+           FontFamily="Wingdings"
+           Width="25" 
+           Height="25" 
+           Margin="5,0,5,0"
+           Background="#555555"
+           Foreground="White"
+           BorderBrush="#777777"
+           Click="ClearOutput_Click"
+           ToolTip="Clear Output" />
+         <Button Content="+" 
+           Width="25" 
+           Height="25" 
+           Margin="5,0,0,0"
+           Background="#555555"
+           Foreground="White"
+           BorderBrush="#777777"
+           Click="ZoomIn_Click"
+           ToolTip="Zoom In (Ctrl+Mouse Wheel)" />
+         <Button Content="-" 
+           Width="25" 
+           Height="25" 
+           Margin="5,0,0,0"
+           Background="#555555"
+           Foreground="White"
+           BorderBrush="#777777"
+           Click="ZoomOut_Click"
+           ToolTip="Zoom Out (Ctrl+Mouse Wheel)" />
+      </StackPanel>
+   </Grid>
 </Window>
+
+
+
 
 

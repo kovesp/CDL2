@@ -94,18 +94,19 @@ namespace CDL2v1 {
                if (args == "") {
                   if (Focus.Current.Object is not null) {
                      //TODO: Ignore Focus subojbest for now
-                     pp.Print(Focus.Current.Object);
+                     pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
                   } else {
                      commandWindow.WriteLine($"Nothing");
                   }
                   return;
                } else {
                   Selection selection = new(args);
-                  foreach (SingleSelection sel in selection) {
-                     pp.Print(sel.Object!);
-                  }
+                  pp.PauseUpdate(() => {
+                     foreach (SingleSelection sel in selection) {
+                        pp.Print(sel.Object!);
+                     }
+                  });
                }
-
                break;
             case CommandType.set:
                // Handle set command

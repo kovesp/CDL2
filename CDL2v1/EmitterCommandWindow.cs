@@ -31,21 +31,24 @@
 //=======================================================================
 // </auto-gen>
 
+using Microsoft.VisualBasic;
+
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
-using System.Windows.Media;
-using System.Text.RegularExpressions;
 using System.Windows.Input;
-using System.Diagnostics;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace CDL2v1 {
    /// <summary>
    /// An Emitter that outputs to the CommandPromptWindow output area
    /// </summary>
-   internal class EmitterCommandWindow : Emitter {
+   internal partial class EmitterCommandWindow : Emitter {
       private readonly CommandPromptWindow commandWindow;
       private readonly Dictionary<string, Brush> colorMap = new();
       private FontFamily? textFont;
@@ -54,7 +57,8 @@ namespace CDL2v1 {
       private readonly List<FormattedTextSegment> textSegmentBuffer = new();
 
       // Background brush for all output
-      private readonly Brush windowBackground = new SolidColorBrush(Colors.DarkSlateGray);
+      private readonly Brush windowBackground = new BrushConverter().ConvertFromString(PrettyPrinter.BackgroundColor) as Brush ?? Brushes.DarkSlateGray;
+      //new SolidColorBrush(Colors.DarkSlateGray);
 
       // Structure to hold formatted text segments for batching
       private record FormattedTextSegment(
@@ -68,7 +72,9 @@ namespace CDL2v1 {
       );
 
       public EmitterCommandWindow(CommandPromptWindow commandWindow) {
+         SupressDebug = true;
          this.commandWindow = commandWindow;
+
          SupportsDecoration = true;
          
          // Create brushes for each color used by the pretty printer
@@ -169,10 +175,10 @@ namespace CDL2v1 {
             return;
          }
 
-         // Normal (non-buffered) rendering
-         Application.Current.Dispatcher.Invoke(() => {
+         // Normal (non-buffered) rendering - use background priority to avoid UI blocking
+         Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => {
             commandWindow.AddFormattedText(text, fg, bg, fontWeight, fontStyle, textDecorations, lineBreak);
-         });
+         }));
       }
 
       // Call this before making multiple updates
@@ -233,6 +239,14 @@ namespace CDL2v1 {
          // Clear the buffer after applying
          textSegmentBuffer.Clear();
       }
+
+      // Add this to EmitterCommandWindow
+      private const char SeparatorSpace = (char)SpaceCharacters.ThreePerEm;
+      private static string FormatAlgorithmBodySeparators(string text) => 
+          BodySeparatorRE().Replace(text, $"{SeparatorSpace}$1{SeparatorSpace}");
+
+      [GeneratedRegex(@"\s*( := | =: | = | : )\s*$", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
+      private static partial Regex BodySeparatorRE();
    }
 }
 

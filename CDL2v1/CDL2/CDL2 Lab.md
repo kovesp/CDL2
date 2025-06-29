@@ -85,7 +85,7 @@ setting : plus or minus token, setting name, setting argument option.
 #### List of Unit Types
 
 In the following list of unit types captialization shows the minimal abreviation that is allowed.
-So for example, the selector `S ^^a Te ^^le : 100` will select the last `TEST` whose name starts
+So for example, the selector `S /^a Te /^le : 100` will select the last `TEST` whose name starts
 with *le* in from all the such algorithms in any section whose name starts with *a*. Note however that this is
 not deterministic because the order of `MODULE`s in the database is undefined. As well, this selector selccts
 a single object, not the last object in each matching section.

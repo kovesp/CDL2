@@ -46,6 +46,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Xps;
 
@@ -84,7 +85,9 @@ namespace CDL2v1 {
       public static readonly FontStyle Italic = FontStyles.Oblique;
       public static TextDecorationCollection? Underline { get; internal set; } = TextDecorations.Underline;
 
-      public record Decoration (string FG = "White", string BG = "#1E1E1E", DS Style = DS.Normal);
+      // public record Decoration(string FG = "White", string BG = "#1E1E1E", DS Style = DS.Normal);
+      public const string BackgroundColor = "DarkSlateGray";
+      public record Decoration(string FG = "White", string BG = BackgroundColor, DS Style = DS.Normal);
       public static readonly Decoration DefaultDecoration = new();
 
       private static readonly string AffixColor = "#9cdcfe";
@@ -261,6 +264,27 @@ namespace CDL2v1 {
                throw new NotImplementedException($"Cannot print {namedElement.GetType()}");
          }
       }
+      internal void PauseUpdate(Action action) {
+         // Save the current cursor
+         Cursor? previousCursor = Mouse.OverrideCursor;
+         
+         try {
+             // Set the cursor to "Wait" (hourglass)
+             Mouse.OverrideCursor = Cursors.Wait;
+             
+             // Begin update operation (stops UI updates until complete)
+             Emitter.BeginUpdate();
+             
+             // Execute the action
+             action();
+         }
+         finally {
+             // Always restore the cursor and end update, even if an exception occurs
+             Mouse.OverrideCursor = previousCursor;
+             Emitter.EndUpdate();
+         }
+      }
+
       public void Print(Program program) => PrintContainer(program,() => {
          PrintList(RW.PART,program.Parts,decorate:false);
          PrintLudes(program);
