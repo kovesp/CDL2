@@ -102,7 +102,7 @@ namespace CDL2v1 {
       /// <summary> 
       /// Must match with the names in the FocusType enum.
       /// </summary>
-      public readonly static SortedSet<Abbreviation<SelectionType>> FocusTypes = [
+      public readonly static SortedSet<Abbreviation<SelectionType>> SelectionTypes = [
          new ("ABORT"      ,5,SelectionType.ALTERNATIVE),
          new ("ABSTR"      ,5,SelectionType.SECTION),
          new ("ACTION"     ,2,SelectionType.SECTION),
@@ -140,7 +140,7 @@ namespace CDL2v1 {
          new ("VAR"        ,3,SelectionType.SECTION),
       ];
 
-      private readonly static Dictionary<SelectionType,Abbreviation<SelectionType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type, abbrev => abbrev);
+      private readonly static Dictionary<SelectionType,Abbreviation<SelectionType>> FocusTypeMap = SelectionTypes.ToDictionary(abbrev => abbrev.Type, abbrev => abbrev);
       /// <summary>
       /// Return true if the first selection type is a valid ancestor of the second selection type.
       /// </summary>
@@ -157,7 +157,7 @@ namespace CDL2v1 {
 
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {
          nameof(CommandType)     => Commands.Cast<Abbreviation<T>>().ToSet(),
-         nameof(SelectionType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
+         nameof(SelectionType)   => SelectionTypes.Cast<Abbreviation<T>>().ToSet(),
          _ => throw new ArgumentException($"Unknown abbreviation type: {typeof(T).Name}"),
       };
 
@@ -190,7 +190,9 @@ namespace CDL2v1 {
          )(name.Trim().ToFirstLetterCase());
 
       public override string ToString() => $"{ShortTypeName}[{NameWithAbbreviation}]";
-      public string NameWithAbbreviation => $"{Name[..MinLength].ToUpper()}{Name[MinLength..]}";
+      public string NameWithAbbreviation => char.IsLower(Name[0]) 
+         ? $"{Name[..MinLength].ToUpper()}{Name[MinLength..]}"
+         : $"{Name[..MinLength]}{Name[MinLength..].ToLower()}";
    }
 }
 

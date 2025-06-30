@@ -150,6 +150,13 @@ namespace CDL2v1 {
                   foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
                      commandWindow.WriteLine(Regex.Replace(cmd.HelpText,@"^[a-z]+","   "+cmd.NameWithAbbreviation,RegexOptions.Compiled));
                   }
+                  commandWindow.WriteLine("\nType 'help selector' to list the valid selectors");
+               } else if (args == "selector") {
+                  commandWindow.WriteLine("Capital letters denote the minimum abbreviation of the selector.");
+                  commandWindow.WriteLine("Only the first letter of the selector must be capitalized.\n");
+                  foreach (Abbreviation<SelectionType> sel in Abbreviation<SelectionType>.SelectionTypes) {
+                     commandWindow.WriteLine($"   {sel.NameWithAbbreviation}");
+                  }
                }
                break;
             case CommandType.generate:

@@ -41,9 +41,10 @@ global using LCT = CDL2v1.LastCallType;
 global using SE  = CDL2v1.SyntacticElement;
 global using ANT = CDL2v1.AlgorithmNameType;
 global using DS  = CDL2v1.DecorationStyle;
-global using AS = CDL2v1.AnnotationSymbol;
-global using SA = CDL2v1.AnnotationSymbols;
+global using AS  = CDL2v1.AnnotationSymbol;
+global using SA  = CDL2v1.AnnotationSymbols;
 global using PBT = CDL2v1.ProcedureBodyType;
+global using ST  = CDL2v1.SelectionType;
 using System.Text;
 
 namespace CDL2v1 {

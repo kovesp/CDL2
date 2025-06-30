@@ -183,6 +183,7 @@ namespace CDL2v1 {
       /// Create a new empty selection.
       /// </summary>
       public Selection() : base() { }
+      private static List<SelectionType> ImportableSelectionType = [ST.CONST,ST.ALGORITHM,ST.MACRO,ST.PROCEDURE,ST.FUNCTION,ST.ACTION,ST.TEST,ST.PREDICATE];
       /// <summary>
       /// Create a new selection from a selection string.
       /// </summary>
@@ -215,11 +216,12 @@ namespace CDL2v1 {
                if (type == SelectionType.INVALID) {
                   ErrorMessage = $"Invalid selector type: {segment}";
                   return;
+               } else {
+                  segments.Add(new UnitSegment(type));
+                  if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if previous was uppercase
+                  previousSegmentWasUnit = true;
+                  previousSegmentWasNameOrOffset = false;
                }
-               segments.Add(new UnitSegment(type));
-               if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if previous was uppercase
-               previousSegmentWasUnit = true;
-               previousSegmentWasNameOrOffset = false;
             } else if (segment.StartsWith(':')) {  // index into the selections
                segments.Index = int.Parse(match.Groups["index"].Value.Trim()); // Parse the index from the segment
                //if (Count == 0) return; // No selections to index into
@@ -248,6 +250,7 @@ namespace CDL2v1 {
          Debug.Assert(segments.Count > 0 && segments.Count % 2 == 0, "No valid segments found in selection string, or number of selection segments is odd");
          // Verify that the types are in hierarchical order
          for (int i = 0; i < segments.Count - 2; i += 2) {
+            if (segments[i].SegmentType == SelectionType.IMPORTED) continue; // Skip IMPORTED segment
             if (!Abbreviation<SelectionType>.AncestorSelectionType(ancestor:segments[i].SegmentType,child:segments[i + 2].SegmentType)) {
                // The types are not in hierarchical order, return without setting selection
                ErrorMessage = $"Invalid selection: {segments[i+2].SegmentType} cannot follow {segments[i].SegmentType}";
