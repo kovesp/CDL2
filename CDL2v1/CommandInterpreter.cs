@@ -81,6 +81,10 @@ namespace CDL2v1 {
                   }
                } else {
                   Selection selection = new(args);
+                  if (selection.IsInvalid) {
+                     commandWindow.WriteLine(selection.ErrorMessage);
+                     return;
+                  }
                   if (selection.Count == 0) {
                      commandWindow.WriteLine(selection.ErrorMessage);
                   } else {
@@ -93,14 +97,16 @@ namespace CDL2v1 {
             case CommandType.print:
                if (args == "") {
                   if (Focus.Current.Object is not null) {
-                     //TODO: Ignore Focus subojbest for now
+                     //TODO: Ignore Focus subobject for now
                      pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
-                  } else {
-                     commandWindow.WriteLine($"Nothing");
                   }
                   return;
                } else {
                   Selection selection = new(args);
+                  if (selection.IsInvalid) {
+                     commandWindow.WriteLine(selection.ErrorMessage);
+                     return;
+                  }
                   pp.PauseUpdate(() => {
                      foreach (SingleSelection sel in selection) {
                         pp.Print(sel.Object!);

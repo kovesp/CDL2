@@ -177,7 +177,8 @@ namespace CDL2v1 {
       #endregion SelectionSegments
 
       public string ErrorMessage = "";
-      public bool IsValid => ErrorMessage == null;
+      public bool IsValid => ErrorMessage == string.Empty;
+      public bool IsInvalid => ErrorMessage != string.Empty;
       /// <summary>
       /// Create a new empty selection.
       /// </summary>

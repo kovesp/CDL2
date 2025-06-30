@@ -368,6 +368,20 @@ namespace CDL2v1 {
       private void ZoomOut(int percentage = 20) {
          OutputTextBlock.FontSize /= (100 + percentage) / 100.0;
       }
+
+      /// <summary>
+      /// Handle mouse wheel zoom with Ctrl key on the ScrollViewer
+      /// </summary>
+      private void OutputScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+         if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) {
+            if (e.Delta > 0) {
+               ZoomIn(10);
+            } else {
+               ZoomOut(10);
+            }
+            e.Handled = true;
+         }
+      }
       #endregion
 
       #region Command History
