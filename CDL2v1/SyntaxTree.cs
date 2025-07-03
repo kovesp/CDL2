@@ -15,6 +15,9 @@
 //   This is not neccessary when the the linkage is 1-1 between parent and child.
 //   TODO: Replace Guids with generated unique indices?
 // </summary>
+// <remarks>
+// Classes with /*abstract*/ shuld be abstract, but this is not supported by the serializer.
+// </remarks>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
 //      CDL2 Compiler
@@ -47,6 +50,7 @@ using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
@@ -172,7 +176,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Return the ancestor of the required type which must be a container.
-      /// Thus this not work for Groups, or alternatives.
+      /// Thus this does not work for Groups, or Alternatives.
       /// </summary>
       /// <typeparam name="T">Module,Layer,Section. Not useful for Program.</typeparam>
       /// <returns></returns>
@@ -192,7 +196,9 @@ namespace CDL2v1 {
       /// The Parent as an element.
       /// </summary>
       /// <returns></returns>
-      public T? ParentElement<T>() where T : NamedElement => Parent != Guid.Empty && Database.Instance.NamedElements.TryGetValue(Parent,out NamedElement? parent) && parent is T element ? element : default;
+        public T? ParentElement<T>() where T : NamedElement => Parent != Guid.Empty && Database.Instance.NamedElements.TryGetValue(Parent,out NamedElement? parent) && parent is T element ? element : default;
+
+      public virtual IEnumerable<NamedElement> ChildElements() => [];
 
       [JsonIgnore]
       public SelectionType SelectionType = SelectionType.INVALID;
@@ -258,7 +264,18 @@ namespace CDL2v1 {
 
       public static T? From<T>(Guid guid) where T: NamedElement => Database.Instance.NamedElements.TryGetValue(guid, out NamedElement? element) && element is T typedElement ? typedElement : null;
       public static bool From<T>(Guid guid, out T? element) where T : NamedElement => (element = NamedElement.From<T>(guid)) is not null;
-
+      /// <summary>
+      /// Return true if any of the objects is an ancestor of this NamedElement
+      /// </summary>
+      /// <param name="objects"></param>
+      /// <returns></returns>
+      internal bool HasAncestorAmong(IEnumerable<NamedElement> objects) {
+         foreach (NamedElement obj in objects) {
+            if (Parent == obj.GUID) return true; // The parent is one of the objects.
+            if (ParentElement<NamedElement>()?.HasAncestorAmong(objects) ?? false) return true; // The parent is not one of the objects, but it may have an ancestor that is.
+         }
+         return false; // No ancestor is among the objects.
+      }
    }
 
    /// <summary>
@@ -271,6 +288,7 @@ namespace CDL2v1 {
       /// The Container children of the container. Layers are ordered, hence the list.
       /// </summary>
       [JsonInclude] [JsonPropertyOrder(10)] public List<Guid> Children { get; set; } = [];
+      public override IEnumerable<NamedElement> ChildElements() => Children.Select(guid=>Database.Instance.NamedElements[guid]);
 
       /// <param Id="Id"></param>
       public Container(ID id,string? comments,Notes? notes, SelectionType selectionType = SelectionType.INVALID) : base(id,selectionType:selectionType) {
@@ -330,6 +348,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <remarks>Note that here and elsewhere the iteration must be fixed to avoid multiple calls interferring with each other.</remarks>
       [JsonIgnore] public List<Module> Modules => [.. Database.Instance.NamedElements.Values.OfType<Module>().Where(mod=>Parts.Contains(mod.Id)) ];
+      public override IEnumerable<NamedElement> ChildElements() => Modules;
+
       /// <summary>
       /// Maps all identifiers exported by the modules in the program to the exporting module.
       /// </summary>
@@ -456,6 +476,8 @@ namespace CDL2v1 {
       /// Holds the Declarations of the SectionById. The key is the ID of the declaration.
       /// </summary>
       [JsonInclude][JsonPropertyOrder(45)] public DeclarationDictionary Declarations = [];
+
+      public override IEnumerable<NamedElement> ChildElements() => Declarations.Values.Select(guid=>Database.Instance.NamedElements[guid]);
 
       [JsonIgnore] public List<Const> Constants => [.. Declarations.AsCDL2Objects<Const>()];
       [JsonIgnore] public List<Var> Variables => [.. Declarations.AsCDL2Objects<Var>()];
@@ -804,6 +826,8 @@ namespace CDL2v1 {
    public class Procedure : Algorithm {
       [JsonInclude][JsonPropertyOrder(20)]
       public Group group = new();
+      public override IEnumerable<NamedElement> ChildElements() => [group];
+
       /// <summary>
       /// True if the procedure is an Action or Function that has only a single alternative (which is a sequence of calls none of which can fail ... which will be guarenteed by the sematic analyzer)
       /// </summary>
@@ -1057,6 +1081,8 @@ namespace CDL2v1 {
 #endif
       [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls = [];
       [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall = new();
+      public override IEnumerable<NamedElement> ChildElements() => [..calls, lastCall];
+
       [JsonIgnore] public bool IsConditionalOff = false;
 
       public Alternative(List<Call> calls, LastCall lastCall, Notes notes, Group containingGroup) : base(ID.AnonID, synthetic:false,SelectionType.ALTERNATIVE) {
@@ -1113,6 +1139,8 @@ namespace CDL2v1 {
    /// </remarks>
    public class Group : NamedElement, IUnrecordedElement {
       [JsonInclude][JsonPropertyOrder(30)] public List<Alternative> Alternatives = [];
+      public override IEnumerable<NamedElement> ChildElements() => Alternatives;
+
       [JsonConstructor]
       public Group() : base(ID.AnonID,synthetic: false, SelectionType.GROUP) { }
       public Group(ID label,Guid parentGuid) : base(label, synthetic: false, SelectionType.GROUP) {

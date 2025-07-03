@@ -290,24 +290,28 @@ namespace CDL2v1 {
       [JsonIgnore]
       public Program? FirstProgram => Programs.Count == 0 ? null : NamedElements[Programs[0]] as Program;
 
-      public bool TryGetNamedElements<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
-         IEnumerable<T> typedElements = NamedElements.Values.OfType<T>();
-         if (name == null) {
-            if (typedElements.Any()) {
-               elements = [typedElements.First()];
-            } else {
-               elements = [];
-            }
+      public bool TryGetNamedElements<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement
+         => TryGetNamedElements(NamedElements.Values, name, out elements);
+      /// <summary>
+      /// Try and get a collection of elements of type T with the given name from the given collection of NamedElements.
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="objects"></param>
+      /// <param name="name">This can be empty to match all, </param>
+      /// <param name="elements"></param>
+      /// <returns></returns>
+      public static bool TryGetNamedElements<T>(IEnumerable<NamedElement> objects, string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
+         IEnumerable<T> typedElements = objects.OfType<T>();
+         if (name == string.Empty) {
+            elements = typedElements;
+         } else if (name.StartsWith('/')) {
+            elements = typedElements.Where(e => Regex.IsMatch(e.Id.CanonicalName, name.Trim('/').RemoveWhitespace()));
          } else {
-            name = name.RemoveWhitespace();
-            if (name.StartsWith('/')) {
-               elements = typedElements.Where(e => Regex.IsMatch(e.Id.Name,name.Trim('/')));
-            } else { // Assume name is an RE
-               elements = typedElements.Where(e => e.Id.CanonicalName.Contains(name));
-            }
+            elements = typedElements.Where(e => e.Id.CanonicalName.Contains(name.RemoveWhitespace()));
          }
          return elements.Any();
       }
+
       public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out T element) where T : NamedElement {
          if (TryGetNamedElements(name, out IEnumerable<T>? elements) && elements.Count() == 1) {
             element = elements.First();

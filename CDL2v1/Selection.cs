@@ -183,7 +183,7 @@ namespace CDL2v1 {
       /// Create a new empty selection.
       /// </summary>
       public Selection() : base() { }
-      private static List<SelectionType> ImportableSelectionType = [ST.CONST,ST.ALGORITHM,ST.MACRO,ST.PROCEDURE,ST.FUNCTION,ST.ACTION,ST.TEST,ST.PREDICATE];
+      private static readonly List<SelectionType> ImportableSelectionType = [ST.CONST,ST.ALGORITHM,ST.MACRO,ST.PROCEDURE,ST.FUNCTION,ST.ACTION,ST.TEST,ST.PREDICATE];
       /// <summary>
       /// Create a new selection from a selection string.
       /// </summary>
@@ -192,13 +192,12 @@ namespace CDL2v1 {
          if (string.IsNullOrWhiteSpace(selectionString)) return;
          selectionString = selectionString.Trim();
 
-         NamedElement? selectionRoot = null;
          SelectionSegments segments = [];
 
+         bool isRooted = false;
          if (selectionString.StartsWith('^')) {
+            isRooted = true; // The selection is rooted
             selectionString = selectionString[1..].Trim();
-         } else {
-            selectionRoot = Focus.Current.Object;
          }
 
          Regex regex = new(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z\s]*)", RegexOptions.Compiled);
@@ -246,7 +245,8 @@ namespace CDL2v1 {
                previousSegmentWasNameOrOffset = true;
             }
          }
-         if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if the last was uppercase
+         if (segments.Count == 0) return; // No valid parts found
+         if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if the last was a unit, ensure an even number of elements
          Debug.Assert(segments.Count > 0 && segments.Count % 2 == 0, "No valid segments found in selection string, or number of selection segments is odd");
          // Verify that the types are in hierarchical order
          for (int i = 0; i < segments.Count - 2; i += 2) {
@@ -258,117 +258,107 @@ namespace CDL2v1 {
             }
          }
 
-         // If there is a selection root, there are two cases
-         // 1. The selection root is an ancestor of the first segment type, in which case the selection is relative to the root.
-         // 2. The selection root is not an ancestor, in which case the root is ignored.
-         if (selectionRoot is null || ! Abbreviation<SelectionType>.AncestorSelectionType(selectionRoot.SelectionType, segments[0].SegmentType)) {
-            // The selection is not rooted
+         IEnumerable<NamedElement> rootObjects;
+         // 1. If the selection was rooted, then the starting point is telative to the top Containers (Programs and Modules).
+         // 2. Otherwise it is (in principle) relative to the previous focus. Let F be the prevous focus object and let
+         //    S0 be the type of the first segment. There are two cases.
+         //    a. F is higher in the type hierachy than S0. In this case, the search starts from F.
+         //    b. F is lower in the type hierarcy than S0. F is ignored and this case is equivalent to 1.
+         if (isRooted || ! Abbreviation<SelectionType>.AncestorSelectionType(Focus.Current.SelectionType, segments[0].SegmentType)) {
+            rootObjects = Database.Instance.NamedElements.Values;
          } else {
-            // The selection is releative to the root
-
+            rootObjects = [Focus.Current.Object!]; 
+            // The selection is relative to the current focus. TODO: subelements are being ignored
          }
 
-         // Match alternating patterns of uppercase and lowercase segments
+         // Use the segments to succesively narrow down the selection.
 
-         MatchCollection matches = regex.Matches(selectionString);
-
-         bool expectUppercase = true; // Start expecting uppercase
-
-         foreach (Match match in matches) {
-            string segment = match.Value;
-            bool isUppercase = char.IsUpper(segment[0]);
-
-            // Check if we're following the alternating pattern
-            if ((expectUppercase && !isUppercase) || (!expectUppercase && isUppercase)) {
-               // Pattern violation - not alternating as expected
-               return;
+         for (int segNo = 0; segNo < segments.Count; segNo += 2) {
+            SelectionType segmentType = segments[segNo].SegmentType;
+            string segmentName = segments[segNo + 1].SegmentName;
+            switch (segmentType) {
+               case SelectionType.PROGRAM:
+                  RestrictSelected<Program>(segmentName);
+                  break;
+               case SelectionType.MODULE:
+                  RestrictSelected<Module>(segmentName);
+                  break;
+               case SelectionType.LAYER:
+                  RestrictSelected<Layer>(segmentName);
+                  break;
+               case SelectionType.SECTION:
+                  RestrictSelected<Section>(segmentName);
+                  break;
+               case SelectionType.ALGORITHM:
+                  RestrictSelected<Algorithm>(segmentName,alg => !alg.IsImported);
+                  break;
+               case SelectionType.PROCEDURE:
+                  RestrictSelected<Procedure>(segmentName,alg=>!alg.IsImported);
+                  break;
+               case SelectionType.MACRO:
+                  RestrictSelected<Macro>(segmentName,alg=>!alg.IsImported);
+                  break;
+               case SelectionType.FUNCTION:
+                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsFunction && !alg.IsImported);
+                  break;
+               case SelectionType.ACTION:
+                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsAction && !alg.IsImported);
+                  break;
+               case SelectionType.TEST:
+                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsTest && !alg.IsImported);
+                  break;
+               case SelectionType.PREDICATE:
+                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsPredicate && !alg.IsImported);
+                  break;
+               case SelectionType.CONST:
+                  RestrictSelected<Const>(segmentName,con=>!con.IsImported);
+                  break;
+               case SelectionType.VAR:
+                  RestrictSelected<Var>(segmentName);
+                  break;
+               case SelectionType.LIST:
+                  RestrictSelected<LIST>(segmentName);
+                  break;
+               case SelectionType.IMPORTED:
+                  RestrictSelected<CDL2Object>(segmentName,obj=>obj.IsImported);
+                  break;
+               default:
+                  return; // Unsupported type for now
             }
+         }
+         foreach (var obj in rootObjects) {
+            if (obj is not null) Add(new SingleSelection(obj));
+         }
 
-            if (expectUppercase) {
-               SelectionType type = Abbreviation<SelectionType>.Identify(segment.ToUpper());
-               if (type == SelectionType.INVALID) return;
-               segments.Add(new UnitSegment(type));
-            } else {
-               segments.Add(new NameSegment(segment)); // Add as name segment
+         // Restrict the selection using the type and name from the current segment
+         // TODO: Add problem reporting?
+         void RestrictSelected<T>(string segmentName, Func<T, bool>? pred = null) where T : NamedElement {
+            if (TryGetSelectionElements<T>(rootObjects, segmentName, out IEnumerable<T>? elements) && elements is not null) {
+               rootObjects = Database.NamedElementsOfType<T>(asList: false).Where(e => e.HasAncestorAmong(rootObjects));
+               if (pred is not null) rootObjects = rootObjects.Where(e => pred((T)e));
             }
-            expectUppercase = !expectUppercase; // Toggle for next iteration
-         }
-
-         // Using the parts locate the actual focus
-         // Simplistic for now to enable testing of commands that need the focus
-         if (segments.Count == 0) return; // No valid parts found
-         if (segments.Count % 2 == 1) segments.Add(new NameSegment("")); // Add an empty name segment
-         int segNo = 0;
-         SelectionType segmentType = segments[segNo++].SegmentType;
-         string segmentName = segments[segNo].SegmentName;
-         switch (segmentType) {
-            case SelectionType.PROGRAM:
-               AddSelected<Program>(segmentName);
-               break;
-            case SelectionType.MODULE:
-               AddSelected<Module>(segmentName);
-               break;
-            case SelectionType.LAYER:
-               AddSelected<Layer>(segmentName);
-               break;
-            case SelectionType.SECTION:
-               AddSelected<Section>(segmentName);
-               break;
-            case SelectionType.ALGORITHM:
-               AddSelected<Algorithm>(segmentName,alg => !alg.IsImported);
-               break;
-            case SelectionType.PROCEDURE:
-               AddSelected<Procedure>(segmentName,alg=>!alg.IsImported);
-               break;
-            case SelectionType.MACRO:
-               AddSelected<Macro>(segmentName,alg=>!alg.IsImported);
-               break;
-            case SelectionType.FUNCTION:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsFunction && !alg.IsImported);
-               break;
-            case SelectionType.ACTION:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsAction && !alg.IsImported);
-               break;
-            case SelectionType.TEST:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsTest && !alg.IsImported);
-               break;
-            case SelectionType.PREDICATE:
-               AddSelected<Algorithm>(segmentName, alg => alg.IsPredicate && !alg.IsImported);
-               break;
-            case SelectionType.CONST:
-               AddSelected<Const>(segmentName,con=>!con.IsImported);
-               break;
-            case SelectionType.VAR:
-               AddSelected<Var>(segmentName);
-               break;
-            case SelectionType.LIST:
-               AddSelected<LIST>(segmentName);
-               break;
-            case SelectionType.IMPORTED:
-               AddSelected<CDL2Object>(segmentName,obj=>obj.IsImported);
-               break;
-            default:
-               return; // Unsupported type for now
-         }
-
-         return;
-      }
-
-      private void AddSelected<T>(string segmentName) where T : NamedElement {
-         if (TryGetSelectionElements<T>(segmentName, out IEnumerable<T>? elements)) {
-            if (elements is not null) foreach (T mod in elements) Add(new SingleSelection(mod));
-         }
-      }
-      private void AddSelected<T>(string segmentName,Func<T,bool> pred) where T : NamedElement {
-         if (TryGetSelectionElements<T>(segmentName, out IEnumerable<T>? elements)) {
-            if (elements is not null) foreach (T mod in elements.Where(pred)) Add(new SingleSelection(mod));
          }
       }
 
-      private static bool TryGetSelectionElements<T>(string segmentName, out IEnumerable<T>? elements) where T : NamedElement {
+      /// <summary>
+      /// Attempts to retrieve a collection of elements of the specified type that match the given segment name.
+      /// </summary>
+      /// <remarks>If <paramref name="segmentName"/> is empty, the method retrieves a default collection of
+      /// elements of type <typeparamref name="T"/>. Otherwise, it searches for elements matching the specified segment
+      /// name within the provided <paramref name="rootObjects"/>.</remarks>
+      /// <typeparam name="T">The type of elements to retrieve. Must derive from <see cref="NamedElement"/>.</typeparam>
+      /// <param name="rootObjects">A collection of root objects to search within.</param>
+      /// <param name="segmentName">The name of the segment to match. If empty, a default collection of elements is returned. This can be an RE.</param>
+      /// <param name="elements">When this method returns, contains the collection of elements of type <typeparamref name="T"/> that match the
+      /// segment name, or a default collection if <paramref name="segmentName"/> is empty. If no matching elements are
+      /// found, this will be <see langword="null"/>.</param>
+      /// <returns><see langword="true"/> if matching elements are found or a default collection is returned; otherwise, <see
+      /// langword="false"/>.</returns>
+      private static bool TryGetSelectionElements<T>(IEnumerable<NamedElement> rootObjects, string segmentName, out IEnumerable<T>? elements) where T : NamedElement {
          elements = null;
+
          if (segmentName != "") {
-            if (Database.Instance.TryGetNamedElements<T>(segmentName, out elements)) {
+            if (Database.TryGetNamedElements<T>(rootObjects,segmentName, out elements)) {
                return true;
             } else {
                return false; // element not found
@@ -422,12 +412,13 @@ namespace CDL2v1 {
 
       [JsonInclude, JsonPropertyOrder(0)]
       public SingleSelection Selection = SingleSelection.Empty;
+      [JsonIgnore]
+      public SelectionType SelectionType => Selection.Object?.SelectionType ?? SelectionType.INVALID;
 
       [JsonConstructor]
       public Focus() { }
       public Focus(SingleSelection selection) => Selection = selection;
       public Focus(Selection selection) => Selection = selection.Count > 0 ? selection.First() : SingleSelection.Empty;
-
 
       /// <summary>
       /// Parse the focus string and set the focus if it is valid.
