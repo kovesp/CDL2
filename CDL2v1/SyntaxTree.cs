@@ -184,7 +184,7 @@ namespace CDL2v1 {
          if (Parent == Guid.Empty) {
             return null!;  // The element has no parent
          } else if (this is T self) {
-            return self;   // The element is of the given type
+            return null;   // The element is of the given container type
          } else if (Database.Instance.NamedElements.TryGetValue(Parent, out NamedElement? parent)) {
             if (parent is T container) return container;
             return parent!.AncestorContainer<T>();
@@ -199,6 +199,47 @@ namespace CDL2v1 {
         public T? ParentElement<T>() where T : NamedElement => Parent != Guid.Empty && Database.Instance.NamedElements.TryGetValue(Parent,out NamedElement? parent) && parent is T element ? element : default;
 
       public virtual IEnumerable<NamedElement> ChildElements() => [];
+
+      /// <summary>
+      /// Retrieves all descendant elements of the current element that are of type <see cref="NamedElement"/>.
+      /// </summary>
+      /// <remarks>This method performs a recursive search to find all descendant elements of the specified
+      /// type. The search includes all levels of the hierarchy below the current element.</remarks>
+      /// <returns>An <see cref="IEnumerable{T}"/> containing all descendant elements of type <see cref="NamedElement"/>. If no
+      /// such elements exist, an empty collection is returned.</returns>
+      public IEnumerable<NamedElement> DescendantElements() => DescendantElements<NamedElement>();
+
+      /// <summary>
+      /// Retrieves all descendant elements of the current element that are of the specified type in a depth-first traversal order.
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <returns></returns>
+      public IEnumerable<T> DescendantElements<T>() where T : NamedElement {
+         foreach (NamedElement child in ChildElements()) {
+            if (child is T typedChild) yield return typedChild;
+            foreach (T descendant in child.DescendantElements<T>()) {
+               yield return descendant;
+            }
+         }
+      }
+      /// <summary>
+      /// Retrieves all descendant elements of the specified type from the current element and its child elements.
+      /// </summary>
+      /// <remarks>This method performs a recursive traversal of the element hierarchy, starting from the
+      /// current element's children. It yields elements that match the specified type, including those nested at any
+      /// depth.</remarks>
+      /// <param name="type">The <see cref="Type"/> to filter the descendant elements. Only elements that are instances of this type will
+      /// be included.</param>
+      /// <returns>An <see cref="IEnumerable{T}"/> of <see cref="NamedElement"/> objects that are of the specified type. The
+      /// sequence includes matching elements from both the immediate children and deeper descendants.</returns>
+      public IEnumerable<NamedElement> DescendantElements(Type type) {
+         foreach (NamedElement child in ChildElements()) {
+            if (type.IsInstanceOfType(child)) yield return child;
+            foreach (NamedElement descendant in child.DescendantElements(type)) {
+               yield return descendant;
+            }
+         }
+      }
 
       [JsonIgnore]
       public SelectionType SelectionType = SelectionType.INVALID;

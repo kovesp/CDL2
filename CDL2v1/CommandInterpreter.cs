@@ -57,11 +57,14 @@ namespace CDL2v1 {
 
          switch (commandType) {
             case CommandType.INVALID:
-               commandWindow.WriteLine($"Invalid command: {command}");
+               commandWindow.WriteError($"Invalid command: {command}");
                return;
             case CommandType.focus:
-               Focus.SetFocus(args);
-               commandWindow.WriteLine(Focus.Current.ToString());
+               if (Focus.SetFocus(args, out string errorMessage)) {
+                  commandWindow.WriteInfo(Focus.Current.ToString());
+               } else {
+                  commandWindow.WriteError(errorMessage);
+               }
                break;
             case CommandType.next:
                // Handle next command
@@ -77,12 +80,12 @@ namespace CDL2v1 {
                      //TODO: Ignore Focus subojbest for now
                      commandWindow.WriteLine(Focus.Current.Object.FQDN());
                   } else {
-                     commandWindow.WriteLine($"Nothing");
+                     commandWindow.WriteInfo($"Nothing");
                   }
                } else {
                   Selection selection = new(args);
                   if (selection.IsInvalid) {
-                     commandWindow.WriteLine(selection.ErrorMessage);
+                     commandWindow.WriteError(selection.ErrorMessage);
                      return;
                   }
                   if (selection.Count == 0) {
@@ -104,7 +107,7 @@ namespace CDL2v1 {
                } else {
                   Selection selection = new(args);
                   if (selection.IsInvalid) {
-                     commandWindow.WriteLine(selection.ErrorMessage);
+                     commandWindow.WriteError(selection.ErrorMessage);
                      return;
                   }
                   pp.PauseUpdate(() => {
@@ -118,7 +121,7 @@ namespace CDL2v1 {
                // Handle set command
                parts = command.Split(' ', 3);
                if (parts.Length < 3) {
-                  commandWindow.WriteLine("Usage: set <key> <value>");
+                  commandWindow.WriteInfo("Usage: set <key> <value>");
                   return;
                }
                string key = parts[1];
@@ -127,7 +130,7 @@ namespace CDL2v1 {
                commandWindow.WriteLine($"Set {key} to {value}");
                break;
             case CommandType.status:
-               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}", commandWindow.WriteLine);
+               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}", commandWindow.WriteInfo);
                break;
             case CommandType.rename:
                break;
@@ -138,7 +141,7 @@ namespace CDL2v1 {
             case CommandType.undo:
                break;
             case CommandType.save:
-               commandWindow.WriteLine($"Saved: {Database.Save()}");               
+               commandWindow.WriteInfo($"Saved: {Database.Save()}");               
                break;
             case CommandType.quit:
             case CommandType.exit:
@@ -146,16 +149,16 @@ namespace CDL2v1 {
                return;
             case CommandType.help:
                if (args == "") {
-                  commandWindow.WriteLine("Capital letters denote the minimum abbreviation of the command.\n");
+                  commandWindow.WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
                   foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
-                     commandWindow.WriteLine(Regex.Replace(cmd.HelpText,@"^[a-z]+","   "+cmd.NameWithAbbreviation,RegexOptions.Compiled));
+                     commandWindow.WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   "+cmd.NameWithAbbreviation,RegexOptions.Compiled));
                   }
-                  commandWindow.WriteLine("\nType 'help selector' to list the valid selectors");
+                  commandWindow.WriteInfo("\nType 'help selector' to list the valid selectors");
                } else if (args == "selector") {
-                  commandWindow.WriteLine("Capital letters denote the minimum abbreviation of the selector.");
-                  commandWindow.WriteLine("Only the first letter of the selector must be capitalized.\n");
+                  commandWindow.WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
+                  commandWindow.WriteInfo("Only the first letter of the selector must be capitalized.\n");
                   foreach (Abbreviation<SelectionType> sel in Abbreviation<SelectionType>.SelectionTypes) {
-                     commandWindow.WriteLine($"   {sel.NameWithAbbreviation}");
+                     commandWindow.WriteInfo($"   {sel.NameWithAbbreviation}");
                   }
                }
                break;
@@ -164,7 +167,7 @@ namespace CDL2v1 {
                Program? program = CDL2.GetMainProgram();
                if (program is not null) {
                   CDL2.GenerateCode(out string targetFileName,program);
-                  commandWindow.WriteLine($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
+                  commandWindow.WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
                }
                break;
             default:

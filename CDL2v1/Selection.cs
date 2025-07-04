@@ -258,16 +258,16 @@ namespace CDL2v1 {
             }
          }
 
-         IEnumerable<NamedElement> rootObjects;
+         IEnumerable<NamedElement>? rootObjects;
          // 1. If the selection was rooted, then the starting point is telative to the top Containers (Programs and Modules).
          // 2. Otherwise it is (in principle) relative to the previous focus. Let F be the prevous focus object and let
          //    S0 be the type of the first segment. There are two cases.
          //    a. F is higher in the type hierachy than S0. In this case, the search starts from F.
          //    b. F is lower in the type hierarcy than S0. F is ignored and this case is equivalent to 1.
          if (isRooted || ! Abbreviation<SelectionType>.AncestorSelectionType(Focus.Current.SelectionType, segments[0].SegmentType)) {
-            rootObjects = Database.Instance.NamedElements.Values;
+            rootObjects = null;
          } else {
-            rootObjects = [Focus.Current.Object!]; 
+            rootObjects = Focus.Current.Object!.DescendantElements(); 
             // The selection is relative to the current focus. TODO: subelements are being ignored
          }
 
@@ -322,51 +322,34 @@ namespace CDL2v1 {
                case SelectionType.IMPORTED:
                   RestrictSelected<CDL2Object>(segmentName,obj=>obj.IsImported);
                   break;
+               case SelectionType.INVALID:
+                  ErrorMessage = $"Unrecognized selection type";
+                  return;
                default:
+                  ErrorMessage = $"Unimplemented selection type: {segmentType}";
                   return; // Unsupported type for now
             }
          }
-         foreach (var obj in rootObjects) {
-            if (obj is not null) Add(new SingleSelection(obj));
+
+         if (rootObjects is not null) {
+            if (segments.Index < 1) {
+               foreach (NamedElement? obj in rootObjects) if (obj is not null) Add(new SingleSelection(obj));
+            } else {
+               Add(new SingleSelection(rootObjects.ElementAt(Math.Min(segments.Index,segments.Count)-1)));
+            }
          }
 
          // Restrict the selection using the type and name from the current segment
          // TODO: Add problem reporting?
          void RestrictSelected<T>(string segmentName, Func<T, bool>? pred = null) where T : NamedElement {
-            if (TryGetSelectionElements<T>(rootObjects, segmentName, out IEnumerable<T>? elements) && elements is not null) {
-               rootObjects = Database.NamedElementsOfType<T>(asList: false).Where(e => e.HasAncestorAmong(rootObjects));
-               if (pred is not null) rootObjects = rootObjects.Where(e => pred((T)e));
+            if (rootObjects is null) {
+               if (Database.TryGetNamedElements<T>(segmentName, out IEnumerable<T>? roots) && roots is not null) {
+                  rootObjects = roots;
+               }
+            } else if (Database.TryGetNamedElements<T>(rootObjects, segmentName, out IEnumerable<T>? elements) && elements is not null) {
+               rootObjects = elements;               
             }
-         }
-      }
-
-      /// <summary>
-      /// Attempts to retrieve a collection of elements of the specified type that match the given segment name.
-      /// </summary>
-      /// <remarks>If <paramref name="segmentName"/> is empty, the method retrieves a default collection of
-      /// elements of type <typeparamref name="T"/>. Otherwise, it searches for elements matching the specified segment
-      /// name within the provided <paramref name="rootObjects"/>.</remarks>
-      /// <typeparam name="T">The type of elements to retrieve. Must derive from <see cref="NamedElement"/>.</typeparam>
-      /// <param name="rootObjects">A collection of root objects to search within.</param>
-      /// <param name="segmentName">The name of the segment to match. If empty, a default collection of elements is returned. This can be an RE.</param>
-      /// <param name="elements">When this method returns, contains the collection of elements of type <typeparamref name="T"/> that match the
-      /// segment name, or a default collection if <paramref name="segmentName"/> is empty. If no matching elements are
-      /// found, this will be <see langword="null"/>.</param>
-      /// <returns><see langword="true"/> if matching elements are found or a default collection is returned; otherwise, <see
-      /// langword="false"/>.</returns>
-      private static bool TryGetSelectionElements<T>(IEnumerable<NamedElement> rootObjects, string segmentName, out IEnumerable<T>? elements) where T : NamedElement {
-         elements = null;
-
-         if (segmentName != "") {
-            if (Database.TryGetNamedElements<T>(rootObjects,segmentName, out elements)) {
-               return true;
-            } else {
-               return false; // element not found
-            }
-         } else {
-            // TODO Go up the focus chain if it is higher than the current focus, or go down otherwise
-            elements = Database.NamedElementsOfType<T>(asList: false);
-            return true;
+            if (rootObjects is not null && pred is not null) rootObjects = rootObjects.Where(e => pred((T)e));
          }
       }
    }
@@ -427,11 +410,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="focusString">String in format "UPPERlowerUPPERlower"</param>
       /// <returns>True if focus was successfully set, false otherwise</returns>
-      public static bool SetFocus(string focusString) {
-         if (string.IsNullOrWhiteSpace(focusString)) return false;
-
+      public static bool SetFocus(string focusString,out string errorMessage) {
+         errorMessage = "";
          Selection selection = new(focusString);
-         if (selection.Count == 0) return false;
+         if (selection.IsInvalid) {
+            errorMessage = selection.ErrorMessage;
+            return false;
+         }
          Stack.Push(new Focus(selection));
          return true;
       }

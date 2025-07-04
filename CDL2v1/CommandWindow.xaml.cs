@@ -225,13 +225,50 @@ namespace CDL2v1 {
       #endregion
 
       #region Simple Text Output
+
       /// <summary>
-      /// Writes a line of text to the output
+      /// Writes a line of text to the output with optional note type formatting
       /// </summary>
-      public void WriteLine(string text) {
+      /// <param name="text">The text to write</param>
+      /// <param name="noteType">Optional note type that determines text color (default None)</param>
+      public void WriteLine(string text, NoteType noteType = NoteType.NONE) {
          Application.Current.Dispatcher.Invoke(() => {
-            AddFormattedText(text, Brushes.LightGray, Brushes.Transparent, lineBreak: true);
+            // Get the appropriate brush based on note type from PrettyPrinter.Decorators
+            Brush foreground = GetNoteTypeBrush(noteType);
+            
+            // Add formatted text with the appropriate color
+            AddFormattedText(text, foreground, Brushes.Transparent, lineBreak: true);
          });
+      }
+
+      public void WriteError(string text) => WriteLine(text, NoteType.Error);
+      public void WriteWarning(string text) => WriteLine(text, NoteType.Warning);
+      public void WriteInfo(string text) => WriteLine(text, NoteType.Info);
+
+      /// <summary>
+      /// Gets the brush color for a specific note type using colors from PrettyPrinter.Decorators
+      /// </summary>
+      /// <param name="noteType">The note type</param>
+      /// <returns>Brush corresponding to the note type</returns>
+      private static Brush GetNoteTypeBrush(NoteType noteType) {
+         // Map NoteType to corresponding SyntacticElement
+         SE element = noteType switch {
+            NoteType.Error => SE.NoteError,
+            NoteType.Warning => SE.NoteWarning,
+            NoteType.Info => SE.NoteInfo,
+            NoteType.Note => SE.Comment,
+            _ => SE.Other  // Default
+         };
+
+         // Get color from PrettyPrinter.Decorators
+         string colorHex = PrettyPrinter.Decorators[element].FG;
+         
+         // Convert hex color to brush
+         try {
+            return (Brush)new BrushConverter().ConvertFromString(colorHex);
+         } catch {
+            return Brushes.LightGray; // Fallback if conversion fails
+         }
       }
       #endregion
 

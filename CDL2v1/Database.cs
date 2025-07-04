@@ -290,8 +290,8 @@ namespace CDL2v1 {
       [JsonIgnore]
       public Program? FirstProgram => Programs.Count == 0 ? null : NamedElements[Programs[0]] as Program;
 
-      public bool TryGetNamedElements<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement
-         => TryGetNamedElements(NamedElements.Values, name, out elements);
+      public static bool TryGetNamedElements<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement
+         => TryGetNamedElements(Instance.NamedElements.Values, name, out elements);
       /// <summary>
       /// Try and get a collection of elements of type T with the given name from the given collection of NamedElements.
       /// </summary>

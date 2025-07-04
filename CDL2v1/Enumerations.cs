@@ -242,6 +242,7 @@ namespace CDL2v1 {
       Warning,
       Info,
       Note,
+      NONE,
    }
 
    /// <summary>
