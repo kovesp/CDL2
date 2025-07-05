@@ -258,14 +258,19 @@ namespace CDL2v1 {
             }
          }
 
-         IEnumerable<NamedElement>? rootObjects;
-         // 1. If the selection was rooted, then the starting point is telative to the top Containers (Programs and Modules).
-         // 2. Otherwise it is (in principle) relative to the previous focus. Let F be the prevous focus object and let
-         //    S0 be the type of the first segment. There are two cases.
-         //    a. F is higher in the type hierachy than S0. In this case, the search starts from F.
-         //    b. F is lower in the type hierarcy than S0. F is ignored and this case is equivalent to 1.
+         IEnumerable<NamedElement>? rootObjects = null;
+         int segNo = 0;
          if (isRooted || ! Abbreviation<SelectionType>.AncestorSelectionType(Focus.Current.SelectionType, segments[0].SegmentType)) {
-            rootObjects = null;
+            // Since there are no rootObject apply the first segment to get them.
+            if (ApplySegmentRestriction(segments[segNo].SegmentType, segments[segNo+1].SegmentName)) {
+               if (segments.Count > 2) {
+                  segNo += 2; // Skip the first segment, it was applied to get the root objects
+                  rootObjects = rootObjects!.SelectMany(root => root.DescendantElements()); // Get all descendant elements of the root objects
+               }
+            } else {
+               ErrorMessage = $"Invalid selection: {segments[segNo].SegmentType} {segments[segNo+1].SegmentName}";
+               return; // The first segment was invalid, no root objects to select from
+            }
          } else {
             rootObjects = Focus.Current.Object!.DescendantElements(); 
             // The selection is relative to the current focus. TODO: subelements are being ignored
@@ -273,62 +278,10 @@ namespace CDL2v1 {
 
          // Use the segments to succesively narrow down the selection.
 
-         for (int segNo = 0; segNo < segments.Count; segNo += 2) {
+         for ( ; segNo < segments.Count; segNo += 2) {
             SelectionType segmentType = segments[segNo].SegmentType;
             string segmentName = segments[segNo + 1].SegmentName;
-            switch (segmentType) {
-               case SelectionType.PROGRAM:
-                  RestrictSelected<Program>(segmentName);
-                  break;
-               case SelectionType.MODULE:
-                  RestrictSelected<Module>(segmentName);
-                  break;
-               case SelectionType.LAYER:
-                  RestrictSelected<Layer>(segmentName);
-                  break;
-               case SelectionType.SECTION:
-                  RestrictSelected<Section>(segmentName);
-                  break;
-               case SelectionType.ALGORITHM:
-                  RestrictSelected<Algorithm>(segmentName,alg => !alg.IsImported);
-                  break;
-               case SelectionType.PROCEDURE:
-                  RestrictSelected<Procedure>(segmentName,alg=>!alg.IsImported);
-                  break;
-               case SelectionType.MACRO:
-                  RestrictSelected<Macro>(segmentName,alg=>!alg.IsImported);
-                  break;
-               case SelectionType.FUNCTION:
-                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsFunction && !alg.IsImported);
-                  break;
-               case SelectionType.ACTION:
-                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsAction && !alg.IsImported);
-                  break;
-               case SelectionType.TEST:
-                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsTest && !alg.IsImported);
-                  break;
-               case SelectionType.PREDICATE:
-                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsPredicate && !alg.IsImported);
-                  break;
-               case SelectionType.CONST:
-                  RestrictSelected<Const>(segmentName,con=>!con.IsImported);
-                  break;
-               case SelectionType.VAR:
-                  RestrictSelected<Var>(segmentName);
-                  break;
-               case SelectionType.LIST:
-                  RestrictSelected<LIST>(segmentName);
-                  break;
-               case SelectionType.IMPORTED:
-                  RestrictSelected<CDL2Object>(segmentName,obj=>obj.IsImported);
-                  break;
-               case SelectionType.INVALID:
-                  ErrorMessage = $"Unrecognized selection type";
-                  return;
-               default:
-                  ErrorMessage = $"Unimplemented selection type: {segmentType}";
-                  return; // Unsupported type for now
-            }
+            if (! ApplySegmentRestriction(segmentType, segmentName)) return;
          }
 
          if (rootObjects is not null) {
@@ -347,9 +300,67 @@ namespace CDL2v1 {
                   rootObjects = roots;
                }
             } else if (Database.TryGetNamedElements<T>(rootObjects, segmentName, out IEnumerable<T>? elements) && elements is not null) {
-               rootObjects = elements;               
+               rootObjects = elements.SelectMany(e=>e.DescendantElements());               
             }
             if (rootObjects is not null && pred is not null) rootObjects = rootObjects.Where(e => pred((T)e));
+         }
+
+         bool ApplySegmentRestriction(ST segmentType, string segmentName) {
+            switch (segmentType) {
+               case SelectionType.PROGRAM:
+                  RestrictSelected<Program>(segmentName);
+                  break;
+               case SelectionType.MODULE:
+                  RestrictSelected<Module>(segmentName);
+                  break;
+               case SelectionType.LAYER:
+                  RestrictSelected<Layer>(segmentName);
+                  break;
+               case SelectionType.SECTION:
+                  RestrictSelected<Section>(segmentName);
+                  break;
+               case SelectionType.ALGORITHM:
+                  RestrictSelected<Algorithm>(segmentName, alg => !alg.IsImported);
+                  break;
+               case SelectionType.PROCEDURE:
+                  RestrictSelected<Procedure>(segmentName, alg => !alg.IsImported);
+                  break;
+               case SelectionType.MACRO:
+                  RestrictSelected<Macro>(segmentName, alg => !alg.IsImported);
+                  break;
+               case SelectionType.FUNCTION:
+                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsFunction && !alg.IsImported);
+                  break;
+               case SelectionType.ACTION:
+                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsAction && !alg.IsImported);
+                  break;
+               case SelectionType.TEST:
+                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsTest && !alg.IsImported);
+                  break;
+               case SelectionType.PREDICATE:
+                  RestrictSelected<Algorithm>(segmentName, alg => alg.IsPredicate && !alg.IsImported);
+                  break;
+               case SelectionType.CONST:
+                  RestrictSelected<Const>(segmentName, con => !con.IsImported);
+                  break;
+               case SelectionType.VAR:
+                  RestrictSelected<Var>(segmentName);
+                  break;
+               case SelectionType.LIST:
+                  RestrictSelected<LIST>(segmentName);
+                  break;
+               case SelectionType.IMPORTED:
+                  RestrictSelected<CDL2Object>(segmentName, obj => obj.IsImported);
+                  break;
+               case SelectionType.INVALID:
+                  ErrorMessage = $"Unrecognized selection type";
+                  return false;
+               default:
+                  ErrorMessage = $"Unimplemented selection type: {segmentType}";
+                  return false; // Unsupported type for now
+            }
+
+            return true;
          }
       }
    }
