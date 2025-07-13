@@ -320,9 +320,11 @@ namespace CDL2v1 {
             if (EmitCount(list, type) > 0) foreach (T algorithm in list) print(algorithm);
          }
 
+         PrintDataDefinitions(RW.CONST, section.ImportedConstants, Print);
          PrintDataDefinitions(RW.CONST, section.Constants, Print);
          PrintDataDefinitions(RW.VAR, section.Variables, Print);
          PrintDataDefinitions(RW.LIST, section.Lists, l=>Print(l,section));
+         PrintAlgorithms("Imported Algorithm", section.ImportedAlgorithms, Print);
          PrintAlgorithms("Macro", section.Macros, Print);
          PrintAlgorithms("Procedure", section.NonSyntheticProcedures, a=>Print(a,section));
 
@@ -550,10 +552,12 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="algorithm"></param>
       public void Print(Algorithm algorithm) {
-         if (algorithm is Procedure proc) {
-            Print(proc, proc.Section!);
+         if (algorithm is Macro macro) {
+            Print(macro);
+         } else if (algorithm is ImportedAlgorithm impProc) { 
+            Print(impProc);
          } else {
-            Print((Macro)algorithm);
+            Print((Procedure)algorithm, algorithm.Section!);
          }
       }
 
@@ -573,6 +577,14 @@ namespace CDL2v1 {
             }
             EmitSeparatorWithNL(TT.END);
          });
+      }
+      /// <summary>
+      /// Imported algorithms have their header printed.
+      /// </summary>
+      /// <param name="alg"></param>
+      public void Print(ImportedAlgorithm alg) {
+         PrintAlgorithmHeader(alg);
+         EmitSeparatorWithNL(TT.END);
       }
 
       /// <summary>
@@ -641,12 +653,17 @@ namespace CDL2v1 {
             Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
             if (affix.IsOutput) Emit(TT.AFFIXDIR);
          }
-         if (algorithm.Locals.Any()) {
-            foreach (Local local in algorithm.Locals) {
-               Emit(" ",TT.LOCALSEP,local.Id.Decorate(Emitter,SE.Local));
+         if (algorithm is not ImportedAlgorithm)
+         {
+            if (algorithm.Locals.Any())
+            {
+               foreach (Local local in algorithm.Locals)
+               {
+                  Emit(" ", TT.LOCALSEP, local.Id.Decorate(Emitter, SE.Local));
+               }
             }
+            Emitnl(" ", algorithm.BodyType);
          }
-         Emitnl(" ",algorithm.BodyType);
       }
       private Decoration AlgorithmNameDecorator(Algorithm alg) 
          => alg.IsConditionalCompilationOn ? Decorators[SE.ConditionalCompilationOn] : 

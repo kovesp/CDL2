@@ -521,11 +521,13 @@ namespace CDL2v1 {
       public override IEnumerable<NamedElement> ChildElements() => Declarations.Values.Select(guid=>Database.Instance.NamedElements[guid]);
 
       [JsonIgnore] public List<Const> Constants => [.. Declarations.AsCDL2Objects<Const>()];
+      [JsonIgnore] public List<Const> ImportedConstants => [.. Declarations.AsCDL2Objects<ImportedConst>()];
       [JsonIgnore] public List<Var> Variables => [.. Declarations.AsCDL2Objects<Var>()];
       [JsonIgnore] public List<LIST> Lists => [.. Declarations.AsCDL2Objects<LIST>() ];
       [JsonIgnore] public List<Macro> Macros => [.. Declarations.AsCDL2Objects<Macro>() ];
       [JsonIgnore] public List<Procedure> Procedures => [.. Declarations.AsCDL2Objects<Procedure>() ];
       [JsonIgnore] public List<Algorithm> Algorithms => [.. Declarations.AsCDL2Objects<Algorithm>() ];
+      [JsonIgnore] public List<Algorithm> ImportedAlgorithms => [.. Declarations.AsCDL2Objects<ImportedAlgorithm>()];
       [JsonIgnore] public List<Algorithm> NonSyntheticAlgorithms => [.. Declarations.AsCDL2Objects<Algorithm>(alg=>!alg.IsSynthetic) ];
       [JsonIgnore] public List<Procedure> NonSyntheticProcedures => [.. Declarations.AsCDL2Objects<Procedure>(proc => !proc.IsSynthetic) ];
       [JsonIgnore] public List<Procedure> SyntheticProcedures   => [.. Declarations.AsCDL2Objects<Procedure>(proc => proc.IsSynthetic) ];
