@@ -237,6 +237,7 @@ namespace CDL2v1 {
 
       internal void Print(NamedElement namedElement) {
          switch (namedElement) {
+            // Units
             case Program program:
                Print(program);
                break;
@@ -249,6 +250,7 @@ namespace CDL2v1 {
             case Section section:
                Print(section);
                break;
+            // CDL2Objects
             case Algorithm algorithm:
                Print(algorithm);
                break;
@@ -261,6 +263,21 @@ namespace CDL2v1 {
             case LIST list:
                Print(list, list.Section!);
                break;
+
+            // Smaller elements
+            case Group group:
+               Print(group, group.Section!);
+               break;
+            case Alternative alternative:
+               Print(alternative, alternative.Section!);
+               break;
+            case Call call:
+               Print(call, call.Section!, extraSpace: false, firstInAlternative: true);
+               break;
+            case LastCall lastCall:
+               Print(lastCall, lastCall.Section!);
+            break;
+
             default:
                throw new NotImplementedException($"Cannot print {namedElement.GetType()}");
          }
@@ -370,33 +387,35 @@ namespace CDL2v1 {
             if (alternative.lastCall.type != LCT.None) EmitSeparator(TT.CALLSEP);
          }
 
-         if (alternative.lastCall.type != LCT.None) {            
-            switch (alternative.lastCall.type) {
-               case LastCallType.Standard:
-                  Debug.Assert(alternative.lastCall.call != null,"alternative.lastCall.call is null");
-                  Print(alternative.lastCall.call, section, firstInAlternative: alternative.calls.Count == 0);
-                  break;
-               case LastCallType.Succeed:
-                  Emit(TT.SUCCEED);
-                  break;
-               case LastCallType.Fail:
-                  Emit(TT.FAIL);
-                  break;
-               case LastCallType.Abort:
-                  Emit(TT.ABORT);
-                  break;
-               case LastCallType.Repeat:
-                  Emit(TT.REPEAT);
-                  Debug.Assert(alternative.lastCall.label is not null,"alternative.lastCall.label is null");
-                  if (alternative.lastCall.label != ID.AnonID) {
-                     Emit(alternative.lastCall.label.Name.Decorate(Emitter,SE.Label));
-                  }
-                  break;
-               case LastCallType.Group:
-                  Debug.Assert(alternative.lastCall.group is not null,"alternative.group is null");
-                  Print(alternative.lastCall.group,section);
-                  break;
-            }
+         if (alternative.lastCall.type != LCT.None) Print(alternative.lastCall, section, extraSpace: extraSpace);
+      }
+
+      private void Print(LastCall lastCall, Section section, bool extraSpace = false) {
+         Debug.Assert(lastCall.type != LCT.None,"lastCall.type is None in call of Print(LastCall,...)");
+         switch (lastCall.type) {
+            case LastCallType.Standard:
+               Debug.Assert(lastCall.call is not null,"lastCall.call is null");
+               Print(lastCall.call, section, extraSpace: extraSpace, firstInAlternative: false);
+               break;
+            case LastCallType.Succeed:
+               EmitWithExtraSpace(extraSpace, TT.SUCCEED);
+               break;
+            case LastCallType.Fail:
+               EmitWithExtraSpace(extraSpace, TT.FAIL);
+               break;
+            case LastCallType.Abort:
+               EmitWithExtraSpace(extraSpace, TT.ABORT);
+               break;
+            case LastCallType.Repeat:
+               EmitWithExtraSpace(extraSpace, TT.REPEAT);
+               if (lastCall.label! != ID.AnonID) {
+                  Emit(lastCall.label!.Name.Decorate(Emitter, SE.Label));
+               }
+               break;
+            case LastCallType.Group:
+               Debug.Assert(lastCall.group is not null,"lastCall.group is null");
+               Print(lastCall.group!,section);
+               break;
          }
       }
 
