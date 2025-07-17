@@ -49,6 +49,7 @@ namespace CDL2v1 {
       internal void ForEach(Action<Note> action) {
          foreach (Note note in this) action(note);
       }
+      public static Notes Empty => [];
    }
 
    /// <summary>

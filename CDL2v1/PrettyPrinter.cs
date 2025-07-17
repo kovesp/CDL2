@@ -38,6 +38,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -310,6 +311,7 @@ namespace CDL2v1 {
             if (EmitCount(items, type.ToString()) > 0) {
                foreach (T item in items) {
                   if (item.HasCommentOrNote) PrintComment(item);
+                  PrintImportedComment(item);
                   Emit(type.Decorate(Emitter, SE.ReservedWord), " ");
                   print(item);
                   EmitSeparatorWithNL(TT.END);
@@ -320,7 +322,6 @@ namespace CDL2v1 {
             if (EmitCount(list, type) > 0) foreach (T algorithm in list) print(algorithm);
          }
 
-         PrintDataDefinitions(RW.CONST, section.ImportedConstants, Print);
          PrintDataDefinitions(RW.CONST, section.Constants, Print);
          PrintDataDefinitions(RW.VAR, section.Variables, Print);
          PrintDataDefinitions(RW.LIST, section.Lists, l=>Print(l,section));
@@ -583,6 +584,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alg"></param>
       public void Print(ImportedAlgorithm alg) {
+         PrintImportedComment(alg);
          PrintAlgorithmHeader(alg);
          EmitSeparatorWithNL(TT.END);
       }
@@ -669,9 +671,7 @@ namespace CDL2v1 {
          => alg.IsConditionalCompilationOn ? Decorators[SE.ConditionalCompilationOn] : 
             alg.IsConditionalCompilationOff ? Decorators[SE.ConditionalCompilationOff] : 
             AlgorithmNameDecorators[alg.NameType];
-
       public void Print(Const constant) {
-         //PrintIDComment(item,SE.Const);
          Emit(constant.Id.Decorate(Emitter, SE.Const));
          if (constant.IsImported) return;
          Emit(" ",TT.EQUALS," ");
@@ -747,6 +747,13 @@ namespace CDL2v1 {
       /// <param name="element"></param>
       private void PrintComment(NamedElement element) => PrintComment(element.Comments,element.Notes);
       private void PrintComment(Alternative element) => PrintComment(null,element.Notes);
+
+      private void PrintInlineComment(string comment) {
+         if (IncludeComments) {
+            Emit($"{Token.TokenType2Glyph[TT.COMMENT]}{comment}{Token.TokenType2Glyph[TT.COMMENT]} ".Decorate(Emitter, SE.Comment));
+         }
+      }
+      private void PrintImportedComment(CDL2Object obj) { if (obj.IsImported) PrintInlineComment("Imported"); }
 
       private void PrintComment(string? comments,Notes notes) {
          if (IncludeComments) {
