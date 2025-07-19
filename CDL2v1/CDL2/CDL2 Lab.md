@@ -15,6 +15,7 @@ SPECIAL :: + ; - ; ... . # ... is any unicode character not listed in ALPHA and 
 GLYPH :: ALPHA ; DIGIT ; SPECIAL.
 NOTETY :: NOTION ; EMPTY .
 NOTION1 or NOTION2 :: NOTION1 ; NOTION2.
+NOTION1 and NOTION2 :: NOTON1 , NOTION2.
 
 NOTION option : NOTION ; EMPTY.
 NOTION sequence : NOTION1 ; NOTION1, NOTION2 sequence.
@@ -31,22 +32,33 @@ name of an algorithm); a regular expression may be used here.
 
 ### Selector Syntax
 ```
-UNIT : program ; module ; layer ; section ; abstr ; ext ; inv ; import ; imported ; export ;
+UNIT : program ; module ; layer ; section ; 
+       abstr ; ext ; inv ; import ; imported ; export ;
        algorithm ; procedure ; macro ; function ; action ; test ; predicate ;
-       variable ; constant ; list ; affix ; local ; alternative ; group ; call ; 
-       succeed ; fail ; abort ; repeat.
-single selector : unit type, offset or name selector option.
-offset : plus token, DIGIT sequence ; minus token, DIGIT sequence ; DIGIT sequence.
+       variable ; constant ; list ; any ; container ; object.
+SUNIT : UNIT ; affix ; local ; call.
+single selector : unit type, name selector option.
+offset : plus token or minus token option, DIGIT sequence.
 name selector : ALPHA sequence option ; regex token, regular expression.
 selector : top token option, single selector sequence, ordinal option.
 ordinal : colon token, offset.
-unit type : UNIT token.
+unit type : SUNIT token.
 top token : ^.
 regex token : /.
 setting : plus or minus token, setting name, setting argument option.
 ```
 #### Notes
 
+- The distinction between UNIT and SUNIT is that SUNITs may be used to
+  select objects in non-focus type commands, such as `print`, `list`, etc.
+  UNITs are used when a focus setting command is used, such as `focus`,
+  `next`, `previous`, etc. For examle one cant set the focus to a call
+  (with `focus Call incr`), but one cal list all calls of incr in the
+  current module (with `list Mod Call incr`).
+- `ANY` will match any unit type, `CONTAINER` will match any container
+  type (i.e., `MODULE`, `SECTION`, `LAYER`, `PROGRAM`), `DATA` will match
+  `CONST`, `VAR`, or `LIST`), and `OBJECT` will match
+  `ALGORITHM` or `DATA`.  
 - The `top token` is used to indicate that the current focus is to be ignored.  
   Thus `^ ALG le` will select all algorithms that have *le* in their name, regardless
   of the current focus.
@@ -90,41 +102,42 @@ with *le* in from all the such algorithms in any section whose name starts with 
 not deterministic because the order of `MODULE`s in the database is undefined. As well, this selector selccts
 a single object, not the last object in each matching section.
 
+UNITs:
 ```
-ABORT
 ABSTR
 ACtion
-AFFix
 ALGorithm
-ALTernative
-ARG
-Call
+ANY
 CONst
+CONTAINER
+DATA
 EXPort
 EXT
-FAIL
 FUnction
-Group
 IMPort
 INV
 LAYer
 LIST
-LOCal
 MACro
 Module
 NOTE
+OBJECT
 PART
 POSTlude
 PRedicate
 PRElude
 PROCedure
 PROGram
-REPEAT
 ROOT
 Section
-SUCCEED
 TEst
 VAR
+```
+SUNITs:
+```
+AFFix
+Call
+LOCal
 ```
 
 ## Commands

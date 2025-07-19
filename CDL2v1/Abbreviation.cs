@@ -56,7 +56,7 @@ namespace CDL2v1 {
 
       private static readonly Dictionary<Type,string> ShortTypeNames = new() {
          { typeof(CommandType)   , "Cmd" },
-         { typeof(SelectionType)     , "Focus" },
+         { typeof(FocusType)     , "Focus" },
       };
       private static string ShortTypeName => ShortTypeNames.TryGetValue(typeof(T), out string? type) ? type : typeof(T).Name;
 
@@ -95,52 +95,46 @@ namespace CDL2v1 {
          new ("undo"    , 1,"undo:                        undo the last modification; may be repeated (NOT IMPLEMENTED)"),
       ];
 
-      private static readonly List<SelectionType> AlgorithmTypes = [
-         SelectionType.ALGORITHM, SelectionType.PROCEDURE, SelectionType.ACTION, SelectionType.FUNCTION, SelectionType.PREDICATE, SelectionType.TEST
+      private static readonly List<FocusType> AlgorithmTypes = [
+         FocusType.ALGORITHM, FocusType.PROCEDURE, FocusType.ACTION, FocusType.FUNCTION, FocusType.PREDICATE, FocusType.TEST
       ];
-      private static readonly List<SelectionType> AlgorithmTypesWithMacro = AlgorithmTypes.With(SelectionType.MACRO);
+      private static readonly List<FocusType> AlgorithmTypesWithMacro = AlgorithmTypes.With(FocusType.MACRO);
       /// <summary> 
       /// Must match with the names in the FocusType enum.
       /// </summary>
-      public readonly static SortedSet<Abbreviation<SelectionType>> SelectionTypes = [
-         new ("ABORT"      ,5,SelectionType.ALTERNATIVE),
-         new ("ABSTR"      ,5,SelectionType.SECTION),
-         new ("ACTION"     ,2,SelectionType.SECTION),
+      public readonly static SortedSet<Abbreviation<FocusType>> FocusTypes = [
+         new ("ABSTR"      ,5,FocusType.SECTION),
+         new ("ACTION"     ,2,FocusType.SECTION),
          new ("AFFIX"      ,3,AlgorithmTypesWithMacro),
-         new ("ALGORITHM"  ,3,SelectionType.SECTION),
-         new ("ALTERNATIVE",3,SelectionType.GROUP),
-         new ("ARG"        ,3,SelectionType.CALL),
-         new ("CALL"       ,1,SelectionType.ALTERNATIVE),   // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
-         new ("CONST"      ,3,SelectionType.SECTION),
-         new ("EXPORT"     ,3,SelectionType.SECTION),
-         new ("EXT"        ,3,SelectionType.SECTION),
-         new ("FAIL"       ,4,SelectionType.ALTERNATIVE),
-         new ("FUNCTION"   ,2,SelectionType.SECTION),
+         new ("ALGORITHM"  ,3,FocusType.SECTION),
+         //new ("CALL"       ,1,FocusType.ALTERNATIVE),   // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
+         new ("CONST"      ,3,FocusType.SECTION),
+         new ("EXPORT"     ,3,FocusType.SECTION),
+         new ("EXT"        ,3,FocusType.SECTION),
+         new ("FUNCTION"   ,2,FocusType.SECTION),
          new ("GROUP"      ,1,AlgorithmTypes),
-         new ("IMPORT"     ,3,SelectionType.SECTION),
-         new ("IMPORTED"   ,8,SelectionType.SECTION),
-         new ("INV"        ,3,SelectionType.SECTION),
-         new ("LAYER"      ,3,SelectionType.MODULE),
-         new ("LIST"       ,4,SelectionType.SECTION),
+         new ("IMPORT"     ,3,FocusType.SECTION),
+         new ("IMPORTED"   ,8,FocusType.SECTION),
+         new ("INV"        ,3,FocusType.SECTION),
+         new ("LAYER"      ,3,FocusType.MODULE),
+         new ("LIST"       ,4,FocusType.SECTION),
          new ("LOCAL"      ,3,AlgorithmTypesWithMacro),
-         new ("MACRO"      ,3,SelectionType.SECTION),
+         new ("MACRO"      ,3,FocusType.SECTION),
          new ("MODULE"     ,1),
          new ("NOTE"       ,4),
-         new ("PART"       ,4,SelectionType.PROGRAM),
-         new ("POSTLUDE"   ,4,[SelectionType.PROGRAM,SelectionType.MODULE,SelectionType.SECTION]),
-         new ("PREDICATE"  ,2,SelectionType.SECTION),
-         new ("PRELUDE"    ,3,[SelectionType.PROGRAM,SelectionType.MODULE,SelectionType.SECTION]),
-         new ("PROCEDURE"  ,4,SelectionType.SECTION),
+         new ("PART"       ,4,FocusType.PROGRAM),
+         new ("POSTLUDE"   ,4,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
+         new ("PREDICATE"  ,2,FocusType.SECTION),
+         new ("PRELUDE"    ,3,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
+         new ("PROCEDURE"  ,4,FocusType.SECTION),
          new ("PROGRAM"    ,4),
-         new ("REPEAT"     ,3,SelectionType.ALTERNATIVE),
-         new ("ROOT"       ,4,[SelectionType.PROGRAM,SelectionType.MODULE,SelectionType.SECTION]),
-         new ("SECTION"    ,1,SelectionType.LAYER),
-         new ("SUCCEED"    ,7,SelectionType.ALTERNATIVE),
-         new ("TEST"       ,2,SelectionType.SECTION),
-         new ("VAR"        ,3,SelectionType.SECTION),
+         new ("ROOT"       ,4,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
+         new ("SECTION"    ,1,FocusType.LAYER),
+         new ("TEST"       ,2,FocusType.SECTION),
+         new ("VAR"        ,3,FocusType.SECTION),
       ];
 
-      private readonly static Dictionary<SelectionType,Abbreviation<SelectionType>> FocusTypeMap = SelectionTypes.ToDictionary(abbrev => abbrev.Type, abbrev => abbrev);
+      private readonly static Dictionary<FocusType,Abbreviation<FocusType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type, abbrev => abbrev);
       /// <summary>
       /// Return true if the first selection type is a valid ancestor of the second selection type.
       /// </summary>
@@ -148,16 +142,16 @@ namespace CDL2v1 {
       /// <param name="child"></param>
       /// <returns></returns>
       /// <example>
-      ///   AncestorSelectionType(SelectionType.MODULE, SelectionType.CALL); // True, because MODULE => LAYER => SECTION => PROCEDURE => GROUP => ALTERNATIVE => CALL
+      ///   AncestorFocusType(FocusType.MODULE, FocusType.CALL); // True, because MODULE => LAYER => SECTION => PROCEDURE => GROUP => ALTERNATIVE => CALL
       /// </example>
-      public static bool AncestorSelectionType(SelectionType ancestor,SelectionType child) {
-         List<SelectionType>? containers = FocusTypeMap[child].Containers; // The direct containers of the child type
-         return containers is not null && (containers.Contains(ancestor) || containers.Any(container=>AncestorSelectionType(ancestor,container)));
+      public static bool AncestorFocusType(FocusType ancestor,FocusType child) {
+         List<FocusType>? containers = FocusTypeMap[child].Containers; // The direct containers of the child type
+         return containers is not null && (containers.Contains(ancestor) || containers.Any(container=>AncestorFocusType(ancestor,container)));
       }
 
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {
          nameof(CommandType)     => Commands.Cast<Abbreviation<T>>().ToSet(),
-         nameof(SelectionType)   => SelectionTypes.Cast<Abbreviation<T>>().ToSet(),
+         nameof(FocusType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
          _ => throw new ArgumentException($"Unknown abbreviation type: {typeof(T).Name}"),
       };
 

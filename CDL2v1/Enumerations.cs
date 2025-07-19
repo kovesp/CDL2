@@ -44,7 +44,7 @@ global using DS  = CDL2v1.DecorationStyle;
 global using AS  = CDL2v1.AnnotationSymbol;
 global using SA  = CDL2v1.AnnotationSymbols;
 global using PBT = CDL2v1.ProcedureBodyType;
-global using ST  = CDL2v1.SelectionType;
+global using ST  = CDL2v1.FocusType;
 using System.Text;
 
 namespace CDL2v1 {
@@ -192,30 +192,26 @@ namespace CDL2v1 {
    }
 
    /// <summary>
-   /// Focus types. Note that the END... RW are omitted but sub parts (e.g., CALL) are added. See the FocustTypes set in Abbreviations
+   /// Focus types. Note that the END.
+   /// For simplicity, the FocusTypes contin the SelectionTypes as well.
+   /// This allows a single abbreviation table for both.
+   /// Diferentiation will be made using SelectionType
    /// </summary>
-   public enum SelectionType {
+   public enum FocusType {
       INVALID,
-      ABORT,
       ABSTR,
       ACTION,
-      AFFIX,
       ALGORITHM,
-      ALTERNATIVE,
-      ARG,
-      CALL,
       CONST,
+      CONTAINER,
       EXPORT,
       EXT,
-      FAIL,
       FUNCTION,
-      GROUP,
       IMPORT,
       IMPORTED,
       INV,
       LAYER,
       LIST,
-      LOCAL,
       MACRO,
       MODULE,
       NOTE,
@@ -225,13 +221,25 @@ namespace CDL2v1 {
       PRELUDE,
       PROCEDURE,
       PROGRAM,
-      REPEAT,
       ROOT,
       SECTION,
-      SUCCEED,
       TEST,
       VAR,
+      ANY,
+      DATA,
+      OBJECT,
+      // SelectionTypes
+      AFFIX,
+      CALL,
       LASTCALL,
+      LOCAL,
+   }
+
+   public enum SelectionType {
+      AFFIX,
+      CALL,
+      LASTCALL,
+      LOCAL,
    }
 
    /// <summary>

@@ -157,7 +157,7 @@ namespace CDL2v1 {
                } else if (args == "selector") {
                   commandWindow.WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
                   commandWindow.WriteInfo("Only the first letter of the selector must be capitalized.\n");
-                  foreach (Abbreviation<SelectionType> sel in Abbreviation<SelectionType>.SelectionTypes) {
+                  foreach (Abbreviation<FocusType> sel in Abbreviation<FocusType>.FocusTypes) {
                      commandWindow.WriteInfo($"   {sel.NameWithAbbreviation}");
                   }
                }

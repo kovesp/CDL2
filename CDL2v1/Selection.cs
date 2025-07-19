@@ -144,12 +144,12 @@ namespace CDL2v1 {
       /// SelectionSegments are used during the parsing of the selection string to identify the segments of the selection.
       /// </summary>
       private abstract class SelectionSegment {
-         public SelectionType SegmentType => this is UnitSegment unit ? unit.Type : SelectionType.INVALID;
+         public FocusType SegmentType => this is UnitSegment unit ? unit.Type : FocusType.INVALID;
          public string SegmentName => this is NameSegment id ? id.Name : "";
          public int SegmentOffset => this is OffsetSegment offset ? offset.Offset : 0;
       }
-      private class UnitSegment(SelectionType type) : SelectionSegment {
-         public SelectionType Type { get; private set; } = type;
+      private class UnitSegment(FocusType type) : SelectionSegment {
+         public FocusType Type { get; private set; } = type;
          public override string ToString() => Type.ToString();
       }
       private class NameSegment(string name) : SelectionSegment {
@@ -184,7 +184,7 @@ namespace CDL2v1 {
       /// Create a new empty selection.
       /// </summary>
       public Selection() : base() { }
-      private static readonly List<SelectionType> ImportableSelectionType = [ST.CONST,ST.ALGORITHM,ST.MACRO,ST.PROCEDURE,ST.FUNCTION,ST.ACTION,ST.TEST,ST.PREDICATE];
+      private static readonly List<FocusType> ImportableFocusType = [ST.CONST,ST.ALGORITHM,ST.MACRO,ST.PROCEDURE,ST.FUNCTION,ST.ACTION,ST.TEST,ST.PREDICATE];
       /// <summary>
       /// Create a new selection from a selection string.
       /// </summary>
@@ -212,8 +212,8 @@ namespace CDL2v1 {
             string segment = match.Value.Trim();
             if (char.IsAsciiLetterUpper(segment[0])) {
                // Uppercase segment, identify as a unit type
-               SelectionType type = Abbreviation<SelectionType>.Identify(segment.ToUpper());
-               if (type == SelectionType.INVALID) {
+               FocusType type = Abbreviation<FocusType>.Identify(segment.ToUpper());
+               if (type == FocusType.INVALID) {
                   ErrorMessage = $"Invalid selector type: {segment}";
                   return;
                } else {
@@ -242,8 +242,8 @@ namespace CDL2v1 {
          Debug.Assert(segments.Count > 0 && segments.Count % 2 == 0, "No valid segments found in selection string, or number of selection segments is odd");
          // Verify that the types are in hierarchical order
          for (int i = 0; i < segments.Count - 2; i += 2) {
-            if (segments[i].SegmentType == SelectionType.IMPORTED) continue; // Skip IMPORTED segment
-            if (!Abbreviation<SelectionType>.AncestorSelectionType(ancestor:segments[i].SegmentType,child:segments[i + 2].SegmentType)) {
+            if (segments[i].SegmentType == FocusType.IMPORTED) continue; // Skip IMPORTED segment
+            if (!Abbreviation<FocusType>.AncestorFocusType(ancestor:segments[i].SegmentType,child:segments[i + 2].SegmentType)) {
                // The types are not in hierarchical order, return without setting selection
                ErrorMessage = $"Invalid selection: {segments[i+2].SegmentType} cannot follow {segments[i].SegmentType}";
                return;
@@ -253,7 +253,7 @@ namespace CDL2v1 {
          IEnumerable<NamedElement> candidateObjects;
          IEnumerable<NamedElement> selectedObjects = [];
          
-         if (isRooted || ! Abbreviation<SelectionType>.AncestorSelectionType(Focus.Current.SelectionType, segments[0].SegmentType)) {
+         if (isRooted || ! Abbreviation<FocusType>.AncestorFocusType(Focus.Current.FocusType, segments[0].SegmentType)) {
             candidateObjects = Database.Instance.NamedElements.Values;
          } else {
             candidateObjects = Focus.Current.Object!.DescendantElements(); 
@@ -272,22 +272,31 @@ namespace CDL2v1 {
             }
             
             switch (segments[segNo].SegmentType) {
-               case SelectionType.PROGRAM:   NarrowSelection<Program>   (); break;
-               case SelectionType.MODULE:    NarrowSelection<Module>    (); break;
-               case SelectionType.LAYER:     NarrowSelection<Layer>     (); break;
-               case SelectionType.SECTION:   NarrowSelection<Section>   (); break;
-               case SelectionType.ALGORITHM: NarrowSelection<Algorithm> (alg => !alg.IsImported); break;
-               case SelectionType.PROCEDURE: NarrowSelection<Procedure> (alg => !alg.IsImported); break;
-               case SelectionType.MACRO:     NarrowSelection<Macro>     (alg => !alg.IsImported); break;
-               case SelectionType.FUNCTION:  NarrowSelection<Algorithm> (alg => alg.IsFunction && !alg.IsImported); break;
-               case SelectionType.ACTION:    NarrowSelection<Algorithm> (alg => alg.IsAction && !alg.IsImported); break;
-               case SelectionType.TEST:      NarrowSelection<Algorithm> (alg => alg.IsTest && !alg.IsImported); break;
-               case SelectionType.PREDICATE: NarrowSelection<Algorithm> (alg => alg.IsPredicate && !alg.IsImported); break;
-               case SelectionType.CONST:     NarrowSelection<Const>     (con => !con.IsImported); break;
-               case SelectionType.VAR:       NarrowSelection<Var>       (); break;
-               case SelectionType.LIST:      NarrowSelection<LIST>      (); break;
-               case SelectionType.IMPORTED:  NarrowSelection<CDL2Object>(obj => obj.IsImported); break;
-               case SelectionType.INVALID:   ErrorMessage = $"Unrecognized selection type"; break;
+               case FocusType.PROGRAM:      NarrowSelection<Program>      (); break;
+               case FocusType.MODULE:       NarrowSelection<Module>       (); break;
+               case FocusType.LAYER:        NarrowSelection<Layer>        (); break;
+               case FocusType.SECTION:      NarrowSelection<Section>      (); break;
+               case FocusType.ALGORITHM:    NarrowSelection<Algorithm>    (alg => !alg.IsImported); break;
+               case FocusType.PROCEDURE:    NarrowSelection<Procedure>    (alg => !alg.IsImported); break;
+               case FocusType.MACRO:        NarrowSelection<Macro>        (alg => !alg.IsImported); break;
+               case FocusType.FUNCTION:     NarrowSelection<Algorithm>    (alg => alg.IsFunction && !alg.IsImported); break;
+               case FocusType.ACTION:       NarrowSelection<Algorithm>    (alg => alg.IsAction && !alg.IsImported); break;
+               case FocusType.TEST:         NarrowSelection<Algorithm>    (alg => alg.IsTest && !alg.IsImported); break;
+               case FocusType.PREDICATE:    NarrowSelection<Algorithm>    (alg => alg.IsPredicate && !alg.IsImported); break;
+               case FocusType.CONST:        NarrowSelection<Const>        (con => !con.IsImported); break;
+               case FocusType.VAR:          NarrowSelection<Var>          (); break;
+               case FocusType.LIST:         NarrowSelection<LIST>         (); break;
+
+               //case FocusType.CALL:         NarrowSelection<Call>         (); break;  
+               //case FocusType.LASTCALL:     NarrowSelection<LastCall>     (); break;
+
+               //case FocusType.PRELUDE:      NarrowSelection<Section>   (sec => sec.IsPrelude); break;
+               //case FocusType.ROOT:         NarrowSelection<Program>   (prog => prog.IsRooted); break;
+               //case FocusType.POSTLUDE:     NarrowSelection<Section>   (sec => sec.IsPostlude); break;
+
+               case FocusType.IMPORTED:     NarrowSelection<CDL2Object>(obj => obj.IsImported); break;
+
+               case FocusType.INVALID:   ErrorMessage = $"Unrecognized selection type"; break;
                default:                      ErrorMessage = $"Unimplemented selection type: {segments[segNo].SegmentType}"; break;
             }        
          }
@@ -343,7 +352,7 @@ namespace CDL2v1 {
       [JsonInclude, JsonPropertyOrder(0)]
       public SingleSelection Selection = SingleSelection.Empty;
       [JsonIgnore]
-      public SelectionType SelectionType => Selection.Object?.SelectionType ?? SelectionType.INVALID;
+      public FocusType FocusType => Selection.Object?.FocusType ?? FocusType.INVALID;
 
       [JsonConstructor]
       public Focus() { }
