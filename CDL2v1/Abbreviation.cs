@@ -46,6 +46,7 @@ namespace CDL2v1 {
       public readonly int MinLength;
       public readonly T Type;
       public readonly List<T>? Containers; // Use to determine hierarhcy of focus kewywords, not used for commands
+      public readonly bool IsFocusable = true;
       public string HelpText;
 
       /// <summary>
@@ -56,7 +57,7 @@ namespace CDL2v1 {
 
       private static readonly Dictionary<Type,string> ShortTypeNames = new() {
          { typeof(CommandType)   , "Cmd" },
-         { typeof(FocusType)     , "Focus" },
+         { typeof(SelectorType)     , "Focus" },
       };
       private static string ShortTypeName => ShortTypeNames.TryGetValue(typeof(T), out string? type) ? type : typeof(T).Name;
 
@@ -95,46 +96,57 @@ namespace CDL2v1 {
          new ("undo"    , 1,"undo:                        undo the last modification; may be repeated (NOT IMPLEMENTED)"),
       ];
 
-      private static readonly List<FocusType> AlgorithmTypes = [
-         FocusType.ALGORITHM, FocusType.PROCEDURE, FocusType.ACTION, FocusType.FUNCTION, FocusType.PREDICATE, FocusType.TEST
+      private static readonly List<SelectorType> AlgorithmTypes = [
+         SelectorType.ALGORITHM, SelectorType.PROCEDURE, SelectorType.ACTION, SelectorType.FUNCTION, SelectorType.PREDICATE, SelectorType.TEST
       ];
-      private static readonly List<FocusType> AlgorithmTypesWithMacro = AlgorithmTypes.With(FocusType.MACRO);
+      private static readonly List<SelectorType> AlgorithmTypesWithMacro = AlgorithmTypes.With(SelectorType.MACRO);
       /// <summary> 
       /// Must match with the names in the FocusType enum.
       /// </summary>
-      public readonly static SortedSet<Abbreviation<FocusType>> FocusTypes = [
-         new ("ABSTR"      ,5,FocusType.SECTION),
-         new ("ACTION"     ,2,FocusType.SECTION),
-         new ("AFFIX"      ,3,AlgorithmTypesWithMacro),
-         new ("ALGORITHM"  ,3,FocusType.SECTION),
-         //new ("CALL"       ,1,FocusType.ALTERNATIVE),   // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
-         new ("CONST"      ,3,FocusType.SECTION),
-         new ("EXPORT"     ,3,FocusType.SECTION),
-         new ("EXT"        ,3,FocusType.SECTION),
-         new ("FUNCTION"   ,2,FocusType.SECTION),
-         new ("GROUP"      ,1,AlgorithmTypes),
-         new ("IMPORT"     ,3,FocusType.SECTION),
-         new ("IMPORTED"   ,8,FocusType.SECTION),
-         new ("INV"        ,3,FocusType.SECTION),
-         new ("LAYER"      ,3,FocusType.MODULE),
-         new ("LIST"       ,4,FocusType.SECTION),
-         new ("LOCAL"      ,3,AlgorithmTypesWithMacro),
-         new ("MACRO"      ,3,FocusType.SECTION),
+      public readonly static SortedSet<Abbreviation<SelectorType>> FocusTypes = [
+         // Matched by CONTAINER and ANY
          new ("MODULE"     ,1),
-         new ("NOTE"       ,4),
-         new ("PART"       ,4,FocusType.PROGRAM),
-         new ("POSTLUDE"   ,4,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
-         new ("PREDICATE"  ,2,FocusType.SECTION),
-         new ("PRELUDE"    ,3,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
-         new ("PROCEDURE"  ,4,FocusType.SECTION),
+         new ("LAYER"      ,3,SelectorType.MODULE),
          new ("PROGRAM"    ,4),
-         new ("ROOT"       ,4,[FocusType.PROGRAM,FocusType.MODULE,FocusType.SECTION]),
-         new ("SECTION"    ,1,FocusType.LAYER),
-         new ("TEST"       ,2,FocusType.SECTION),
-         new ("VAR"        ,3,FocusType.SECTION),
+         new ("SECTION"    ,1,SelectorType.LAYER),
+         // Mathced by FACE and ANY
+         new ("ABSTR"      ,5,SelectorType.SECTION),
+         new ("EXT"        ,3,SelectorType.SECTION),
+         new ("EXPORT"     ,3,SelectorType.SECTION),
+         new ("IMPORT"     ,3,SelectorType.SECTION),
+         new ("IMPORTED"   ,8,SelectorType.SECTION),
+         new ("INV"        ,3,SelectorType.SECTION),
+         // Matched by DATA, OBJECT and ANY
+         new ("CONST"      ,3,SelectorType.SECTION),
+         new ("LIST"       ,4,SelectorType.SECTION),
+         new ("VAR"        ,3,SelectorType.SECTION),
+         // Matched by ALGORITHM, OBJECT and ANY
+         new ("ACTION"     ,2,SelectorType.SECTION),
+         new ("ALGORITHM"  ,3,SelectorType.SECTION),
+         new ("FUNCTION"   ,2,SelectorType.SECTION),
+         new ("MACRO"      ,3,SelectorType.SECTION),
+         new ("PROCEDURE"  ,4,SelectorType.SECTION),
+         new ("PREDICATE"  ,2,SelectorType.SECTION),
+         new ("TEST"       ,2,SelectorType.SECTION),
+         // Matched by ANY
+         new ("NOTE"       ,4),
+         new ("PART"       ,4,SelectorType.PROGRAM),
+         new ("POSTLUDE"   ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
+         new ("PRELUDE"    ,3,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
+         new ("ROOT"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
+         // Non focusable types, matched by ANY
+         new ("AFFIX"      ,3,AlgorithmTypesWithMacro,focusable:false),
+         new ("CALL"       ,1,SelectorType.PROCEDURE,focusable:false), // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
+         new ("LOCAL"      ,3,AlgorithmTypesWithMacro,focusable:false),
+         // Generic types
+         new ("ANY"        ,3),
+         new ("DATA"       ,4,SelectorType.SECTION),
+         new ("FACE"       ,4,SelectorType.SECTION),
+         new ("CONTAINER"  ,9,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.LAYER]),
+         new ("OBJECT"     ,6,SelectorType.SECTION),
       ];
 
-      private readonly static Dictionary<FocusType,Abbreviation<FocusType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type, abbrev => abbrev);
+      private readonly static Dictionary<SelectorType,Abbreviation<SelectorType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type, abbrev => abbrev);
       /// <summary>
       /// Return true if the first selection type is a valid ancestor of the second selection type.
       /// </summary>
@@ -144,26 +156,27 @@ namespace CDL2v1 {
       /// <example>
       ///   AncestorFocusType(FocusType.MODULE, FocusType.CALL); // True, because MODULE => LAYER => SECTION => PROCEDURE => GROUP => ALTERNATIVE => CALL
       /// </example>
-      public static bool AncestorFocusType(FocusType ancestor,FocusType child) {
-         List<FocusType>? containers = FocusTypeMap[child].Containers; // The direct containers of the child type
+      public static bool AncestorFocusType(SelectorType ancestor,SelectorType child) {
+         List<SelectorType>? containers = FocusTypeMap[child].Containers; // The direct containers of the child type
          return containers is not null && (containers.Contains(ancestor) || containers.Any(container=>AncestorFocusType(ancestor,container)));
       }
 
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {
          nameof(CommandType)     => Commands.Cast<Abbreviation<T>>().ToSet(),
-         nameof(FocusType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
+         nameof(SelectorType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
          _ => throw new ArgumentException($"Unknown abbreviation type: {typeof(T).Name}"),
       };
 
-      public Abbreviation(string name, int minLength,List<T>? nesting,string help = "") {
+      public Abbreviation(string name, int minLength,List<T>? nesting,string help = "",bool focusable=true) {
          Name = name;
          MinLength = minLength;
          Type = Enum.Parse<T>(name, true);
          Containers = nesting;
          HelpText = help;
+         IsFocusable = focusable;
       }
 
-      public Abbreviation(string name, int minLength, T nesting,string help="") : this(name,minLength,[nesting],help) {}
+      public Abbreviation(string name, int minLength, T nesting,string help="",bool focusable=true) : this(name,minLength,[nesting],help) {}
       public Abbreviation(string name, int minLength, string help = "") : this(name, minLength, [], help) { }
 
       /// <summary>

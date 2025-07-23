@@ -35,7 +35,9 @@ name of an algorithm); a regular expression may be used here.
 UNIT : program ; module ; layer ; section ; 
        abstr ; ext ; inv ; import ; imported ; export ;
        algorithm ; procedure ; macro ; function ; action ; test ; predicate ;
-       variable ; constant ; list ; any ; container ; object.
+       variable ; constant ; list ;
+       GUNIT.
+GUNIT : any ; container ; data ; face ; object.
 SUNIT : UNIT ; affix ; local ; call.
 single selector : unit type, name selector option.
 offset : plus token or minus token option, DIGIT sequence.
@@ -55,8 +57,10 @@ setting : plus or minus token, setting name, setting argument option.
   `next`, `previous`, etc. For examle one cant set the focus to a call
   (with `focus Call incr`), but one cal list all calls of incr in the
   current module (with `list Mod Call incr`).
-- `ANY` will match any unit type, `CONTAINER` will match any container
-  type (i.e., `MODULE`, `SECTION`, `LAYER`, `PROGRAM`), `DATA` will match
+- GUNITs are generic selectors.
+  `ANY` will match any unit type, `CONTAINER` will match any container
+  type (i.e., `MODULE`, `SECTION`, `LAYER`, `PROGRAM`), `FACE` will 
+   match any interface, `DATA` will match
   `CONST`, `VAR`, or `LIST`), and `OBJECT` will match
   `ALGORITHM` or `DATA`.  
 - The `top token` is used to indicate that the current focus is to be ignored.  
@@ -66,6 +70,9 @@ setting : plus or minus token, setting name, setting argument option.
   for the selection. Thus `ALG le` will select all algorithms that have *le* in their name
   in the current module, section, layer, etc. If the current focus is a module, then it will
   select all algorithms in that module that have *le* in their name.
+- One instance of `imported` may be placed before anywhere in the selector.
+  Only imported algorithms and/or constants will thenbe selected. Other
+  selectors will supress instaces of import declarations.
 - The `name selector` matches any name that contains these characters. So `ALG le` matches
   any algorithm that has *le* in its name, e.g., `less`, `less than`, `clear`, etc. Use a regular
   expression to be more specific, e.g., `ALG /^le` matches only algorithms that start with *le*.
@@ -113,6 +120,7 @@ CONTAINER
 DATA
 EXPort
 EXT
+FACE
 FUnction
 IMPort
 INV

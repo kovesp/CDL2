@@ -44,7 +44,7 @@ global using DS  = CDL2v1.DecorationStyle;
 global using AS  = CDL2v1.AnnotationSymbol;
 global using SA  = CDL2v1.AnnotationSymbols;
 global using PBT = CDL2v1.ProcedureBodyType;
-global using ST  = CDL2v1.FocusType;
+global using ST  = CDL2v1.SelectorType;
 using System.Text;
 
 namespace CDL2v1 {
@@ -197,13 +197,12 @@ namespace CDL2v1 {
    /// This allows a single abbreviation table for both.
    /// Diferentiation will be made using SelectionType
    /// </summary>
-   public enum FocusType {
+   public enum SelectorType {
       INVALID,
       ABSTR,
       ACTION,
       ALGORITHM,
       CONST,
-      CONTAINER,
       EXPORT,
       EXT,
       FUNCTION,
@@ -225,20 +224,15 @@ namespace CDL2v1 {
       SECTION,
       TEST,
       VAR,
+      // Generic types
       ANY,
+      CONTAINER,
       DATA,
+      FACE,
       OBJECT,
-      // SelectionTypes
+      // Non-focusable types.
       AFFIX,
       CALL,
-      LASTCALL,
-      LOCAL,
-   }
-
-   public enum SelectionType {
-      AFFIX,
-      CALL,
-      LASTCALL,
       LOCAL,
    }
 

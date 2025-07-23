@@ -70,6 +70,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 namespace CDL2v1 {
    // Marker interfaces to allow lists to be composed of permissible elements.
    public interface IElement { }
+   public interface IDataElement { }
    public interface IInterfaceElement { }
    public interface IProvidable : IInterfaceElement {
       ID Id { get; }
@@ -154,6 +155,7 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(5)] public string? Comments { get; set; }
       [JsonInclude][JsonPropertyOrder(6)] public Notes Notes { get; set; } = [];
 
+      [JsonIgnore] public virtual bool IsImported => false;
 
       /// <summary>
       /// Create a new NamedElement with the given ID.
@@ -161,7 +163,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="id"></param>
       /// <param name="synthetic"></param>
-      public NamedElement(ID id,bool synthetic = false, FocusType focusType = FocusType.INVALID) {
+      public NamedElement(ID id,bool synthetic = false, SelectorType focusType = SelectorType.INVALID) {
          Id = id;
          IsSynthetic = synthetic;
          GUID = Guid.NewGuid();
@@ -242,7 +244,7 @@ namespace CDL2v1 {
       }
 
       [JsonIgnore]
-      public FocusType FocusType = FocusType.INVALID;
+      public SelectorType FocusType = SelectorType.INVALID;
       /// <summary>
       /// The section which contains this object or null
       /// Valid (non-null) only for Section and objects that are contained in a section. <see cref="Parent"/>.
@@ -332,12 +334,12 @@ namespace CDL2v1 {
       public override IEnumerable<NamedElement> ChildElements() => Children.Select(guid=>Database.Instance.NamedElements[guid]);
 
       /// <param Id="Id"></param>
-      public Container(ID id,string? comments,Notes? notes, FocusType FocusType = FocusType.INVALID) : base(id,focusType:FocusType) {
+      public Container(ID id,string? comments,Notes? notes, SelectorType FocusType = SelectorType.INVALID) : base(id,focusType:FocusType) {
          Comments = comments;
          AddNotes("Parser", notes);
       }
 
-      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null, FocusType FocusType = FocusType.INVALID) : this(id,comments,notes,FocusType) { 
+      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null, SelectorType FocusType = SelectorType.INVALID) : this(id,comments,notes,FocusType) { 
          Parent = parent?.GUID ?? Guid.Empty;
          if (parent != null && parent.Children.Contains(GUID)) {
             Logger.ReportError($"{ContainerName} is already a child of {parent.ContainerName}");
@@ -400,9 +402,9 @@ namespace CDL2v1 {
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Program(ID id, string? comments, Notes notes) : base(id, null, comments, notes,FocusType.PROGRAM) => LudeParser = Parser.ParseLudeOfIDs;
+      public Program(ID id, string? comments, Notes notes) : base(id, null, comments, notes,SelectorType.PROGRAM) => LudeParser = Parser.ParseLudeOfIDs;
       [JsonConstructor]
-      public Program() { LudeParser = Parser.ParseLudeOfIDs; FocusType = FocusType.PROGRAM; }
+      public Program() { LudeParser = Parser.ParseLudeOfIDs; FocusType = SelectorType.PROGRAM; }
    }
 
    /// <summary>
@@ -425,14 +427,14 @@ namespace CDL2v1 {
       /// Module Ludes are a list of container IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Module(ID id,string? comments,Notes notes) : base(id,null,comments,notes,FocusType.MODULE) {
+      public Module(ID id,string? comments,Notes notes) : base(id,null,comments,notes,SelectorType.MODULE) {
          LudeParser = Parser.ParseLudeOfIDs;
          Comments = comments;
       }
       [JsonConstructor]
       public Module() {
          LudeParser = Parser.ParseLudeOfIDs;
-         FocusType = FocusType.MODULE;
+         FocusType = SelectorType.MODULE;
       }
 
       public Section? SectionById(ID id) {
@@ -463,9 +465,9 @@ namespace CDL2v1 {
       /// <param Id="module"></param>
       /// <param PhaseName="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
       public Layer(ID id, Module module, Layer? ancestor, string? comments = null, Notes? notes = null) 
-         : base(id, module, comments, notes,FocusType.LAYER) => AncestorGUID = ancestor?.GUID ?? Guid.Empty;
+         : base(id, module, comments, notes,SelectorType.LAYER) => AncestorGUID = ancestor?.GUID ?? Guid.Empty;
       [JsonConstructor]
-      public Layer() : base() => FocusType = FocusType.LAYER;  // For deserialization
+      public Layer() : base() => FocusType = SelectorType.LAYER;  // For deserialization
 
       [JsonIgnore]
       public Layer? Ancestor => AncestorGUID != Guid.Empty && NamedElement.From(AncestorGUID, out NamedElement? ancestor) && ancestor is Layer layer ? layer : null;
@@ -585,10 +587,10 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="Id"></param>
       /// <param Id="layer"></param>
-      public Section(ID id,Layer layer,string? comments = null,Notes? notes = null) : base(id,layer,comments,notes,FocusType.SECTION) 
+      public Section(ID id,Layer layer,string? comments = null,Notes? notes = null) : base(id,layer,comments,notes,SelectorType.SECTION) 
          => LudeParser = Parser.ParseLudeOfCalls;
       [JsonConstructor]
-      public Section() { LudeParser = Parser.ParseLudeOfCalls; FocusType = FocusType.SECTION; }
+      public Section() { LudeParser = Parser.ParseLudeOfCalls; FocusType = SelectorType.SECTION; }
 
       public static Type[] ProvidedElementImplementors;
       static Section() => ProvidedElementImplementors = [.. Extensions.GetImplementorsOfInterface<IProvidable>()];
@@ -644,15 +646,14 @@ namespace CDL2v1 {
    /// Algorithm (Macro, Porcedure, ImportedAlgorithm), Const (ImportedConst), Var and LIST.
    /// </summary>
    public /*abstract*/ class CDL2Object : NamedElement {
-      public CDL2Object(ID id, Section section, string? comments, bool synthetic = false, FocusType FocusType=FocusType.INVALID) : base(id, synthetic,FocusType) {
+      public CDL2Object(ID id, Section section, string? comments, bool synthetic = false, SelectorType FocusType=SelectorType.INVALID) : base(id, synthetic,FocusType) {
          Parent = section.GUID;
          Comments = comments;
       }
-      public CDL2Object(ID id, FocusType FocusType = FocusType.INVALID) : base(id,focusType:FocusType) { }
+      public CDL2Object(ID id, SelectorType FocusType = SelectorType.INVALID) : base(id,focusType:FocusType) { }
 
       [JsonConstructor]
       public CDL2Object() : base() { } // For deserialization
-      public virtual bool IsImported => false;
 
       [JsonIgnore]
       public SyntacticElement SE { get; protected set; }
@@ -697,7 +698,7 @@ namespace CDL2v1 {
          this.SE = SE.AlgorithmName;
          foreach (Affix affix in affixes) affix.ContainingAlgorithm = this;
          foreach (Local local in locals)  local.ContainingAlgorithm = this;
-         FocusType = this is Procedure ? FocusType.PROCEDURE : FocusType.MACRO;
+         FocusType = this is Procedure ? SelectorType.PROCEDURE : SelectorType.MACRO;
       }
       [JsonConstructor]
       public Algorithm() { }
@@ -1025,7 +1026,7 @@ namespace CDL2v1 {
 
       [JsonIgnore] public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
       [JsonIgnore] public bool IsConditionalCompilationOn  => IsConditionalCompilation(on: true);
-      public Call(ID id, Procedure containingProc,Alternative containingAlternative, bool builtin = false) : base (id,focusType:FocusType.CALL) {
+      public Call(ID id, Procedure containingProc,Alternative containingAlternative, bool builtin = false) : base (id,focusType:SelectorType.CALL) {
          this.id = id;
          Parent = containingAlternative.GUID;
          IsBuiltin = builtin;
@@ -1034,7 +1035,7 @@ namespace CDL2v1 {
       [JsonConstructor]
       public Call() {
          id = ID.AnonID; // For deserialization
-         FocusType = FocusType.CALL;
+         FocusType = SelectorType.CALL;
       }
 
       private bool IsConditionalCompilation(bool on) {
@@ -1091,10 +1092,10 @@ namespace CDL2v1 {
       public LastCall(LCT type, Alternative containingAlternative) {
          this.type = type;
          Parent = containingAlternative.GUID;
-         FocusType = FocusType.LASTCALL;
+         FocusType = SelectorType.INVALID;
       }
       [JsonConstructor]
-      public LastCall() { type = LCT.None; FocusType = FocusType.LASTCALL; } // For deserialization
+      public LastCall() { type = LCT.None; FocusType = SelectorType.INVALID; } // For deserialization
 
       public LastCall(Call call, Alternative containingAlternative) : this(LCT.Standard, containingAlternative) => this.call = call;
       public LastCall(Group group, Alternative containingAlternative) : this(LCT.Group, containingAlternative) => this.group = group;
@@ -1128,19 +1129,19 @@ namespace CDL2v1 {
 
       [JsonIgnore] public bool IsConditionalOff = false;
 
-      public Alternative(List<Call> calls, LastCall lastCall, Notes notes, Group containingGroup) : base(ID.AnonID, synthetic:false,FocusType.INVALID) {
+      public Alternative(List<Call> calls, LastCall lastCall, Notes notes, Group containingGroup) : base(ID.AnonID, synthetic:false,SelectorType.INVALID) {
          this.calls = calls;
          this.lastCall = lastCall;
          Notes = notes;
          Parent = containingGroup.GUID;
       }
 
-      public Alternative(Notes notes, Group group) : base(ID.AnonID, synthetic: false, FocusType.INVALID) {
+      public Alternative(Notes notes, Group group) : base(ID.AnonID, synthetic: false, SelectorType.INVALID) {
          Notes = notes;
          Parent = group.GUID;
       }
 
-      [JsonConstructor] public Alternative() : base(ID.AnonID, synthetic: false, FocusType.INVALID) { } // For deserialization
+      [JsonConstructor] public Alternative() : base(ID.AnonID, synthetic: false, SelectorType.INVALID) { } // For deserialization
 
       [JsonIgnore] public bool CanFail =>  calls.Any(call => call.CanFail) || 
                               (lastCall!.type == LCT.Standard && lastCall.call!.CanFail) || 
@@ -1185,14 +1186,14 @@ namespace CDL2v1 {
       public override IEnumerable<NamedElement> ChildElements() => Alternatives;
 
       [JsonConstructor]
-      public Group() : base(ID.AnonID,synthetic: false, FocusType.INVALID) { }
-      public Group(ID label,Guid parentGuid) : base(label, synthetic: false, FocusType.INVALID) {
+      public Group() : base(ID.AnonID,synthetic: false, SelectorType.INVALID) { }
+      public Group(ID label,Guid parentGuid) : base(label, synthetic: false, SelectorType.INVALID) {
          Parent = parentGuid;
       }
       public Group(ID? label,List<Alternative> alternatives,Guid parentGuid,bool synthetic) : base(synthetic ? Database.NextGroupLabel : label!,synthetic:synthetic) {
          Parent = parentGuid;
          Alternatives = alternatives;
-         FocusType = FocusType.INVALID;
+         FocusType = SelectorType.INVALID;
       }
 
       public Group? ParentGroup() {
@@ -1277,11 +1278,11 @@ namespace CDL2v1 {
       public string AsDecoratedCDL2String(Emitter emitter) => $"\"{EscapedCDL2(value)}\"".Decorate(emitter,SE.String);
       override public string ToString() => $"\"{value}\"";
    }
-   public class LIST : CDL2Object {
+   public class LIST : CDL2Object, IDataElement {
       [JsonInclude] public ID lwb;
       [JsonInclude] public ID upb;
 
-      public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section,null, FocusType:FocusType.LIST) {
+      public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section,null, FocusType:SelectorType.LIST) {
          this.lwb = lwb;
          this.upb = upb;
          SE = SE.List;
@@ -1290,27 +1291,27 @@ namespace CDL2v1 {
       public LIST() : base() {
          lwb = ID.AnonID;
          upb = ID.AnonID;
-         FocusType = FocusType.LIST;
+         FocusType = SelectorType.LIST;
       } // For deserialization
       override public string ToString() => $"LIST {Id}({lwb}:{upb})";
    }
-   public class Var : CDL2Object, IFailureProtected, IActualArg, ITrackedVar {
-      public Var(ID id, Section section) : base(id, section, null, FocusType:FocusType.VAR) => SE = SE.Var;
+   public class Var : CDL2Object, IDataElement, IFailureProtected, IActualArg, ITrackedVar {
+      public Var(ID id, Section section) : base(id, section, null, FocusType:SelectorType.VAR) => SE = SE.Var;
       [JsonConstructor]
-      public Var() : base() { FocusType = FocusType.VAR; } // For deserialization
+      public Var() : base() { FocusType = SelectorType.VAR; } // For deserialization
 
       override public string ToString() => $"VAR {Id.Name}";
    }
-   public class Const : CDL2Object, IProvidable, IExportable, IActualArg, IImportable {
+   public class Const : CDL2Object, IDataElement, IProvidable, IExportable, IActualArg, IImportable {
       [JsonInclude]
       public List<IElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
-      public Const(ID id,Section section) : base(id,section,null, FocusType:FocusType.CONST) => SE = SE.Const;
+      public Const(ID id,Section section) : base(id,section,null, FocusType:SelectorType.CONST) => SE = SE.Const;
       [JsonConstructor]
-      public Const() : base() { FocusType = FocusType.CONST;  } // For deserialization
+      public Const() : base() { FocusType = SelectorType.CONST;  } // For deserialization
    }
 
-   public class ImportedConst : Const, IImportable {
+   public class ImportedConst : Const, IImportable, IDataElement {
 
       public override string ToString() => "IMPORTED " + base.ToString();
       public override bool IsImported => true;
@@ -1338,12 +1339,12 @@ namespace CDL2v1 {
       /// <param Id="Id"></param>
       /// <param Id="dir"></param>
       /// <param Id="type"></param>
-      public Affix(ID id,AffixDir dir,AffixType type) : base(id,focusType:FocusType.AFFIX) {
+      public Affix(ID id,AffixDir dir,AffixType type) : base(id,focusType:SelectorType.AFFIX) {
          affixDir = dir;
          affixType = type;
       }
       [JsonConstructor]
-      public Affix() : base() { FocusType = FocusType.AFFIX; } // For deserialization
+      public Affix() : base() { FocusType = SelectorType.AFFIX; } // For deserialization
 
       [JsonIgnore] public bool IsInput => affixDir == AffixDir.input || affixDir == AffixDir.transput;
       [JsonIgnore] public bool IsInputOnly => affixDir == AffixDir.input;
@@ -1363,7 +1364,7 @@ namespace CDL2v1 {
       public static bool operator !=(Affix? left,Affix? right) => !(left == right);
    }
 
-   public class Local(ID id) : NamedElement(id,focusType:FocusType.LOCAL), IActualArg, ITrackedVar, IParameter {
+   public class Local(ID id) : NamedElement(id,focusType:SelectorType.LOCAL), IActualArg, ITrackedVar, IParameter {
       [JsonIgnore] public Algorithm? ContainingAlgorithm {
          get => Database.Instance.NamedElements[Parent] as Algorithm;
          set => Parent = value?.GUID ?? Guid.Empty;
