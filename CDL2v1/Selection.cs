@@ -342,7 +342,6 @@ namespace CDL2v1 {
             }        
          }
 
-
          if (segments.Index < 1) {
             foreach (NamedElement obj in selectedObjects) if (obj is not null) Add(new SingleSelection(obj));
          } else {
