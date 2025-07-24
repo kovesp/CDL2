@@ -91,7 +91,7 @@ namespace CDL2v1 {
          Object = obj;
       }
 
-      public static SingleSelection Empty => new ();
+      public static SingleSelection Empty => new();
       /// <summary>
       /// The Guid of a NamedElement in the selection.
       /// For "simple" objects (e.g., Vars, Layers) this uniquely identifiest the objct.
@@ -132,6 +132,11 @@ namespace CDL2v1 {
       /// </summary>
       [JsonInclude, JsonPropertyOrder(3)]
       public RW ListType = RW.NONE;
+
+
+      private static readonly Type[] NonFocusableTypes = [typeof(Affix), typeof(Local), typeof(Call)];
+      [JsonIgnore]
+      public bool IsFocusable => ! NonFocusableTypes.Contains(Object?.GetType() ?? typeof(NamedElement));
    }
 
    /// <summary>
@@ -180,6 +185,9 @@ namespace CDL2v1 {
       public string ErrorMessage = "";
       public bool IsValid => ErrorMessage == string.Empty;
       public bool IsInvalid => ErrorMessage != string.Empty;
+
+      public bool IsFocusable => Count > 0 && this[0].IsFocusable;
+
       /// <summary>
       /// Create a new empty selection.
       /// </summary>
@@ -414,9 +422,13 @@ namespace CDL2v1 {
          if (selection.IsInvalid) {
             errorMessage = selection.ErrorMessage;
             return false;
+         } else if (selection.IsFocusable) {
+            Stack.Push(new Focus(selection));
+            return true;
+         } else {
+            errorMessage = "Attempt to set focus to a non-focusable object";
+            return false;
          }
-         Stack.Push(new Focus(selection));
-         return true;
       }
 
       /// <summary>
