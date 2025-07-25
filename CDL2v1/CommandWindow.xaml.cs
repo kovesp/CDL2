@@ -34,6 +34,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -55,6 +56,16 @@ namespace CDL2v1 {
       // Event raised when a command is entered
       public event EventHandler<string>? CommandEntered;
 
+      private bool _multilineMode = false;
+      private string _singleLineTooltip = "Enter a Lab command and press Enter";
+      private string _multilineTooltip = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
+
+      // Background brushes for input field
+      private readonly Brush _standardInputBackground;
+      private readonly Brush _multilineInputBackground = Brushes.White;
+      private readonly Brush _standardInputForeground;
+      private readonly Brush _multilineInputForeground = Brushes.Black;
+
       public CommandPromptWindow() {
          InitializeComponent();
 
@@ -74,16 +85,21 @@ namespace CDL2v1 {
          _lastOutputHeight = OutputRow.ActualHeight;
 
          // Handle grid size changes to save last height
-         MainGrid.SizeChanged += (s, e) => {
+         MainGrid.SizeChanged += (s,e) => {
             if (OutputRow.ActualHeight > 0) {
                _lastOutputHeight = OutputRow.ActualHeight;
             }
          };
 
          // Focus on the window so it can receive keyboard input
-         Loaded += (s, e) => {
+         Loaded += (s,e) => {
             Keyboard.Focus(InputTextBox);
          };
+
+         // Store the original background at startup
+         _standardInputBackground = InputTextBox.Background;
+         _standardInputForeground = InputTextBox.Foreground;
+         InputTextBox.ToolTip = _singleLineTooltip;
       }
 
       #region Window Settings
@@ -128,14 +144,14 @@ namespace CDL2v1 {
          }
       }
 
-      private void CommandPromptWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e) => SaveWindowSettings();
+      private void CommandPromptWindow_Closing(object? sender,System.ComponentModel.CancelEventArgs e) => SaveWindowSettings();
 
-      private void CommandPromptWindow_LocationChanged(object? sender, EventArgs e) {
+      private void CommandPromptWindow_LocationChanged(object? sender,EventArgs e) {
          if (IsLoaded && WindowState == WindowState.Normal)
             SaveWindowSettings();
       }
 
-      private void CommandPromptWindow_SizeChanged(object? sender, SizeChangedEventArgs e) {
+      private void CommandPromptWindow_SizeChanged(object? sender,SizeChangedEventArgs e) {
          if (IsLoaded && WindowState == WindowState.Normal)
             SaveWindowSettings();
       }
@@ -190,12 +206,13 @@ namespace CDL2v1 {
       }
 
       private void ScrollToEnd() {
-         if (_scrollInProgress) return;
+         if (_scrollInProgress)
+            return;
 
          _scrollInProgress = true;
 
          // Use low priority dispatcher to avoid blocking the UI
-         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => {
+         Dispatcher.BeginInvoke(DispatcherPriority.Background,new Action(() => {
             OutputScrollViewer.ScrollToBottom();
             _scrollInProgress = false;
          }));
@@ -231,19 +248,19 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="text">The text to write</param>
       /// <param name="noteType">Optional note type that determines text color (default None)</param>
-      public void WriteLine(string text, NoteType noteType = NoteType.NONE) {
+      public void WriteLine(string text,NoteType noteType = NoteType.NONE) {
          Application.Current.Dispatcher.Invoke(() => {
             // Get the appropriate brush based on note type from PrettyPrinter.Decorators
             Brush foreground = GetNoteTypeBrush(noteType);
-            
+
             // Add formatted text with the appropriate color
-            AddFormattedText(text, foreground, Brushes.Transparent, lineBreak: true);
+            AddFormattedText(text,foreground,Brushes.Transparent,lineBreak: true);
          });
       }
 
-      public void WriteError(string text) => WriteLine(text, NoteType.Error);
-      public void WriteWarning(string text) => WriteLine(text, NoteType.Warning);
-      public void WriteInfo(string text) => WriteLine(text, NoteType.Info);
+      public void WriteError(string text) => WriteLine(text,NoteType.Error);
+      public void WriteWarning(string text) => WriteLine(text,NoteType.Warning);
+      public void WriteInfo(string text) => WriteLine(text,NoteType.Info);
 
       /// <summary>
       /// Gets the brush color for a specific note type using colors from PrettyPrinter.Decorators
@@ -262,7 +279,7 @@ namespace CDL2v1 {
 
          // Get color from PrettyPrinter.Decorators
          string colorHex = PrettyPrinter.Decorators[element].FG;
-         
+
          // Convert hex color to brush
          try {
             return (Brush)new BrushConverter().ConvertFromString(colorHex);
@@ -280,6 +297,7 @@ namespace CDL2v1 {
          Application.Current.Dispatcher.Invoke(() => {
             PromptTextBlock.Text = "> ";
             InputTextBox.Text = "";
+            InputTextBox.ToolTip = _singleLineTooltip;
             InputTextBox.Focus();
          });
       }
@@ -287,7 +305,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Clear the output area
       /// </summary>
-      private void ClearOutput_Click(object sender, RoutedEventArgs e) {
+      private void ClearOutput_Click(object sender,RoutedEventArgs e) {
          Application.Current.Dispatcher.Invoke(() => {
             // Clear all content from the TextBlock
             OutputTextBlock.Inlines.Clear();
@@ -303,23 +321,66 @@ namespace CDL2v1 {
       /// <summary>
       /// Handle input text box key down events
       /// </summary>
-      private void InputTextBox_PreviewKeyDown(object sender, KeyEventArgs e) {
-         switch (e.Key) {
-            case Key.Enter:
-               ExecuteCommand();
-               e.Handled = true;
-               break;
-            case Key.Up:
-               InputTextBox.Text = _commandHistory.Previous();
-               InputTextBox.CaretIndex = InputTextBox.Text.Length;
-               e.Handled = true;
-               break;
-            case Key.Down:
-               InputTextBox.Text = _commandHistory.Next();
-               InputTextBox.CaretIndex = InputTextBox.Text.Length;
-               e.Handled = true;
-               break;
-               // Let standard Ctrl+C, Ctrl+V, etc. be handled by the TextBox control
+      private void InputTextBox_PreviewKeyDown(object sender,KeyEventArgs e) {
+         if (e.Key == Key.Enter) {
+            string input = InputTextBox.Text;
+
+            if (_multilineMode) {
+               var lines = input.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+               string lastLine = lines.Length > 0 ? lines[^1].TrimEnd() : "";
+               if (lastLine.EndsWith('.')) {
+                  _multilineMode = false;
+                  InputTextBox.AcceptsReturn = false;
+                  InputTextBox.ToolTip = _singleLineTooltip;
+                  InputTextBox.Background = _standardInputBackground;
+                  InputTextBox.Foreground = InputTextBox.CaretBrush = _standardInputForeground;
+                  ExecuteCommand();
+                  e.Handled = true;
+               } else {
+                  // Stay in multiline mode, allow Enter to insert a new line
+                  e.Handled = false;
+               }
+               return;
+            } else {
+               // Check wheter we have a command or CDL2 object
+               string trimmed = input.Trim();
+               string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
+               bool isCommand = char.IsAsciiLetterLower(firstWord[0]);
+               if (!isCommand) {
+                  SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
+                  if (type != SelectorType.INVALID) {
+                     InputTextBox.Text = $"{type} {input[firstWord.Length..]}";
+                     InputTextBox.CaretIndex = InputTextBox.Text.Length;
+                  } else {                      // If not a command, treat as CDL2 object
+                     WriteError($"Attempt to enter a CDL2 construct with non-existent reserved word: {firstWord}");
+                     DisplayPrompt();
+                     e.Handled = true;
+                     return;
+                  }
+               }
+               if (isCommand || trimmed.EndsWith('.')) { // Command (lc word) or single line code.
+                  ExecuteCommand();
+                  e.Handled = true;
+                  return;
+               } else {
+                  _multilineMode = true;
+                  InputTextBox.AcceptsReturn = true;
+                  InputTextBox.ToolTip = _multilineTooltip;
+                  InputTextBox.Background = _multilineInputBackground;
+                  InputTextBox.Foreground = InputTextBox.CaretBrush = _multilineInputForeground;
+
+                  e.Handled = false; // Let Enter insert a new line
+                  return;
+               }
+            }
+         } else if (e.Key == Key.Up) {
+            InputTextBox.Text = _commandHistory.Previous();
+            InputTextBox.CaretIndex = InputTextBox.Text.Length;
+            e.Handled = true;
+         } else if (e.Key == Key.Down) {
+            InputTextBox.Text = _commandHistory.Next();
+            InputTextBox.CaretIndex = InputTextBox.Text.Length;
+            e.Handled = true;
          }
       }
 
@@ -340,7 +401,7 @@ namespace CDL2v1 {
          WriteLine($"> {command}");
 
          // Raise event to handle the command
-         CommandEntered?.Invoke(this, command);
+         CommandEntered?.Invoke(this,command);
 
          // Display new prompt
          DisplayPrompt();
@@ -351,14 +412,14 @@ namespace CDL2v1 {
       /// <summary>
       /// Maximize/minimize the output area
       /// </summary>
-      private void ToggleOutputArea_Click(object sender, RoutedEventArgs e) {
+      private void ToggleOutputArea_Click(object sender,RoutedEventArgs e) {
          if (OutputRow.Height.Value > 0) {
             // Collapse output area
             _lastOutputHeight = OutputRow.Height.Value;
             OutputRow.Height = new GridLength(0);
          } else {
             // Restore output area
-            OutputRow.Height = new GridLength(_lastOutputHeight > 0 ? _lastOutputHeight : 1, GridUnitType.Star);
+            OutputRow.Height = new GridLength(_lastOutputHeight > 0 ? _lastOutputHeight : 1,GridUnitType.Star);
          }
 
          InputTextBox.Focus();
@@ -367,7 +428,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Handle mouse wheel zoom with Ctrl key
       /// </summary>
-      private void OutputTextBlock_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+      private void OutputTextBlock_PreviewMouseWheel(object sender,MouseWheelEventArgs e) {
          if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) {
             if (e.Delta > 0) {
                ZoomIn(10);
@@ -381,14 +442,14 @@ namespace CDL2v1 {
       /// <summary>
       /// Zoom in button click handler
       /// </summary>
-      private void ZoomIn_Click(object sender, RoutedEventArgs e) {
+      private void ZoomIn_Click(object sender,RoutedEventArgs e) {
          ZoomIn(20);
       }
 
       /// <summary>
       /// Zoom out button click handler
       /// </summary>
-      private void ZoomOut_Click(object sender, RoutedEventArgs e) {
+      private void ZoomOut_Click(object sender,RoutedEventArgs e) {
          ZoomOut(20);
       }
 
@@ -409,7 +470,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Handle mouse wheel zoom with Ctrl key on the ScrollViewer
       /// </summary>
-      private void OutputScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e) {
+      private void OutputScrollViewer_PreviewMouseWheel(object sender,MouseWheelEventArgs e) {
          if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) {
             if (e.Delta > 0) {
                ZoomIn(10);
@@ -435,16 +496,18 @@ namespace CDL2v1 {
          }
 
          public string Previous() {
-            if (_history.Count == 0) return "";
+            if (_history.Count == 0)
+               return "";
 
-            _currentIndex = Math.Max(0, _currentIndex - 1);
+            _currentIndex = Math.Max(0,_currentIndex - 1);
             return _currentIndex < _history.Count ? _history[_currentIndex] : "";
          }
 
          public string Next() {
-            if (_history.Count == 0) return "";
+            if (_history.Count == 0)
+               return "";
 
-            _currentIndex = Math.Min(_history.Count, _currentIndex + 1);
+            _currentIndex = Math.Min(_history.Count,_currentIndex + 1);
             return _currentIndex < _history.Count ? _history[_currentIndex] : "";
          }
       }

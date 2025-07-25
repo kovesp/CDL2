@@ -50,6 +50,10 @@ namespace CDL2v1 {
          pp = new(new EmitterCommandWindow(commandWindow), includeComments: true);
       }
 
+      internal void EnterCode(string input) {
+         commandWindow.WriteInfo($"Entering code: {input}");
+      }
+
       internal void IntepretCommand(string command, CommandType commandType, string settings, string args, CommandPromptWindow commandWindow) {
          IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");

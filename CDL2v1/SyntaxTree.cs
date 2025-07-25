@@ -1066,6 +1066,15 @@ namespace CDL2v1 {
          called = null;
          return false;
       }
+
+      /// <summary>
+      /// All cals are distinct.
+      /// </summary>
+      /// <param name="obj"></param>
+      /// <returns></returns>
+      public override bool Equals(object? obj) => false;
+      public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
+
       [JsonIgnore] public bool CanFail => Called?.CanFail ?? true;
       [JsonIgnore] public bool AlwaysSucceeds => Called?.AlwaysSucceeds ?? false;
       [JsonIgnore] public bool HasEffect => Called?.HasEffect ?? false;

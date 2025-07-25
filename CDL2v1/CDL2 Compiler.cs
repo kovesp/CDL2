@@ -179,12 +179,15 @@ namespace CDL2v1 {
 
 
                // Handle commands
-               commandWindow.CommandEntered += (sender, commandString) => {
+               commandWindow.CommandEntered += (sender, input) => {
                   // Parse and execute command
-                  Match match = Regex.Match(commandString, @"^\s*(?<verb>[a-z]+)(?:\s+(?<settings>[+-][a-z-]+(?:[:=]\S+?)?))?(?:\s+(?<args>.*))?$", RegexOptions.IgnoreCase);
+                  Match match = Regex.Match(input, @"^\s*(?<verb>[a-z]+)(?:\s+(?<settings>[+-][a-z-]+(?:[:=]\S+?)?))?(?:\s+(?<args>.*))?$", RegexOptions.Compiled);
                   if (match.Success) {
                      CommandType commandType = Abbreviation<CommandType>.Identify(match.Groups["verb"].Value);
-                     CLI.IntepretCommand(commandString, commandType, match.Groups["settings"].Value, match.Groups["args"].Value,commandWindow);
+                     CLI.IntepretCommand(input, commandType, match.Groups["settings"].Value, match.Groups["args"].Value,commandWindow);
+                  } else {
+                     // Assume it is a cdl2 construct that must be parsed
+                     CLI.EnterCode(input);
                   }
                };
                commandWindow.Closed += (s, e) => app.Shutdown();

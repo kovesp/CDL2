@@ -51,34 +51,44 @@ namespace CDL2v1 {
       public Option Option { get; set; }
       public bool IsSaved { get; set; } = false; // Whether this setting should be saved to a file
 
-      public Setting(string name, string optionName, T defaultValue, string description, ArgumentArity? arity = null, bool saved = false)
-         : this(name, [optionName], defaultValue, description, arity, saved:saved) { }
+      public Setting(string name, string optionName, T defaultValue, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "")
+         : this(name, [optionName], defaultValue, description, arity, saved:saved,disjoint:disjoint) { }
 
-      public Setting(string name, string[] optionName, T defaultValue, string description, ArgumentArity? arity = null, bool saved = false) {
+      public Setting(string name, string[] optionName, T defaultValue, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "") {
          Name = name;
          Option = new Option<T>(optionName, () => defaultValue, description);
          if (arity != null) Option.Arity = (ArgumentArity)arity;
          IsSaved = saved;
+         if (disjoint != "") {
+            Settings.DisjointSettings[disjoint] = Name;
+            Settings.DisjointSettings[Name] = disjoint;
+         }
       }
-      public Setting(string name, string optionName, string description, ArgumentArity? arity = null, bool saved = false) {
+      public Setting(string name, string optionName, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "") {
          Name = name;
          Option = new Option<T>(optionName, description);
          if (arity != null) Option.Arity = (ArgumentArity)arity;
          IsSaved = saved;
+         if (disjoint != "") {
+            Settings.DisjointSettings[disjoint] = Name;
+            Settings.DisjointSettings[Name] = disjoint;
+         }
       }
       public string LongOption => Option.Aliases.OrderByDescending(s => s.Length).First();
-      public override string ToString() => $"{Name}: {LongOption}";
+      public override string ToString() => $"{Name}: {LongOption} => {(Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
    }
 
    public class Settings {
+
+      public static readonly Dictionary<string,string> DisjointSettings = [];
       private readonly List<ISetting> SettingsList = [
          new Setting<string[]>("Sources",            "--sources",                          "The source files to compile. Ignored if the --lab option is given."),
          new Setting<int>(     "VerbosityLevel",     ["-v", "--verbose"],   -1,            "Set the verbosity level (0-3)"),
          new Setting<int>(     "DebugVerbosityLevel",["-d", "--debug-log"], -1,            "Set the debug verbosity level (0-3)"),
          new Setting<string>(  "Target",             ["-t","--target"],     "PowerShell",  "Generate code for the specified target language. Default is PowerShell."),
          new Setting<string>(  "ProgramName",        ["-p","--program"],    "",            "Make program the one for which code is generated. The default is the first or only program that has been read."),
-         new Setting<bool>(    "Lab",                 "--lab",              false,         "Run in CDL2 Lab mode. The database is opened from the file specified in the --db option in --output-dir and the lab prompt is shown."),
-         new Setting<bool>(    "ParseOnly",           "--parse-only",       false,         "Do not generate code. Verifies whether the source is syntactically and semantically valid."),
+         new Setting<bool>(    "Lab",                 "--lab",              false,         "Run in CDL2 Lab mode. The database is opened from the file specified in the --db option in --output-dir and the lab prompt is shown.",disjoint:"ParseOnly"),
+         new Setting<bool>(    "ParseOnly",           "--parse-only",       false,         "Do not generate code. Verifies whether the source is syntactically and semantically valid. Also, do not enter Lab mode."),
          new Setting<bool>(    "StopOnWarnings",      "--stop-on-warnings", false,         "Stop processing if any warnings are generated."),
          new Setting<bool>(    "AllowErrors",         "--allow-errors",     false,         "Continue even if there are errors. Mainly for debugging the Compiler."),
          new Setting<string?>( "PrettyPrint",         "--pretty-print",     "",            "Pretty print the parsed code. If a value is given, it is assumed to be a file-name, Otherwise output goes to the Debugger.",ArgumentArity.ZeroOrOne),
@@ -96,6 +106,8 @@ namespace CDL2v1 {
          new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width",saved:true),
          new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height",saved:true),
       ];
+
+
       private readonly Dictionary<string, ISetting> SettingsDict = [];
 
       public static readonly Settings Instance = new();
@@ -113,7 +125,7 @@ namespace CDL2v1 {
 
       public static string OutputDirectory => SettingValue<string>("OutputDirectory") ?? Directory.GetCurrentDirectory();
       public static string LabDB => Path.ChangeExtension(Path.Combine(OutputDirectory, SettingValue<string>("DB") ?? "CDL2v1"), Serializer.DBExtension);
-      public static bool LabMode => SettingValue<bool>("Lab");
+      public static bool LabMode => SettingValue<bool>("Lab") && ! SettingValue<bool>("ParseOnly");
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static Setting<T>? Setting<T>(string name) {
@@ -159,13 +171,14 @@ namespace CDL2v1 {
             if (arg.StartsWith('-')) {
                string option = arg;
                string? shortOptionWithValue = null;
-               
-               // Handle --option=value format
+
+               // Handle --option=value and --option:value format
                if (arg.Contains('=')) {
-                  option = arg.Split('=', 2)[0];
-               }
-               // Handle combined short options like -v3
-               else if (arg.Length > 2 && arg[0] == '-' && arg[1] != '-') {
+                  option = arg.Split('=',2)[0];
+               } else if (arg.Contains(':')) {
+                  option = arg.Split(':',2)[0];
+               } else if (arg.Length > 2 && arg[0] == '-' && arg[1] != '-') {
+                  // Handle combined short options like -v3
                   // This could be a short option with attached value
                   string shortOption = arg[..2]; // e.g., "-v"
                   
@@ -223,12 +236,26 @@ namespace CDL2v1 {
                      case Setting<NoteType> nSetting:  nSetting.Value  = parseResult.GetValueForOption<NoteType>((Option<NoteType>)setting.Option); break;
                      default: throw new InvalidEnumArgumentException($"Unknown setting type {setting.GetType()}");
                   }
-                  
+
+                  // If this setting has a disjoint setting, set it to false
+                  if (Settings.DisjointSettings.TryGetValue(setting.Name,out string? disjointSettingName)) {
+                     if (Settings.Instance.SettingsDict.TryGetValue(disjointSettingName, out ISetting? disjointSetting) && disjointSetting is Setting<bool> boolSetting) {
+                        boolSetting.Value = false; // Set the other setting to false
+                     }
+                  }
+
                   // Debug output
                   if (AnyVerbosity(1)) {
                      System.Diagnostics.Debug.WriteLine($"Setting overridden: {setting.Name} = {setting}");
                   }
                }
+            }
+
+
+            if (explicitlyProvidedOptions.Contains("Lab")) {
+               Setting<bool>("ParseOnly")!.Value = false;
+            } else if (explicitlyProvidedOptions.Contains("ParseOnly")) {
+               Setting<bool>("Lab")!.Value = false;
             }
          });
          
