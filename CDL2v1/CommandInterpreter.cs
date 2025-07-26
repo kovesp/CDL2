@@ -34,6 +34,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -43,16 +44,30 @@ namespace CDL2v1 {
    public class CommandInterpreter {
       private readonly CommandPromptWindow commandWindow;
       private readonly PrettyPrinter pp;
+      private readonly Parser parser;
 
       public CommandInterpreter(CommandPromptWindow window) {
          commandWindow = window;
          // Create a CommandWindowEmitter that integrates with our window
          pp = new(new EmitterCommandWindow(commandWindow), includeComments: true);
+         parser = new Parser(CDL2.Compiler);
       }
+
 
       internal void EnterCode(string input) {
          commandWindow.WriteInfo($"Entering code: {input}");
+         context ??= Focus.Current;
+         Logger.Log($"Context: {context}");
+         parser.Tokenize(input);
+         Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found to usuable tokens in input.");
+         Logger.Log($"Tokenized input: {parser.tokens.Count} tokens, first token is {parser.tokens.Peek()}");
+
+         parser.Parse(context);
+
+         Logger.Log($"Done");
       }
+
+      Focus? context = null;
 
       internal void IntepretCommand(string command, CommandType commandType, string settings, string args, CommandPromptWindow commandWindow) {
          IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());

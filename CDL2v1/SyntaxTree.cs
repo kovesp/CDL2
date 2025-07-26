@@ -491,17 +491,40 @@ namespace CDL2v1 {
    /// <param Id="layer"></param>
    public class Section : Container {
       /// <summary>
-      /// The interfaces.
+      /// The interfaces. Maintained as sorted sets for display.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(40)] public  Set<ID> ext = [];
-      [JsonInclude][JsonPropertyOrder(41)] public  Set<ID> abstr = [];
-      [JsonInclude][JsonPropertyOrder(42)] public  Set<ID> inv = [];
-      [JsonInclude][JsonPropertyOrder(43)] public  Set<ID> export = [];
-      [JsonInclude][JsonPropertyOrder(44)] public  Set<ID> import = [];
+      [JsonInclude][JsonPropertyOrder(40)] public SortedSet<ID> ext = [];
+      [JsonInclude][JsonPropertyOrder(41)] public SortedSet<ID> abstr = [];
+      [JsonInclude][JsonPropertyOrder(42)] public SortedSet<ID> inv = [];
+      [JsonInclude][JsonPropertyOrder(43)] public SortedSet<ID> export = [];
+      [JsonInclude][JsonPropertyOrder(44)] public SortedSet<ID> import = [];
 
+      /// <summary>
+      /// 
+      /// </summary>
       public class DeclarationDictionary : IDDictionary<Guid> {
          public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => [.. Values.Select(From<T>).OfType<T>() ];
          public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => [.. Values.Select(From<T>).OfType<T>().Where(pred) ];
+
+         /// <summary>
+         /// Try add a declration to the dictionary
+         /// </summary>
+         /// <param name="id"></param>
+         /// <param name="guid"></param>
+         /// <param name="before">The postion before it should be added. if <= 0 makes it the first. 
+         ///                      If omitted, or > than the Countit is added at the end.</param>
+         /// <returns></returns>
+         public bool TryAdd(ID id, Guid guid, int before=int.MaxValue) {
+            if (base.TryAdd(id, guid)) {
+               if (before > Ordering.Count) {
+                  Ordering.Add(guid);
+               } else {
+                  Ordering.Insert(before,guid);
+               }
+               return true;
+            }
+            return false;
+         }
 
          public bool TryGetValue<T>(ID id, out T? value) where T : CDL2Object {
             if (base.TryGetValue(id, out Guid guid) && NamedElement.From<T>(guid,out T? elem)) {

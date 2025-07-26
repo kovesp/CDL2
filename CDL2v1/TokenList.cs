@@ -59,6 +59,8 @@ namespace CDL2v1 {
       public readonly List<Token> tokens = [];
       public Options options = options;
 
+      public int Count => tokens.Count;
+
       public void Add(Token token) => tokens.Add(token);
       public bool IsNonEmpty() => tokens.Count > 0;
       public Token Peek() => IsNonEmpty() ? tokens[0] : Token.ErrorToken;

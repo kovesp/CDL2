@@ -374,7 +374,7 @@ namespace CDL2v1 {
       /// <param name="kind"></param>
       /// <param name="interfaceElements"></param>
       /// <param name="providables"></param>
-      private void AnalyzeProvidedInterfaces(Section section, RW kind, Set<ID> interfaceElements, IDDictionary<IProvidable>? providables) {
+      private void AnalyzeProvidedInterfaces(Section section, RW kind, SortedSet<ID> interfaceElements, IDDictionary<IProvidable>? providables) {
          if (providables == null && interfaceElements.Count > 0) AddNote(section, Note.AbstractionsInTopLayer);
          foreach (ID elemId in interfaceElements) {
             if (section.Declarations.TryGetValue(elemId,out CDL2Object? decl)) {

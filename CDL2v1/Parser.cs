@@ -37,8 +37,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.CommandLine.Parsing;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -128,11 +130,18 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="tokens"></param>
       /// <exception cref="Exception"></exception>
-      internal void Parse(string filePath) {
-         this.tokens = new TokenList(ReportInvalidToken);
-         (Lexer = new LexicalAnalyzer(Compiler,tokens)).Tokenize(filePath);
-         //tokens.SetOptions(TokenList.Options.ThrowOnUnexpectedToken); 
+      internal void Parse(string filePath) => ParseString(File.ReadAllText(filePath));
+      private void ParseString(string input) {
+         Tokenize(input);
+         ParseTokens();
+      }
 
+      public void Tokenize(string input) {
+         tokens = new TokenList(ReportInvalidToken);
+         (Lexer = new LexicalAnalyzer(Compiler,tokens)).Tokenize(input);
+      }
+
+      public void ParseTokens() {
          Logger.logger.ErrorAction = SkipToNextEnd;
          Logger.logger.CurrentObject = currentObject;
 
@@ -715,6 +724,53 @@ namespace CDL2v1 {
          while (!tokens.IsNext(TT.END)) tokens.Skip();
          tokens.Skip(); // The end itself
       }
+
+      /// <summary>
+      /// Parse the tokens stream. Add it to the parse tree in the context of the focus.
+      /// Set the focus to it.
+      /// </summary>
+      /// <param name="context"></param>
+      internal void Parse(Focus context) {
+         Debug.Assert(tokens.Peek().type == TokenType.RESWORD,"Expected a reserved word token at the start of the input.");
+         RW objectType = tokens.Peek().reservedWordValue ?? RW.NONE;
+         switch (objectType) {
+            case RW.PROGRAM:
+            case RW.MODULE:
+               break;
+            case RW.LAYER:
+               break;
+            case RW.SECTION:
+               break;
+            case RW.FUNCTION:
+            case RW.ACTION:
+            case RW.TEST:
+            case RW.PREDICATE:
+               break;
+            case RW.CONST:
+               break;
+            case RW.VAR:
+               break;
+            case RW.LIST:
+               break;
+            case RW.PART:
+               break;
+            case RW.ABSTR:
+            case RW.EXT:
+            case RW.INV:
+            case RW.EXPORT:
+            case RW.IMPORT:
+               break;
+            case RW.ROOT:
+            case RW.PRELUDE:
+            case RW.POSTLUDE:
+               break;
+            case RW.NOTE:
+               break;
+
+            case RW.NONE:
+               break;
+         }
+
+      }
    }
 }
-

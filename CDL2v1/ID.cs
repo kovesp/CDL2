@@ -45,7 +45,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a reference to a named syntactic element, Arg or Local in the syntax tree.
    /// </summary>
-   public partial class ID : IElement, IActualArg {
+   public partial class ID : IElement, IActualArg, IComparable {
       [JsonInclude]
       public string CanonicalName = string.Empty;
       [JsonIgnore]
@@ -82,7 +82,8 @@ namespace CDL2v1 {
       public override bool Equals(object? obj) => (obj is ID id && CanonicalName == id.CanonicalName) || (obj is string s && CanonicalName == s.Replace(" ",""));
       public override int GetHashCode() => HashCode.Combine(CanonicalName);
       public override string ToString() => Name;
- 
+      public int CompareTo(object? obj) => obj is ID id ? CanonicalName.CompareTo(id.CanonicalName) : 1;
+
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator ==(ID left, string right) => left is null ? right is null : left.Equals(right);
       public static bool operator ==(string left, ID right) => left is null ? right is null : right.Equals(left);
