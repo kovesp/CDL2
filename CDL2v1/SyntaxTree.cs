@@ -102,6 +102,67 @@ namespace CDL2v1 {
    public interface IUnrecordedElement { }
 
    /// <summary>
+   /// NamedElements that have siblings: Containers and CDL2Objects.
+   /// Supplies methods that allow insertion, removal and moving of siblings in the list of siblings.
+   /// </summary>
+   public interface ISibling {
+      List<Guid> Siblings { get; }
+      Guid GUID { get; }
+
+      void MoveTo(int index) {
+         if (index < 0 || index >= Siblings.Count) {
+            throw new ArgumentOutOfRangeException(nameof(index), "Index must be within the range of siblings.");
+         }
+         Siblings.Remove(GUID);
+         Siblings.Insert(index, GUID);
+      }
+      void InsertAt(int index,ISibling sibling) {
+         if (index < 0 || index > Siblings.Count) {
+            throw new ArgumentOutOfRangeException(nameof(index), "Index must be within the range of siblings.");
+         }
+         if (Siblings.Contains(sibling.GUID)) {
+            throw new ArgumentException("The sibling is already in the list.", nameof(sibling));
+         }
+         Siblings.Insert(index, sibling.GUID);
+      }
+      void InsertAfter(ISibling sibling) {
+         int index = Siblings.IndexOf(sibling.GUID);
+         if (index < 0) {
+            throw new ArgumentException("The specified sibling is not a sibling.", nameof(sibling));
+         }
+         InsertAt(index + 1, sibling);
+      }
+      void InsertBefore(ISibling sibling) {
+         int index = Siblings.IndexOf(sibling.GUID);
+         if (index < 0) {
+            throw new ArgumentException("The specified sibling is not a sibling.", nameof(sibling));
+         }
+         InsertAt(index, sibling);
+      }
+      void MoveAfter(ISibling other) {
+         int index = Siblings.IndexOf(other.GUID);
+         if (index < 0) {
+            throw new ArgumentException("The specified sibling does not exist.", nameof(other));
+         }
+         MoveTo(index + 1);
+      }
+      void MoveBefore(ISibling other) {
+         int index = Siblings.IndexOf(other.GUID);
+         if (index < 0) {
+            throw new ArgumentException("The specified sibling does not exist.");
+         }
+         MoveTo(index);
+      }
+      void Remove() {
+         if (Siblings.Contains(GUID)) {
+            Siblings.Remove(GUID);
+         } else {
+            throw new ArgumentException("The GUID is not a sibling.", nameof(GUID));
+         }
+      }
+   }
+
+   /// <summary>
    /// Base class for all elements that have names in the syntax tree.
    /// To support serialization all references to NamedElements are by GUID through <see cref="Database.Instance.NamedElements"/>.
    /// </summary>
@@ -152,7 +213,7 @@ namespace CDL2v1 {
       ///   Local
       /// </summary>
       [JsonInclude][JsonPropertyOrder(4)] public Guid Parent { get; set; } = Guid.Empty;
-      [JsonInclude][JsonPropertyOrder(5)] public string? Comments { get; set; }
+      [JsonInclude][JsonPropertyOrder(5)] public string? Comments { get; set;}
       [JsonInclude][JsonPropertyOrder(6)] public Notes Notes { get; set; } = [];
 
       [JsonIgnore] public virtual bool IsImported => false;
@@ -324,7 +385,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
    /// </summary>
-   public /*abstract*/ class Container : NamedElement {
+   public /*abstract*/ class Container : NamedElement, ISibling {
       [JsonConstructor]
       public Container() : base() { }
       /// <summary>
@@ -369,6 +430,8 @@ namespace CDL2v1 {
       /// </summary>
       [JsonIgnore]
       public string ContainerName => $"{ParentElement<Container>()?.ContainerName ?? ""} {TypeShortName} {Id.Name}".Trim();
+
+      public virtual List<Guid> Siblings => ParentElement<Container>()?.Children ?? [];
    }
 
    /// <summary>
@@ -405,6 +468,8 @@ namespace CDL2v1 {
       public Program(ID id, string? comments, Notes notes) : base(id, null, comments, notes,SelectorType.PROGRAM) => LudeParser = Parser.ParseLudeOfIDs;
       [JsonConstructor]
       public Program() { LudeParser = Parser.ParseLudeOfIDs; FocusType = SelectorType.PROGRAM; }
+
+      public override List<Guid> Siblings => Database.Instance.Programs;
    }
 
    /// <summary>
@@ -448,6 +513,8 @@ namespace CDL2v1 {
 
       [JsonIgnore] public List<Layer> Layers => [.. Children.Select(GUID => Database.Instance.NamedElements[GUID] as Layer)!];
       [JsonIgnore] public List<Section> Sections => [..Layers.SelectMany(layer => layer.Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section))!];
+
+      public override List<Guid> Siblings => Database.Instance.Modules;
    }
 
    /// <summary>
@@ -668,7 +735,7 @@ namespace CDL2v1 {
    /// This is the base class of all CDL2 objects that can be declared.
    /// Algorithm (Macro, Porcedure, ImportedAlgorithm), Const (ImportedConst), Var and LIST.
    /// </summary>
-   public /*abstract*/ class CDL2Object : NamedElement {
+   public /*abstract*/ class CDL2Object : NamedElement, ISibling {
       public CDL2Object(ID id, Section section, string? comments, bool synthetic = false, SelectorType FocusType=SelectorType.INVALID) : base(id, synthetic,FocusType) {
          Parent = section.GUID;
          Comments = comments;
@@ -680,6 +747,8 @@ namespace CDL2v1 {
 
       [JsonIgnore]
       public SyntacticElement SE { get; protected set; }
+
+      public List<Guid> Siblings => Section?.Siblings ?? [];
 
       /// <summary>
       /// Given that objects have to be unique by name within a section and extended//*abstract*/ed objects within a layer, objects with the same Id are considered the same.
