@@ -574,19 +574,19 @@ namespace CDL2v1 {
          public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => [.. Values.Select(From<T>).OfType<T>().Where(pred) ];
 
          /// <summary>
-         /// Try add a declration to the dictionary
+         /// Try add a declration. If successful, the object is added to the Siblings of the object.
          /// </summary>
          /// <param name="id"></param>
-         /// <param name="guid"></param>
-         /// <param name="before">The postion before it should be added. if <= 0 makes it the first. 
+         /// <param name="obj"></param>
+         /// <param name="before">The postion before it should be added. ff <= 0 makes it the first. 
          ///                      If omitted, or > than the Countit is added at the end.</param>
          /// <returns></returns>
-         public bool TryAdd(ID id, Guid guid, int before=int.MaxValue) {
-            if (base.TryAdd(id, guid)) {
-               if (before > Ordering.Count) {
-                  Ordering.Add(guid);
+         public bool TryAdd(ID id, CDL2Object obj, uint before=uint.MaxValue) {
+            if (base.TryAdd(id, obj.GUID)) {
+               if (before >= obj.Siblings.Count) {
+                  obj.Siblings.Add(obj.GUID); // If before is >= to the count, add it at the end.
                } else {
-                  Ordering.Insert(before,guid);
+                  obj.Siblings.Insert((int)before,obj.GUID); // Otherwise, insert it at the specified position.
                }
                return true;
             }
@@ -748,7 +748,7 @@ namespace CDL2v1 {
       [JsonIgnore]
       public SyntacticElement SE { get; protected set; }
 
-      public List<Guid> Siblings => Section?.Siblings ?? [];
+      public List<Guid> Siblings => Section?.Children ?? [];
 
       /// <summary>
       /// Given that objects have to be unique by name within a section and extended//*abstract*/ed objects within a layer, objects with the same Id are considered the same.

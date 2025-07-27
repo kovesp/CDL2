@@ -688,7 +688,7 @@ namespace CDL2v1 {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
             CDL2Object? CDL2Object = getObject(id);            
-            if (CDL2Object != null && declarations.TryAdd(id, CDL2Object.GUID)) {
+            if (CDL2Object != null && declarations.TryAdd(id, CDL2Object)) {
                firstObject ??= (NamedElement)CDL2Object;
             }
 

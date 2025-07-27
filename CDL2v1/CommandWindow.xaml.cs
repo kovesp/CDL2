@@ -282,7 +282,7 @@ namespace CDL2v1 {
 
          // Convert hex color to brush
          try {
-            return (Brush)new BrushConverter().ConvertFromString(colorHex);
+            return (Brush)new BrushConverter().ConvertFromString(colorHex)!;
          } catch {
             return Brushes.LightGray; // Fallback if conversion fails
          }

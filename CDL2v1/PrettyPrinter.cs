@@ -313,39 +313,59 @@ namespace CDL2v1 {
       public void Print(Layer layer)   => PrintContainer(layer,() => { foreach (Section section in layer.Sections) Print(section); },updateUI: false);
 
       public void Print(Section section) => PrintContainer(section,() => {
-         PrintList(RW.EXPORT,section.export);
-         PrintList(RW.IMPORT,section.import);
-         PrintList(RW.ABSTR,section.abstr);
-         PrintList(RW.EXT,section.ext);
-         PrintList(RW.INV,section.inv);
+         if (Settings.SettingValue<bool>("PPSorted")) {
+            // Sort the section contents by their type
+            PrintList(RW.EXPORT,section.export);
+            PrintList(RW.IMPORT,section.import);
+            PrintList(RW.ABSTR,section.abstr);
+            PrintList(RW.EXT,section.ext);
+            PrintList(RW.INV,section.inv);
 
-         int EmitCount<T>(IEnumerable<T> list,string type) {
-            int count = list.Count();
-            if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(Emitter,SE.Comment)); }
-            return count;
-         }
-         void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : CDL2Object {
-            if (EmitCount(items, type.ToString()) > 0) {
-               foreach (T item in items) {
-                  if (item.HasCommentOrNote) PrintComment(item);
-                  PrintImportedComment(item);
-                  Emit(type.Decorate(Emitter, SE.ReservedWord), " ");
-                  print(item);
-                  EmitSeparatorWithNL(TT.END);
+            int EmitCount<T>(IEnumerable<T> list,string type) {
+               int count = list.Count();
+               if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(Emitter,SE.Comment)); }
+               return count;
+            }
+            void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : CDL2Object {
+               if (EmitCount(items,type.ToString()) > 0) {
+                  foreach (T item in items) {
+                     if (item.HasCommentOrNote)
+                        PrintComment(item);
+                     PrintImportedComment(item);
+                     Emit(type.Decorate(Emitter,SE.ReservedWord)," ");
+                     print(item);
+                     EmitSeparatorWithNL(TT.END);
+                  }
+               }
+            }
+            void PrintAlgorithms<T>(string type,IEnumerable<T> list,Action<T> print) where T : Algorithm {
+               if (EmitCount(list,type) > 0)
+                  foreach (T algorithm in list)
+                     print(algorithm);
+            }
+
+            PrintDataDefinitions(RW.CONST,section.Constants,Print);
+            PrintDataDefinitions(RW.VAR,section.Variables,Print);
+            PrintDataDefinitions(RW.LIST,section.Lists,l => Print(l,section));
+            PrintAlgorithms("Imported Algorithm",section.ImportedAlgorithms,Print);
+            PrintAlgorithms("Macro",section.Macros,Print);
+            PrintAlgorithms("Procedure",section.NonSyntheticProcedures,a => Print(a,section));
+         } else {
+            // Print in the sequence they were added to the section or rearranged.
+            foreach (CDL2Object cdl2obj in section.ChildElements().Cast<CDL2Object>()) {
+               if (cdl2obj is Algorithm algorithm) {
+                  Print(algorithm);
+               } else if (cdl2obj is Const constant) {
+                  Print(constant);
+               } else if (cdl2obj is Var variable) {
+                  Print(variable);
+               } else if (cdl2obj is LIST list) {
+                  Print(list,section);
+               } else {
+                  ReportError($"Unknown CDL2Object type {cdl2obj.GetType()} in section {section.Id}");
                }
             }
          }
-         void PrintAlgorithms<T>(string type,IEnumerable<T> list,Action<T> print) where T : Algorithm {
-            if (EmitCount(list, type) > 0) foreach (T algorithm in list) print(algorithm);
-         }
-
-         PrintDataDefinitions(RW.CONST, section.Constants, Print);
-         PrintDataDefinitions(RW.VAR, section.Variables, Print);
-         PrintDataDefinitions(RW.LIST, section.Lists, l=>Print(l,section));
-         PrintAlgorithms("Imported Algorithm", section.ImportedAlgorithms, Print);
-         PrintAlgorithms("Macro", section.Macros, Print);
-         PrintAlgorithms("Procedure", section.NonSyntheticProcedures, a=>Print(a,section));
-
       },updateUI: true);     
 
       private void PrintLudes(Container container) {
@@ -586,7 +606,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="proc"></param>
       public void Print(Procedure proc,Section section) {
-         Debug.Assert(!proc.IsSynthetic,"Synthetic procedures should not be printed");
+         if (proc.IsSynthetic) return; // Skip synthetics
          PrintAlgorithmHeader(proc);
          Indented(() => {
             Debug.Assert(proc.group.Alternatives.Count != 0,"alternatives list is empty");

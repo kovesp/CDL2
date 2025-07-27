@@ -75,7 +75,8 @@ namespace CDL2v1 {
          }
       }
       public string LongOption => Option.Aliases.OrderByDescending(s => s.Length).First();
-      public override string ToString() => $"{Name}: {LongOption} => {(Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
+      public override string ToString() =>
+         $"{Name}: {LongOption} => {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
    }
 
    public class Settings {
@@ -105,6 +106,7 @@ namespace CDL2v1 {
          new Setting<double>(  "WindowTop",           "--window-top",      -1.0,           "Last window top position",saved:true),
          new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width",saved:true),
          new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height",saved:true),
+         new Setting<bool>(    "PPSorted",            "--pretty-print-sorted",false,      "When printing sections, print its objects collected by type",saved:true),
       ];
 
 
