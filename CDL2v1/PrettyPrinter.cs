@@ -329,12 +329,7 @@ namespace CDL2v1 {
             void PrintDataDefinitions<T>(RW type,IEnumerable<T> items,Action<T> print) where T : CDL2Object {
                if (EmitCount(items,type.ToString()) > 0) {
                   foreach (T item in items) {
-                     if (item.HasCommentOrNote)
-                        PrintComment(item);
-                     PrintImportedComment(item);
-                     Emit(type.Decorate(Emitter,SE.ReservedWord)," ");
-                     print(item);
-                     EmitSeparatorWithNL(TT.END);
+                     PrintDataDefinition<T>(type,print,item);
                   }
                }
             }
@@ -356,17 +351,33 @@ namespace CDL2v1 {
                if (cdl2obj is Algorithm algorithm) {
                   Print(algorithm);
                } else if (cdl2obj is Const constant) {
-                  Print(constant);
+                  PrintDataDefinition(RW.CONST,Print,constant);
                } else if (cdl2obj is Var variable) {
-                  Print(variable);
+                  PrintDataDefinition(RW.VAR,Print,variable);
                } else if (cdl2obj is LIST list) {
-                  Print(list,section);
+                  PrintDataDefinition(RW.LIST,Print,list);
                } else {
                   ReportError($"Unknown CDL2Object type {cdl2obj.GetType()} in section {section.Id}");
                }
             }
          }
-      },updateUI: true);     
+      },updateUI: true);
+
+      /// <summary>
+      /// Print a single data defintion.
+      /// </summary>
+      /// <typeparam name="T">In Actual use T is one of Const, Var, or List. Since CDL2Object is a class, I'm too lazy
+      /// to use a generic constraint on CDL2Object, so we can use this method for any CDL2Object type.</typeparam>
+      /// <param name="type"></param>
+      /// <param name="print"></param>
+      /// <param name="item"></param>
+      private void PrintDataDefinition<T>(RW type,Action<T> print,T item) where T : CDL2Object {
+         if (item.HasCommentOrNote) PrintComment(item,nl:false);
+         PrintImportedComment(item);
+         Emit(type.Decorate(Emitter,SE.ReservedWord)," ");
+         print(item);
+         EmitSeparatorWithNL(TT.END);
+      }
 
       private void PrintLudes(Container container) {
          PrintLude(RW.PRELUDE,container);
@@ -685,7 +696,7 @@ namespace CDL2v1 {
       }
 
       private void PrintAlgorithmHeader(Algorithm algorithm) {
-         PrintComment(algorithm);
+         PrintComment(algorithm,nl:false);
          Emit(algorithm.AlgorithmType.Decorate(Emitter,SE.ReservedWord)," ",
             algorithm.Id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
          foreach (Affix affix in algorithm.Affixes.Cast<Affix>()) {
@@ -784,7 +795,7 @@ namespace CDL2v1 {
       /// Print the comments for the element.
       /// </summary>
       /// <param name="element"></param>
-      private void PrintComment(NamedElement element) => PrintComment(element.Comments,element.Notes);
+      private void PrintComment(NamedElement element,bool nl = true) => PrintComment(element.Comments,element.Notes,nl);
       private void PrintComment(Alternative element) => PrintComment(null,element.Notes);
 
       private void PrintInlineComment(string comment) {
@@ -794,9 +805,9 @@ namespace CDL2v1 {
       }
       private void PrintImportedComment(CDL2Object obj) { if (obj.IsImported) PrintInlineComment("Imported"); }
 
-      private void PrintComment(string? comments,Notes notes) {
+      private void PrintComment(string? comments,Notes notes,bool nl = true) {
          if (IncludeComments) {
-            if (comments != null) Emitnl(NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
+            if (comments != null) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
                if (note.NoteType == NoteType.Note) {
                   NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));
@@ -836,6 +847,9 @@ namespace CDL2v1 {
       private void EmitSeparator(TT sep,bool space=true) => Emitter.EmitIgnoreLineLength(TranslateToken(sep)+(space?" ":""));
       private void EmitSeparatorWithNL(TT sep) => Emitter.EmitIgnoreLineLength(TranslateToken(sep),NL:true);
       private void Emitnl(params object[] items) => Emitter.Emitnl(TranslateTokens(items));
+      private void EmitOptNl(bool nl,params object[] items) {
+         if (nl) Emitnl(items); else Emit(items);
+      }
       private void NlEmit(params object[] items) => Emitter.NlEmit(TranslateTokens(items));
       private void NlEmitnl(params object[] items) => Emitter.NlEmitnl(TranslateTokens(items));
 
