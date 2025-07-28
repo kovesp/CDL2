@@ -40,6 +40,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
+using System.Security.RightsManagement;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -137,12 +138,14 @@ namespace CDL2v1 {
       private static readonly Type[] NonFocusableTypes = [typeof(Affix), typeof(Local), typeof(Call)];
       [JsonIgnore]
       public bool IsFocusable => ! NonFocusableTypes.Contains(Object?.GetType() ?? typeof(NamedElement));
+      public override string ToString() => $"SingleSelection<{Object}>";
    }
 
    /// <summary>
    /// Represents the objects selected by a selector. A valid selector will always select at least one object.
    /// </summary>
-   public class Selection : List<SingleSelection> {
+   public class 
+      Selection : List<SingleSelection> {
       #region SelectionSegments
       /// ================================================================================================================
       /// <summary>
@@ -233,8 +236,8 @@ namespace CDL2v1 {
                      importedSeen = true; // Mark that an IMPORTED segment was seen
                   }
                } else {
-                  segments.Add(new UnitSegment(type));
                   if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if previous was uppercase
+                  segments.Add(new UnitSegment(type));
                   previousSegmentWasUnit = true;
                   previousSegmentWasNameOrOffset = false;
                }
@@ -355,9 +358,7 @@ namespace CDL2v1 {
          } else {
             Add(new SingleSelection(selectedObjects.ElementAt(Math.Min(segments.Index,segments.Count)-1)));
          }
-      }
-
-     
+      }     
    }
 
    /// <summary>

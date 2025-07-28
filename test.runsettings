@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <ResultsDirectory>TestResults</ResultsDirectory>
+    <!-- Following seems to ignored, so Database sets it explicitly -->
+    <WorkingDirectory>$(SolutionDir)\CDL2v1\CDL2</WorkingDirectory>
+  </RunConfiguration>
+</RunSettings>

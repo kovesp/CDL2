@@ -80,7 +80,7 @@ namespace CDL2v1 {
       static Database() => PushDatabase();
 
       public static void PushDatabase(Database? db = null) => DatabaseStack.Push(db ?? new Database());
-      public static void PopDatabase()  {
+      public static void PopDatabase() {
          if (DatabaseStack.Count > 1) {
             DatabaseStack.Pop();
          } else {
@@ -93,12 +93,14 @@ namespace CDL2v1 {
       /// <summary>
       /// Maps the cannonical form of identifiers (i.e., with whitespace removed) to the original form.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(1)]
-      public Dictionary<string, string> CanonicalNames = [];
+      [JsonInclude]
+      [JsonPropertyOrder(1)]
+      public Dictionary<string,string> CanonicalNames = [];
       /// <summary>
       /// All the named elements in the database. Every other reference uses the GUID.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(2)]
+      [JsonInclude]
+      [JsonPropertyOrder(2)]
       public Dictionary<Guid,NamedElement> NamedElements = [];
       /// <summary>
       /// Undo records for NamedElements.  entries are inserted wheneer an elment is changed or removed.
@@ -111,17 +113,20 @@ namespace CDL2v1 {
       /// <li> The serialized element</li>"
       /// </ol>
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(3)]
+      [JsonInclude]
+      [JsonPropertyOrder(3)]
       public Dictionary<Guid,Stack<UndoRecord<NamedElement>>> NamedElementUndoRecords = [];
       /// <summary>
       /// Contains the guids of all the programs in the syntax tree.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(4)]
+      [JsonInclude]
+      [JsonPropertyOrder(4)]
       public List<Guid> Programs = [];
       /// <summary>
       /// All the modules in the database.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(5)]
+      [JsonInclude]
+      [JsonPropertyOrder(5)]
       public List<Guid> Modules = [];
       /// <summary>
       /// When a note is added to an element, the element is also added here.
@@ -129,13 +134,15 @@ namespace CDL2v1 {
       /// In database mode, i.e., when operating on smaller units (e.g., algorithms) the Parser and SemanticAnalyzer must ensure that
       /// analyzed elements are appropriately removed or added.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(6)]
+      [JsonInclude]
+      [JsonPropertyOrder(6)]
       public Set<Guid> ElementsWithNotes = [];
 
       /// <summary>
       /// Bookmarks are managed in the Focus class.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(7)]
+      [JsonInclude]
+      [JsonPropertyOrder(7)]
       public Dictionary<string,Focus> Bookmarks = [];
 
 
@@ -146,7 +153,7 @@ namespace CDL2v1 {
       /// <param name="name"></param>
       /// <returns>The canonical name.</returns>
       public string AddCanonicalName(string name) {
-         string canonicalName = name.Replace(" ", "");
+         string canonicalName = name.Replace(" ","");
          CanonicalNames.TryAdd(canonicalName,name);
          return canonicalName;
       }
@@ -160,7 +167,7 @@ namespace CDL2v1 {
       /// <param name="newName">the new name</param>
       /// <returns>the (possibly new) canonical name</returns>
       public string RenameCanonicalName(string oldName,string newName) {
-         string canonicalName = newName.Replace(" ", "");
+         string canonicalName = newName.Replace(" ","");
          CanonicalNames[canonicalName] = newName;
          return canonicalName;
       }
@@ -169,18 +176,18 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="name"></param>
       /// <returns></returns>
-      public string DisplayName(string name) => CanonicalNames.TryGetValue(name.Replace(" ", ""), out string? displayName) ? displayName : name;
+      public string DisplayName(string name) => CanonicalNames.TryGetValue(name.Replace(" ",""),out string? displayName) ? displayName : name;
 
       public class UndoRecord<T> : SerializationBase where T : NamedElement {
-         [JsonInclude] [JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
-         [JsonInclude] [JsonPropertyOrder(2)] public string Tag { get; set; } = "";
-         [JsonInclude] [JsonPropertyOrder(3)] public string RecordType { get; set; } = "";
-         [JsonInclude] [JsonPropertyOrder(4)] public string SerializedElement { get; set; }
+         [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
+         [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
+         [JsonInclude][JsonPropertyOrder(3)] public string RecordType { get; set; } = "";
+         [JsonInclude][JsonPropertyOrder(4)] public string SerializedElement { get; set; }
 
          public UndoRecord(T element) {
             RecordType = element.GetType().Name;
 
-            SerializedElement = Serializer.SerializeElement(element)??"";
+            SerializedElement = Serializer.SerializeElement(element) ?? "";
          }
 
          [JsonConstructor]
@@ -192,8 +199,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="element"></param>
       public void RecordUndo(NamedElement element) {
-         if (!NamedElementUndoRecords.TryGetValue(element.GUID, out Stack<UndoRecord<NamedElement>>? undoStack)) {
-            NamedElementUndoRecords[element.GUID] = undoStack = new Stack<UndoRecord<NamedElement>>();            
+         if (!NamedElementUndoRecords.TryGetValue(element.GUID,out Stack<UndoRecord<NamedElement>>? undoStack)) {
+            NamedElementUndoRecords[element.GUID] = undoStack = new Stack<UndoRecord<NamedElement>>();
          }
          undoStack.Push(new UndoRecord<NamedElement>(element));
       }
@@ -203,17 +210,17 @@ namespace CDL2v1 {
       /// <param name="guid"></param>
       /// <param name="label"></param>
       /// <returns></returns>
-      public bool TagUndoRecord(Guid guid, string label) {
-         if (NamedElementUndoRecords.TryGetValue(guid, out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
+      public bool TagUndoRecord(Guid guid,string label) {
+         if (NamedElementUndoRecords.TryGetValue(guid,out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
             undoStack.Peek().Tag = label;
             return true;
          } else {
             return false;
          }
       }
-      public bool TagUndoRecord(NamedElement element, string label) => TagUndoRecord(element.GUID, label);
+      public bool TagUndoRecord(NamedElement element,string label) => TagUndoRecord(element.GUID,label);
       public T GetUndo<T>(Guid guid) where T : NamedElement {
-         if (NamedElementUndoRecords.TryGetValue(guid, out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
+         if (NamedElementUndoRecords.TryGetValue(guid,out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
             if (undoStack.Peek().RecordType != typeof(T).Name) {
                throw new InvalidCastException($"Cannot cast undo record of type {undoStack.Peek().RecordType} to {typeof(T).Name}");
             }
@@ -245,15 +252,15 @@ namespace CDL2v1 {
       /// </summary>
       /// <typeparam name="T"></typeparam>
       /// <returns></returns>
-      public static IEnumerable<T> NamedElementsOfType<T>(Func<T, bool>? pred = null, Func<IEnumerable<T>,IEnumerable<T>>? mapper = null) where T : NamedElement
-         => Instance.NamedElements.Values.OfType<T>().OptWhere(pred).OptMap(mapper is not null, mapper!);
-      public static IEnumerable<T> NamedElementsOfType<T>(Func<T,bool>? pred=null,bool asList=false) where T : NamedElement => NamedElementsOfType<T>(pred, asList ? Enumerable.ToList : null);
-      public static IEnumerable<Const> NamedConsts(Func<Const,bool>? pred=null) => NamedElementsOfType<Const>(pred,true);
-      public static IEnumerable<LIST> NamedLists(Func<LIST, bool>? pred = null) => NamedElementsOfType<LIST>(pred, true);
-      public static IEnumerable<Var> NamedVars(Func<Var, bool>? pred = null) => NamedElementsOfType<Var>(pred, true);
-      public static IEnumerable<Algorithm> NamedAlgorithms(Func<Algorithm, bool>? pred = null) => NamedElementsOfType<Algorithm>(pred, true);
-      public static IEnumerable<Macro> NamedMacros(Func<Macro, bool>? pred = null) => NamedElementsOfType<Macro>(pred, true);
-      public static IEnumerable<Procedure> NamedProcedures(Func<Procedure, bool>? pred = null) => NamedElementsOfType<Procedure>(pred, true);
+      public static IEnumerable<T> NamedElementsOfType<T>(Func<T,bool>? pred = null,Func<IEnumerable<T>,IEnumerable<T>>? mapper = null) where T : NamedElement
+         => Instance.NamedElements.Values.OfType<T>().OptWhere(pred).OptMap(mapper is not null,mapper!);
+      public static IEnumerable<T> NamedElementsOfType<T>(Func<T,bool>? pred = null,bool asList = false) where T : NamedElement => NamedElementsOfType<T>(pred,asList ? Enumerable.ToList : null);
+      public static IEnumerable<Const> NamedConsts(Func<Const,bool>? pred = null) => NamedElementsOfType<Const>(pred,true);
+      public static IEnumerable<LIST> NamedLists(Func<LIST,bool>? pred = null) => NamedElementsOfType<LIST>(pred,true);
+      public static IEnumerable<Var> NamedVars(Func<Var,bool>? pred = null) => NamedElementsOfType<Var>(pred,true);
+      public static IEnumerable<Algorithm> NamedAlgorithms(Func<Algorithm,bool>? pred = null) => NamedElementsOfType<Algorithm>(pred,true);
+      public static IEnumerable<Macro> NamedMacros(Func<Macro,bool>? pred = null) => NamedElementsOfType<Macro>(pred,true);
+      public static IEnumerable<Procedure> NamedProcedures(Func<Procedure,bool>? pred = null) => NamedElementsOfType<Procedure>(pred,true);
 
       /// <summary>
       /// Remove an element
@@ -290,8 +297,8 @@ namespace CDL2v1 {
       [JsonIgnore]
       public Program? FirstProgram => Programs.Count == 0 ? null : NamedElements[Programs[0]] as Program;
 
-      public static bool TryGetNamedElements<T>(string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement
-         => TryGetNamedElements(Instance.NamedElements.Values, name, out elements);
+      public static bool TryGetNamedElements<T>(string name,[MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement
+         => TryGetNamedElements(Instance.NamedElements.Values,name,out elements);
       /// <summary>
       /// Try and get a collection of elements of type T with the given name from the given collection of NamedElements.
       /// </summary>
@@ -300,40 +307,42 @@ namespace CDL2v1 {
       /// <param name="name">This can be empty to match all, </param>
       /// <param name="elements"></param>
       /// <returns></returns>
-      public static bool TryGetNamedElements<T>(IEnumerable<NamedElement> objects, string name, [MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
+      public static bool TryGetNamedElements<T>(IEnumerable<NamedElement> objects,string name,[MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
          IEnumerable<T> typedElements = objects.OfType<T>();
          if (name == string.Empty) {
             elements = typedElements;
          } else if (name.StartsWith('/')) {
-            elements = typedElements.Where(e => Regex.IsMatch(e.Id.CanonicalName, name.Trim('/').RemoveWhitespace()));
+            elements = typedElements.Where(e => Regex.IsMatch(e.Id.CanonicalName,name.Trim('/').RemoveWhitespace()));
          } else {
             elements = typedElements.Where(e => e.Id.CanonicalName.Contains(name.RemoveWhitespace()));
          }
          return elements.Any();
       }
 
-      public bool TryGetNamedElement<T>(string name, [MaybeNullWhen(false)] out T element) where T : NamedElement {
-         if (TryGetNamedElements(name, out IEnumerable<T>? elements) && elements.Count() == 1) {
+      public bool TryGetNamedElement<T>(string name,[MaybeNullWhen(false)] out T element) where T : NamedElement {
+         if (TryGetNamedElements(name,out IEnumerable<T>? elements) && elements.Count() == 1) {
             element = elements.First();
             return true;
          } else {
             element = null!;
-            return false; 
+            return false;
          }
-      }      
+      }
       public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Id == name);
       public bool IsNamedElement<T>(ID id) where T : NamedElement => IsNamedElement<T>(id.CanonicalName);
 
-      internal Program? ProgramByName(string programName) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == programName);
-      internal Program? ProgramByName(ID ProgramId) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == ProgramId);
-      internal Module? ModuleByName(string moduleName) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleName);
-      internal Module? ModuleByName(ID moduleId) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleId);
+      public Program? ProgramByName(string programName) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == programName);
+      public Program? ProgramByName(ID ProgramId) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == ProgramId);
+      public Module? ModuleByName(string moduleName) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleName);
+      public Module? ModuleByName(ID moduleId) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleId);
 
 
-      public static string Save(string? filePath=null) => Serializer.SaveDB(filePath);
-      public static void Load(string? filePath=null) => Serializer.LoadDB(filePath);
-
+      public static string Save(string? filePath = null) => Serializer.SaveDB(filePath);
+      public static void Load(string? filePath = null) => Serializer.LoadDB(filePath);
+      public static void InitializeForTests() {
+         // Can't using runsettings to set the working directory
+         Directory.SetCurrentDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,@"..\..\..\..\CDL2v1\CDL2"));
+         Load();
+      }
    }
-
 }
-
