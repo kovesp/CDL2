@@ -466,7 +466,8 @@ namespace CDL2v1 {
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Program(ID id, string? comments, Notes notes) : base(id, null, comments, notes,SelectorType.PROGRAM) => LudeParser = Parser.ParseLudeOfIDs;
+      public Program(ID id, string? comments, Notes? notes=null) : base(id, null, comments, notes??Notes.Empty,SelectorType.PROGRAM) => LudeParser = Parser.ParseLudeOfIDs;
+
       [JsonConstructor]
       public Program() { LudeParser = Parser.ParseLudeOfIDs; FocusType = SelectorType.PROGRAM; }
 
@@ -493,7 +494,7 @@ namespace CDL2v1 {
       /// Module Ludes are a list of container IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Module(ID id,string? comments,Notes notes) : base(id,null,comments,notes,SelectorType.MODULE) {
+      public Module(ID id,string? comments,Notes? notes=null) : base(id,null,comments,notes??Notes.Empty,SelectorType.MODULE) {
          LudeParser = Parser.ParseLudeOfIDs;
          Comments = comments;
       }

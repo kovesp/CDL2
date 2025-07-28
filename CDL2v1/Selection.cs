@@ -45,6 +45,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using System.Xml.Linq;
 
 namespace CDL2v1 {
@@ -410,6 +411,34 @@ namespace CDL2v1 {
       public Focus(SingleSelection selection) => Selection = selection;
       public Focus(Selection selection) => Selection = selection.Count > 0 ? selection.First() : SingleSelection.Empty;
 
+      [JsonIgnore]
+      public Module? Module => Selection.Object switch {
+         Program program => null,
+         Module module => module,
+         Layer layer => layer.Module,
+         Section section => section.Module,
+         CDL2Object cdl2Object => cdl2Object.Module,
+         _ => null,
+      };
+      [JsonIgnore]
+      public Layer? Layer => Selection.Object switch {
+         Program program => null,
+         Module module => null,
+         Layer layer => layer,
+         Section section => section.Layer,
+         CDL2Object cdl2Object => cdl2Object.Layer,
+         _ => null,
+      };
+      [JsonIgnore]
+      public Section? Section => Selection.Object switch {
+         Program program => null,
+         Module module => null,
+         Layer layer => null,
+         Section section => section,
+         CDL2Object cdl2Object => cdl2Object.Section,
+         _ => null,
+      };
+
       /// <summary>
       /// Parse the focus string and set the focus if it is valid.
       /// Currently supports format of the form: RW1 name1 RW2 name2 ... where RW is a reserved word (all capital letters)
@@ -428,6 +457,17 @@ namespace CDL2v1 {
             return true;
          } else {
             errorMessage = "Attempt to set focus to a non-focusable object";
+            return false;
+         }
+      }
+      public static bool SetFocus(NamedElement elem) => SetFocus(new SingleSelection(elem));
+      public static bool SetFocus(SingleSelection selection) {
+         if (selection.Object is null) return false;
+         if (selection.IsFocusable) {
+            Stack.Push(new Focus(selection));
+            return true;
+         } else {
+            Logger.Log($"Attempt to set focus to a non-focusable object: {selection.Object}");
             return false;
          }
       }

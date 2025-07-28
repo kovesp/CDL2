@@ -727,15 +727,42 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Parse the tokens stream. Add it to the parse tree in the context of the focus.
-      /// Set the focus to it.
+      /// Return the resulting element or null if there was an error. Also return the error messge if there was an error.
       /// </summary>
       /// <param name="context"></param>
-      internal void Parse(Focus context) {
+      /// <param name="element"></param>
+      /// <param name="error"></param>
+      /// <returns></returns>
+      internal bool Parse(Focus context,out NamedElement? element,out string error) {
          Debug.Assert(tokens.Peek().type == TokenType.RESWORD,"Expected a reserved word token at the start of the input.");
-         RW objectType = tokens.Peek().reservedWordValue ?? RW.NONE;
+         error = "";
+         element = null;
+
+         Token initialToken = tokens.Peek();
+         RW objectType = initialToken.reservedWordValue ?? RW.NONE;
+         string comments = initialToken.Comments ?? string.Empty;
          switch (objectType) {
             case RW.PROGRAM:
             case RW.MODULE:
+               tokens.Next(); // Consume the reserved word
+               if (tokens.CanConsume(out ID id) && tokens.CanConsumeEnd()) {
+                  List<Guid> list;
+                  int after;
+                  // We have a correct Module or Program declaration. These are valid irrespective of the context.
+                  if (objectType == RW.PROGRAM) {
+                     list = Database.Instance.Programs;
+                     after = context.Object is Program program ? list.IndexOf(program.GUID)+1 : list.Count + 1;
+                     element = new Program(id,comments);
+                  } else {
+                     list =Database.Instance.Modules;
+                     after = context.Object is Module module ? list.IndexOf(module.GUID) + 1 : list.Count + 1; 
+                     element= new Module(id,comments);
+                  }
+                  list.Insert(after,element.GUID);
+                  Focus.SetFocus(element);
+               } else {
+                  error = $"Expected ID and . after {objectType} reserved word.";
+               }
                break;
             case RW.LAYER:
                break;
@@ -770,7 +797,8 @@ namespace CDL2v1 {
             case RW.NONE:
                break;
          }
-
+         
+         return element != null;
       }
    }
 }

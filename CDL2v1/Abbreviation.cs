@@ -53,13 +53,13 @@ namespace CDL2v1 {
       /// Enumeration value that represents an invalid abbreviation. This is used when the input does not match any known abbreviation.
       /// Ensure that this value is defined in the enumeration type <typeparamref name="T"/> as "INVALID".
       /// </summary>
-      private static T Invalid => (T)Enum.Parse(typeof(T), "INVALID", ignoreCase: false);
+      private static T Invalid => (T)Enum.Parse(typeof(T),"INVALID",ignoreCase: false);
 
       private static readonly Dictionary<Type,string> ShortTypeNames = new() {
          { typeof(CommandType)   , "Cmd" },
          { typeof(SelectorType)     , "Focus" },
       };
-      private static string ShortTypeName => ShortTypeNames.TryGetValue(typeof(T), out string? type) ? type : typeof(T).Name;
+      private static string ShortTypeName => ShortTypeNames.TryGetValue(typeof(T),out string? type) ? type : typeof(T).Name;
 
       /// <summary>
       /// Compare on the Name of the abbreviation to support SortedSet.
@@ -76,8 +76,13 @@ namespace CDL2v1 {
       /// Must match with the names in the CommandType enum.
       /// </summary>
       public readonly static SortedSet<Abbreviation<CommandType>> Commands = [
-         new ("append"  , 1,"append   [SELECTOR] object:  append the object (which must be of the correct type) after the SELECTOR"),
+         new ("append"  , 1,"append   [SELECTOR] object:  append the object (which must be of the correct type) after the SELECTOR (same as add)"),
+         new ("add"     , 1,"add      [SELECTOR] object:  add the object (which must be of the correct type) after the SELECTOR (same as append)"),
+         new ("bye"     , 3,"bye:                         exit the lab after saving the database"),
+         new ("consult" , 1,"consult  file-name:          read the file which must contain one or more CDL2 modules and/or programs"),
+         new ("delete"  , 3,"delete   [SELECTOR]:         deletes (removes) the selected object (eventually this can be undone ... but not yet"),
          new ("edit"    , 1,"edit     [SELECTOR]:         edit the selected object"),
+         new ("delete"  , 3,"delete   [SELECTOR]:         delete the selected object"),
          new ("exit"    , 4,"exit:                        exit the lab after saving the database"),
          new ("focus"   , 1,"focus    [SELECTOR]:         set the focus to the object described by the selector and display it"),
          new ("generate", 1,"generate [SELECTOR]:         generate code for the selected object which must be a PROGRAM or a MODULE"),
@@ -85,14 +90,16 @@ namespace CDL2v1 {
          new ("insert"  , 1,"insert   [SELECTOR] object:  insert the object (which must be of the correct type) before the SELECTOR"),
          new ("list"    , 1,"list     [SELECTOR]:         list objects that the selector matches"),
          new ("next"    , 1,"next     [SELECTOR]:         move the focus to the next object of the given type"),
-         new ("previous", 3,"previous [SELECTOR]:         move the focus to the previous object of the given type"),
-         new ("print"   , 1,"print    [SELECTOR]:         pretty print the selected object"),
+         new ("previous", 1,"previous [SELECTOR]:         move the focus to the previous object of the given type"),
+         new ("print"   , 2,"print    [SELECTOR]:         pretty print the selected object"),
          new ("quit"    , 4,"quit:                        exit the lab after saving the database"),
-         new ("rename"  , 3,"rename   [SELECTOR] name:    rename tbe selected object; may be used just to add/remove spaces"),
-         new ("replace" , 1,"replace  [SELECTOR] object:  replaced the selection with the new object"),
+         new ("remove"  , 3,"remove   [SELECTOR]:         removes(deletes) the selected object (eventually this can be undone ... but not yet"),
+         new ("rename"  , 3,"rename   [SELECTOR] name:    rename the selected object; may be used just to add/remove spaces"),
+         new ("replace" , 1,"replace  [SELECTOR] object:  replace the selection with the new object"),
          new ("save"    , 1,"save:                        save the database to disk now"),
          new ("set"     , 3,"set      option:             set an option; +/-option for boolean, option=value otherwise"),
          new ("status"  , 4,"status:                      display information about the status of the database"),
+         new ("type"    , 1,"type    [SELECTOR]:          pretty print the selected object"),
          new ("undo"    , 1,"undo:                        undo the last modification; may be repeated (NOT IMPLEMENTED)"),
       ];
 
@@ -146,7 +153,7 @@ namespace CDL2v1 {
          new ("OBJECT"     ,6,SelectorType.SECTION),
       ];
 
-      private readonly static Dictionary<SelectorType,Abbreviation<SelectorType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type, abbrev => abbrev);
+      private readonly static Dictionary<SelectorType,Abbreviation<SelectorType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type,abbrev => abbrev);
       /// <summary>
       /// Return true if the first selection type is a valid ancestor of the second selection type.
       /// </summary>
@@ -158,26 +165,26 @@ namespace CDL2v1 {
       /// </example>
       public static bool AncestorFocusType(SelectorType ancestor,SelectorType child) {
          List<SelectorType>? containers = FocusTypeMap[child].Containers; // The direct containers of the child type
-         return containers is not null && (containers.Contains(ancestor) || containers.Any(container=>AncestorFocusType(ancestor,container)));
+         return containers is not null && (containers.Contains(ancestor) || containers.Any(container => AncestorFocusType(ancestor,container)));
       }
 
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {
-         nameof(CommandType)     => Commands.Cast<Abbreviation<T>>().ToSet(),
-         nameof(SelectorType)   => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
+         nameof(CommandType) => Commands.Cast<Abbreviation<T>>().ToSet(),
+         nameof(SelectorType) => FocusTypes.Cast<Abbreviation<T>>().ToSet(),
          _ => throw new ArgumentException($"Unknown abbreviation type: {typeof(T).Name}"),
       };
 
-      public Abbreviation(string name, int minLength,List<T>? nesting,string help = "",bool focusable=true) {
+      public Abbreviation(string name,int minLength,List<T>? nesting,string help = "",bool focusable = true) {
          Name = name;
          MinLength = minLength;
-         Type = Enum.Parse<T>(name, true);
+         Type = Enum.Parse<T>(name,true);
          Containers = nesting;
          HelpText = help;
          IsFocusable = focusable;
       }
 
-      public Abbreviation(string name, int minLength, T nesting,string help="",bool focusable=true) : this(name,minLength,[nesting],help) {}
-      public Abbreviation(string name, int minLength, string help = "") : this(name, minLength, [], help) { }
+      public Abbreviation(string name,int minLength,T nesting,string help = "",bool focusable = true) : this(name,minLength,[nesting],help) { }
+      public Abbreviation(string name,int minLength,string help = "") : this(name,minLength,[],help) { }
 
       /// <summary>
       /// Identifies the type associated with the specified word based on predefined abbreviations.
@@ -197,7 +204,7 @@ namespace CDL2v1 {
          )(name.Trim().ToFirstLetterCase());
 
       public override string ToString() => $"{ShortTypeName}[{NameWithAbbreviation}]";
-      public string NameWithAbbreviation => char.IsLower(Name[0]) 
+      public string NameWithAbbreviation => char.IsLower(Name[0])
          ? $"{Name[..MinLength].ToUpper()}{Name[MinLength..]}"
          : $"{Name[..MinLength]}{Name[MinLength..].ToLower()}";
    }

@@ -55,16 +55,15 @@ namespace CDL2v1 {
 
 
       internal void EnterCode(string input) {
-         commandWindow.WriteInfo($"Entering code: {input}");
          context ??= Focus.Current;
-         Logger.Log($"Context: {context}");
          parser.Tokenize(input);
          Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found to usuable tokens in input.");
-         Logger.Log($"Tokenized input: {parser.tokens.Count} tokens, first token is {parser.tokens.Peek()}");
 
-         parser.Parse(context);
-
-         Logger.Log($"Done");
+         if (parser.Parse(context,out NamedElement? element,out string error)) {
+            Focus.SetFocus(element!);
+         } else {
+            commandWindow.WriteError($"Failed to parse element: {error}");
+         }
       }
 
       Focus? context = null;
@@ -79,7 +78,7 @@ namespace CDL2v1 {
                commandWindow.WriteError($"Invalid command: {command}");
                return;
             case CommandType.focus:
-               if (Focus.SetFocus(args, out string errorMessage)) {
+               if (Focus.SetFocus(args,out string errorMessage)) {
                   commandWindow.WriteInfo(Focus.Current.ToString());
                } else {
                   commandWindow.WriteError(errorMessage);
@@ -89,7 +88,7 @@ namespace CDL2v1 {
                // Handle next command
                commandWindow.WriteLine("Next command executed");
                break;
-            case  CommandType.previous:
+            case CommandType.previous:
                // Handle previous command
                commandWindow.WriteLine("Previous command executed");
                break;
@@ -117,6 +116,7 @@ namespace CDL2v1 {
                }
                break;
             case CommandType.print:
+            case CommandType.type:
                if (args == "") {
                   if (Focus.Current.Object is not null) {
                      //TODO: Ignore Focus subobject for now
@@ -138,7 +138,7 @@ namespace CDL2v1 {
                break;
             case CommandType.set:
                // Handle set command
-               parts = command.Split(' ', 3);
+               parts = command.Split(' ',3);
                if (parts.Length < 3) {
                   commandWindow.WriteInfo("Usage: set <key> <value>");
                   return;
@@ -149,19 +149,68 @@ namespace CDL2v1 {
                commandWindow.WriteLine($"Set {key} to {value}");
                break;
             case CommandType.status:
-               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}", commandWindow.WriteInfo);
+               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",commandWindow.WriteInfo);
                break;
             case CommandType.rename:
                break;
-            case CommandType.replace:
+            case CommandType.add:
             case CommandType.append:
-            case CommandType.insert:
+               break;
+            case CommandType.delete:
+            case CommandType.remove:
+               // Remove the NamedElement from NamedElements
+               // If it is a program or a module, remove it from the appropriate database list
+               // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
+               // if it is a Section, then remove all declarations and remove the synthetic procs generated for ludes.
+               // In each case, update the ABSTR and EXT lists of the containig LAYER and the EXPORTS and IMPORTS of the containing module.
+               // Rerun Semantic analysis to update the database.
+               //
+               // For now only handle the case when a program is being deleted.
+               SingleSelection? context = GetContext(args,commandWindow);
+               if (context is null) return;
+               switch (context.Object) {
+                  case Program p:
+                     if (Database.Instance.Programs.Remove(p.GUID)) {
+                        Database.Instance.NamedElements.Remove(p.GUID);
+                        Database.Instance.ElementsWithNotes.Remove(p.GUID);
+                        // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
+
+                        Focus.SetFocus(SingleSelection.Empty); // Clear the focus after removing the program
+
+                        commandWindow.WriteInfo($"Program {p.FQDN()} removed");
+                     } else {
+                        commandWindow.WriteError($"Failed to remove program {p.FQDN()} from the database.");
+                     }
+                     break;
+                  case Module m:
+                     commandWindow.WriteInfo("Not implemented.");
+                     break;
+                  case Layer l:
+                     commandWindow.WriteInfo("Not implemented.");
+                     break;
+                  case Section s:
+                     commandWindow.WriteInfo("Not implemented.");
+                     break;
+                  case CDL2Object c:
+                     commandWindow.WriteInfo("Not implemented.");
+                     break;
+                  default:
+                     commandWindow.WriteError($"Cannot delete {Focus.Current.Object.FQDN()}. Use 'remove' to remove it from the database.");
+                     return;
+               }
+               break;
             case CommandType.edit:
+               break;
+            case CommandType.insert:
+               break;
+            case CommandType.replace:
+               break;
             case CommandType.undo:
                break;
             case CommandType.save:
-               commandWindow.WriteInfo($"Saved: {Database.Save()}");               
+               commandWindow.WriteInfo($"Saved: {Database.Save()}");
                break;
+            case CommandType.bye:
             case CommandType.quit:
             case CommandType.exit:
                commandWindow.Close();
@@ -170,7 +219,7 @@ namespace CDL2v1 {
                if (args == "") {
                   commandWindow.WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
                   foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
-                     commandWindow.WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   "+cmd.NameWithAbbreviation,RegexOptions.Compiled));
+                     commandWindow.WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
                   }
                   commandWindow.WriteInfo("\nType 'help selector' to list the valid selectors");
                } else if (args == "selector") {
@@ -189,9 +238,33 @@ namespace CDL2v1 {
                   commandWindow.WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
                }
                break;
-            default:
-                  // Handle other commands as needed
+            case CommandType.consult:
                break;
+            default:
+               // Handle other commands as needed
+               break;
+         }
+      }
+
+      /// <summary>
+      /// Return the context for the command. This either the selection specified in args, or the current focus.
+      /// Note that null is returned if the selector was invalid.
+      /// If there is no selector then the current focus is returned which may be SingleSeletor.Empty which is a valid case.
+      /// </summary>
+      /// <param name="args"></param>
+      /// <param name="commandWindow"></param>
+      /// <returns></returns>
+      private static SingleSelection? GetContext(string args,CommandPromptWindow commandWindow) {
+         if (args != "") {
+            Selection selection = new(args);
+            if (selection.IsInvalid) {
+               commandWindow.WriteError(selection.ErrorMessage);
+               return null;
+            } else {
+               return selection.FirstOrDefault()!;
+            }
+         } else {
+            return Focus.Current.Selection;
          }
       }
    }
