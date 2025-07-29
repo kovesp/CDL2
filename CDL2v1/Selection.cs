@@ -454,6 +454,7 @@ namespace CDL2v1 {
             return false;
          } else if (selection.IsFocusable) {
             Stack.Push(new Focus(selection));
+            CLI!.SetStatus(selection.First().Object);
             return true;
          } else {
             errorMessage = "Attempt to set focus to a non-focusable object";
@@ -465,6 +466,7 @@ namespace CDL2v1 {
          if (selection.Object is null) return false;
          if (selection.IsFocusable) {
             Stack.Push(new Focus(selection));
+            CLI!.SetStatus(selection.Object);
             return true;
          } else {
             Logger.Log($"Attempt to set focus to a non-focusable object: {selection.Object}");
@@ -486,6 +488,9 @@ namespace CDL2v1 {
          // TODO: Add more details based on SubObjectDepth and SubObjectOrdinal
          return focusString;
       }
+
+      private static CommandInterpreter? CLI;
+      internal static void SetCLI(CommandInterpreter clie) => CLI = clie;
    }
 }
 

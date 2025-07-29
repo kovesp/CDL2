@@ -46,13 +46,37 @@
         Background="DarkSlateGray">
     <Grid x:Name="MainGrid" Background="DarkSlateGray">
         <Grid.RowDefinitions>
+            <!-- Add a row for the status bar -->
+            <RowDefinition Height="Auto" />
+            <!-- Add a row for the rule/line -->
+            <RowDefinition Height="2" />
             <RowDefinition x:Name="OutputRow" Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Output Area - Using TextBlock for better performance -->
-        <ScrollViewer x:Name="OutputScrollViewer" Grid.Row="0" 
+        <!-- Status Bar -->
+        <TextBox x:Name="StatusBarTextBox"
+                 Grid.Row="0"
+                 IsReadOnly="True"
+                 Background="DarkSlateGray"
+                 BorderThickness="0"
+                 FontFamily="Cascadia Mono"
+                 FontSize="14"
+                 Padding="8,2,8,2"
+                 Height="28"
+                 VerticalContentAlignment="Center"
+                 Text="Nothing" />
+
+        <!-- Rule/Line under the status bar -->
+        <Border Grid.Row="1"
+                Height="2"
+                Background="#444"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Bottom" />
+
+        <!-- Output Area -->
+        <ScrollViewer x:Name="OutputScrollViewer" Grid.Row="2" 
                       Background="DarkSlateGray" 
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Auto">
@@ -68,19 +92,19 @@
         </ScrollViewer>
 
         <!-- Splitter with more visible toggle button -->
-        <GridSplitter Grid.Row="1"
-                    Height="10"
-                    Background="#444444"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Center"
-                    ResizeBehavior="PreviousAndNext"
-                    ResizeDirection="Rows"
-                    Cursor="SizeNS">
-            <GridSplitter.Template>
-                <ControlTemplate TargetType="{x:Type GridSplitter}">
-                    <Grid Background="{TemplateBinding Background}">
-                        <!-- More visible toggle button -->
-                        <Border Width="80" 
+        <GridSplitter Grid.Row="3"
+                      Height="10"
+                      Background="#444444"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      ResizeBehavior="PreviousAndNext"
+                      ResizeDirection="Rows"
+                      Cursor="SizeNS">
+         <GridSplitter.Template>
+            <ControlTemplate TargetType="{x:Type GridSplitter}">
+               <Grid Background="{TemplateBinding Background}">
+                  <!-- More visible toggle button -->
+                  <Border Width="80" 
                                 Height="16" 
                                 Background="#666666" 
                                 BorderBrush="#999999" 
@@ -88,7 +112,7 @@
                                 CornerRadius="5"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center">
-                            <Button Content="≡" 
+                     <Button Content="≡" 
                                     Background="Transparent" 
                                     BorderThickness="0"
                                     Foreground="White"
@@ -99,61 +123,61 @@
                                     Cursor="Hand"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border Background="{TemplateBinding Background}" 
+                        <Button.Style>
+                           <Style TargetType="Button">
+                              <Setter Property="Template">
+                                 <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                       <Border Background="{TemplateBinding Background}" 
                                                             BorderBrush="{TemplateBinding BorderBrush}" 
                                                             BorderThickness="{TemplateBinding BorderThickness}"
                                                             Width="80"
                                                             Height="16"
                                                             CornerRadius="5">
-                                                        <ContentPresenter HorizontalAlignment="Center" 
+                                          <ContentPresenter HorizontalAlignment="Center" 
                                                                         VerticalAlignment="Center" 
                                                                         Margin="0,-2,0,0" />
-                                                    </Border>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                        <Style.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="#888888"/>
-                                                <Setter Property="Cursor" Value="Hand"/>
-                                            </Trigger>
-                                            <Trigger Property="IsPressed" Value="True">
-                                                <Setter Property="Background" Value="#AAAAAA"/>
-                                            </Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </Border>
-                        
-                        <!-- Grip lines for better visibility -->
-                        <StackPanel Orientation="Horizontal" 
+                                       </Border>
+                                    </ControlTemplate>
+                                 </Setter.Value>
+                              </Setter>
+                              <Style.Triggers>
+                                 <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#888888"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                 </Trigger>
+                                 <Trigger Property="IsPressed" Value="True">
+                                    <Setter Property="Background" Value="#AAAAAA"/>
+                                 </Trigger>
+                              </Style.Triggers>
+                           </Style>
+                        </Button.Style>
+                     </Button>
+                  </Border>
+
+                  <!-- Grip lines for better visibility -->
+                  <StackPanel Orientation="Horizontal" 
                                   HorizontalAlignment="Center" 
                                   VerticalAlignment="Bottom"
                                   Margin="0,0,0,2"
                                   IsHitTestVisible="False">
-                            <Rectangle Height="1" Width="50" Fill="#777777"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" 
+                     <Rectangle Height="1" Width="50" Fill="#777777"/>
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" 
                                   HorizontalAlignment="Center" 
                                   VerticalAlignment="Bottom"
                                   Margin="0,0,0,4"
                                   IsHitTestVisible="False">
-                            <Rectangle Height="1" Width="50" Fill="#777777"/>
-                        </StackPanel>
-                    </Grid>
-                </ControlTemplate>
-            </GridSplitter.Template>
-        </GridSplitter>
+                     <Rectangle Height="1" Width="50" Fill="#777777"/>
+                  </StackPanel>
+               </Grid>
+            </ControlTemplate>
+         </GridSplitter.Template>
+      </GridSplitter>
 
-        <!-- Input Area with proper background -->
-        <DockPanel Grid.Row="2" LastChildFill="True" Background="DarkSlateGray" Margin="0,0,0,10">
-            <TextBlock x:Name="PromptTextBlock" 
+      <!-- Input Area with proper background -->
+      <DockPanel Grid.Row="3" LastChildFill="True" Background="DarkSlateGray" Margin="0,10,0,10">
+         <TextBlock x:Name="PromptTextBlock" 
                      DockPanel.Dock="Left"
                      Text="> " 
                      Foreground="LightGray" 
@@ -162,7 +186,7 @@
                      VerticalAlignment="Center"
                      Margin="10,0,0,0" />
 
-            <TextBox x:Name="InputTextBox"
+         <TextBox x:Name="InputTextBox"
                    Background="DarkSlateGray"
                    Foreground="White"
                    BorderThickness="0"
@@ -170,13 +194,13 @@
                    CaretBrush="White"
                    Margin="0,5,10,5"
                    PreviewKeyDown="InputTextBox_PreviewKeyDown" />
-        </DockPanel>
+      </DockPanel>
       <!-- Zoom buttons and Clear button -->
-      <StackPanel Grid.Row="0" 
+      <StackPanel Grid.Row="2" 
           HorizontalAlignment="Right"
           VerticalAlignment="Top"
           Orientation="Horizontal"
-          Margin="0,10,10,0">
+          Margin="0,10,10,0" Height="25" Width="95">
          <Button Content="Õ"
            FontFamily="Wingdings"
            Width="25" 
@@ -208,6 +232,18 @@
       </StackPanel>
    </Grid>
 </Window>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

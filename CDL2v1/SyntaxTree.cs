@@ -842,13 +842,14 @@ namespace CDL2v1 {
       public bool TryGetLocal(ID id,out Local local) => (local = Locals.FirstOrDefault(local => local.Id == id,Local.Default)) != Local.Default;
 
       public override string ToString() {
-         StringBuilder buffer = new();
-         buffer.Append($"{TypeShortName} {Id.Name}");
+         StringBuilder buffer = new($"{TypeShortName} {Id.Name}");
+#if FULL_ALG_DESCIPTOR
          foreach (Affix affix in Affixes) {
             buffer.Append(Token.TokenType2Glyph[affix.IsString ? TT.STRINGAFFIXSEP : TT.AFFIXSEP]);
             buffer.Append(affix);
          }
          foreach (Local local in Locals) buffer.Append(local);
+#endif
          return buffer.ToString();
       }
 

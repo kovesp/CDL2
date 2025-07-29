@@ -176,6 +176,7 @@ namespace CDL2v1 {
                // Create and show the window
                CommandPromptWindow commandWindow = new();
                CommandInterpreter CLI = new(commandWindow);
+               Focus.SetCLI(CLI);
 
 
                // Handle commands

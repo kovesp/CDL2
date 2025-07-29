@@ -53,6 +53,20 @@ namespace CDL2v1 {
          parser = new Parser(CDL2.Compiler);
       }
 
+      public void SetStatus(string? status = null) {
+         if (status is null) {
+            commandWindow!.SetStatus("Nothing");
+         } else {
+            commandWindow.SetStatus(status);
+         }
+      }
+      public void SetStatus(NamedElement? element=null) {
+         if (element is null) {
+            commandWindow.SetStatus("Nothing");
+         } else {
+            commandWindow.SetStatus(element.FQDN());
+         }
+      }
 
       internal void EnterCode(string input) {
          context ??= Focus.Current;
@@ -78,9 +92,7 @@ namespace CDL2v1 {
                commandWindow.WriteError($"Invalid command: {command}");
                return;
             case CommandType.focus:
-               if (Focus.SetFocus(args,out string errorMessage)) {
-                  commandWindow.WriteInfo(Focus.Current.ToString());
-               } else {
+               if (!Focus.SetFocus(args,out string errorMessage)) {
                   commandWindow.WriteError(errorMessage);
                }
                break;
@@ -158,14 +170,14 @@ namespace CDL2v1 {
                break;
             case CommandType.delete:
             case CommandType.remove:
-               // Remove the NamedElement from NamedElements
+               // Remove the NamedElement from NamedElements.
                // If it is a program or a module, remove it from the appropriate database list
                // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
-               // if it is a Section, then remove all declarations and remove the synthetic procs generated for ludes.
+               // If it is a Section, then remove all declarations and remove the synthetic procs generated for ludes.
                // In each case, update the ABSTR and EXT lists of the containig LAYER and the EXPORTS and IMPORTS of the containing module.
                // Rerun Semantic analysis to update the database.
                //
-               // For now only handle the case when a program is being deleted.
+               // For now only handle the case when a program is being deleted: It has no children and is not contained in anything.
                SingleSelection? context = GetContext(args,commandWindow);
                if (context is null) return;
                switch (context.Object) {

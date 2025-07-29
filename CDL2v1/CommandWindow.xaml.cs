@@ -100,6 +100,10 @@ namespace CDL2v1 {
          _standardInputBackground = InputTextBox.Background;
          _standardInputForeground = InputTextBox.Foreground;
          InputTextBox.ToolTip = _singleLineTooltip;
+
+         // Get the Info color from PrettyPrinter.Decorators
+         var infoColorHex = PrettyPrinter.Decorators[SE.NoteInfo].FG;
+         StatusBarTextBox.Foreground = (Brush)new BrushConverter().ConvertFromString(infoColorHex);
       }
 
       #region Window Settings
@@ -326,7 +330,7 @@ namespace CDL2v1 {
             string input = InputTextBox.Text;
 
             if (_multilineMode) {
-               var lines = input.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+               var lines = input.Split(new[] { "\r\n","\n" },StringSplitOptions.None);
                string lastLine = lines.Length > 0 ? lines[^1].TrimEnd() : "";
                if (lastLine.EndsWith('.')) {
                   _multilineMode = false;
@@ -512,5 +516,7 @@ namespace CDL2v1 {
          }
       }
       #endregion
+
+      public void SetStatus(string message) => StatusBarTextBox.Text = message;
    }
 }
