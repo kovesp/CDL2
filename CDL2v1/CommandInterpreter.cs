@@ -88,6 +88,11 @@ namespace CDL2v1 {
          string[] parts;
 
          switch (commandType) {
+#if DEBUG
+            case CommandType.vsdebug:
+               Debugger.Break();
+               break;
+#endif
             case CommandType.INVALID:
                commandWindow.WriteError($"Invalid command: {command}");
                return;
@@ -182,17 +187,14 @@ namespace CDL2v1 {
                if (context is null) return;
                switch (context.Object) {
                   case Program p:
-                     if (Database.Instance.Programs.Remove(p.GUID)) {
-                        Database.Instance.NamedElements.Remove(p.GUID);
-                        Database.Instance.ElementsWithNotes.Remove(p.GUID);
-                        // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
-
-                        Focus.SetFocus(SingleSelection.Empty); // Clear the focus after removing the program
-
-                        commandWindow.WriteInfo($"Program {p.FQDN()} removed");
-                     } else {
-                        commandWindow.WriteError($"Failed to remove program {p.FQDN()} from the database.");
-                     }
+                     Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
+                     Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
+                     Database.Instance.NamedElements.Remove(p.GUID);
+                     Database.Instance.ElementsWithNotes.Remove(p.GUID);
+                     // The above is what needs to be done for a single element. It then needs to be repeated for all children.
+                     // ... Program doesn't have any, since Parts are not exactly children.
+                     // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
+                     commandWindow.WriteInfo($"{p.FQDN()} removed");
                      break;
                   case Module m:
                      commandWindow.WriteInfo("Not implemented.");
@@ -207,7 +209,7 @@ namespace CDL2v1 {
                      commandWindow.WriteInfo("Not implemented.");
                      break;
                   default:
-                     commandWindow.WriteError($"Cannot delete {Focus.Current.Object.FQDN()}. Use 'remove' to remove it from the database.");
+                     commandWindow.WriteError($"Cannot delete {Focus.Current.Object.FQDN()}");
                      return;
                }
                break;

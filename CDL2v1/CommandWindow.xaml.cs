@@ -103,7 +103,7 @@ namespace CDL2v1 {
 
          // Get the Info color from PrettyPrinter.Decorators
          var infoColorHex = PrettyPrinter.Decorators[SE.NoteInfo].FG;
-         StatusBarTextBox.Foreground = (Brush)new BrushConverter().ConvertFromString(infoColorHex);
+         StatusBarTextBox.Foreground = (Brush)new BrushConverter().ConvertFromString(infoColorHex)!;
       }
 
       #region Window Settings

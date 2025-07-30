@@ -60,21 +60,21 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="parser"></param>
       public class CompilationObject(Parser parser) {
-         private enum OT {ABSTR, EXT, INV, IMPORT, EXPORT, VAR, CONSTANT, LIST, FUNCTION, ACTION, TEST, PREDICATE, PRELUDE, ROOT, POSTLUDE, MODULE, LAYER, SECTION, PROGRAM }
-         private static readonly OT[] AlgTypes = [OT.FUNCTION, OT.ACTION, OT.TEST, OT.PREDICATE];
-         
-         public string Program => (parser?.currentProgram?.ToString()+" ") ?? "";
-         public string Module  => (parser?.currentModule?.ToString() + " ") ?? "";
-         public string Layer   => (parser?.currentLayer?.ToString() + " ") ?? "";
+         private enum OT { ABSTR, EXT, INV, IMPORT, EXPORT, VAR, CONSTANT, LIST, FUNCTION, ACTION, TEST, PREDICATE, PRELUDE, ROOT, POSTLUDE, MODULE, LAYER, SECTION, PROGRAM }
+         private static readonly OT[] AlgTypes = [OT.FUNCTION,OT.ACTION,OT.TEST,OT.PREDICATE];
+
+         public string Program => (parser?.currentProgram?.ToString() + " ") ?? "";
+         public string Module => (parser?.currentModule?.ToString() + " ") ?? "";
+         public string Layer => (parser?.currentLayer?.ToString() + " ") ?? "";
          public string Section => (parser?.currentSection?.ToString() + " ") ?? "";
-         public string Obj     => $"{(AlgTypes.Contains(type) ? $"{type} {name}" : "")}";
+         public string Obj => $"{(AlgTypes.Contains(type) ? $"{type} {name}" : "")}";
 
          private readonly Parser parser = parser;
          private OT type;
          private ID name = ID.ErrorID;
          public bool IsValid { get; set; } = true;
 
-         public (RW,ID) Object {
+         public (RW, ID) Object {
             set {
                type = (OT)Enum.Parse(typeof(OT),value.Item1.ToString());
                name = value.Item2;
@@ -83,7 +83,7 @@ namespace CDL2v1 {
                      (parser.currentModule, parser.currentLayer, parser.currentSection) = (null, null, null);
                      break;
                   case OT.MODULE:
-                     (parser.currentProgram,parser.currentLayer, parser.currentSection) = (null, null,null);
+                     (parser.currentProgram, parser.currentLayer, parser.currentSection) = (null, null, null);
                      break;
                   case OT.LAYER:
                      parser.currentSection = null;
@@ -97,31 +97,45 @@ namespace CDL2v1 {
 
       public TokenList tokens = new();
 
-      public  Program?          currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
-      private Module?           currentModule;     // The current module being parsed. Should be the same as currentObject.Module.
-      private Layer?            currentLayer;      // The current layer being parsed. Should be the same as currentObject.Layer.
-      private Section?          currentSection;    // The current container being parsed. Should be the same as currentObject.SectionById.
-      public  CompilationObject currentObject;     // The object being compiled. Used mainly for error reporting.
+      public Program? currentProgram;    // The current program being parsed. Should be the same as currentObject.Program.
+      private Module? currentModule;     // The current module being parsed. Should be the same as currentObject.Module.
+      private Layer? currentLayer;      // The current layer being parsed. Should be the same as currentObject.Layer.
+      private Section? currentSection;    // The current container being parsed. Should be the same as currentObject.SectionById.
+      public CompilationObject currentObject;     // The object being compiled. Used mainly for error reporting.
 
       private LexicalAnalyzer? Lexer = null;       // The lexical analyzer used to parse the input file.
 
+      public static readonly Dictionary<RW,Type> RW2Type = new() {
+         [RW.PROGRAM]   = typeof(Program),
+         [RW.MODULE]    = typeof(Module),
+         [RW.LAYER]     = typeof(Layer),
+         [RW.SECTION]   = typeof(Section),
+         [RW.CONST]     = typeof(Const),
+         [RW.LIST]      = typeof(LIST),
+         [RW.VAR]       = typeof(Var),
+         [RW.TEST]      = typeof(Algorithm),
+         [RW.PREDICATE] = typeof(Algorithm),
+         [RW.FUNCTION]  = typeof(Algorithm),
+         [RW.ACTION]    = typeof(Algorithm),
+      };
+
       public Parser(CDL2 compiler) : base(compiler) => currentObject = new CompilationObject(this);
 
-      private void ReportInvalidToken(TokenType[] expected, Token actual, RW[] rw) {
+      private void ReportInvalidToken(TokenType[] expected,Token actual,RW[] rw) {
          Container subject = currentSection != null ? currentSection : currentLayer != null ? currentLayer : currentModule != null ? currentModule : currentProgram!;
          string expectedtypes;
          if (expected.Length == 1 && expected[0] == TT.RESWORD) {
-            expectedtypes = rw.Length == 1 ? rw[0].ToString() : $"one of {string.Join(",", rw)}";
+            expectedtypes = rw.Length == 1 ? rw[0].ToString() : $"one of {string.Join(",",rw)}";
          } else {
-            expectedtypes = expected.Length == 1 ? expected[0].ToString() : $"one of {string.Join(",", expected)}";
+            expectedtypes = expected.Length == 1 ? expected[0].ToString() : $"one of {string.Join(",",expected)}";
          }
          string actualType = actual.type == TT.RESWORD ? actual.reservedWordValue?.ToString()! : actual.type.ToString();
-         AddNote(subject, Note.UnexpectedToken, expectedtypes, actualType);
+         AddNote(subject,Note.UnexpectedToken,expectedtypes,actualType);
       }
 
-      public override void ReportNoteCounts(Reachable? reachable, string? message = null) {
-         Lexer!.ReportNoteCounts(reachable, message);
-         base.ReportNoteCounts(reachable, message);
+      public override void ReportNoteCounts(Reachable? reachable,string? message = null) {
+         Lexer!.ReportNoteCounts(reachable,message);
+         base.ReportNoteCounts(reachable,message);
       }
 
 
@@ -174,7 +188,7 @@ namespace CDL2v1 {
       /// <param PhaseName="programId"></param>
       private void ParseProgram(ID programId,string? comments,Notes notes) {
          if (Database.Instance.IsNamedElement<Program>(programId)) {
-            AddNote(Note.DuplicateContainer, programId.Name);
+            AddNote(Note.DuplicateContainer,programId.Name);
             return;
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
@@ -218,14 +232,14 @@ namespace CDL2v1 {
       /// <param Id="moduleId">The ID (Id) of the module.</param>
       private void ParseModule(ID moduleId,string? comments,Notes notes) {
          if (Database.Instance.IsNamedElement<Module>(moduleId)) {
-            AddNote(Note.DuplicateContainer, moduleId.Name);
+            AddNote(Note.DuplicateContainer,moduleId.Name);
             return;
          } else {
             currentObject.Object = (RW.MODULE, moduleId);
             currentModule = new Module(moduleId,comments,notes);
             Log(1,$"Parsing {currentObject}");
          }
-         
+
          // Now should see layers
          ID layerId = ID.ErrorID;
          Notes internalNotes = ParseNotes();
@@ -241,7 +255,7 @@ namespace CDL2v1 {
       private void ParseLayer(ID layerId,string? comments,Notes notes) {
          Debug.Assert(currentModule != null);
          currentObject.Object = (RW.LAYER, layerId);
-         currentLayer= new Layer(layerId,currentModule,currentLayer,comments,notes);
+         currentLayer = new Layer(layerId,currentModule,currentLayer,comments,notes);
          Log(1,$"Parsing {currentObject}");
 
          // Now should see sections
@@ -297,37 +311,40 @@ namespace CDL2v1 {
             Logger.Log(4,$"Parsing {algType} {id}");
             RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
             currentObject.Object = (algTypeRW, id);
-            if (DuplicateDeclaration(id, algTypeRW)) return;
+            if (DuplicateDeclaration(id,algTypeRW))
+               return;
             List<Affix>? affixes = ParseAffixes();
-            if (affixes == null) return;
+            if (affixes == null)
+               return;
             Algorithm? algorithm = null;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the imports list.
                algorithm = new ImportedAlgorithm(id,affixes,algType,currentSection);
-               algorithm.AddNotes(PhaseName, notes);
+               algorithm.AddNotes(PhaseName,notes);
                if (!currentSection.import.Contains(id)) {
                   AddNote(currentSection,Note.ObjectNotImported,algorithm);
                   return;
                }
             } else {
                Set<Local>? locals = ParseLocals();
-               if (locals == null) return;
-               if (tokens.CanConsume(bodyTypes,out Token bodyType)) {                  
+               if (locals == null)
+                  return;
+               if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
                   if (bodyType.type == TT.PROCBODY || bodyType.type == TT.INLINEPROCBODY) {
                      // Parse the code body
                      algorithm = new Procedure(id,affixes,locals,algType,bodyType.type,currentSection);
-                     algorithm.AddNotes(PhaseName, notes);
+                     algorithm.AddNotes(PhaseName,notes);
                      ParseProcedureBody((Procedure)algorithm);
                   } else {
                      // Parse the macro body
                      algorithm = new Macro(id,affixes,locals,algType,bodyType.type,currentSection);
-                     algorithm.AddNotes(PhaseName, notes);
+                     algorithm.AddNotes(PhaseName,notes);
                      ParseMacroBody((Macro)algorithm);
                   }
                }
                Debug.Assert(algorithm != null);
                if (currentSection.import.Contains(id)) {
-                  AddNote(currentSection,Note.ObjectImportedButHasBody, algorithm);
+                  AddNote(currentSection,Note.ObjectImportedButHasBody,algorithm);
                   return;
                }
             }
@@ -338,70 +355,73 @@ namespace CDL2v1 {
       }
 
       private bool DuplicateDeclaration(ID id,RW type) {
-         if (currentSection!.Declarations.TryGetValue(id, out CDL2Object? value)) {
-            AddNote(currentSection, Note.DuplicateDeclaration, $"{type} {id}", value!);
+         if (currentSection!.Declarations.TryGetValue(id,out CDL2Object? value)) {
+            AddNote(currentSection,Note.DuplicateDeclaration,$"{type} {id}",value!);
             return true;
          }
          return false;
       }
 
       private void ParseMacroBody(Macro macro) {
-         ParseElementList(macro, macro.elements, "ID, Affix, Local, STRING, INT, or FLOAT");
-         if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
+         ParseElementList(macro,macro.elements,"ID, Affix, Local, STRING, INT, or FLOAT");
+         if (!tokens.CanConsume(TT.END))
+            ReportError("Expected .");
       }
 
       private void ParseProcedureBody(Procedure proc) {
-         proc.group.Alternatives = ParseAlternatives(proc,group:proc.group);
-         if (!tokens.CanConsume(TT.END)) ReportError("Expected .");
+         proc.group.Alternatives = ParseAlternatives(proc,group: proc.group);
+         if (!tokens.CanConsume(TT.END))
+            ReportError("Expected .");
       }
       private List<Alternative> ParseAlternatives(Procedure proc,Group group) {
          List<Alternative> alternatives = [];
          do {
             Notes notes = ParseNotes();
             alternatives.Add(ParseAlternative(proc,group,notes));
-         } while (tokens.Optional(TT.ALTSEP)) ;
+         } while (tokens.Optional(TT.ALTSEP));
          return alternatives;
       }
 
       private Alternative ParseAlternative(Procedure proc,Group group,Notes notes) {
-         Alternative alternative = new(notes, group);
+         Alternative alternative = new(notes,group);
          do {
             if (alternative.lastCall.type != LCT.None) {
                // If we have a last call, then we should NOT have see a separator
                ReportError("Unexpected ,");
             } else if (tokens.Optional(RW.BUILTIN) && tokens.Optional(out ID id)) {
-               alternative.calls.Add(ParseCall(id, proc, alternative, builtin: true));
+               alternative.calls.Add(ParseCall(id,proc,alternative,builtin: true));
             } else if (tokens.Optional(out id)) {
-               alternative.calls.Add(ParseCall(id, proc, alternative));
+               alternative.calls.Add(ParseCall(id,proc,alternative));
             } else if (tokens.Optional(TT.SUCCEED)) {
-               alternative.lastCall = new LastCall(LCT.Succeed, alternative);
+               alternative.lastCall = new LastCall(LCT.Succeed,alternative);
             } else if (tokens.Optional(TT.FAIL)) {
-               alternative.lastCall = new LastCall(LCT.Fail, alternative);
+               alternative.lastCall = new LastCall(LCT.Fail,alternative);
                if (!proc.CanFail) {
-                  AddNote(proc, Note.IllegalFailOperator, proc.AlgorithmType);
-                  ReportError($"{proc} contains fail operator", supressErrorAction: true);
+                  AddNote(proc,Note.IllegalFailOperator,proc.AlgorithmType);
+                  ReportError($"{proc} contains fail operator",supressErrorAction: true);
                }
 
             } else if (tokens.Optional(TT.ABORT)) {
-               alternative.lastCall = new LastCall(LCT.Abort, alternative);
+               alternative.lastCall = new LastCall(LCT.Abort,alternative);
             } else if (tokens.Optional(TT.REPEAT)) {
                if (tokens.Optional(out ID label)) {
                   if (group.HasLabeledAncestorGroup(label)) {
-                     AddNote(proc, Note.LabelNotFound, label.Name);
+                     AddNote(proc,Note.LabelNotFound,label.Name);
 
                   }
 
 
-                  alternative.lastCall = new LastCall(label, alternative);
-                  if (id == proc.Id) proc.repeatsProcedure = true;
+                  alternative.lastCall = new LastCall(label,alternative);
+                  if (id == proc.Id)
+                     proc.repeatsProcedure = true;
                } else {
-                  alternative.lastCall = new LastCall(LCT.Repeat, alternative);
+                  alternative.lastCall = new LastCall(LCT.Repeat,alternative);
                }
             } else if (tokens.Optional(TT.GRPOPEN)) {
-               alternative.lastCall = ParseGroup(proc, containingGroup: group, containingAlternative: alternative);
+               alternative.lastCall = ParseGroup(proc,containingGroup: group,containingAlternative: alternative);
             } else if (tokens.IsNext(TT.END) || tokens.IsNext(TT.ALTSEP)) {
                // The last item in an alternative can be empty which is equivalent to a succeed and is represented as such.
-               alternative.lastCall = new LastCall(LCT.Succeed, alternative);
+               alternative.lastCall = new LastCall(LCT.Succeed,alternative);
             } else {
                ReportError("Expected ID, +, -, ?, or *");
             }
@@ -410,21 +430,22 @@ namespace CDL2v1 {
          return alternative;
       }
 
-      private Call ParseCall(ID id, Procedure proc, Alternative containingAlternative, bool builtin = false) => ParseCall(this, id, proc,containingAlternative, builtin);
-      private static Call ParseCall(Parser parser, ID id, Procedure containingProc, Alternative containingAlternative, bool builtin = false) {
+      private Call ParseCall(ID id,Procedure proc,Alternative containingAlternative,bool builtin = false) => ParseCall(this,id,proc,containingAlternative,builtin);
+      private static Call ParseCall(Parser parser,ID id,Procedure containingProc,Alternative containingAlternative,bool builtin = false) {
          Debug.Assert(parser.currentSection != null);
          Call call = new(id,containingProc,containingAlternative,builtin);
-         ParseActualArgs(parser, call, containingProc);
+         ParseActualArgs(parser,call,containingProc);
          return call;
       }
 
       private LastCall ParseGroup(Procedure proc,Group containingGroup,Alternative containingAlternative) {
          LastCall? lastCall;
          ID? label = ParseOptionalLabel(containingGroup,proc);
-         Group group = new(label,[],containingAlternative.GUID,synthetic:label is null);
+         Group group = new(label,[],containingAlternative.GUID,synthetic: label is null);
          group.Alternatives = ParseAlternatives(proc,group);
-         if (!tokens.CanConsume(TT.GRPCLOSE)) ReportError("Expected )");
-         lastCall = new LastCall(group, containingAlternative);
+         if (!tokens.CanConsume(TT.GRPCLOSE))
+            ReportError("Expected )");
+         lastCall = new LastCall(group,containingAlternative);
          return lastCall;
       }
 
@@ -435,7 +456,7 @@ namespace CDL2v1 {
             tokens.Next();
             // Go up the group hierarchy to see if the label is already defined.
             if (group.HasLabeledAncestorGroup(label)) {
-               AddNote(proc, Note.DuplicateLabel, label.Name);
+               AddNote(proc,Note.DuplicateLabel,label.Name);
                return ID.AnonID; // Return a dummy ID to indicate the error
             } else {
                return label;
@@ -449,12 +470,12 @@ namespace CDL2v1 {
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
       /// <param Id="call"></param>
-      private static void ParseActualArgs(Parser parser, Call call, Procedure proc) {
-         Debug.Assert(parser.currentSection != null);         
+      private static void ParseActualArgs(Parser parser,Call call,Procedure proc) {
+         Debug.Assert(parser.currentSection != null);
          while (parser.tokens.Optional(TT.AFFIXSEP)) {
             if (parser.tokens.Optional(out ID id)) {
-                call.argRefs.Add(id);
-            } else if (parser.tokens.CanConsume(TT.STRING, out Token str)) {
+               call.argRefs.Add(id);
+            } else if (parser.tokens.CanConsume(TT.STRING,out Token str)) {
                call.argRefs.Add(new STRING(str));
             } else {
                parser.ReportError("Expected ID or STRING");
@@ -482,8 +503,10 @@ namespace CDL2v1 {
                bool isOut = tokens.Optional(TT.AFFIXDIR);
                AffixDir affixDir = isIn ? (isOut ? AffixDir.transput : AffixDir.input) : (isOut ? AffixDir.output : AffixDir.NONE);
                AffixType affixType = affixTypeInd.type == TT.AFFIXSEP ? AffixType.std : AffixType.str;
-               if (affixType == AffixType.str && affixDir != AffixDir.NONE) ReportError("String arguments cannot have a direction");
-               if (affixType == AffixType.std && affixDir == AffixDir.NONE) ReportError("Standard arguments must be input, output, or transput");
+               if (affixType == AffixType.str && affixDir != AffixDir.NONE)
+                  ReportError("String arguments cannot have a direction");
+               if (affixType == AffixType.std && affixDir == AffixDir.NONE)
+                  ReportError("Standard arguments must be input, output, or transput");
                Affix affix = new(id,affixDir,affixType);
                if (args.Contains(affix)) {
                   ReportError($"Duplicate formal parameter {id}");
@@ -509,16 +532,17 @@ namespace CDL2v1 {
       /// <exception cref="Exception"></exception>
       private LIST? ParseListBody(ID id) {
          Debug.Assert(currentSection != null);
-         if (DuplicateDeclaration(id, RW.LIST)) return null;
+         if (DuplicateDeclaration(id,RW.LIST))
+            return null;
          LIST? list = null;
-         if (  tokens.Optional(TT.LISTBOUNDSTART) &&
+         if (tokens.Optional(TT.LISTBOUNDSTART) &&
                tokens.CanConsume(TT.ID,out Token lwbToken) &&
                tokens.CanConsume(TT.LISTBOUNDSEP) &&
                tokens.CanConsume(TT.ID,out Token upbToken) &&
                tokens.CanConsume(TT.LISTBOUNDEND)) {
             list = new(id,currentSection,ID.From(lwbToken),ID.From(upbToken));
          } else {
-            AddNote(currentSection, Note.InvalidListBounds, id);
+            AddNote(currentSection,Note.InvalidListBounds,id);
          }
          return list;
       }
@@ -528,9 +552,12 @@ namespace CDL2v1 {
       /// </summary>
       private void ParseVar(Notes notes) {
          Debug.Assert(currentSection != null);
-         if (tokens.CanConsume(RW.VAR, out string? comments)) {
-            ParseIDDeclarationList(currentSection.Declarations, comments!, id => { 
-               if (DuplicateDeclaration(id, RW.VAR)) return null; else return new Var(id, currentSection); 
+         if (tokens.CanConsume(RW.VAR,out string? comments)) {
+            ParseIDDeclarationList(currentSection.Declarations,comments!,id => {
+               if (DuplicateDeclaration(id,RW.VAR))
+                  return null;
+               else
+                  return new Var(id,currentSection);
             },notes);
          }
       }
@@ -554,14 +581,15 @@ namespace CDL2v1 {
       /// <param Id="token">The token of the constant.</param>
       private Const? ParseConstBody(ID id) {
          Debug.Assert(currentSection != null);
-         if (DuplicateDeclaration(id, RW.CONST)) return null;
+         if (DuplicateDeclaration(id,RW.CONST))
+            return null;
          if (tokens.Optional(TT.EQUALS)) {
             if (currentSection.import.Contains(id)) {
                LogError($"CONST {id} with definition is imported in container {currentSection.Id}");
                return null;
             } else {
                Const c = new(id,currentSection);
-               ParseElementList(c, c.elements, "ID, STRING, INT, or FLOAT",secondaryTerminator:TT.SEP);
+               ParseElementList(c,c.elements,"ID, STRING, INT, or FLOAT",secondaryTerminator: TT.SEP);
                return c;
             }
          } else if (!currentSection.import.Contains(id)) {
@@ -577,21 +605,21 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="c"></param>
       /// <exception cref="Exception"></exception>
-      private void ParseElementList(NamedElement parent, List<IElement> elements, string expected, TT secondaryTerminator = TokenType.END) {
+      private void ParseElementList(NamedElement parent,List<IElement> elements,string expected,TT secondaryTerminator = TokenType.END) {
          Debug.Assert(currentSection != null);
          while (!tokens.IsNext(TT.END) && !tokens.IsNext(secondaryTerminator)) {
             if (tokens.Optional(TT.ELEMSEP,out Token _)) {
                continue;
-            } else if (tokens.Optional(TT.ID, out Token elemId)) {
+            } else if (tokens.Optional(TT.ID,out Token elemId)) {
                elements.Add(ID.From(elemId));
-            } else if (tokens.Optional(TT.STRING, out Token str)) {
+            } else if (tokens.Optional(TT.STRING,out Token str)) {
                elements.Add(new STRING(str));
-            } else if (tokens.Optional(TT.INT, out Token i)) {
+            } else if (tokens.Optional(TT.INT,out Token i)) {
                elements.Add(new INT(i));
-            } else if (tokens.Optional(TT.FLOAT, out Token f)) {
+            } else if (tokens.Optional(TT.FLOAT,out Token f)) {
                elements.Add(new FLOAT(f));
             } else {
-               AddNote(parent, Note.UnexpectedToken, expected, tokens.Peek().ToString());
+               AddNote(parent,Note.UnexpectedToken,expected,tokens.Peek().ToString());
             }
          }
       }
@@ -602,14 +630,14 @@ namespace CDL2v1 {
       private void ParseInterfaces() {
          Debug.Assert(currentSection != null && currentLayer != null && currentModule != null);
          // The interface can be in any order.
-         while (tokens.IsNext([RW.ABSTR, RW.EXT, RW.INV, RW.IMPORT, RW.EXPORT])) {
+         while (tokens.IsNext([RW.ABSTR,RW.EXT,RW.INV,RW.IMPORT,RW.EXPORT])) {
             // Provided interfaces
-            ParseInterfaceList(RW.ABSTR, currentSection.abstr);
-            ParseInterfaceList(RW.EXT, currentSection.ext);
-            ParseInterfaceList(RW.EXPORT, currentSection.export);
+            ParseInterfaceList(RW.ABSTR,currentSection.abstr);
+            ParseInterfaceList(RW.EXT,currentSection.ext);
+            ParseInterfaceList(RW.EXPORT,currentSection.export);
             // Required interfaces
-            ParseInterfaceList(RW.INV, currentSection.inv);
-            ParseInterfaceList(RW.IMPORT, currentSection.import);
+            ParseInterfaceList(RW.INV,currentSection.inv);
+            ParseInterfaceList(RW.IMPORT,currentSection.import);
          }
       }
 
@@ -634,9 +662,10 @@ namespace CDL2v1 {
 
       internal static void ParseLudeOfIDs(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
-            while (parser.tokens.Optional(TT.ID,out Token  id)) {
+            while (parser.tokens.Optional(TT.ID,out Token id)) {
                container.Ludes[type].Add(ID.From(id));
-               if (!parser.tokens.CanConsumeSep()) break;
+               if (!parser.tokens.CanConsumeSep())
+                  break;
             }
             parser.tokens.CanConsumeEnd();
          }
@@ -655,26 +684,27 @@ namespace CDL2v1 {
             Section section = (Section)container;
             Procedure lude = new(ludeType,section);
 
-            Alternative alternative = new(parser.ParseNotes(), lude.group);
+            Alternative alternative = new(parser.ParseNotes(),lude.group);
 
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               alternative.calls.Add(ParseCall(parser, ID.From(id), lude, alternative));
-               if (!parser.tokens.CanConsumeSep()) break;
+               alternative.calls.Add(ParseCall(parser,ID.From(id),lude,alternative));
+               if (!parser.tokens.CanConsumeSep())
+                  break;
             }
             parser.tokens.CanConsumeEnd();
             if (alternative.calls.Count >= 1) {
                alternative.NormalizeCalls();
             } else {
-               parser.AddNote(container, Note.EmptyLude, ludeType);
+               parser.AddNote(container,Note.EmptyLude,ludeType);
             }
 
-               lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
+            lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
             lude.group.Alternatives.Add(alternative);
             section.Ludes[ludeType].Add(lude.Id);
             section.Declarations[lude.Id] = lude.GUID;
          }
       }
-           
+
 
       /// <summary>
       /// Parse a list of IDs. The list is terminated by a period. The lists are normally sets.
@@ -687,17 +717,18 @@ namespace CDL2v1 {
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            CDL2Object? CDL2Object = getObject(id);            
-            if (CDL2Object != null && declarations.TryAdd(id, CDL2Object)) {
+            CDL2Object? CDL2Object = getObject(id);
+            if (CDL2Object != null && declarations.TryAdd(id,CDL2Object)) {
                firstObject ??= (NamedElement)CDL2Object;
             }
 
-            if (!tokens.CanConsumeSep()) break;
+            if (!tokens.CanConsumeSep())
+               break;
          }
          tokens.CanConsumeEnd();
          if (firstObject != null) {
             firstObject.Comments = comments;
-            firstObject.AddNotes(PhaseName, notes);
+            firstObject.AddNotes(PhaseName,notes);
          }
       }
 
@@ -709,19 +740,21 @@ namespace CDL2v1 {
       private void ParseIDList(RW type,ICollection<ID> idList) {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            if (! idList.Contains(id)) {
+            if (!idList.Contains(id)) {
                idList.Add(id);
             } else {
                ReportError($"Duplicate ID {id} in {type}");
             }
-            if (!tokens.CanConsumeSep()) break;
+            if (!tokens.CanConsumeSep())
+               break;
          }
          tokens.CanConsumeEnd();
       }
 
-      private void ReportError(string v,bool supressErrorAction=false) => Logger.ReportError($"{currentModule} {currentLayer} {currentSection}: {v}", supressErrorAction);
+      private void ReportError(string v,bool supressErrorAction = false) => Logger.ReportError($"{currentModule} {currentLayer} {currentSection}: {v}",supressErrorAction);
       internal void SkipToNextEnd() {
-         while (!tokens.IsNext(TT.END)) tokens.Skip();
+         while (!tokens.IsNext(TT.END))
+            tokens.Skip();
          tokens.Skip(); // The end itself
       }
 
@@ -746,19 +779,9 @@ namespace CDL2v1 {
             case RW.MODULE:
                tokens.Next(); // Consume the reserved word
                if (tokens.CanConsume(out ID id) && tokens.CanConsumeEnd()) {
-                  List<Guid> list;
-                  int after;
                   // We have a correct Module or Program declaration. These are valid irrespective of the context.
-                  if (objectType == RW.PROGRAM) {
-                     list = Database.Instance.Programs;
-                     after = context.Object is Program program ? list.IndexOf(program.GUID)+1 : list.Count + 1;
-                     element = new Program(id,comments);
-                  } else {
-                     list =Database.Instance.Modules;
-                     after = context.Object is Module module ? list.IndexOf(module.GUID) + 1 : list.Count + 1; 
-                     element= new Module(id,comments);
-                  }
-                  list.Insert(after,element.GUID);
+                  int after = Focus.Current.IndexFor(objectType);
+                  element = objectType == RW.PROGRAM ? new Program(id,comments,after: after) : new Module(id,comments,after: after);
                   Focus.SetFocus(element);
                } else {
                   error = $"Expected ID and . after {objectType} reserved word.";
@@ -797,7 +820,7 @@ namespace CDL2v1 {
             case RW.NONE:
                break;
          }
-         
+
          return element != null;
       }
    }

@@ -195,6 +195,9 @@ namespace CDL2v1 {
       status,
       type,
       undo,
+#if DEBUG
+      vsdebug,
+#endif
    }
 
    /// <summary>

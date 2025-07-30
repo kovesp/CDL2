@@ -411,6 +411,13 @@ namespace CDL2v1 {
       public Focus(SingleSelection selection) => Selection = selection;
       public Focus(Selection selection) => Selection = selection.Count > 0 ? selection.First() : SingleSelection.Empty;
 
+      /// <summary>
+      /// If the focus is on an object of type specified by the reserved word, return the index of that object in its siblings.
+      /// </summary>
+      /// <param name="objectType"></param>
+      /// <returns></returns>
+      public int IndexFor(RW objectType) => Selection.Object?.GetType() == Parser.RW2Type[objectType] ? Selection.Object.Siblings.IndexOf(Selection.Object.GUID) : -1;
+
       [JsonIgnore]
       public Module? Module => Selection.Object switch {
          Program program => null,
@@ -471,6 +478,31 @@ namespace CDL2v1 {
          } else {
             Logger.Log($"Attempt to set focus to a non-focusable object: {selection.Object}");
             return false;
+         }
+      }
+      public static bool SetFocus(Guid guid) {
+         if (guid == Guid.Empty) return false;
+         NamedElement? elem = NamedElement.From<NamedElement>(guid);
+         if (elem is null) return false;
+         return SetFocus(elem);
+      }
+
+      /// <summary>
+      /// Set the focus to the next element in the Siblings list after this one, or to the one before it if it is the last one.
+      /// If this is the only element, set the focus to the parent of the element, or to an empty selection if there is no parent.
+      /// </summary>
+      /// <param name="elem"></param>
+      /// <param name="siblings"></param>
+      public static void MoveFocusFrom(ISibling elem) {
+         Debug.Assert(elem.Siblings.Contains(elem.GUID),"MoveFocusFrom called with an element that is not among its siblings");  
+         if (Focus.Current.Object is not null && Focus.Current.Object.GUID == elem.GUID) {
+            if (elem.TryGetAdjacentSibling(out Guid adjacentSiblingGuid)) {
+               SetFocus(adjacentSiblingGuid);
+            } else if (elem.Parent != Guid.Empty) {
+               SetFocus(elem.Parent);
+            } else {
+               SetFocus(SingleSelection.Empty);
+            }
          }
       }
 

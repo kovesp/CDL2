@@ -48,6 +48,7 @@ using System.CommandLine.Parsing;
 using System.ComponentModel;
 using System.ComponentModel.Design;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
@@ -105,19 +106,23 @@ namespace CDL2v1 {
    /// <summary>
    /// NamedElements that have siblings: Containers and CDL2Objects.
    /// Supplies methods that allow insertion, removal and moving of siblings in the list of siblings.
+   /// <remark>
+   /// "Regular families only: must have a Parent and a list of Siblings.
+   /// </remark>
    /// </summary>
    public interface ISibling {
+      Guid Parent { get; }             
       List<Guid> Siblings { get; }
       Guid GUID { get; }
 
-      void MoveTo(int index) {
+      void MoveSiblingTo(int index) {
          if (index < 0 || index >= Siblings.Count) {
             throw new ArgumentOutOfRangeException(nameof(index), "Index must be within the range of siblings.");
          }
          Siblings.Remove(GUID);
          Siblings.Insert(index, GUID);
       }
-      void InsertAt(int index,ISibling sibling) {
+      void InsertSiblingAt(int index,ISibling sibling) {
          if (index < 0 || index > Siblings.Count) {
             throw new ArgumentOutOfRangeException(nameof(index), "Index must be within the range of siblings.");
          }
@@ -126,40 +131,61 @@ namespace CDL2v1 {
          }
          Siblings.Insert(index, sibling.GUID);
       }
-      void InsertAfter(ISibling sibling) {
+      void InsertSiblingAfter(ISibling sibling) {
          int index = Siblings.IndexOf(sibling.GUID);
          if (index < 0) {
             throw new ArgumentException("The specified sibling is not a sibling.", nameof(sibling));
          }
-         InsertAt(index + 1, sibling);
+         InsertSiblingAt(index + 1, sibling);
       }
-      void InsertBefore(ISibling sibling) {
+      void InsertSiblingBefore(ISibling sibling) {
          int index = Siblings.IndexOf(sibling.GUID);
          if (index < 0) {
             throw new ArgumentException("The specified sibling is not a sibling.", nameof(sibling));
          }
-         InsertAt(index, sibling);
+         InsertSiblingAt(index, sibling);
       }
-      void MoveAfter(ISibling other) {
+      void MoveSiblingAfter(ISibling other) {
          int index = Siblings.IndexOf(other.GUID);
          if (index < 0) {
             throw new ArgumentException("The specified sibling does not exist.", nameof(other));
          }
-         MoveTo(index + 1);
+         MoveSiblingTo(index + 1);
       }
-      void MoveBefore(ISibling other) {
+      void MoveSiblingBefore(ISibling other) {
          int index = Siblings.IndexOf(other.GUID);
          if (index < 0) {
             throw new ArgumentException("The specified sibling does not exist.");
          }
-         MoveTo(index);
+         MoveSiblingTo(index);
       }
-      void Remove() {
+      void RemoveSibling() {
          if (Siblings.Contains(GUID)) {
             Siblings.Remove(GUID);
          } else {
             throw new ArgumentException("The GUID is not a sibling.", nameof(GUID));
          }
+      }
+      /// <summary>
+      /// Determines the adjacent sibling of the current element within its sibling collection.
+      /// </summary>
+      /// <remarks>The method checks the collection of siblings to find the element immediately before or
+      /// after the current element. If the current element is the last in the collection, the previous sibling is
+      /// returned; otherwise, the next sibling is returned.</remarks>
+      /// <param name="sib">When this method returns, contains the adjacent sibling of the current element if one exists; otherwise, <see
+      /// langword="null"/>.</param>
+      /// <returns><see langword="true"/> if an adjacent sibling is found; otherwise, <see langword="false"/>.</returns>
+      bool TryGetAdjacentSibling(out Guid sibGuid) {
+         if (Siblings.Count > 1) {
+            if (Siblings.Last() == GUID) {
+               sibGuid = Siblings.SkipLast(1).Last();
+            } else {
+               sibGuid = Siblings.SkipWhile(g => g != GUID).Skip(1).FirstOrDefault();
+            }
+         } else {
+            sibGuid = Guid.Empty;
+         }
+         return sibGuid != Guid.Empty;
       }
    }
 
@@ -186,7 +212,7 @@ namespace CDL2v1 {
    [JsonDerivedType(typeof(Affix), "Affix")]
    [JsonDerivedType(typeof(Local), "Local")]
    [JsonDerivedType(typeof(Undeclared), "Undeclared")]
-   public /*abstract*/ class NamedElement /*: SerializationBase */ {
+   public /*abstract*/ class NamedElement : ISibling /*,SerializationBase */ {
       [JsonInclude][JsonPropertyOrder(1)] public Guid  GUID { get; set; }
       [JsonInclude][JsonPropertyOrder(2)] public ID Id { get; set; }
       /// <summary>
@@ -214,6 +240,7 @@ namespace CDL2v1 {
       ///   Local
       /// </summary>
       [JsonInclude][JsonPropertyOrder(4)] public Guid Parent { get; set; } = Guid.Empty;
+      [JsonIgnore] public virtual List<Guid> Siblings => [];
       [JsonInclude][JsonPropertyOrder(5)] public string? Comments { get; set;}
       [JsonInclude][JsonPropertyOrder(6)] public Notes Notes { get; set; } = [];
 
@@ -401,12 +428,14 @@ namespace CDL2v1 {
          AddNotes("Parser", notes);
       }
 
-      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null, SelectorType FocusType = SelectorType.INVALID) : this(id,comments,notes,FocusType) { 
+      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null, SelectorType FocusType = SelectorType.INVALID,int after = -1) : this(id,comments,notes,FocusType) { 
          Parent = parent?.GUID ?? Guid.Empty;
          if (parent != null && parent.Children.Contains(GUID)) {
             Logger.ReportError($"{ContainerName} is already a child of {parent.ContainerName}");
-         } else {
+         } else if (after < 0) {
             parent?.Children.Add(GUID);
+         } else {
+            parent?.Children.Insert(after,GUID);
          }
       }
 
@@ -432,7 +461,7 @@ namespace CDL2v1 {
       [JsonIgnore]
       public string ContainerName => $"{ParentElement<Container>()?.ContainerName ?? ""} {TypeShortName} {Id.Name}".Trim();
 
-      public virtual List<Guid> Siblings => ParentElement<Container>()?.Children ?? [];
+      public override List<Guid> Siblings => ParentElement<Container>()?.Children ?? [];
    }
 
    /// <summary>
@@ -466,7 +495,7 @@ namespace CDL2v1 {
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Program(ID id, string? comments, Notes? notes=null) : base(id, null, comments, notes??Notes.Empty,SelectorType.PROGRAM) => LudeParser = Parser.ParseLudeOfIDs;
+      public Program(ID id, string? comments, Notes? notes=null,int after = -1) : base(id, null, comments, notes??Notes.Empty,SelectorType.PROGRAM,after:after) => LudeParser = Parser.ParseLudeOfIDs;
 
       [JsonConstructor]
       public Program() { LudeParser = Parser.ParseLudeOfIDs; FocusType = SelectorType.PROGRAM; }
@@ -494,7 +523,7 @@ namespace CDL2v1 {
       /// Module Ludes are a list of container IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Module(ID id,string? comments,Notes? notes=null) : base(id,null,comments,notes??Notes.Empty,SelectorType.MODULE) {
+      public Module(ID id,string? comments,Notes? notes=null,int after = -1) : base(id,null,comments,notes??Notes.Empty,SelectorType.MODULE,after: after) {
          LudeParser = Parser.ParseLudeOfIDs;
          Comments = comments;
       }
@@ -586,7 +615,7 @@ namespace CDL2v1 {
          public bool TryAdd(ID id, CDL2Object obj, uint before=uint.MaxValue) {
             if (base.TryAdd(id, obj.GUID)) {
                if (before >= obj.Siblings.Count) {
-                  obj.Siblings.Add(obj.GUID); // If before is >= to the count, add it at the end.
+                  obj.Siblings.   Add(obj.GUID); // If before is >= to the count, add it at the end.
                } else {
                   obj.Siblings.Insert((int)before,obj.GUID); // Otherwise, insert it at the specified position.
                }
@@ -750,7 +779,7 @@ namespace CDL2v1 {
       [JsonIgnore]
       public SyntacticElement SE { get; protected set; }
 
-      public List<Guid> Siblings => Section?.Children ?? [];
+      public override List<Guid> Siblings => Section?.Children ?? [];
 
       /// <summary>
       /// Given that objects have to be unique by name within a section and extended//*abstract*/ed objects within a layer, objects with the same Id are considered the same.

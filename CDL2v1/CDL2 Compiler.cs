@@ -28,6 +28,8 @@
 //    H. M. Stahl, H. Feuerhahn, JP. Dehotay, B. Böhringer
 //    (and others I don't remember ... sorry).
 //
+//    Program icon by
+//    <link rel="author" href="https://www.flaticon.com/free-icons/cdl" title="cdl icons">Cdl icons created by Icon home - Flaticon</link>
 //    This project is not affiliated with the original CDL2 project.
 // </attribution>
 //=======================================================================

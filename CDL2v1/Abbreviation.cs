@@ -101,6 +101,9 @@ namespace CDL2v1 {
          new ("status"  , 4,"status:                      display information about the status of the database"),
          new ("type"    , 1,"type    [SELECTOR]:          pretty print the selected object"),
          new ("undo"    , 1,"undo:                        undo the last modification; may be repeated (NOT IMPLEMENTED)"),
+#if DEBUG
+         new ("vsdebug" , 7,"vsdebug:                     break into the VS debugger when running under Visual Studio"),
+#endif
       ];
 
       private static readonly List<SelectorType> AlgorithmTypes = [
