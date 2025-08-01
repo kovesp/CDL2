@@ -133,9 +133,9 @@ OBJECT
 PART
 POSTlude
 PRedicate
-PRElude
+PRELude
 PROCedure
-PROGram
+Program
 ROOT
 Section
 TEst

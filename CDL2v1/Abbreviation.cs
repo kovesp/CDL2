@@ -117,7 +117,7 @@ namespace CDL2v1 {
          // Matched by CONTAINER and ANY
          new ("MODULE"     ,1),
          new ("LAYER"      ,3,SelectorType.MODULE),
-         new ("PROGRAM"    ,4),
+         new ("PROGRAM"    ,1),
          new ("SECTION"    ,1,SelectorType.LAYER),
          // Mathced by FACE and ANY
          new ("ABSTR"      ,5,SelectorType.SECTION),
@@ -142,7 +142,7 @@ namespace CDL2v1 {
          new ("NOTE"       ,4),
          new ("PART"       ,4,SelectorType.PROGRAM),
          new ("POSTLUDE"   ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
-         new ("PRELUDE"    ,3,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
+         new ("PRELUDE"    ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
          new ("ROOT"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
          // Non focusable types, matched by ANY
          new ("AFFIX"      ,3,AlgorithmTypesWithMacro,focusable:false),
@@ -190,21 +190,18 @@ namespace CDL2v1 {
       public Abbreviation(string name,int minLength,string help = "") : this(name,minLength,[],help) { }
 
       /// <summary>
-      /// Identifies the type associated with the specified word based on predefined abbreviations.
+      /// Identifies the type or command associated with the specified word based on predefined abbreviations.
       /// </summary>
-      /// <remarks>The method trims the input word and applies case normalization before attempting to match
-      /// it  against a set of abbreviations. A match is determined if the word meets the minimum length  requirement
-      /// and starts with the abbreviation's name.</remarks>
       /// <param name="name">The word to identify. Must not be null, empty, or consist only of whitespace.</param>
       /// <returns>The identified type of <typeparamref name="T"/> if a matching abbreviation is found;  otherwise, returns <see
-      /// cref="Abbreviation{T}.Invalid"/>.</returns>
+      /// cref="Abbreviation{T}.Invalid"/>. If thee is more than one match, the one with the shortest minimum length is chosen.</returns>
       /// <example>
       ///    Abbreviation<CommandType>.Identify(name);
       /// </example>
-      public static T Identify(string name) =>
-         ((Func<string,T>)
-            (word => Abbreviations.FirstOrDefault(abbrev => word.Length >= abbrev.MinLength && abbrev.Name.StartsWith(word))?.Type ?? Abbreviation<T>.Invalid)
-         )(name.Trim().ToFirstLetterCase());
+      public static T Identify(string name) {
+         name = name.Trim().ToFirstLetterCase();
+         return Abbreviations.Where(abbr => name.Length >= abbr.MinLength && abbr.Name.StartsWith(name)).MinBy(abbr => abbr.MinLength)?.Type ?? Abbreviation<T>.Invalid;
+      }
 
       public override string ToString() => $"{ShortTypeName}[{NameWithAbbreviation}]";
       public string NameWithAbbreviation => char.IsLower(Name[0])

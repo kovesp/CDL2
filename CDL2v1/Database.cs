@@ -238,11 +238,6 @@ namespace CDL2v1 {
       public void AddNamedElement(NamedElement element) {
          if (element is not IUnrecordedElement) {
             NamedElements[element.GUID] = element;
-            if (element is Program) {
-               Programs.Add(element.GUID);
-            } else if (element is Module) {
-               Modules.Add(element.GUID);
-            }
          }
       }
 

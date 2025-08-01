@@ -187,6 +187,7 @@ namespace CDL2v1 {
          }
          return sibGuid != Guid.Empty;
       }
+
    }
 
    /// <summary>
@@ -422,20 +423,16 @@ namespace CDL2v1 {
       [JsonInclude] [JsonPropertyOrder(10)] public List<Guid> Children { get; set; } = [];
       public override IEnumerable<NamedElement> ChildElements() => Children.Select(guid=>Database.Instance.NamedElements[guid]);
 
-      /// <param Id="Id"></param>
-      public Container(ID id,string? comments,Notes? notes, SelectorType FocusType = SelectorType.INVALID) : base(id,focusType:FocusType) {
+      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null, SelectorType FocusType = SelectorType.INVALID,int after = -1) : base(id,focusType: FocusType) {
          Comments = comments;
-         AddNotes("Parser", notes);
-      }
-
-      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null, SelectorType FocusType = SelectorType.INVALID,int after = -1) : this(id,comments,notes,FocusType) { 
+         AddNotes("Parser",notes);
          Parent = parent?.GUID ?? Guid.Empty;
-         if (parent != null && parent.Children.Contains(GUID)) {
-            Logger.ReportError($"{ContainerName} is already a child of {parent.ContainerName}");
-         } else if (after < 0) {
-            parent?.Children.Add(GUID);
+         if (Siblings.Contains(GUID)) {
+            Logger.ReportError($"{ContainerName} is already a child of {parent?.ContainerName}");
+         } else if (after < 0 || after >= Siblings.Count) {
+            Siblings.Add(GUID);
          } else {
-            parent?.Children.Insert(after,GUID);
+            Siblings.Insert(after+1,GUID);
          }
       }
 

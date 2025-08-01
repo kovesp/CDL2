@@ -525,6 +525,23 @@ namespace CDL2v1 {
       /// <returns></returns>
       public static IEnumerable<Type> GetImplementorsOfInterface<TInterface>() => Assembly.GetExecutingAssembly().GetTypes()
              .Where(type => typeof(TInterface).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract);
+
+      /// <summary>
+      /// If all elements of objects are siblings of this one, then return the objects in the order of their siblings.
+      /// </summary>
+      /// <param name="objects"></param>
+      /// <returns></returns>
+      public static IEnumerable<NamedElement> OrderedAsSiblings(this IEnumerable<NamedElement> objects) {
+         Debug.Assert(objects.Any(),"The collection of objects must not be empty.");
+         List<Guid> siblings = objects.First().Siblings;
+         if (objects.Skip(1).All(obj => siblings.Contains(obj.GUID))) {
+            return objects.OrderBy(obj => siblings.IndexOf(obj.GUID));
+         } else {
+            return objects;
+         }
+      }
+
+
       /// <summary>
       /// Normalize a string to a valid identifier.
       /// </summary>
