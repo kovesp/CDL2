@@ -754,7 +754,6 @@ namespace CDL2v1 {
 
       public void Print(Var var) => Emit(var.Id.Decorate(Emitter, SE.Var));
 
-      // TODO Fix printing of comments and notes
       private void PrintIDComment(CDL2Object obj,SE type) {
          if (obj.Comments != null || obj.Notes.Count > 0) {
             Emitter.Indented(
@@ -809,16 +808,16 @@ namespace CDL2v1 {
          if (IncludeComments) {
             if (comments != null) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
-               if (note.NoteType == NoteType.Note) {
+               if (note.NoteType == Severity.Note) {
                   NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));
                   Emitnl(RW.NOTE, Token.TokenType2Glyph[TT.END]);
                } else {
                   Emitnl(string.Concat("#", Note.Marker, (note.NoteType.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
                      .Decorate(Emitter, note.NoteType switch {
-                        NoteType.Error => SE.NoteError,
-                        NoteType.Warning => SE.NoteWarning,
-                        NoteType.Info => SE.NoteInfo,
-                        NoteType.Note => SE.Comment,
+                        Severity.Error => SE.NoteError,
+                        Severity.Warning => SE.NoteWarning,
+                        Severity.Info => SE.NoteInfo,
+                        Severity.Note => SE.Comment,
                         _ => SE.Comment
                      }));
                }

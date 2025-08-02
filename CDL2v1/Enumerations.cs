@@ -201,7 +201,7 @@ namespace CDL2v1 {
    }
 
    /// <summary>
-   /// Focus types. Note that the END.
+   /// Focus types.
    /// For simplicity, the FocusTypes contin the SelectionTypes as well.
    /// This allows a single abbreviation table for both.
    /// Diferentiation will be made using SelectionType
@@ -248,7 +248,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Used to categorize annotations.
    /// </summary>
-   public enum NoteType {
+   public enum Severity {
       Error,
       Warning,
       Info,

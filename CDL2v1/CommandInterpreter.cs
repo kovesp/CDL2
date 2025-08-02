@@ -50,7 +50,8 @@ namespace CDL2v1 {
          commandWindow = window;
          // Create a CommandWindowEmitter that integrates with our window
          pp = new(new EmitterCommandWindow(commandWindow), includeComments: true);
-         parser = new Parser(CDL2.Compiler);
+         // Initialize the parser with the compiler and a callback for error messages
+         parser = new Parser(CDL2.Compiler,(severity,msg,_)=>commandWindow.WriteLine($"{severity}: {msg}",severity));
       }
 
       public void SetStatus(string? status = null) {
@@ -69,20 +70,16 @@ namespace CDL2v1 {
       }
 
       internal void EnterCode(string input) {
-         context ??= Focus.Current;
          parser.Tokenize(input);
-         Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found to usuable tokens in input.");
+         Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
 
-         if (parser.Parse(context,out NamedElement? element,out string error)) {
-            Focus.SetFocus(element!);
-         } else {
-            commandWindow.WriteError($"Failed to parse element: {error}");
-         }
+         if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element)) Focus.SetFocus(element!);
+         ParsingContext = null; // Reset the parsing context after a parse
       }
 
-      Focus? context = null;
+      Focus? ParsingContext = null;
 
-      internal void IntepretCommand(string command, CommandType commandType, string settings, string args, CommandPromptWindow commandWindow) {
+      internal void InterpretCommand(string command, CommandType commandType, string settings, string args, CommandPromptWindow commandWindow) {
          IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          string[] parts;
@@ -209,7 +206,7 @@ namespace CDL2v1 {
                      commandWindow.WriteInfo("Not implemented.");
                      break;
                   default:
-                     commandWindow.WriteError($"Cannot delete {Focus.Current.Object.FQDN()}");
+                     commandWindow.WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
                      return;
                }
                break;

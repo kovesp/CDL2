@@ -66,9 +66,9 @@ namespace CDL2v1 {
 
       public string PhaseName { get; }
       private IEnumerable<Note> Notes => (notes.Any() ? notes : Database.Instance.ElementsWithNotes.SelectMany(guid => Database.Instance.NamedElements[guid].Notes)).Where(note => note.PhaseName == PhaseName);
-      private IEnumerable<Note> Errors => Notes.Where(note => note.NoteType == NoteType.Error);
-      private IEnumerable<Note> Warnings => Notes.Where(note => note.NoteType == NoteType.Warning);
-      private IEnumerable<Note> Infos => Notes.Where(note => note.NoteType == NoteType.Info);
+      private IEnumerable<Note> Errors => Notes.Where(note => note.NoteType == Severity.Error);
+      private IEnumerable<Note> Warnings => Notes.Where(note => note.NoteType == Severity.Warning);
+      private IEnumerable<Note> Infos => Notes.Where(note => note.NoteType == Severity.Info);
 
       /// <summary>
       /// Add a note to given subject. Increment counters.
@@ -115,11 +115,11 @@ namespace CDL2v1 {
          Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error",",")} {Warnings.Count().Plural("warning",",")} {Infos.Count().Plural("info message")}");
          if (message != null) Log(0, message);
 
-         NoteType messages = Settings.SettingValue<NoteType>("Messages")!;
-         bool all = messages == NoteType.Info || Settings.SettingValue<bool>("ReportAll");
+         Severity messages = Settings.SettingValue<Severity>("Messages")!;
+         bool all = messages == Severity.Info || Settings.SettingValue<bool>("ReportAll");
          ReportByType(Errors,all);
-         if (messages == NoteType.Warning || messages == NoteType.Info)  ReportByType(Warnings,all);
-         if (messages == NoteType.Info) ReportByType(Infos,all);
+         if (messages == Severity.Warning || messages == Severity.Info)  ReportByType(Warnings,all);
+         if (messages == Severity.Info) ReportByType(Infos,all);
 
          void ReportByType(IEnumerable<Note> list,bool all) {
             foreach (Note note in list) {
@@ -187,7 +187,7 @@ namespace CDL2v1 {
                   Match match = Regex.Match(input, @"^\s*(?<verb>[a-z]+)(?:\s+(?<settings>[+-][a-z-]+(?:[:=]\S+?)?))?(?:\s+(?<args>.*))?$", RegexOptions.Compiled);
                   if (match.Success) {
                      CommandType commandType = Abbreviation<CommandType>.Identify(match.Groups["verb"].Value);
-                     CLI.IntepretCommand(input, commandType, match.Groups["settings"].Value, match.Groups["args"].Value,commandWindow);
+                     CLI.InterpretCommand(input, commandType, match.Groups["settings"].Value, match.Groups["args"].Value,commandWindow);
                   } else {
                      // Assume it is a cdl2 construct that must be parsed
                      CLI.EnterCode(input);

@@ -104,11 +104,11 @@ namespace CDL2v1 {
             foreach (RW ludeType in Container.LudeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
             cg.GenerateProgramEnd(program);
          } else {
-            // TODO: Needs work
+            // TODO: Needs work to handle generating modules as separate units.
             cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
-            foreach (ID modid in program.Parts) cg.GenerateProgramPart(program, modid, isSeparate);
+            foreach (ID modId in program.Parts) cg.GenerateProgramPart(program, modId, isSeparate);
 
             GenerateProgramLudes(program);
             cg.GenerateProgramEnd(program);

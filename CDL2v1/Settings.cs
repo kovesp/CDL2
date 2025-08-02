@@ -99,7 +99,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "NoProcInlining",      "--no-proc-inlining", false,         "Do not inline macros, generae them as procedures"),
          new Setting<int>(     "MaxInlineCalls",      "--max-inline-calls", 9,             "Maximum number of calls that can be inlined. This is a product of the number of calls in the procedure and the number of times the procedure is called. However, if the procedure contains a single call, it is always inlineable."),
          new Setting<bool>(    "ReportAll",           "--report-all",       false,         "Report all messages (subject to --messages). Normally messages for non-reachable objects are suppressed"),
-         new Setting<NoteType>("Messages",            "--messages",         NoteType.Error,"Which messages should be shown: Error, Warning, Info. Default is errors only"),
+         new Setting<Severity>("Messages",            "--messages",         Severity.Error,"Which messages should be shown: Error, Warning, Info. Default is errors only"),
          new Setting<string>(  "DB",                  "--db",               "CDL2v1",      "The filename in --output-dir that contains the serialized lab data. The extension is .lab.gz. At exit the current parse tree is always saved."),
          new Setting<int>(     "Backups",             "--backups",          3,             "The number of backups of the lab file to keep. Extensions are .lab.gz.1 ...NOT IMPLEMENTED."),
          new Setting<double>(  "WindowLeft",          "--window-left",     -1.0,           "Last window left position",saved:true),
@@ -235,7 +235,7 @@ namespace CDL2v1 {
                      case Setting<double> dSetting:    dSetting.Value  = parseResult.GetValueForOption<double>((Option<double>)setting.Option); break;
                      case Setting<string> sSetting:    sSetting.Value  = parseResult.GetValueForOption<string>((Option<string>)setting.Option)!; break;
                      case Setting<bool> bSetting:      bSetting.Value  = parseResult.GetValueForOption<bool>((Option<bool>)setting.Option); break;
-                     case Setting<NoteType> nSetting:  nSetting.Value  = parseResult.GetValueForOption<NoteType>((Option<NoteType>)setting.Option); break;
+                     case Setting<Severity> nSetting:  nSetting.Value  = parseResult.GetValueForOption<Severity>((Option<Severity>)setting.Option); break;
                      default: throw new InvalidEnumArgumentException($"Unknown setting type {setting.GetType()}");
                   }
 

@@ -255,10 +255,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="input">The input string. Consumed characters are removed.</param>
       /// <param Id="token">The token that was found.</param>
-      /// <param Id="fileName">The Id of the file being tokenized.</param>
-      /// <param Id="lineNumber">The line number of the token.</param>
       /// <returns>true if the staring started with a valid token.</returns>
-      public static bool TryCreateToken(ref string input,out Token token,string fileName,ref int lineNumber) {
+      public static bool TryCreateToken(ref string input,out Token token) {
          while (true) {
             input = input.TrimStart();
             token = ErrorToken; 
@@ -289,11 +287,6 @@ namespace CDL2v1 {
             if (HandleMatch(GlyphRE(),TokenClass.Glyph,ref input,out token)) return true; // Must be placed after Int & Float as they may start with + or -
             return false;
          }
-      }
-
-      public static bool TryCreateToken(ref string input,out Token token) {
-         int lineNumber = 0; // TODO: Remove this when line number passed in TryCreateToken
-         return TryCreateToken(ref input,out token,"",ref lineNumber);
       }
 
       public override string ToString() {

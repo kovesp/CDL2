@@ -232,7 +232,7 @@ namespace CDL2v1 {
       internal bool CanConsumeNote(out Note? note) {
          if (Optional(RW.NOTE,out string? comments) && comments is not null) {
             CanConsumeEnd();
-            note = new Note(NoteType.Note, 400, comments);
+            note = new Note(Severity.Note, 400, comments);
             return true;
          } else {
             note = null;

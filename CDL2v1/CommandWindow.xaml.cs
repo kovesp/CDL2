@@ -252,7 +252,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="text">The text to write</param>
       /// <param name="noteType">Optional note type that determines text color (default None)</param>
-      public void WriteLine(string text,NoteType noteType = NoteType.NONE) {
+      public void WriteLine(string text,Severity noteType = Severity.NONE) {
          Application.Current.Dispatcher.Invoke(() => {
             // Get the appropriate brush based on note type from PrettyPrinter.Decorators
             Brush foreground = GetNoteTypeBrush(noteType);
@@ -262,22 +262,22 @@ namespace CDL2v1 {
          });
       }
 
-      public void WriteError(string text) => WriteLine(text,NoteType.Error);
-      public void WriteWarning(string text) => WriteLine(text,NoteType.Warning);
-      public void WriteInfo(string text) => WriteLine(text,NoteType.Info);
+      public void WriteError(string text) => WriteLine(text,Severity.Error);
+      public void WriteWarning(string text) => WriteLine(text,Severity.Warning);
+      public void WriteInfo(string text) => WriteLine(text,Severity.Info);
 
       /// <summary>
       /// Gets the brush color for a specific note type using colors from PrettyPrinter.Decorators
       /// </summary>
       /// <param name="noteType">The note type</param>
       /// <returns>Brush corresponding to the note type</returns>
-      private static Brush GetNoteTypeBrush(NoteType noteType) {
+      private static Brush GetNoteTypeBrush(Severity noteType) {
          // Map NoteType to corresponding SyntacticElement
          SE element = noteType switch {
-            NoteType.Error => SE.NoteError,
-            NoteType.Warning => SE.NoteWarning,
-            NoteType.Info => SE.NoteInfo,
-            NoteType.Note => SE.Comment,
+            Severity.Error => SE.NoteError,
+            Severity.Warning => SE.NoteWarning,
+            Severity.Info => SE.NoteInfo,
+            Severity.Note => SE.Comment,
             _ => SE.Other  // Default
          };
 

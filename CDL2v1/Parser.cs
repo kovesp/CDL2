@@ -11,7 +11,6 @@
 // 
 // <summary>
 //   Responsible for parsing tokenized input into a CDL2 syntax tree.
-//   TODO: Add support for parsing token streams that are not full programs or Modules.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -46,6 +45,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -119,18 +119,23 @@ namespace CDL2v1 {
          [RW.ACTION]    = typeof(Algorithm),
       };
 
-      public Parser(CDL2 compiler) : base(compiler) => currentObject = new CompilationObject(this);
+      private readonly Action<Severity,string,bool> ErrorReporter;
+
+      public Parser(CDL2 compiler,Action<Severity,string,bool>? reporter = null) : base(compiler) {
+         currentObject = new CompilationObject(this);
+         ErrorReporter = reporter ?? ((severity,message,suppressErrorAction) => Logger.ReportError($"{currentModule} {currentLayer} {currentSection}: {message}",suppressErrorAction));
+      }
 
       private void ReportInvalidToken(TokenType[] expected,Token actual,RW[] rw) {
          Container subject = currentSection != null ? currentSection : currentLayer != null ? currentLayer : currentModule != null ? currentModule : currentProgram!;
-         string expectedtypes;
+         string expectedTypes;
          if (expected.Length == 1 && expected[0] == TT.RESWORD) {
-            expectedtypes = rw.Length == 1 ? rw[0].ToString() : $"one of {string.Join(",",rw)}";
+            expectedTypes = rw.Length == 1 ? rw[0].ToString() : $"one of {string.Join(",",rw)}";
          } else {
-            expectedtypes = expected.Length == 1 ? expected[0].ToString() : $"one of {string.Join(",",expected)}";
+            expectedTypes = expected.Length == 1 ? expected[0].ToString() : $"one of {string.Join(",",expected)}";
          }
          string actualType = actual.type == TT.RESWORD ? actual.reservedWordValue?.ToString()! : actual.type.ToString();
-         AddNote(subject,Note.UnexpectedToken,expectedtypes,actualType);
+         AddNote(subject,Note.UnexpectedToken,expectedTypes,actualType);
       }
 
       public override void ReportNoteCounts(Reachable? reachable,string? message = null) {
@@ -398,7 +403,7 @@ namespace CDL2v1 {
                alternative.lastCall = new LastCall(LCT.Fail,alternative);
                if (!proc.CanFail) {
                   AddNote(proc,Note.IllegalFailOperator,proc.AlgorithmType);
-                  ReportError($"{proc} contains fail operator",supressErrorAction: true);
+                  ReportError($"{proc} contains fail operator",suppressErrorAction: true);
                }
 
             } else if (tokens.Optional(TT.ABORT)) {
@@ -662,10 +667,14 @@ namespace CDL2v1 {
 
       internal static void ParseLudeOfIDs(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
-            while (parser.tokens.Optional(TT.ID,out Token id)) {
-               container.Ludes[type].Add(ID.From(id));
-               if (!parser.tokens.CanConsumeSep())
-                  break;
+            while (parser.tokens.Optional(TT.ID,out Token idToken)) {
+               ID id = ID.From(idToken);
+               if (container.Ludes[type].Contains(id)) {
+                  parser.ReportWarning($"Duplicate {type} {id} ignored");
+               } else { 
+                  container.Ludes[type].Add(id);
+               }
+               if (!parser.tokens.CanConsumeSep()) break;
             }
             parser.tokens.CanConsumeEnd();
          }
@@ -743,7 +752,7 @@ namespace CDL2v1 {
             if (!idList.Contains(id)) {
                idList.Add(id);
             } else {
-               ReportError($"Duplicate ID {id} in {type}");
+               ReportWarning($"Duplicate {type} {id} ignored");
             }
             if (!tokens.CanConsumeSep())
                break;
@@ -751,7 +760,11 @@ namespace CDL2v1 {
          tokens.CanConsumeEnd();
       }
 
-      private void ReportError(string v,bool supressErrorAction = false) => Logger.ReportError($"{currentModule} {currentLayer} {currentSection}: {v}",supressErrorAction);
+      private void ReportError(string message,bool suppressErrorAction = false)    => ErrorReporter(Severity.Error,message,suppressErrorAction);
+      private void ReportError(string message) => ErrorReporter(Severity.Error,message,false);
+      private void ReportWarning(string message) => ErrorReporter(Severity.Warning,message,false);
+      private void ReportInfo(string message) => ErrorReporter(Severity.Info,message,false); 
+
       internal void SkipToNextEnd() {
          while (!tokens.IsNext(TT.END))
             tokens.Skip();
@@ -760,31 +773,51 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Parse the tokens stream. Add it to the parse tree in the context of the focus.
-      /// Return the resulting element or null if there was an error. Also return the error messge if there was an error.
+      /// Return the resulting element or null if there was an error.
       /// </summary>
       /// <param name="context"></param>
       /// <param name="element"></param>
-      /// <param name="error"></param>
       /// <returns></returns>
-      internal bool Parse(Focus context,out NamedElement? element,out string error) {
+      internal bool Parse(Focus context,out NamedElement? element) {
          Debug.Assert(tokens.Peek().type == TokenType.RESWORD,"Expected a reserved word token at the start of the input.");
-         error = "";
          element = null;
 
          Token initialToken = tokens.Peek();
          RW objectType = initialToken.reservedWordValue ?? RW.NONE;
          string comments = initialToken.Comments ?? string.Empty;
+         ID id;
+         int after;
          switch (objectType) {
             case RW.PROGRAM:
-            case RW.MODULE:
-               tokens.Next(); // Consume the reserved word
-               if (tokens.CanConsume(out ID id) && tokens.CanConsumeEnd()) {
-                  // We have a correct Module or Program declaration. These are valid irrespective of the context.
-                  int after = Focus.Current.IndexFor(objectType);
-                  element = objectType == RW.PROGRAM ? new Program(id,comments,after: after) : new Module(id,comments,after: after);
+               tokens.Skip(); // Consume the reserved word
+               if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
+                  // We have a correct Module declaration. These are valid irrespective of the context.
+                  after = Focus.Current.IndexFor(objectType);
+                  element = new Program(id,comments,after: after);
                   Focus.SetFocus(element);
                } else {
-                  error = $"Expected ID and . after {objectType} reserved word.";
+                  ReportError($"Expected ID and . after {RW.PROGRAM} reserved word.");
+               }
+               break;
+            case RW.PART:
+               tokens.Skip(); // Consume the reserved word
+               // TODO: It must be possible to add the part(s) at an arbitrary position in the parts list.
+               if (context.FocusType == SelectorType.PROGRAM) {
+                  ParseIDList(RW.PART,(context.Object as Program)!.Parts);
+                  element = context.Object;
+               } else {
+                  ReportError($"{RW.PART} declaration outside of {RW.PROGRAM} context");
+               }
+               break;
+            case RW.MODULE:
+               tokens.Skip(); // Consume the reserved word
+               if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
+                  // We have a correct Module or Program declaration. These are valid irrespective of the context.
+                  after = Focus.Current.IndexFor(objectType);
+                  element = new Module(id,comments,after: after);
+                  Focus.SetFocus(element);
+               } else {
+                  ReportError($"Expected ID and . after {RW.MODULE} reserved word.");
                }
                break;
             case RW.LAYER:
@@ -802,8 +835,6 @@ namespace CDL2v1 {
                break;
             case RW.LIST:
                break;
-            case RW.PART:
-               break;
             case RW.ABSTR:
             case RW.EXT:
             case RW.INV:
@@ -813,6 +844,26 @@ namespace CDL2v1 {
             case RW.ROOT:
             case RW.PRELUDE:
             case RW.POSTLUDE:
+               if (context.FocusType == SelectorType.LAYER) {
+                  ReportError($"Layers don't have {objectType}s");
+               } else {
+                  switch (context.FocusType) {
+                     case SelectorType.MODULE:
+                        ParseLudeOfIDs(this,objectType,(context.Object as Module)!);
+                        // TODO: Produce warnings for ludes that don't have corresponding sections?
+                        break;
+                     case SelectorType.PROGRAM:
+                        ParseLudeOfIDs(this,objectType,(context.Object as Program)!);
+                        // TODO: Produce warnings for ludes that don't have corresponding modules?
+                        break;
+                     default:
+                        // Either the context is a Section or it is inside a section.
+                        Section? section = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
+                        Debug.Assert(section != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
+                        ParseLudeOfCalls(this,objectType,section);
+                        break;
+                  }
+               }
                break;
             case RW.NOTE:
                break;

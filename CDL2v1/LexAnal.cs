@@ -11,7 +11,6 @@
 // 
 // <summary>
 //   The lexical Analyzer. Just the wrapper for invokeing the Tokenizer over an input stream.
-//   TODO: needs to support tokenizing a string (to support input in the lab), not just files.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
