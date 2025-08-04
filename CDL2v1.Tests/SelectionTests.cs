@@ -1,8 +1,12 @@
 using Xunit;
 
 namespace CDL2v1.Tests {
-   public class SelectionTests(DatabaseFixture fixture) : IClassFixture<DatabaseFixture> {
-      private readonly DatabaseFixture _fixture = fixture.SetName(typeof(SelectionTests));
+   public class SelectionTests : IClassFixture<DatabaseFixture> {
+      private readonly DatabaseFixture _fixture;
+
+      public SelectionTests(DatabaseFixture fixture) {
+         _fixture = fixture.SetName(typeof(SelectionTests));
+      }
 
       [Fact]
       public void Selection_EmptyString_IsValidAndEmpty() {

@@ -63,6 +63,7 @@ namespace CDL2v1 {
       [JsonConstructor]
       public SerializationBase() => Type = GetType().Name;
 #else
+      [JsonConstructor]
       public SerializationBase() { }
 #endif // DEBUG_SERIALIZATION
    }
@@ -74,6 +75,7 @@ namespace CDL2v1 {
       /// <summary>
       /// This is a singleton class.
       /// </summary>
+      [JsonConstructor]
       public Database() { }
       /// <summary>
       /// This is needed to support multiple instances used by unit testing.
@@ -101,7 +103,7 @@ namespace CDL2v1 {
 
       static Database() {
          AddInstance();
-         DefaultThreadId = Environment.CurrentManagedThreadId; // This will be used if the current thread does not have one of its own.
+         DefaultThreadId = Environment.CurrentManagedThreadId; // The instance associated with this thread id will be used if the current thread does not have one of its own.
       }
 
       public string Name = "Database";
@@ -164,7 +166,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Add a name to the canonical name list.
-      /// If the canonical form is already in the dictioary make no changes. this preserves the first seen spaacing of the name.
+      /// If the canonical form is already in the dictionary make no changes. this preserves the first seen spacing of the name.
       /// </summary>
       /// <param name="name"></param>
       /// <returns>The canonical name.</returns>
@@ -353,6 +355,7 @@ namespace CDL2v1 {
       public static void InitializeForTests() {
          Directory.SetCurrentDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,@"..\..\..\..\CDL2v1\CDL2"));
          Load();
+         Debug.WriteLine($"Database loaded for thread {Environment.CurrentManagedThreadId} ({Thread.CurrentThread.Name})");
       }
    }
 }

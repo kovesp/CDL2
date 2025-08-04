@@ -81,7 +81,7 @@ namespace CDL2v1 {
       /// Saves the database as compressed JSON.
       /// </summary>
       /// <param name="path">Base path for the file (extension will be replaced)</param>
-      /// TODO: Add a backup capbility to save the previous database as a backup before overwriting
+      /// TODO: Add a backup capability to save the previous database as a backup before overwriting
       public static string SaveDB(string? path=null) {
          path ??= Settings.LabDB; // Use the default lab database path if not provided
          if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
@@ -105,7 +105,7 @@ namespace CDL2v1 {
       /// <param name="addInstance">Whether to push the loaded database onto the stack</param>
       /// <param name="databaseName">Name for the loaded database</param>
       /// <returns>The loaded database or null if loading failed</returns>
-      public static Database? LoadDB(string? path=null, bool addInstance = true, string databaseName = "Loaded Compressed Database") {
+      public static Database? LoadDB(string? path=null, bool addInstance = true) {
          path ??= Settings.LabDB; // Use the default lab database path if not provided
          if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
          if (!Path.Exists(path)) throw new FileNotFoundException($"CDL2: Database file not found at {path}");
@@ -120,13 +120,13 @@ namespace CDL2v1 {
 
             if (db is not null) {
                if (addInstance) Database.AddInstance(db);
-               db.Name = databaseName;
                Logger.logger.WriteLine(1, $"CDL2: Loaded compressed database from {path} with name {db.Name}");
             }
 
             return db;
          } catch (Exception ex) {
             Logger.logger.WriteLine(0, $"CDL2: Error loading compressed database: {ex.Message}");
+            Logger.logger.WriteLine(0, $"CDL2: Stack trace: {ex.StackTrace}");
             return null;
          }
       }
@@ -322,7 +322,7 @@ namespace CDL2v1 {
          if (reader.TokenType != JsonTokenType.String)
             throw new JsonException("Expected string value for ID.");
          string idString = reader.GetString()!;
-         return ID.From(idString);
+         return new ID(idString);
       }
 
       public override void Write(Utf8JsonWriter writer, ID value, JsonSerializerOptions options) => writer.WriteStringValue(value.CanonicalName);
@@ -420,7 +420,8 @@ namespace CDL2v1 {
             if (reader.TokenType == JsonTokenType.EndArray) break;
             // Read the key as a string
             string keyString = reader.GetString()!;
-            set.Add(ID.From(keyString));
+            //set.Add(ID.From(keyString));
+            set.Add(new ID(keyString)); // Notice that the string saved is the CanonicalName which is why this works
          }
          return set;
       }
