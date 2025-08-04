@@ -187,7 +187,7 @@ namespace CDL2v1 {
                   Match match = Regex.Match(input, @"^\s*(?<verb>[a-z]+)(?:\s+(?<settings>[+-][a-z-]+(?:[:=]\S+?)?))?(?:\s+(?<args>.*))?$", RegexOptions.Compiled);
                   if (match.Success) {
                      CommandType commandType = Abbreviation<CommandType>.Identify(match.Groups["verb"].Value);
-                     CLI.InterpretCommand(input, commandType, match.Groups["settings"].Value, match.Groups["args"].Value,commandWindow);
+                     CLI.InterpretCommand(input, commandType, match.Groups["settings"].Value, match.Groups["args"].Value);
                   } else {
                      // Assume it is a cdl2 construct that must be parsed
                      CLI.EnterCode(input);

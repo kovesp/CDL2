@@ -559,8 +559,8 @@ namespace CDL2v1 {
       /// <param Id="Id"></param>
       /// <param Id="module"></param>
       /// <param PhaseName="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
-      public Layer(ID id, Module module, Layer? ancestor, string? comments = null, Notes? notes = null) 
-         : base(id, module, comments, notes,SelectorType.LAYER) => AncestorGUID = ancestor?.GUID ?? Guid.Empty;
+      public Layer(ID id, Module module, Layer? ancestor, string? comments = null, Notes? notes = null,int after = -1) 
+         : base(id, module, comments, notes,SelectorType.LAYER,after:after) => AncestorGUID = ancestor?.GUID ?? Guid.Empty;
       [JsonConstructor]
       public Layer() : base() => FocusType = SelectorType.LAYER;  // For deserialization
 
@@ -705,7 +705,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="Id"></param>
       /// <param Id="layer"></param>
-      public Section(ID id,Layer layer,string? comments = null,Notes? notes = null) : base(id,layer,comments,notes,SelectorType.SECTION) 
+      public Section(ID id,Layer layer,string? comments = null,Notes? notes = null,int after = -1) : base(id,layer,comments,notes,SelectorType.SECTION,after:after) 
          => LudeParser = Parser.ParseLudeOfCalls;
       [JsonConstructor]
       public Section() { LudeParser = Parser.ParseLudeOfCalls; FocusType = SelectorType.SECTION; }

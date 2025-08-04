@@ -35,6 +35,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -42,7 +43,7 @@ using System.Threading.Tasks;
 
 namespace CDL2v1 {
    public class CommandInterpreter {
-      private readonly CommandPromptWindow commandWindow;
+      private readonly CommandPromptWindow? commandWindow;
       private readonly PrettyPrinter pp;
       private readonly Parser parser;
 
@@ -54,32 +55,67 @@ namespace CDL2v1 {
          parser = new Parser(CDL2.Compiler,(severity,msg,_)=>commandWindow.WriteLine($"{severity}: {msg}",severity));
       }
 
+      public CommandInterpreter() {
+         commandWindow = null;
+         // Create a CommandWindowEmitter that integrates with our window
+         pp = new(new EmitterDebug(),includeComments: true);
+         // Initialize the parser with the compiler and a callback for error messages
+         parser = new Parser(CDL2.Compiler,(severity,msg,_) => Debug.WriteLine($"{severity}: {msg}",severity));
+      }
+
       public void SetStatus(string? status = null) {
-         if (status is null) {
-            commandWindow!.SetStatus("Nothing");
-         } else {
-            commandWindow.SetStatus(status);
+         if (commandWindow is not null) {
+            if (status is null) {
+               commandWindow!.SetStatus("Nothing");
+            } else {
+               commandWindow.SetStatus(status);
+            }
          }
       }
       public void SetStatus(NamedElement? element=null) {
-         if (element is null) {
-            commandWindow.SetStatus("Nothing");
-         } else {
-            commandWindow.SetStatus(element.FQDN());
+         if (commandWindow is not null) {
+            if (element is null) {
+               commandWindow.SetStatus("Nothing");
+            } else {
+               commandWindow.SetStatus(element.FQDN());
+            }
          }
       }
 
-      internal void EnterCode(string input) {
+      public void EnterCode(string input) {
          parser.Tokenize(input);
          Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
 
          if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element)) Focus.SetFocus(element!);
          ParsingContext = null; // Reset the parsing context after a parse
       }
+      public bool EnterRawCode(string input) {
+         string trimmed = input.Trim();
+         if (char.IsAsciiLetterUpper(trimmed[0])) {
+            string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
+            SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
+            if (type != SelectorType.INVALID) {
+               EnterCode($"{type} {input[firstWord.Length..]}");
+               return true;
+            }
+         }
+         return false;
+      }
 
       Focus? ParsingContext = null;
 
-      internal void InterpretCommand(string command, CommandType commandType, string settings, string args, CommandPromptWindow commandWindow) {
+      private void WriteLine(string message) {
+         if (commandWindow is not null) {
+            commandWindow.WriteLine(message);
+         } else {
+            Debug.WriteLine(message);
+         }
+      }
+      private void WriteError(string message) => WriteLine("Error:" + message);
+      private void WriteInfo(string message) => WriteLine("Info: " + message);
+      private void WriteWarning(string message) => WriteLine("Warning: " + message);
+
+      public void InterpretCommand(string command, CommandType commandType, string settings, string args) {
          IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          string[] parts;
@@ -91,40 +127,40 @@ namespace CDL2v1 {
                break;
 #endif
             case CommandType.INVALID:
-               commandWindow.WriteError($"Invalid command: {command}");
+               WriteError($"Invalid command: {command}");
                return;
             case CommandType.focus:
                if (!Focus.SetFocus(args,out string errorMessage)) {
-                  commandWindow.WriteError(errorMessage);
+                  WriteError(errorMessage);
                }
                break;
             case CommandType.next:
                // Handle next command
-               commandWindow.WriteLine("Next command executed");
+               WriteLine("Next command executed");
                break;
             case CommandType.previous:
                // Handle previous command
-               commandWindow.WriteLine("Previous command executed");
+               WriteLine("Previous command executed");
                break;
             case CommandType.list:
                if (args == "") {
                   if (Focus.Current.Object is not null) {
                      //TODO: Ignore Focus subojbest for now
-                     commandWindow.WriteLine(Focus.Current.Object.FQDN());
+                     WriteLine(Focus.Current.Object.FQDN());
                   } else {
-                     commandWindow.WriteInfo($"Nothing");
+                     WriteInfo($"Nothing");
                   }
                } else {
                   Selection selection = new(args);
                   if (selection.IsInvalid) {
-                     commandWindow.WriteError(selection.ErrorMessage);
+                     WriteError(selection.ErrorMessage);
                      return;
                   }
                   if (selection.Count == 0) {
-                     commandWindow.WriteLine(selection.ErrorMessage);
+                     WriteLine(selection.ErrorMessage);
                   } else {
                      foreach (SingleSelection sel in selection) {
-                        commandWindow.WriteLine(sel.Object!.FQDN());
+                        WriteLine(sel.Object!.FQDN());
                      }
                   }
                }
@@ -140,7 +176,7 @@ namespace CDL2v1 {
                } else {
                   Selection selection = new(args);
                   if (selection.IsInvalid) {
-                     commandWindow.WriteError(selection.ErrorMessage);
+                     WriteError(selection.ErrorMessage);
                      return;
                   }
                   pp.PauseUpdate(() => {
@@ -154,16 +190,16 @@ namespace CDL2v1 {
                // Handle set command
                parts = command.Split(' ',3);
                if (parts.Length < 3) {
-                  commandWindow.WriteInfo("Usage: set <key> <value>");
+                  WriteInfo("Usage: set <key> <value>");
                   return;
                }
                string key = parts[1];
                string value = parts[2];
                // Set logic here
-               commandWindow.WriteLine($"Set {key} to {value}");
+               WriteLine($"Set {key} to {value}");
                break;
             case CommandType.status:
-               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",commandWindow.WriteInfo);
+               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
                break;
             case CommandType.rename:
                break;
@@ -180,7 +216,7 @@ namespace CDL2v1 {
                // Rerun Semantic analysis to update the database.
                //
                // For now only handle the case when a program is being deleted: It has no children and is not contained in anything.
-               SingleSelection? context = GetContext(args,commandWindow);
+               SingleSelection? context = GetContext(args);
                if (context is null) return;
                switch (context.Object) {
                   case Program p:
@@ -191,22 +227,22 @@ namespace CDL2v1 {
                      // The above is what needs to be done for a single element. It then needs to be repeated for all children.
                      // ... Program doesn't have any, since Parts are not exactly children.
                      // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
-                     commandWindow.WriteInfo($"{p.FQDN()} removed");
+                     WriteInfo($"{p.FQDN()} removed");
                      break;
                   case Module m:
-                     commandWindow.WriteInfo("Not implemented.");
+                     WriteInfo("Not implemented.");
                      break;
                   case Layer l:
-                     commandWindow.WriteInfo("Not implemented.");
+                     WriteInfo("Not implemented.");
                      break;
                   case Section s:
-                     commandWindow.WriteInfo("Not implemented.");
+                     WriteInfo("Not implemented.");
                      break;
                   case CDL2Object c:
-                     commandWindow.WriteInfo("Not implemented.");
+                     WriteInfo("Not implemented.");
                      break;
                   default:
-                     commandWindow.WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
+                     WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
                      return;
                }
                break;
@@ -219,25 +255,25 @@ namespace CDL2v1 {
             case CommandType.undo:
                break;
             case CommandType.save:
-               commandWindow.WriteInfo($"Saved: {Database.Save()}");
+               WriteInfo($"Saved: {Database.Save()}");
                break;
             case CommandType.bye:
             case CommandType.quit:
             case CommandType.exit:
-               commandWindow.Close();
+               commandWindow?.Close();
                return;
             case CommandType.help:
                if (args == "") {
-                  commandWindow.WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
+                  WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
                   foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
-                     commandWindow.WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
+                     WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
                   }
-                  commandWindow.WriteInfo("\nType 'help selector' to list the valid selectors");
+                  WriteInfo("\nType 'help selector' to list the valid selectors");
                } else if (args == "selector") {
-                  commandWindow.WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
-                  commandWindow.WriteInfo("Only the first letter of the selector must be capitalized.\n");
+                  WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
+                  WriteInfo("Only the first letter of the selector must be capitalized.\n");
                   foreach (Abbreviation<SelectorType> sel in Abbreviation<SelectorType>.FocusTypes) {
-                     commandWindow.WriteInfo($"   {sel.NameWithAbbreviation}");
+                     WriteInfo($"   {sel.NameWithAbbreviation}");
                   }
                }
                break;
@@ -246,7 +282,7 @@ namespace CDL2v1 {
                Program? program = CDL2.GetMainProgram();
                if (program is not null) {
                   CDL2.GenerateCode(out string targetFileName,program);
-                  commandWindow.WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
+                  WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
                }
                break;
             case CommandType.consult:
@@ -265,11 +301,11 @@ namespace CDL2v1 {
       /// <param name="args"></param>
       /// <param name="commandWindow"></param>
       /// <returns></returns>
-      private static SingleSelection? GetContext(string args,CommandPromptWindow commandWindow) {
+      private SingleSelection? GetContext(string args) {
          if (args != "") {
             Selection selection = new(args);
             if (selection.IsInvalid) {
-               commandWindow.WriteError(selection.ErrorMessage);
+               WriteError(selection.ErrorMessage);
                return null;
             } else {
                return selection.FirstOrDefault()!;

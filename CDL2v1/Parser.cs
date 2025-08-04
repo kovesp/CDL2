@@ -792,7 +792,7 @@ namespace CDL2v1 {
                tokens.Skip(); // Consume the reserved word
                if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
                   // We have a correct Module declaration. These are valid irrespective of the context.
-                  after = Focus.Current.IndexFor(objectType);
+                  after = context.IndexFor(objectType);
                   element = new Program(id,comments,after: after);
                   Focus.SetFocus(element);
                } else {
@@ -813,7 +813,7 @@ namespace CDL2v1 {
                tokens.Skip(); // Consume the reserved word
                if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
                   // We have a correct Module or Program declaration. These are valid irrespective of the context.
-                  after = Focus.Current.IndexFor(objectType);
+                  after = context.IndexFor(objectType);
                   element = new Module(id,comments,after: after);
                   Focus.SetFocus(element);
                } else {
@@ -821,8 +821,32 @@ namespace CDL2v1 {
                }
                break;
             case RW.LAYER:
+               if (context.FocusType == SelectorType.PROGRAM || context.FocusType == SelectorType.INVALID) {
+                  ReportError($"Cannot add a {RW.LAYER} cannot be created when the Module cannot be determined.");
+               } else if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
+                  tokens.Skip(); // Consume the reserved word
+                  after = context.IndexFor(objectType);
+                  Module module = context.Module!;
+                  Layer ancestor = module.Layers[context.IndexFor(RW.LAYER)];
+                  element = new Layer(id,module,ancestor,comments,after: after);
+                  Focus.SetFocus(element);
+               } else {
+                  ReportError($"Expected ID and . after {RW.LAYER} reserved word.");
+               }
                break;
             case RW.SECTION:
+               if (context.FocusType == SelectorType.PROGRAM || context.FocusType == SelectorType.MODULE || context.FocusType == SelectorType.INVALID) {
+                  ReportError($"Cannot add a {RW.SECTION} when the context cannot be determined");
+               } else if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
+                  tokens.Skip(); // Consume the reserved word
+                  after = context.IndexFor(objectType);
+                  Module module = context.Module!;
+                  Layer layer = module.Layers[context.IndexFor(RW.LAYER)];
+                  element = new Section(id,layer,comments,after: after);
+                  Focus.SetFocus(element);
+               } else {
+                  ReportError($"Expected ID and . after {RW.SECTION} reserved word.");
+               }
                break;
             case RW.FUNCTION:
             case RW.ACTION:

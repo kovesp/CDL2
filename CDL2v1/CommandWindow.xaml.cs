@@ -346,10 +346,10 @@ namespace CDL2v1 {
                }
                return;
             } else {
-               // Check wheter we have a command or CDL2 object
+               // Check whether we have a command or CDL2 object
                string trimmed = input.Trim();
+               bool isCommand = char.IsAsciiLetterLower(trimmed[0]);
                string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
-               bool isCommand = char.IsAsciiLetterLower(firstWord[0]);
                if (!isCommand) {
                   SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
                   if (type != SelectorType.INVALID) {

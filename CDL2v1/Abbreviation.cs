@@ -119,7 +119,7 @@ namespace CDL2v1 {
          new ("LAYER"      ,3,SelectorType.MODULE),
          new ("PROGRAM"    ,1),
          new ("SECTION"    ,1,SelectorType.LAYER),
-         // Mathced by FACE and ANY
+         // Matched by FACE and ANY
          new ("ABSTR"      ,5,SelectorType.SECTION),
          new ("EXT"        ,3,SelectorType.SECTION),
          new ("EXPORT"     ,3,SelectorType.SECTION),
