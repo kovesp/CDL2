@@ -49,6 +49,7 @@ using System.Collections;
 using System.Diagnostics;
 using System.Xml.Linq;
 using System.Text.RegularExpressions;
+using System.Collections.Concurrent;
 
 namespace CDL2v1 {
    /// <summary>
@@ -66,32 +67,47 @@ namespace CDL2v1 {
 #endif // DEBUG_SERIALIZATION
    }
    /// <summary>
-   /// Entrypoint for all data maintanined by the Compiler.
-   /// In memory dta holder for a future CDL2 Lab implementation.
+   /// Entry point for all data maintained by the Compiler.
+   /// In memory data holder for a future CDL2 Lab implementation.
    /// </summary>
    public class Database : SerializationBase {
       /// <summary>
       /// This is a singleton class.
       /// </summary>
       public Database() { }
-      public static Database Instance => DatabaseStack.Count > 0 ? DatabaseStack.Peek() : throw new InvalidOperationException("Database stack is empty. No database instance available.");
+      /// <summary>
+      /// This is needed to support multiple instances used by unit testing.
+      /// Note that this is thread-safe.
+      /// </summary>
+      private static readonly ConcurrentDictionary<int,Database>  Instances = new();
+      private static readonly int DefaultThreadId;
 
-      private static readonly Stack<Database> DatabaseStack = [];
-      static Database() => PushDatabase();
-
-      public static void PushDatabase(Database? db = null) => DatabaseStack.Push(db ?? new Database());
-      public static void PopDatabase() {
-         if (DatabaseStack.Count > 1) {
-            DatabaseStack.Pop();
-         } else {
-            throw new InvalidOperationException("Cannot pop the last database instance from the stack.");
+      public static Database Instance {
+         get {
+            if (Instances.TryGetValue(Environment.CurrentManagedThreadId,out Database? db)) {
+               return db;
+            } else {
+               return Instances[DefaultThreadId];
+            }
          }
+      }
+
+      /// <summary>
+      /// Adds a database instance for the current thread. This is used by <cref href="Serializer.LoadDB(string?)"/>
+      /// to create a new instance of the database for the current thread.
+      /// </summary>
+      /// <param name="db"></param>
+      public static void AddInstance(Database? db = null) => Instances[Environment.CurrentManagedThreadId] = db ?? new Database();
+
+      static Database() {
+         AddInstance();
+         DefaultThreadId = Environment.CurrentManagedThreadId; // This will be used if the current thread does not have one of its own.
       }
 
       public string Name = "Database";
 
       /// <summary>
-      /// Maps the cannonical form of identifiers (i.e., with whitespace removed) to the original form.
+      /// Maps the canonical form of identifiers (i.e., with whitespace removed) to the original form.
       /// </summary>
       [JsonInclude]
       [JsonPropertyOrder(1)]
@@ -335,7 +351,6 @@ namespace CDL2v1 {
       public static string Save(string? filePath = null) => Serializer.SaveDB(filePath);
       public static void Load(string? filePath = null) => Serializer.LoadDB(filePath);
       public static void InitializeForTests() {
-         // Can't using runsettings to set the working directory
          Directory.SetCurrentDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,@"..\..\..\..\CDL2v1\CDL2"));
          Load();
       }

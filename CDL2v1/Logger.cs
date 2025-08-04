@@ -44,7 +44,7 @@ namespace CDL2v1 {
    /// <summary>
    /// A simple logger class that can be used to log messages at different levels.
    /// </summary>
-   internal class Logger {
+   public class Logger {
       /// <summary>
       /// The logger instance. This is a singleton.
       /// </summary>

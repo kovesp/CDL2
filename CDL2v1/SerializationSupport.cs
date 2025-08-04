@@ -102,10 +102,10 @@ namespace CDL2v1 {
       /// Loads a compressed JSON database from a file.
       /// </summary>
       /// <param name="path">Path for the file (extension will be replaced). Use the path form settings if not given.</param>
-      /// <param name="push">Whether to push the loaded database onto the stack</param>
+      /// <param name="addInstance">Whether to push the loaded database onto the stack</param>
       /// <param name="databaseName">Name for the loaded database</param>
       /// <returns>The loaded database or null if loading failed</returns>
-      public static Database? LoadDB(string? path=null, bool push = true, string databaseName = "Loaded Compressed Database") {
+      public static Database? LoadDB(string? path=null, bool addInstance = true, string databaseName = "Loaded Compressed Database") {
          path ??= Settings.LabDB; // Use the default lab database path if not provided
          if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
          if (!Path.Exists(path)) throw new FileNotFoundException($"CDL2: Database file not found at {path}");
@@ -119,7 +119,7 @@ namespace CDL2v1 {
             Database? db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
 
             if (db is not null) {
-               if (push) Database.PushDatabase(db);
+               if (addInstance) Database.AddInstance(db);
                db.Name = databaseName;
                Logger.logger.WriteLine(1, $"CDL2: Loaded compressed database from {path} with name {db.Name}");
             }

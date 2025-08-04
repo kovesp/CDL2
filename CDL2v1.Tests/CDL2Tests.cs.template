@@ -1,0 +1,12 @@
+﻿using Xunit;
+
+namespace $defaultnamespace$ {
+   public class $safeitemname$(DatabaseFixture fixture) : IClassFixture<DatabaseFixture> {
+      private readonly DatabaseFixture _fixture = fixture.SetName(typeof($safeitemname$));
+
+      [Fact]
+      public void Test() {
+         Assert.True(true);
+      }
+   }
+}
