@@ -76,14 +76,15 @@ namespace CDL2v1 {
       /// Must match with the names in the CommandType enum.
       /// </summary>
       public readonly static SortedSet<Abbreviation<CommandType>> Commands = [
+         new ("abort"   , 5,"abort:                       exit the Lab without saving the database"),
          new ("append"  , 1,"append   [SELECTOR] object:  append the object (which must be of the correct type) after the SELECTOR (same as add)"),
          new ("add"     , 1,"add      [SELECTOR] object:  add the object (which must be of the correct type) after the SELECTOR (same as append)"),
-         new ("bye"     , 3,"bye:                         exit the lab after saving the database"),
+         new ("bye"     , 3,"bye:                         exit the Lab after saving the database"),
          new ("consult" , 1,"consult  file-name:          read the file which must contain one or more CDL2 modules and/or programs"),
          new ("delete"  , 3,"delete   [SELECTOR]:         deletes (removes) the selected object (eventually this can be undone ... but not yet"),
          new ("edit"    , 1,"edit     [SELECTOR]:         edit the selected object"),
          new ("delete"  , 3,"delete   [SELECTOR]:         delete the selected object"),
-         new ("exit"    , 4,"exit:                        exit the lab after saving the database"),
+         new ("exit"    , 4,"exit:                        exit the Lab after saving the database"),
          new ("focus"   , 1,"focus    [SELECTOR]:         set the focus to the object described by the selector and display it"),
          new ("generate", 1,"generate [SELECTOR]:         generate code for the selected object which must be a PROGRAM or a MODULE"),
          new ("help"    , 1,"help     [command]:          display this list, or details for a command"),
@@ -92,7 +93,7 @@ namespace CDL2v1 {
          new ("next"    , 1,"next     [SELECTOR]:         move the focus to the next object of the given type"),
          new ("previous", 1,"previous [SELECTOR]:         move the focus to the previous object of the given type"),
          new ("print"   , 2,"print    [SELECTOR]:         pretty print the selected object"),
-         new ("quit"    , 4,"quit:                        exit the lab after saving the database"),
+         new ("quit"    , 4,"quit:                        exit the Lab after saving the database"),
          new ("remove"  , 3,"remove   [SELECTOR]:         removes(deletes) the selected object (eventually this can be undone ... but not yet"),
          new ("rename"  , 3,"rename   [SELECTOR] name:    rename the selected object; may be used just to add/remove spaces"),
          new ("replace" , 1,"replace  [SELECTOR] object:  replace the selection with the new object"),

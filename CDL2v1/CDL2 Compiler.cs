@@ -199,7 +199,11 @@ namespace CDL2v1 {
             CLIThread.SetApartmentState(ApartmentState.STA);
             CLIThread.Start();
             CLIThread.Join(); // Wait for the command window to close before continuing
-            Database.Save();  // and save the dabase at exit.
+            if (Settings.SettingValue<bool>("NoSave")) {
+               Logger.Log(0,"abort command used, not saving the database.");
+            } else { 
+               Database.Save();  // and save the database at exit, unless the abort command was used.
+            }
          } else if (args.Length > 0) { // File compiler mode
             Parser = new Parser(this);
             foreach (string arg in args) {

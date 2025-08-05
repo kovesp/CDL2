@@ -95,8 +95,9 @@ namespace CDL2v1 {
          new Setting<string?>( "PrettyPrint",         "--pretty-print",     "",            "Pretty print the parsed code. If a value is given, it is assumed to be a file-name, Otherwise output goes to the Debugger.",ArgumentArity.ZeroOrOne),
          new Setting<bool>(    "GenerateDebugInfo",   "--gen-debug-info",   false,         "Generate debug information"),
          new Setting<string?>( "OutputDirectory",     "--output-dir",       null,          "Specify output directory for generated code"),
-         new Setting<bool>(    "NoMacroInlining",     "--no-macro-inlining",false,         "Do not inline macros, generae them as procedures"),
-         new Setting<bool>(    "NoProcInlining",      "--no-proc-inlining", false,         "Do not inline macros, generae them as procedures"),
+         new Setting<bool>(    "NoMacroInlining",     "--no-macro-inlining",false,         "Do not inline macros, generate them as procedures"),
+         new Setting<bool>(    "NoProcInlining",      "--no-proc-inlining", false,         "Do not inline macros, generate them as procedures"),
+         new Setting<bool>(    "NoSave",              "--no-save",          false,         "Do not save the database when exiting"),
          new Setting<int>(     "MaxInlineCalls",      "--max-inline-calls", 9,             "Maximum number of calls that can be inlined. This is a product of the number of calls in the procedure and the number of times the procedure is called. However, if the procedure contains a single call, it is always inlineable."),
          new Setting<bool>(    "ReportAll",           "--report-all",       false,         "Report all messages (subject to --messages). Normally messages for non-reachable objects are suppressed"),
          new Setting<Severity>("Messages",            "--messages",         Severity.Error,"Which messages should be shown: Error, Warning, Info. Default is errors only"),
@@ -130,6 +131,8 @@ namespace CDL2v1 {
       public static bool LabMode => SettingValue<bool>("Lab") && ! SettingValue<bool>("ParseOnly");
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
+      public static void SettingValue<T>(string name,T value) => Setting<T>(name)!.Value = value;
+
       public static Setting<T>? Setting<T>(string name) {
          if (Instance.SettingsDict.TryGetValue(name, out ISetting? setting) && setting is Setting<T> typedSetting) {
             return typedSetting;

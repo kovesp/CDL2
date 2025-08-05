@@ -418,6 +418,27 @@ namespace CDL2v1 {
       /// <param name="objectType"></param>
       /// <returns></returns>
       public int IndexFor(RW objectType) => Selection.Object?.GetType() == Parser.RW2Type[objectType] ? Selection.Object.Siblings.IndexOf(Selection.Object.GUID) : -1;
+      /// <summary>
+      /// Similar to IndexFor, but returns the object itself from the list of candidates.
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="objectType"></param>
+      /// <param name="candidates"></param>
+      /// <returns>The object or null.</returns>
+      /// <example>
+      /// <code>
+      /// // Assuming we have module 
+      /// Layer? layer = Focus.Current.ObjectFor(RW.LAYER,module.Layers);
+      /// </code>
+      /// </example>
+      public T? ObjectFor<T>(RW objectType,IEnumerable<T> candidates) where T : NamedElement {
+         int index = IndexFor(objectType);
+         if (index >= 0 && index < candidates.Count()) {
+            return candidates.ElementAt(index);
+         } else {
+            return null;
+         } 
+      }
 
       [JsonIgnore]
       public Module? Module => Selection.Object switch {

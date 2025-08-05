@@ -171,6 +171,7 @@ namespace CDL2v1 {
    /// </summary>
    public enum CommandType {
       INVALID,
+      abort,
       append,
       add,
       bye,

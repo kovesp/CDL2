@@ -40,6 +40,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace CDL2v1 {
    public class CommandInterpreter {
@@ -257,6 +258,10 @@ namespace CDL2v1 {
             case CommandType.save:
                WriteInfo($"Saved: {Database.Save()}");
                break;
+            case CommandType.abort:
+               Settings.SettingValue("NoSave",true);
+               commandWindow?.Close();
+               return;
             case CommandType.bye:
             case CommandType.quit:
             case CommandType.exit:

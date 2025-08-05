@@ -50,6 +50,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows.Controls;
 
 using static CDL2v1.Logger;
 
@@ -821,13 +822,13 @@ namespace CDL2v1 {
                }
                break;
             case RW.LAYER:
+               tokens.Skip(); // Consume the reserved word
                if (context.FocusType == SelectorType.PROGRAM || context.FocusType == SelectorType.INVALID) {
                   ReportError($"Cannot add a {RW.LAYER} cannot be created when the Module cannot be determined.");
                } else if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
-                  tokens.Skip(); // Consume the reserved word
                   after = context.IndexFor(objectType);
                   Module module = context.Module!;
-                  Layer ancestor = module.Layers[context.IndexFor(RW.LAYER)];
+                  Layer? ancestor = Focus.Current.ObjectFor(RW.LAYER,module.Layers);
                   element = new Layer(id,module,ancestor,comments,after: after);
                   Focus.SetFocus(element);
                } else {
@@ -835,13 +836,13 @@ namespace CDL2v1 {
                }
                break;
             case RW.SECTION:
+               tokens.Skip(); // Consume the reserved word
                if (context.FocusType == SelectorType.PROGRAM || context.FocusType == SelectorType.MODULE || context.FocusType == SelectorType.INVALID) {
                   ReportError($"Cannot add a {RW.SECTION} when the context cannot be determined");
                } else if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
-                  tokens.Skip(); // Consume the reserved word
                   after = context.IndexFor(objectType);
                   Module module = context.Module!;
-                  Layer layer = module.Layers[context.IndexFor(RW.LAYER)];
+                  Layer layer = Focus.Current.ObjectFor(RW.LAYER,module.Layers)!;
                   element = new Section(id,layer,comments,after: after);
                   Focus.SetFocus(element);
                } else {
