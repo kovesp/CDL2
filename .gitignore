@@ -368,3 +368,4 @@ FodyWeavers.xsd
 # Testlog Files
 testlog.txt
 testlog.*.txt
+/CDL2v1/CDL2/cdl2settings.json
