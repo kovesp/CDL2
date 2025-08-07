@@ -1,0 +1,3 @@
+[*.cs]
+csharp_style_allow_embedded_statements_on_same_line_experimental = true:suggestion
+csharp_prefer_braces = when_multiline:suggestion

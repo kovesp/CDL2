@@ -116,9 +116,9 @@ namespace CDL2v1 {
       /// </summary>
       public readonly static SortedSet<Abbreviation<SelectorType>> FocusTypes = [
          // Matched by CONTAINER and ANY
-         new ("MODULE"     ,1),
-         new ("LAYER"      ,3,SelectorType.MODULE),
          new ("PROGRAM"    ,1),
+         new ("MODULE"     ,1),
+         new ("LAYER"      ,1,SelectorType.MODULE),
          new ("SECTION"    ,1,SelectorType.LAYER),
          // Matched by FACE and ANY
          new ("ABSTR"      ,5,SelectorType.SECTION),
@@ -167,9 +167,10 @@ namespace CDL2v1 {
       /// <example>
       ///   AncestorFocusType(FocusType.MODULE, FocusType.CALL); // True, because MODULE => LAYER => SECTION => PROCEDURE => GROUP => ALTERNATIVE => CALL
       /// </example>
-      public static bool AncestorFocusType(SelectorType ancestor,SelectorType child) {
+      public static bool AncestorFocusTypeOf(SelectorType ancestor,SelectorType child) {
+         if (ancestor == SelectorType.INVALID || child == SelectorType.INVALID) return false;
          List<SelectorType>? containers = FocusTypeMap[child].Containers; // The direct containers of the child type
-         return containers is not null && (containers.Contains(ancestor) || containers.Any(container => AncestorFocusType(ancestor,container)));
+         return containers is not null && (containers.Contains(ancestor) || containers.Any(container => AncestorFocusTypeOf(ancestor,container)));
       }
 
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {

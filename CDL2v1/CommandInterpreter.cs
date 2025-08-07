@@ -117,7 +117,7 @@ namespace CDL2v1 {
       private void WriteWarning(string message) => WriteLine("Warning: " + message);
 
       public void InterpretCommand(string command, CommandType commandType, string settings, string args) {
-         IEnumerable<string> arguments = Regex.Split(command, @"\s+").Skip(1).Select(s=>s.Trim());
+         IEnumerable<string> arguments = Regex.Split(command.Trim(), @"\s+").Skip(1).Select(s=>s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          string[] parts;
 

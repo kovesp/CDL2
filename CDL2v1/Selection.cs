@@ -175,9 +175,9 @@ namespace CDL2v1 {
       /// Collects the segments into a list.
       /// </summary>
       /// <remarks>
-      /// Construction of instance will guarantted that there is always an even number of elements in the list.
-      /// The elments alternate between a Unit and a Nameor Offset segment.
-      /// The Index is normaly 0, but can be set by the optional ": <index>" segment at the end of the selection string.
+      /// Construction of instance will guarantee that there is always an even number of elements in the list.
+      /// The elements alternate between a Unit and a Name or Offset segment.
+      /// The Index is normally 0, but can be set by the optional ": <index>" segment at the end of the selection string.
       /// </remarks>
       private class SelectionSegments : List<SelectionSegment> {
          public int Index = 0;
@@ -263,7 +263,7 @@ namespace CDL2v1 {
          // Verify that the types are in hierarchical order
          for (int i = 0; i < segments.Count - 2; i += 2) {
             if (segments[i].SegmentType == SelectorType.IMPORTED) continue; // Skip IMPORTED segment
-            if (!Abbreviation<SelectorType>.AncestorFocusType(ancestor:segments[i].SegmentType,child:segments[i + 2].SegmentType)) {
+            if (!Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor:segments[i].SegmentType,child:segments[i + 2].SegmentType)) {
                // The types are not in hierarchical order, return without setting selection
                ErrorMessage = $"Invalid selection: {segments[i+2].SegmentType} cannot follow {segments[i].SegmentType}";
                return;
@@ -272,15 +272,18 @@ namespace CDL2v1 {
 
          IEnumerable<NamedElement> candidateObjects;
          IEnumerable<NamedElement> selectedObjects = [];
-         
-         if (isRooted || ! Abbreviation<SelectorType>.AncestorFocusType(Focus.Current.FocusType, segments[0].SegmentType)) {
+
+         if (!isRooted && segments[1].SegmentName == "" && Abbreviation<SelectorType>.AncestorFocusTypeOf(segments[0].SegmentType,Focus.Current.FocusType)) {
+            // The initial segment is just a type without a name, and the focus is on an object that is a descendant of that type. e.g. "Module" when the focus is on a Layer.
+            candidateObjects = [ Focus.Current.Object!.GetAncestorOfType(segments[0].SegmentType) ];
+         } else if (isRooted || !Abbreviation<SelectorType>.AncestorFocusTypeOf(Focus.Current.FocusType,segments[0].SegmentType)) {
             candidateObjects = Database.Instance.NamedElements.Values;
          } else {
-            candidateObjects = Focus.Current.Object!.DescendantElements(); 
-            // The selection is relative to the current focus. TODO: subelements are being ignored
+            candidateObjects = Focus.Current.Object!.DescendantElements();
+            // The selection is relative to the current focus. TODO: sub elements are being ignored
          }
 
-         // Use the segments to succesively narrow down the selection.
+         // Use the segments to successively narrow down the selection.
          for (int segNo = 0 ; segNo < segments.Count; segNo += 2) {
 
             // Narrow the selection using the type and name from the current segment

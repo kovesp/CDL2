@@ -38,6 +38,7 @@
 using System;
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection.Metadata.Ecma335;
@@ -180,22 +181,29 @@ namespace CDL2v1 {
                CommandInterpreter CLI = new(commandWindow);
                Focus.SetCLI(CLI);
 
+               void ProcessInput(string input) {
+                  if (input.Contains(',')) {
+                     // If the input contains a comma, split it into multiple "lines"
+                     // and interpret each one separately.
+                     foreach (string cmd in input.Split(',',StringSplitOptions.RemoveEmptyEntries)) ProcessInput(cmd);
+                  } else {
+                     Match match = Regex.Match(input,@"^\s*(?<verb>[a-z]+)(?:\s+(?<settings>[+-][a-z-]+(?:[:=]\S+?)?))?(?:\s+(?<args>.*))?$",RegexOptions.Compiled);
+                     if (match.Success) {
+                        CommandType commandType = Abbreviation<CommandType>.Identify(match.Groups["verb"].Value);
+                        CLI.InterpretCommand(input,commandType,match.Groups["settings"].Value,match.Groups["args"].Value);
+                     } else {
+                        // Assume it is a cdl2 construct that must be parsed
+                        CLI.EnterCode(input);
+                     }
+                  }
+               }
 
                // Handle commands
-               commandWindow.CommandEntered += (sender, input) => {
-                  // Parse and execute command
-                  Match match = Regex.Match(input, @"^\s*(?<verb>[a-z]+)(?:\s+(?<settings>[+-][a-z-]+(?:[:=]\S+?)?))?(?:\s+(?<args>.*))?$", RegexOptions.Compiled);
-                  if (match.Success) {
-                     CommandType commandType = Abbreviation<CommandType>.Identify(match.Groups["verb"].Value);
-                     CLI.InterpretCommand(input, commandType, match.Groups["settings"].Value, match.Groups["args"].Value);
-                  } else {
-                     // Assume it is a cdl2 construct that must be parsed
-                     CLI.EnterCode(input);
-                  }
-               };
+               commandWindow.CommandEntered += (sender, input) => ProcessInput(input);
                commandWindow.Closed += (s, e) => app.Shutdown();
                app.Run(commandWindow);
             });
+
             CLIThread.SetApartmentState(ApartmentState.STA);
             CLIThread.Start();
             CLIThread.Join(); // Wait for the command window to close before continuing
