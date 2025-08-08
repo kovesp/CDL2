@@ -806,7 +806,7 @@ namespace CDL2v1 {
 
       private void PrintComment(string? comments,Notes notes,bool nl = true) {
          if (IncludeComments) {
-            if (comments != null) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
+            if (comments != null && comments.Trim() != "") EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
                if (note.NoteType == Severity.Note) {
                   NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));

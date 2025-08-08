@@ -824,7 +824,7 @@ namespace CDL2v1 {
             case RW.LAYER:
                tokens.Skip(); // Consume the reserved word
                if (context.FocusType == SelectorType.PROGRAM || context.FocusType == SelectorType.INVALID) {
-                  ReportError($"Cannot add a {RW.LAYER} cannot be created when the Module cannot be determined.");
+                  ReportError($"Cannot add a {RW.LAYER} because I don't know which {RW.MODULE} to add it to.");
                } else if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
                   after = context.IndexFor(objectType);
                   Module module = context.Module!;
@@ -838,7 +838,7 @@ namespace CDL2v1 {
             case RW.SECTION:
                tokens.Skip(); // Consume the reserved word
                if (context.FocusType == SelectorType.PROGRAM || context.FocusType == SelectorType.MODULE || context.FocusType == SelectorType.INVALID) {
-                  ReportError($"Cannot add a {RW.SECTION} when the context cannot be determined");
+                  ReportError($"Cannot add a {RW.SECTION} because I don't know which {RW.SECTION} to add it to.");
                } else if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
                   after = context.IndexFor(objectType);
                   Module module = context.Module!;

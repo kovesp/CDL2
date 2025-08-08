@@ -170,7 +170,7 @@ namespace CDL2v1 {
             case CommandType.type:
                if (args == "") {
                   if (Focus.Current.Object is not null) {
-                     //TODO: Ignore Focus subobject for now
+                     //TODO: Ignore Focus sub object for now
                      pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
                   }
                   return;
@@ -265,6 +265,7 @@ namespace CDL2v1 {
             case CommandType.bye:
             case CommandType.quit:
             case CommandType.exit:
+               Settings.SettingValue("NoSave",false);
                commandWindow?.Close();
                return;
             case CommandType.help:
@@ -301,7 +302,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Return the context for the command. This either the selection specified in args, or the current focus.
       /// Note that null is returned if the selector was invalid.
-      /// If there is no selector then the current focus is returned which may be SingleSeletor.Empty which is a valid case.
+      /// If there is no selector then the current focus is returned which may be SingleSelector.Empty which is a valid case.
       /// </summary>
       /// <param name="args"></param>
       /// <param name="commandWindow"></param>
