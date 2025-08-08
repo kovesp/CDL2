@@ -84,7 +84,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Report errors and warnings for this phase.
       /// List them if any, and return true.
-      /// Otherwisw return false.
+      /// Otherwise return false.
       /// </summary>
       /// <returns></returns>
       public bool AbortCompilation() {
@@ -231,7 +231,7 @@ namespace CDL2v1 {
                SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
                if (SemanticAnalyzer.AbortCompilation()) return;
 
-               // Save the databse after parsing and semantic analysis
+               // Save the database after parsing and semantic analysis
                Database.Save();
 
                string? PrettyPrint = Settings.SettingValue<string>("PrettyPrint");

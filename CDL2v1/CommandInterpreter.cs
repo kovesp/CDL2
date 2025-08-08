@@ -105,16 +105,16 @@ namespace CDL2v1 {
 
       Focus? ParsingContext = null;
 
-      private void WriteLine(string message) {
+      private void WriteLine(string message,Severity severity = Severity.NONE) {
          if (commandWindow is not null) {
-            commandWindow.WriteLine(message);
+            commandWindow.WriteLine(message,severity);
          } else {
             Debug.WriteLine(message);
          }
       }
-      private void WriteError(string message) => WriteLine("Error:" + message);
-      private void WriteInfo(string message) => WriteLine("Info: " + message);
-      private void WriteWarning(string message) => WriteLine("Warning: " + message);
+      private void WriteError(string message) => WriteLine("Error:" + message,Severity.Error);
+      private void WriteInfo(string message) => WriteLine("Info: " + message,Severity.Info);
+      private void WriteWarning(string message) => WriteLine("Warning: " + message,Severity.Warning);
 
       public void InterpretCommand(string command, CommandType commandType, string settings, string args) {
          IEnumerable<string> arguments = Regex.Split(command.Trim(), @"\s+").Skip(1).Select(s=>s.Trim());
@@ -146,7 +146,7 @@ namespace CDL2v1 {
             case CommandType.list:
                if (args == "") {
                   if (Focus.Current.Object is not null) {
-                     //TODO: Ignore Focus subojbest for now
+                     //TODO: Ignore Focus sub object for now
                      WriteLine(Focus.Current.Object.FQDN());
                   } else {
                      WriteInfo($"Nothing");
@@ -158,7 +158,7 @@ namespace CDL2v1 {
                      return;
                   }
                   if (selection.Count == 0) {
-                     WriteLine(selection.ErrorMessage);
+                     WriteError(selection.ErrorMessage);
                   } else {
                      foreach (SingleSelection sel in selection) {
                         WriteLine(sel.Object!.FQDN());
@@ -213,7 +213,7 @@ namespace CDL2v1 {
                // If it is a program or a module, remove it from the appropriate database list
                // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
                // If it is a Section, then remove all declarations and remove the synthetic procs generated for ludes.
-               // In each case, update the ABSTR and EXT lists of the containig LAYER and the EXPORTS and IMPORTS of the containing module.
+               // In each case, update the ABSTR and EXT lists of the containing LAYER and the EXPORTS and IMPORTS of the containing module.
                // Rerun Semantic analysis to update the database.
                //
                // For now only handle the case when a program is being deleted: It has no children and is not contained in anything.

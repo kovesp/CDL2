@@ -10,7 +10,7 @@
 // <creation-date>2025-02-18</creation-date>
 // 
 // <summary>
-//   Contains a few support clases and extension methods for the rest of the project.
+//   Contains a few support classes and extension methods for the rest of the project.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -70,7 +70,7 @@ namespace CDL2v1 {
       public bool IsReadOnly => false;
 
       public void Add(T element) {
-         if (element is null) throw new ArgumentNullException(nameof(element));
+         ArgumentNullException.ThrowIfNull(element);
          guids.Add(element.GUID);
       }
 
@@ -98,7 +98,7 @@ namespace CDL2v1 {
       private readonly int Minimum;
 
       /// <summary>
-      /// Increment the top elment of the stack.
+      /// Increment the top element of the stack.
       /// </summary>
       /// <param name="stack"></param>
       /// <returns></returns>
@@ -404,7 +404,7 @@ namespace CDL2v1 {
          if (IsEmpty)
             return "[]";
       
-         StringBuilder sb = new StringBuilder("[");
+         StringBuilder sb = new("[");
          bool first = true;
       
          foreach (T item in this) {
@@ -424,7 +424,7 @@ namespace CDL2v1 {
       public static bool TRUE<T>(T _) => true;
 
       /// <summary>
-      /// Eauivalent to pred ?? _ => true, but that syntax doesn't work.
+      /// Equivalent to pred ?? _ => true, but that syntax doesn't work.
       /// </summary>
       /// <typeparam name="T"></typeparam>
       /// <param name="predicate"></param>
@@ -432,7 +432,7 @@ namespace CDL2v1 {
       public static Predicate<T> OrTrue<T>(this Predicate<T> predicate) => predicate ?? TRUE;
       public static Func<T, bool> OrTrue<T>(this Func<T, bool> predicate) => predicate ?? TRUE;
 
-      public static IEnumerable<T> OptMap<T>(this IEnumerable<T> source,bool cond, Func<IEnumerable<T>, IEnumerable<T>> func) => cond ? func(source) : source;
+      public static IEnumerable<T> OptMap<T>(this IEnumerable<T> source,bool condition, Func<IEnumerable<T>, IEnumerable<T>> func) => condition ? func(source) : source;
       public static IEnumerable<T> OptWhere<T>(this IEnumerable<T> source, Func<T,bool>? pred=null) => pred is not null ? source.Where(pred) : source;
 
       public static Type AsType(this string typeName) {
@@ -473,7 +473,15 @@ namespace CDL2v1 {
          return true;
       }
       /// <summary>
-      /// Return the string with whitespece removed.
+      /// Verify that the string is null, empty or whitespace.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
+      public static bool IsEmptyOrWhitespace(this string? input) => input is null || input.All(char.IsWhiteSpace);
+      public static bool IsNotEmptyOrWhitespace(this string? input) => !input.IsEmptyOrWhitespace();
+
+      /// <summary>
+      /// Return the string with whitespaces removed.
       /// </summary>
       /// <param name="input"></param>
       /// <returns></returns>
@@ -486,8 +494,8 @@ namespace CDL2v1 {
       /// <param name="useDecimalUnits">If true, uses decimal units (KB, MB, GB), otherwise binary units (KiB, MiB, GiB)</param>
       /// <returns>Formatted string representing size with appropriate unit</returns>
       public static string FormatByteSize(this long bytes, bool useDecimalUnits = false) {
-         string[] binarySuffixes = { "bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB" };
-         string[] decimalSuffixes = { "bytes", "KB", "MB", "GB", "TB", "PB", "EB" };
+         string[] binarySuffixes  = ["bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
+         string[] decimalSuffixes = ["bytes", "KB", "MB", "GB", "TB", "PB", "EB"];
 
          string[] suffixes = useDecimalUnits ? decimalSuffixes : binarySuffixes;
          int factor = useDecimalUnits ? 1000 : 1024;
@@ -671,7 +679,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Decorate a string with the given decoration.
-      /// This means encpsulating the string in a span tag with the given style and the foreground and background colors.
+      /// This means encapsulating the string in a span tag with the given style and the foreground and background colors.
       /// This is only done if the emitter supports decoration.
       /// </summary>
       /// <param name="str"></param>

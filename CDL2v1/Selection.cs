@@ -89,9 +89,7 @@ namespace CDL2v1 {
       [JsonConstructor]
       public SingleSelection() { }
 
-      public SingleSelection(NamedElement? obj) {
-         Object = obj;
-      }
+      public SingleSelection(NamedElement? obj) => Object = obj;
 
       public static SingleSelection Empty => new();
       /// <summary>
@@ -213,6 +211,11 @@ namespace CDL2v1 {
             selectionString = selectionString[1..].Trim();
          }
 
+         if (selectionString == string.Empty) {
+            Add(SingleSelection.Empty);
+            return;
+         }
+
          Regex regex = new(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z\s]*)", RegexOptions.Compiled);
 
          bool previousSegmentWasUnit = false;
@@ -259,7 +262,10 @@ namespace CDL2v1 {
          }
          if (segments.Count == 0) return; // No valid parts found
          if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if the last was a unit, ensure an even number of elements
-         Debug.Assert(segments.Count > 0 && segments.Count % 2 == 0, "No valid segments found in selection string, or number of selection segments is odd");
+         if (segments.Count > 0 && segments.Count % 2 == 1) {
+            ErrorMessage = $"Unable to parse selector";
+            return;
+         }
          // Verify that the types are in hierarchical order
          for (int i = 0; i < segments.Count - 2; i += 2) {
             if (segments[i].SegmentType == SelectorType.IMPORTED) continue; // Skip IMPORTED segment
@@ -348,12 +354,12 @@ namespace CDL2v1 {
                // NOTE selection. Not clear yet whether this should be supported.
                case SelectorType.NOTE: goto default;
 
-               // Special prefix that is used to selcted imported CONSTs and ALGORITHMs. Handled dureing segment sonstruction above
+               // Special prefix that is used to selected imported CONSTs and ALGORITHMs. Handled during segment construction above
                case SelectorType.IMPORTED:
                   ErrorMessage = $"Fapipa: Unfiltered IMPORTED which is not possible"; // Hommage à Mihályi Kati 
                   break;
                case SelectorType.INVALID:   ErrorMessage = $"Unrecognized selection type"; break;
-               default:                  ErrorMessage = $"Unimplemented selection type: {segments[segNo].SegmentType}"; break;
+               default:                     ErrorMessage = $"Unimplemented selection type: {segments[segNo].SegmentType}"; break;
             }        
          }
 
@@ -367,12 +373,12 @@ namespace CDL2v1 {
    }
 
    /// <summary>
-   /// Provides fuctionality releated to the current object, the Focus, of the CDL2 Laboratory
+   /// Provides functionality related to the current object, the Focus, of the CDL2 Laboratory
    /// </summary>
    public class Focus {
       /// <summary>
-      /// The focus can be pushed or popded to allow for easier navigation.
-      /// It is not preserved accross sessions.
+      /// The focus can be pushed or popped to allow for easier navigation.
+      /// It is not preserved across sessions.
       /// </summary>
       public static readonly Stack<Focus> Stack = [];
       static Focus() => Stack.Push(new Focus());
@@ -445,7 +451,6 @@ namespace CDL2v1 {
 
       [JsonIgnore]
       public Module? Module => Selection.Object switch {
-         Program program => null,
          Module module => module,
          Layer layer => layer.Module,
          Section section => section.Module,
@@ -454,8 +459,6 @@ namespace CDL2v1 {
       };
       [JsonIgnore]
       public Layer? Layer => Selection.Object switch {
-         Program program => null,
-         Module module => null,
          Layer layer => layer,
          Section section => section.Layer,
          CDL2Object cdl2Object => cdl2Object.Layer,
@@ -463,9 +466,6 @@ namespace CDL2v1 {
       };
       [JsonIgnore]
       public Section? Section => Selection.Object switch {
-         Program program => null,
-         Module module => null,
-         Layer layer => null,
          Section section => section,
          CDL2Object cdl2Object => cdl2Object.Section,
          _ => null,

@@ -36,6 +36,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -75,7 +76,7 @@ namespace CDL2v1 {
       public bool IsNext(List<TT> types) => IsNonEmpty() && types.Contains(tokens[0].type);
 
       public bool IsNext(RW reservedWord) => IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].reservedWordValue == reservedWord;
-      public bool IsNext(RW reservedWord,out string? comment) {
+      public bool IsNext(RW reservedWord,[NotNullWhen(true)] out string? comment) {
          if (IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].reservedWordValue == reservedWord) {
             comment = tokens[0].Comments;
             return true;
@@ -138,7 +139,7 @@ namespace CDL2v1 {
             token = Next();
             return true;
          }
-         ReportUnexpectedToken(types.ToArray(), Peek(), []);
+         ReportUnexpectedToken([.. types], Peek(), []);
          token = Token.ErrorToken;
          return false;
       }
@@ -154,22 +155,22 @@ namespace CDL2v1 {
          id = ID.ErrorID;
          return IsNext(TT.ID) && CanConsume(out id);
       }
-      public bool Optional(TT type) => IsNext(type) ? Consume(type) : false;
-      public bool Optional(RW type) => IsNext(type) ? Consume(type) : false;
-      public bool Optional(RW type,out string? comments) => IsNext(type,out comments) ? Consume(type) : false;
-      public bool Optional(List<TT> types,out Token token) { token = Token.ErrorToken; return IsNext(types) ? CanConsume(types,out token) : false; }
-      public bool Optional(TT type,out Token token) { token = Token.ErrorToken; return IsNext(type) ? CanConsume(type,out token) : false; }
+      public bool Optional(TT type) => IsNext(type) && Consume(type);
+      public bool Optional(RW type) => IsNext(type) && Consume(type);
+      public bool Optional(RW type,[NotNullWhen(true)] out string? comments) => IsNext(type,out comments) && Consume(type);
+      public bool Optional(List<TT> types,[NotNullWhen(true)] out Token token) { token = Token.ErrorToken; return IsNext(types) && CanConsume(types,out token); }
+      public bool Optional(TT type,[NotNullWhen(true)] out Token token) { token = Token.ErrorToken; return IsNext(type) && CanConsume(type,out token); }
 
       public bool CanConsume(List<TT> types) {
          if (IsNext(types)) {
             Next();
             return true;
          }
-         ReportUnexpectedToken(types.ToArray(), Peek(), []);
+         ReportUnexpectedToken([.. types], Peek(), []);
          return false;
       }
 
-      public bool CanConsume(RW reservedWord,out string? comments) {
+      public bool CanConsume(RW reservedWord,[NotNullWhen(true)] out string? comments) {
          comments = null;
          if (IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].reservedWordValue == reservedWord) {
             comments = tokens[0].Comments;
@@ -186,7 +187,7 @@ namespace CDL2v1 {
             token = Next();
             return true;
          }
-         ReportUnexpectedToken([TT.RESWORD], Peek(), reservedWords.ToArray());
+         ReportUnexpectedToken([TT.RESWORD], Peek(),[.. reservedWords]);
          Skip();
          token = Token.ErrorToken;
          return false;
@@ -198,14 +199,14 @@ namespace CDL2v1 {
       /// <param Id="unit">The unit type reserved word.</param>
       /// <param Id="Id">If stating a unit, the Id is set, If ending a unit, it is verified that the Id matches the one given in the unit close.</param>
       /// <returns></returns>
-      public bool CanConsumeContainerDelimiter(RW unit,ref ID id,out string? comments) {
+      public bool CanConsumeContainerDelimiter(RW unit,ref ID id,[NotNullWhen(true)]out string? comments) {
          Debug.Assert(Token.UnitStarters.Contains(unit) || Token.UnitEnders.Contains(unit));
          if (Optional(unit,out comments) && CanConsume(out ID thisId) && CanConsumeEnd()) {
             if (Token.UnitStarters.Contains(unit)) {
                id = thisId;
                return true;
             } else if (Token.UnitEnders.Contains(unit)) {
-               if (thisId != id) throw new Exception($"Expected {id} in {unit.ToString()} but found {thisId}");
+               if (thisId != id) throw new Exception($"Expected {id} in {unit} but found {thisId}");
                return true;
             }
          }

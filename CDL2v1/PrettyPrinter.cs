@@ -68,7 +68,7 @@ namespace CDL2v1 {
    
       public readonly Emitter Emitter;
 
-      private bool IncludeComments = true;
+      private readonly bool IncludeComments = true;
 
 
       /// <summary>
@@ -334,9 +334,7 @@ namespace CDL2v1 {
                }
             }
             void PrintAlgorithms<T>(string type,IEnumerable<T> list,Action<T> print) where T : Algorithm {
-               if (EmitCount(list,type) > 0)
-                  foreach (T algorithm in list)
-                     print(algorithm);
+               if (EmitCount(list,type) > 0) foreach (T algorithm in list) print(algorithm);
             }
 
             PrintDataDefinitions(RW.CONST,section.Constants,Print);
@@ -717,7 +715,7 @@ namespace CDL2v1 {
             Emitnl(" ", algorithm.BodyType);
          }
       }
-      private Decoration AlgorithmNameDecorator(Algorithm alg) 
+      private static Decoration AlgorithmNameDecorator(Algorithm alg) 
          => alg.IsConditionalCompilationOn ? Decorators[SE.ConditionalCompilationOn] : 
             alg.IsConditionalCompilationOff ? Decorators[SE.ConditionalCompilationOff] : 
             AlgorithmNameDecorators[alg.NameType];
@@ -795,7 +793,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="element"></param>
       private void PrintComment(NamedElement element,bool nl = true) => PrintComment(element.Comments,element.Notes,nl);
-      private void PrintComment(Alternative element) => PrintComment(null,element.Notes);
+      private void PrintComment(Alternative element) => PrintComment(string.Empty,element.Notes);
 
       private void PrintInlineComment(string comment) {
          if (IncludeComments) {
@@ -804,9 +802,9 @@ namespace CDL2v1 {
       }
       private void PrintImportedComment(CDL2Object obj) { if (obj.IsImported) PrintInlineComment("Imported"); }
 
-      private void PrintComment(string? comments,Notes notes,bool nl = true) {
+      private void PrintComment(string comments,Notes notes,bool nl = true) {
          if (IncludeComments) {
-            if (comments != null && comments.Trim() != "") EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
+            if (comments.IsNotEmptyOrWhitespace()) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
                if (note.NoteType == Severity.Note) {
                   NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));

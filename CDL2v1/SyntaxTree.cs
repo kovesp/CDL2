@@ -242,7 +242,7 @@ namespace CDL2v1 {
       /// </summary>
       [JsonInclude][JsonPropertyOrder(4)] public Guid Parent { get; set; } = Guid.Empty;
       [JsonIgnore] public virtual List<Guid> Siblings => [];
-      [JsonInclude][JsonPropertyOrder(5)] public string? Comments { get; set; }
+      [JsonInclude][JsonPropertyOrder(5)] public string Comments { get; set; } = string.Empty;
       [JsonInclude][JsonPropertyOrder(6)] public Notes Notes { get; set; } = [];
 
       [JsonIgnore] public virtual bool IsImported => false;
@@ -275,7 +275,7 @@ namespace CDL2v1 {
       public T? AncestorContainer<T>() where T : Container {
          if (Parent == Guid.Empty) {
             return null!;  // The element has no parent
-         } else if (this is T self) {
+         } else if (this is T) {
             return null;   // The element is of the given container type
          } else if (Database.Instance.NamedElements.TryGetValue(Parent,out NamedElement? parent)) {
             if (parent is T container)
@@ -463,7 +463,7 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(10)] public List<Guid> Children { get; set; } = [];
       public override IEnumerable<NamedElement> ChildElements() => Children.Select(guid => Database.Instance.NamedElements[guid]);
 
-      public Container(ID id,Container? parent,string? comments = null,Notes? notes = null,SelectorType FocusType = SelectorType.INVALID,int after = -1) : base(id,focusType: FocusType) {
+      public Container(ID id,Container? parent,string comments = "",Notes? notes = null,SelectorType FocusType = SelectorType.INVALID,int after = -1) : base(id,focusType: FocusType) {
          Comments = comments;
          AddNotes("Parser",notes);
          Parent = parent?.GUID ?? Guid.Empty;
@@ -534,7 +534,7 @@ namespace CDL2v1 {
       /// Program Ludes are a list of module IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Program(ID id,string? comments,Notes? notes = null,int after = -1) : base(id,null,comments,notes ?? Notes.Empty,SelectorType.PROGRAM,after: after) => LudeParser = Parser.ParseLudeOfIDs;
+      public Program(ID id,string comments,Notes? notes = null,int after = -1) : base(id,null,comments,notes ?? Notes.Empty,SelectorType.PROGRAM,after: after) => LudeParser = Parser.ParseLudeOfIDs;
 
       [JsonConstructor]
       public Program() { LudeParser = Parser.ParseLudeOfIDs; FocusType = SelectorType.PROGRAM; }
@@ -562,7 +562,7 @@ namespace CDL2v1 {
       /// Module Ludes are a list of container IDs.
       /// </summary>
       /// <param Id="Id"></param>
-      public Module(ID id,string? comments,Notes? notes = null,int after = -1) : base(id,null,comments,notes ?? Notes.Empty,SelectorType.MODULE,after: after) {
+      public Module(ID id,string comments,Notes? notes = null,int after = -1) : base(id,null,comments,notes ?? Notes.Empty,SelectorType.MODULE,after: after) {
          LudeParser = Parser.ParseLudeOfIDs;
          Comments = comments;
       }
@@ -573,9 +573,7 @@ namespace CDL2v1 {
       }
 
       public Section? SectionById(ID id) {
-         foreach (Section section in Sections)
-            if (section.Id == id)
-               return section;
+         foreach (Section section in Sections) if (section.Id == id) return section;
          return null;
       }
       public bool TryGetSectionById(ID id,out Section? section) {
@@ -604,7 +602,7 @@ namespace CDL2v1 {
       /// <param Id="Id"></param>
       /// <param Id="module"></param>
       /// <param PhaseName="ancestor">The layer from which this layer is extended. Null for the lowest layer.</param>
-      public Layer(ID id,Module module,Layer? ancestor,string? comments = null,Notes? notes = null,int after = -1)
+      public Layer(ID id,Module module,Layer? ancestor,string comments = "",Notes? notes = null,int after = -1)
          : base(id,module,comments,notes,SelectorType.LAYER,after: after) => AncestorGUID = ancestor?.GUID ?? Guid.Empty;
       [JsonConstructor]
       public Layer() : base() => FocusType = SelectorType.LAYER;  // For deserialization
@@ -750,7 +748,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="Id"></param>
       /// <param Id="layer"></param>
-      public Section(ID id,Layer layer,string? comments = null,Notes? notes = null,int after = -1) : base(id,layer,comments,notes,SelectorType.SECTION,after: after)
+      public Section(ID id,Layer layer,string comments = "",Notes? notes = null,int after = -1) : base(id,layer,comments,notes,SelectorType.SECTION,after: after)
          => LudeParser = Parser.ParseLudeOfCalls;
       [JsonConstructor]
       public Section() { LudeParser = Parser.ParseLudeOfCalls; FocusType = SelectorType.SECTION; }
@@ -809,7 +807,7 @@ namespace CDL2v1 {
    /// Algorithm (Macro, Porcedure, ImportedAlgorithm), Const (ImportedConst), Var and LIST.
    /// </summary>
    public /*abstract*/ class CDL2Object : NamedElement, ISibling {
-      public CDL2Object(ID id,Section section,string? comments,bool synthetic = false,SelectorType FocusType = SelectorType.INVALID) : base(id,synthetic,FocusType) {
+      public CDL2Object(ID id,Section section,string comments,bool synthetic = false,SelectorType FocusType = SelectorType.INVALID) : base(id,synthetic,FocusType) {
          Parent = section.GUID;
          Comments = comments;
       }
@@ -1113,9 +1111,7 @@ namespace CDL2v1 {
       }
       private static void CollectReferencedVariables(Group group,Set<Var> variables) {
          foreach (Alternative alternative in group.Alternatives) {
-            foreach (Call call in alternative.calls)
-               foreach (Var variable in call.Args.OfType<Var>())
-                  variables.Add(variable);
+            foreach (Call call in alternative.calls) foreach (Var variable in call.Args.OfType<Var>()) variables.Add(variable);
             if (alternative.lastCall.type == LCT.Standard) {
                foreach (Var variable in alternative.lastCall.call!.Args.OfType<Var>())
                   variables.Add(variable);
@@ -1233,7 +1229,7 @@ namespace CDL2v1 {
          }
       }
 
-      override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}{id.Name}{(Args.Any() ? "+" : "")}{string.Join("+",Args.Select(arg => arg.Id))}";
+      override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}{id.Name}{(Args.Count != 0 ? "+" : "")}{string.Join("+",Args.Select(arg => arg.Id))}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
       [JsonIgnore]
@@ -1485,7 +1481,7 @@ namespace CDL2v1 {
       [JsonInclude] public ID lwb;
       [JsonInclude] public ID upb;
 
-      public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section,null,FocusType: SelectorType.LIST) {
+      public LIST(ID id,Section section,ID lwb,ID upb) : base(id,section,"",FocusType: SelectorType.LIST) {
          this.lwb = lwb;
          this.upb = upb;
          SE = SE.List;
@@ -1499,7 +1495,7 @@ namespace CDL2v1 {
       override public string ToString() => $"LIST {Id}({lwb}:{upb})";
    }
    public class Var : CDL2Object, IDataElement, IFailureProtected, IActualArg, ITrackedVar {
-      public Var(ID id,Section section) : base(id,section,null,FocusType: SelectorType.VAR) => SE = SE.Var;
+      public Var(ID id,Section section) : base(id,section,"",FocusType: SelectorType.VAR) => SE = SE.Var;
       [JsonConstructor]
       public Var() : base() { FocusType = SelectorType.VAR; } // For deserialization
 
@@ -1509,7 +1505,7 @@ namespace CDL2v1 {
       [JsonInclude]
       public List<IElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
-      public Const(ID id,Section section) : base(id,section,null,FocusType: SelectorType.CONST) => SE = SE.Const;
+      public Const(ID id,Section section) : base(id,section,"",FocusType: SelectorType.CONST) => SE = SE.Const;
       [JsonConstructor]
       public Const() : base() { FocusType = SelectorType.CONST; } // For deserialization
    }

@@ -48,7 +48,7 @@ namespace CDL2v1 {
    /// </summary>
    public partial class CommandPromptWindow : Window {
       private readonly History _commandHistory = new();
-      private FontFamily _textFont = new("Cascadia Mono");
+      private readonly FontFamily _textFont = new("Cascadia Mono");
 
       // Store the last height of the output area for restore functionality
       private double _lastOutputHeight = 0;
@@ -57,8 +57,8 @@ namespace CDL2v1 {
       public event EventHandler<string>? CommandEntered;
 
       private bool _multilineMode = false;
-      private string _singleLineTooltip = "Enter a Lab command and press Enter";
-      private string _multilineTooltip = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
+      private readonly string _singleLineTooltip = "Enter a Lab command and press Enter";
+      private readonly string _multilineTooltip  = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
 
       // Background brushes for input field
       private readonly Brush _standardInputBackground;
@@ -251,11 +251,11 @@ namespace CDL2v1 {
       /// Writes a line of text to the output with optional note type formatting
       /// </summary>
       /// <param name="text">The text to write</param>
-      /// <param name="noteType">Optional note type that determines text color (default None)</param>
-      public void WriteLine(string text,Severity noteType = Severity.NONE) {
+      /// <param name="severity">Optional note type that determines text color (default None)</param>
+      public void WriteLine(string text,Severity severity = Severity.NONE) {
          Application.Current.Dispatcher.Invoke(() => {
             // Get the appropriate brush based on note type from PrettyPrinter.Decorators
-            Brush foreground = GetNoteTypeBrush(noteType);
+            Brush foreground = GetNoteTypeBrush(severity);
 
             // Add formatted text with the appropriate color
             AddFormattedText(text,foreground,Brushes.Transparent,lineBreak: true);
@@ -330,7 +330,7 @@ namespace CDL2v1 {
             string input = InputTextBox.Text;
 
             if (_multilineMode) {
-               var lines = input.Split(new[] { "\r\n","\n" },StringSplitOptions.None);
+               var lines = input.Split(["\r\n","\n"],StringSplitOptions.None);
                string lastLine = lines.Length > 0 ? lines[^1].TrimEnd() : "";
                if (lastLine.EndsWith('.')) {
                   _multilineMode = false;
@@ -491,7 +491,7 @@ namespace CDL2v1 {
       /// Command history manager
       /// </summary>
       private class History {
-         private readonly List<string> _history = new();
+         private readonly List<string> _history = [];
          private int _currentIndex = -1;
 
          public void Add(string command) {

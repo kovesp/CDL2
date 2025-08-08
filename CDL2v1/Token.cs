@@ -135,7 +135,6 @@ namespace CDL2v1 {
 
       public static string ToGlyph(TokenType tt) => Token.TokenType2Glyph.TryGetValue(tt,out string? glyph) ? glyph ?? "" : "";
 
-      [JsonInclude]
       public readonly TokenType type;
       // Depending on the type, one of the following may be populated:
       //    RESWORD: reservedWordValue is the enum of the reserved word
@@ -145,19 +144,13 @@ namespace CDL2v1 {
       //    FLOAT:   floatValue is the double
       //    COMMENT: StringValue is the comment
 
-      [JsonInclude]
       public string TokenString { get; private set; } = "";
 
-      [JsonInclude]
       public readonly ReservedWord? reservedWordValue;
-      [JsonInclude]
       public string? StringValue { get; private set; }
-      [JsonInclude]
       public readonly long? intValue;
-      [JsonInclude]
       public readonly double? floatValue;
-      // [JsonInclude]
-      public readonly string? Comments;  // Only for certain reserved words and used only during parsing.
+      public readonly string Comments;  // Only for certain reserved words and used only during parsing.
 
       public enum TokenClass { String, ID, ResWord, Glyph, Comment, Int, Float, Error };
 
@@ -168,6 +161,7 @@ namespace CDL2v1 {
 
       private Token(TokenClass cls,string text) {
          TokenString = text;
+         Comments = "";
          switch (cls) {
             case TokenClass.Error:
                type = TokenType.ERROR;

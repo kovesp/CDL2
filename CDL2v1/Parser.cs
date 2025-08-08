@@ -192,7 +192,7 @@ namespace CDL2v1 {
       /// ENDPROG program PhaseName.
       /// </summary>
       /// <param PhaseName="programId"></param>
-      private void ParseProgram(ID programId,string? comments,Notes notes) {
+      private void ParseProgram(ID programId,string comments,Notes notes) {
          if (Database.Instance.IsNamedElement<Program>(programId)) {
             AddNote(Note.DuplicateContainer,programId.Name);
             return;
@@ -236,7 +236,7 @@ namespace CDL2v1 {
       /// TODO: Semantic analysis to enforce CDL2 lab or Compiler convention.
       /// </summary>
       /// <param Id="moduleId">The ID (Id) of the module.</param>
-      private void ParseModule(ID moduleId,string? comments,Notes notes) {
+      private void ParseModule(ID moduleId,string comments,Notes notes) {
          if (Database.Instance.IsNamedElement<Module>(moduleId)) {
             AddNote(Note.DuplicateContainer,moduleId.Name);
             return;
@@ -249,8 +249,8 @@ namespace CDL2v1 {
          // Now should see layers
          ID layerId = ID.ErrorID;
          Notes internalNotes = ParseNotes();
-         while (tokens.CanConsumeContainerDelimiter(RW.LAYER,ref layerId,out comments)) {
-            ParseLayer(layerId,comments,internalNotes);
+         while (tokens.CanConsumeContainerDelimiter(RW.LAYER,ref layerId,out string? layerComments)) {
+            ParseLayer(layerId,layerComments,internalNotes);
             internalNotes = ParseNotes();
          }
          // Consume the ENDMOD
@@ -258,7 +258,7 @@ namespace CDL2v1 {
          ParseLudes(currentModule);
       }
 
-      private void ParseLayer(ID layerId,string? comments,Notes notes) {
+      private void ParseLayer(ID layerId,string comments,Notes notes) {
          Debug.Assert(currentModule != null);
          currentObject.Object = (RW.LAYER, layerId);
          currentLayer = new Layer(layerId,currentModule,currentLayer,comments,notes);
@@ -267,8 +267,8 @@ namespace CDL2v1 {
          // Now should see sections
          ID sectionId = ID.ErrorID;
          Notes internalNotes = ParseNotes();
-         while (tokens.CanConsumeContainerDelimiter(RW.SECTION,ref sectionId,out comments)) {
-            ParseSection(sectionId,comments,internalNotes);
+         while (tokens.CanConsumeContainerDelimiter(RW.SECTION,ref sectionId,out string? sectionComments)) {
+            ParseSection(sectionId,sectionComments,internalNotes);
             internalNotes = ParseNotes();
          }
          // Consume the ENDLAY
@@ -277,7 +277,7 @@ namespace CDL2v1 {
       }
 
       private static readonly List<RW> AlgTypes = [RW.FUNCTION,RW.ACTION,RW.TEST,RW.PREDICATE];
-      private void ParseSection(ID sectionId,string? comments,Notes notes) {
+      private void ParseSection(ID sectionId,string comments,Notes notes) {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
          currentSection = new Section(sectionId,currentLayer,comments,notes);
