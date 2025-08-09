@@ -287,7 +287,7 @@ namespace CDL2v1 {
             while (reader.Read()) {
                if (reader.TokenType == JsonTokenType.EndArray) break;
                if (reader.TokenType != JsonTokenType.String) throw new JsonException("Expected string value for ID.");
-               ids.Add(ID.From(reader.GetString()!));
+               ids.Add(new ID(reader.GetString()!));
             }
             dict[ludeType] = ids;
          }
@@ -350,7 +350,7 @@ namespace CDL2v1 {
             string keyString = reader.GetString()!;
             // Read the value
             reader.Read();
-            dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<V>(ref reader, options)!;
+            dictionary[new ID(keyString)] = JsonSerializer.Deserialize<V>(ref reader, options)!;
          }
          return dictionary;
       }
@@ -390,7 +390,7 @@ namespace CDL2v1 {
             string keyString = reader.GetString()!;
             // Read the value
             reader.Read();
-            dictionary[ID.From(keyString)] = JsonSerializer.Deserialize<Guid>(ref reader, options)!;
+            dictionary[new ID(keyString)] = JsonSerializer.Deserialize<Guid>(ref reader, options)!;
          }
          return dictionary;
       }

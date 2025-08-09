@@ -73,10 +73,11 @@ namespace CDL2v1 {
    /// </summary>
    public class Database : SerializationBase {
       /// <summary>
-      /// This is a singleton class.
+      /// An instance of this class is created per test thread, it is a singleon for the non-test process main thread and its UI thread.
       /// </summary>
       [JsonConstructor]
-      public Database() { }
+      public Database() => FocusStack.Push(new Focus());
+
       /// <summary>
       /// This is needed to support multiple instances used by unit testing.
       /// Note that this is thread-safe.
@@ -163,6 +164,61 @@ namespace CDL2v1 {
       [JsonPropertyOrder(7)]
       public Dictionary<string,Focus> Bookmarks = [];
 
+      public static void SetBookmark(string bookmarkName) {
+         if (string.IsNullOrWhiteSpace(bookmarkName))
+            return;
+         if (Instance.Bookmarks.ContainsKey(bookmarkName)) {
+            Instance.Bookmarks[bookmarkName] = Instance.FocusStack.Peek();
+         } else {
+            Instance.Bookmarks.Add(bookmarkName,Instance.FocusStack.Peek());
+         }
+      }
+      public static bool RestoreBookmark(string bookmarkName,bool push = false) {
+         if (string.IsNullOrWhiteSpace(bookmarkName))
+            return false;
+         if (Instance.Bookmarks.TryGetValue(bookmarkName,out Focus? bookmarkedFocus)) {
+            if (!push) Instance.FocusStack.Pop();
+            Instance.FocusStack.Push(bookmarkedFocus);
+            return true;
+         }
+         return false;
+      }
+      public static void RemoveBookmark(string bookmarkName) {
+         if (string.IsNullOrWhiteSpace(bookmarkName))
+            return;
+         Instance.Bookmarks.Remove(bookmarkName);
+      }
+      public static void ClearBookmarks() => Instance.Bookmarks.Clear();
+
+      private const int DefaultFocusStackSize = 10;
+      /// <summary>
+      /// The focus can be pushed or popped to allow for easier navigation.
+      /// It is not preserved across sessions.
+      /// </summary>
+      [JsonIgnore]
+      public readonly BoundedStack<Focus> FocusStack = new(DefaultFocusStackSize);
+
+      [JsonIgnore]
+      private CommandInterpreter? _CLI; 
+      [JsonIgnore]
+      private bool _isCLISet = false;
+
+      /// <summary>
+      /// Ensure CLI is set only once.
+      /// It will be set when the GUI is created to use the GUI for output.
+      /// </summary>
+      [JsonIgnore]
+      public CommandInterpreter CLI { 
+         get => _CLI ??= new(); 
+         set {
+            if (_isCLISet) {
+               throw new InvalidOperationException("CLI has already been set. Cannot be changed.");
+            } else {
+               _CLI = value;
+               _isCLISet = true;
+            }
+         }  
+      }
 
       /// <summary>
       /// Add a name to the canonical name list.

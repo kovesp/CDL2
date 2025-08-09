@@ -181,10 +181,12 @@ namespace CDL2v1 {
       delete,
       edit,
       exit,
+      first,
       focus,
       generate,
       help,
       insert,
+      last,
       list,
       next,
       previous,
@@ -260,6 +262,8 @@ namespace CDL2v1 {
       Note,
       NONE,
    }
+
+   public enum FocusMoveDirection { Forward, Backward, First, Last };
 
    /// <summary>
    /// Formal parameter directions of procedures.

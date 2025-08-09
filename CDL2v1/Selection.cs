@@ -376,40 +376,11 @@ namespace CDL2v1 {
    /// Provides functionality related to the current object, the Focus, of the CDL2 Laboratory
    /// </summary>
    public class Focus {
-      /// <summary>
-      /// The focus can be pushed or popped to allow for easier navigation.
-      /// It is not preserved across sessions.
-      /// </summary>
-      public static readonly Stack<Focus> Stack = [];
-      static Focus() => Stack.Push(new Focus());
 
-      public static Focus Current => Stack.Peek();
+      public static Focus Current => Database.Instance.FocusStack.Peek();
 
-      public static void Push() => Stack.Push(new Focus());
-      public static void Pop() => Stack.Pop();
-
-      public static void SetBookmark(string bookmarkName) {
-         if (string.IsNullOrWhiteSpace(bookmarkName)) return;
-         if (Database.Instance.Bookmarks.ContainsKey(bookmarkName)) {
-            Database.Instance.Bookmarks[bookmarkName] = Current;
-         } else {
-            Database.Instance.Bookmarks.Add(bookmarkName, Current);
-         }
-      }
-      public static bool RestoreBookmark(string bookmarkName, bool push = false) {
-         if (string.IsNullOrWhiteSpace(bookmarkName)) return false;
-         if (Database.Instance.Bookmarks.TryGetValue(bookmarkName, out Focus? bookmarkedFocus)) {
-            if (!push) Stack.Pop();
-            Stack.Push(bookmarkedFocus);
-            return true;
-         }
-         return false;
-      }
-      public static void RemoveBookmark(string bookmarkName) {
-         if (string.IsNullOrWhiteSpace(bookmarkName)) return;
-         Database.Instance.Bookmarks.Remove(bookmarkName);
-      }
-      public static void ClearBookmarks() => Database.Instance.Bookmarks.Clear();
+      public static void Push() => Database.Instance.FocusStack.Push(new Focus());
+      public static void Pop() => Database.Instance.FocusStack.Pop();
 
       [JsonInclude, JsonPropertyOrder(0)]
       public SingleSelection Selection = SingleSelection.Empty;
@@ -446,7 +417,7 @@ namespace CDL2v1 {
             return candidates.ElementAt(index);
          } else {
             return null;
-         } 
+         }
       }
 
       [JsonIgnore]
@@ -485,8 +456,8 @@ namespace CDL2v1 {
             errorMessage = selection.ErrorMessage;
             return false;
          } else if (selection.IsFocusable) {
-            Stack.Push(new Focus(selection));
-            CLI!.SetStatus(selection.First().Object);
+            Database.Instance.FocusStack.Push(new Focus(selection));
+            Database.Instance.CLI?.SetStatus(selection.First().Object);
             return true;
          } else {
             errorMessage = "Attempt to set focus to a non-focusable object";
@@ -495,10 +466,11 @@ namespace CDL2v1 {
       }
       public static bool SetFocus(NamedElement elem) => SetFocus(new SingleSelection(elem));
       public static bool SetFocus(SingleSelection selection) {
-         if (selection.Object is null) return false;
+         if (selection.Object is null)
+            return false;
          if (selection.IsFocusable) {
-            Stack.Push(new Focus(selection));
-            CLI?.SetStatus(selection.Object);
+            Database.Instance.FocusStack.Push(new Focus(selection));
+            Database.Instance.CLI?.SetStatus(selection.Object);
             return true;
          } else {
             Logger.Log($"Attempt to set focus to a non-focusable object: {selection.Object}");
@@ -506,9 +478,11 @@ namespace CDL2v1 {
          }
       }
       public static bool SetFocus(Guid guid) {
-         if (guid == Guid.Empty) return false;
+         if (guid == Guid.Empty)
+            return false;
          NamedElement? elem = NamedElement.From<NamedElement>(guid);
-         if (elem is null) return false;
+         if (elem is null)
+            return false;
          return SetFocus(elem);
       }
 
@@ -519,7 +493,7 @@ namespace CDL2v1 {
       /// <param name="elem"></param>
       /// <param name="siblings"></param>
       public static void MoveFocusFrom(ISibling elem) {
-         Debug.Assert(elem.Siblings.Contains(elem.GUID),"MoveFocusFrom called with an element that is not among its siblings");  
+         Debug.Assert(elem.Siblings.Contains(elem.GUID),"MoveFocusFrom called with an element that is not among its siblings");
          if (Focus.Current.Object is not null && Focus.Current.Object.GUID == elem.GUID) {
             if (elem.TryGetAdjacentSibling(out Guid adjacentSiblingGuid)) {
                SetFocus(adjacentSiblingGuid);
@@ -540,14 +514,45 @@ namespace CDL2v1 {
          set => Selection.Object = value;
       }
       public override string ToString() {
-         if (Object == null) return "Nothing";
+         if (Object == null)
+            return "Nothing";
          string focusString = Object.FQDN();
          // TODO: Add more details based on SubObjectDepth and SubObjectOrdinal
          return focusString;
       }
 
-      private static CommandInterpreter? CLI;
-      internal static void SetCLI(CommandInterpreter cli) => CLI = cli;
+      /// <summary>
+      /// Move the focus n items in the Siblings list. Return false if this is not possible.
+      /// However, if the number can arbitrarily large (positive or negative), if limits are exceeded, the move is to the first or last sibling.
+      /// If the focus is on an object that does not have siblings, return false.
+      /// </summary>
+      /// <param name="args">These are interpreted as an optionally signed integer.</param>
+      /// <param name="direction">Positive for forward, negative for bakward</param>
+      /// <returns></returns>
+      /// <exception cref="NotImplementedException"></exception>
+      internal bool Move(string args,FocusMoveDirection direction) {
+         if (Object is null) return false; // Note that there is no need to check focusability here, as the focus is always on a focusable object.
+         // TODO: Check if the object has siblings, if not, return false. Interface list do not have siblings.
+         int focusMoveCount = 1;
+         switch (direction) {
+            case FocusMoveDirection.First:
+               if (args.IsNotEmptyOrWhitespace()) return false;
+               focusMoveCount = int.MinValue;
+               break;
+            case FocusMoveDirection.Last:
+               if (args.IsNotEmptyOrWhitespace()) return false;
+               focusMoveCount = int.MaxValue;
+               break;
+            default:
+               if (args.IsNotEmptyOrWhitespace() && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
+               if (direction == FocusMoveDirection.Backward) focusMoveCount = -focusMoveCount;
+               break;
+         }
+         int currentIndex = Object.Siblings.IndexOf(Object.GUID);
+         Debug.Assert(currentIndex >= 0, "Focus is on an object that is not among its siblings");
+         int newIndex = Math.Max(Math.Min(currentIndex + focusMoveCount, Object.Siblings.Count-1),0);
+         return Focus.SetFocus(Object.Siblings[newIndex]);
+      }
    }
 }
 

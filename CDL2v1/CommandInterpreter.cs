@@ -116,186 +116,210 @@ namespace CDL2v1 {
       private void WriteInfo(string message) => WriteLine("Info: " + message,Severity.Info);
       private void WriteWarning(string message) => WriteLine("Warning: " + message,Severity.Warning);
 
-      public void InterpretCommand(string command, CommandType commandType, string settings, string args) {
-         IEnumerable<string> arguments = Regex.Split(command.Trim(), @"\s+").Skip(1).Select(s=>s.Trim());
+      /// <summary>
+      /// For use by unit tests and other non-interactive uses.
+      /// </summary>
+      /// <param name="command"></param>
+      public void InterpretCommand(string command) {
+         if (command.Trim() == "") return; // Ignore empty commands
+         string firstWord = Regex.Split(command.Trim(),@"\s+")[0].Trim();
+         CommandType commandType = Abbreviation<CommandType>.Identify(firstWord.ToLower());
+         string args = command[firstWord.Length..].Trim();
+         InterpretCommand(command,commandType,"",args);
+      }
+      public void InterpretCommand(string command,CommandType commandType,string settings,string args) {
+         IEnumerable<string> arguments = Regex.Split(command.Trim(),@"\s+").Skip(1).Select(s => s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          string[] parts;
 
-         switch (commandType) {
+         try {
+            switch (commandType) {
 #if DEBUG
-            case CommandType.vsdebug:
-               Debugger.Break();
-               break;
+               case CommandType.vsdebug:
+                  Debugger.Break();
+                  break;
 #endif
-            case CommandType.INVALID:
-               WriteError($"Invalid command: {command}");
-               return;
-            case CommandType.focus:
-               if (!Focus.SetFocus(args,out string errorMessage)) {
-                  WriteError(errorMessage);
-               }
-               break;
-            case CommandType.next:
-               // Handle next command
-               WriteLine("Next command executed");
-               break;
-            case CommandType.previous:
-               // Handle previous command
-               WriteLine("Previous command executed");
-               break;
-            case CommandType.list:
-               if (args == "") {
-                  if (Focus.Current.Object is not null) {
-                     //TODO: Ignore Focus sub object for now
-                     WriteLine(Focus.Current.Object.FQDN());
-                  } else {
-                     WriteInfo($"Nothing");
+               case CommandType.INVALID:
+                  WriteError($"Invalid command: {command}");
+                  return;
+               case CommandType.focus:
+                  if (!Focus.SetFocus(args,out string errorMessage)) {
+                     WriteError(errorMessage);
                   }
-               } else {
-                  Selection selection = new(args);
-                  if (selection.IsInvalid) {
-                     WriteError(selection.ErrorMessage);
-                     return;
-                  }
-                  if (selection.Count == 0) {
-                     WriteError(selection.ErrorMessage);
+                  break;
+               case CommandType.next:
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Forward))
+                     WriteWarning("Invalid command");
+                  break;
+               case CommandType.previous:
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Backward))
+                     WriteWarning("Invalid command");
+                  break;
+               case CommandType.first:
+                  if (!Focus.Current.Move(args,FocusMoveDirection.First))
+                     WriteWarning("Invalid command");
+                  break;
+               case CommandType.last:
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Last))
+                     WriteWarning("Invalid command");
+                  break;
+               case CommandType.list:
+                  if (args == "") {
+                     if (Focus.Current.Object is not null) {
+                        //TODO: Ignore Focus sub object for now
+                        WriteLine(Focus.Current.Object.FQDN());
+                     } else {
+                        WriteInfo($"Nothing");
+                     }
                   } else {
-                     foreach (SingleSelection sel in selection) {
-                        WriteLine(sel.Object!.FQDN());
+                     Selection selection = new(args);
+                     if (selection.IsInvalid) {
+                        WriteError(selection.ErrorMessage);
+                        return;
+                     }
+                     if (selection.Count == 0) {
+                        WriteError(selection.ErrorMessage);
+                     } else {
+                        foreach (SingleSelection sel in selection) {
+                           WriteLine(sel.Object!.FQDN());
+                        }
                      }
                   }
-               }
-               break;
-            case CommandType.print:
-            case CommandType.type:
-               if (args == "") {
-                  if (Focus.Current.Object is not null) {
-                     //TODO: Ignore Focus sub object for now
-                     pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
-                  }
-                  return;
-               } else {
-                  Selection selection = new(args);
-                  if (selection.IsInvalid) {
-                     WriteError(selection.ErrorMessage);
-                     return;
-                  }
-                  pp.PauseUpdate(() => {
-                     foreach (SingleSelection sel in selection) {
-                        pp.Print(sel.Object!);
+                  break;
+               case CommandType.print:
+               case CommandType.type:
+                  if (args == "") {
+                     if (Focus.Current.Object is not null) {
+                        //TODO: Ignore Focus sub object for now
+                        pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
                      }
-                  });
-               }
-               break;
-            case CommandType.set:
-               // Handle set command
-               parts = command.Split(' ',3);
-               if (parts.Length < 3) {
-                  WriteInfo("Usage: set <key> <value>");
-                  return;
-               }
-               string key = parts[1];
-               string value = parts[2];
-               // Set logic here
-               WriteLine($"Set {key} to {value}");
-               break;
-            case CommandType.status:
-               Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
-               break;
-            case CommandType.rename:
-               break;
-            case CommandType.add:
-            case CommandType.append:
-               break;
-            case CommandType.delete:
-            case CommandType.remove:
-               // Remove the NamedElement from NamedElements.
-               // If it is a program or a module, remove it from the appropriate database list
-               // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
-               // If it is a Section, then remove all declarations and remove the synthetic procedures generated for ludes.
-               // In each case, update the ABSTR and EXT lists of the containing LAYER and the EXPORTS and IMPORTS of the containing module.
-               // Rerun Semantic analysis to update the database.
-               //
-               // For now only handle the case when a program is being deleted: It has no children and is not contained in anything.
-               SingleSelection? context = GetContext(args);
-               if (context is null) return;
-               switch (context.Object) {
-                  case Program p:
-                     Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
-                     Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
-                     Database.Instance.NamedElements.Remove(p.GUID);
-                     Database.Instance.ElementsWithNotes.Remove(p.GUID);
-                     // The above is what needs to be done for a single element. It then needs to be repeated for all children.
-                     // ... Program doesn't have any, since Parts are not exactly children.
-                     // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
-                     WriteInfo($"{p.FQDN()} removed");
-                     break;
-                  case Module m:
-                     WriteInfo("Not implemented.");
-                     break;
-                  case Layer l:
-                     WriteInfo("Not implemented.");
-                     break;
-                  case Section s:
-                     WriteInfo("Not implemented.");
-                     break;
-                  case CDL2Object c:
-                     WriteInfo("Not implemented.");
-                     break;
-                  default:
-                     WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
                      return;
-               }
-               break;
-            case CommandType.edit:
-               break;
-            case CommandType.insert:
-               break;
-            case CommandType.replace:
-               break;
-            case CommandType.undo:
-               break;
-            case CommandType.save:
-               WriteInfo($"Saved: {Database.Save()}");
-               break;
-            case CommandType.abort:
-               Settings.SettingValue("NoSave",true);
-               commandWindow?.Close();
-               return;
-            case CommandType.bye:
-            case CommandType.quit:
-            case CommandType.exit:
-               Settings.SettingValue("NoSave",false);
-               commandWindow?.Close();
-               return;
-            case CommandType.help:
-               if (args == "") {
-                  WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
-                  foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
-                     WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
+                  } else {
+                     Selection selection = new(args);
+                     if (selection.IsInvalid) {
+                        WriteError(selection.ErrorMessage);
+                        return;
+                     }
+                     pp.PauseUpdate(() => {
+                        foreach (SingleSelection sel in selection) {
+                           pp.Print(sel.Object!);
+                        }
+                     });
                   }
-                  WriteInfo("\nType 'help selector' to list the valid selectors");
-               } else if (args == "selector") {
-                  WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
-                  WriteInfo("Only the first letter of the selector must be capitalized.\n");
-                  foreach (Abbreviation<SelectorType> sel in Abbreviation<SelectorType>.FocusTypes) {
-                     WriteInfo($"   {sel.NameWithAbbreviation}");
+                  break;
+               case CommandType.set:
+                  // Handle set command
+                  parts = command.Split(' ',3);
+                  if (parts.Length < 3) {
+                     WriteInfo("Usage: set <key> <value>");
+                     return;
                   }
-               }
-               break;
-            case CommandType.generate:
-               // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
-               Program? program = CDL2.GetMainProgram();
-               if (program is not null) {
-                  CDL2.GenerateCode(out string targetFileName,program);
-                  WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
-               }
-               break;
-            case CommandType.consult:
-               break;
-            default:
-               // Handle other commands as needed
-               break;
+                  string key = parts[1];
+                  string value = parts[2];
+                  // Set logic here
+                  WriteLine($"Set {key} to {value}");
+                  break;
+               case CommandType.status:
+                  Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
+                  break;
+               case CommandType.rename:
+                  break;
+               case CommandType.add:
+               case CommandType.append:
+                  break;
+               case CommandType.delete:
+               case CommandType.remove:
+                  // Remove the NamedElement from NamedElements.
+                  // If it is a program or a module, remove it from the appropriate database list
+                  // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
+                  // If it is a Section, then remove all declarations and remove the synthetic procedures generated for ludes.
+                  // In each case, update the ABSTR and EXT lists of the containing LAYER and the EXPORTS and IMPORTS of the containing module.
+                  // Rerun Semantic analysis to update the database.
+                  //
+                  // For now only handle the case when a program is being deleted: It has no children and is not contained in anything.
+                  SingleSelection? context = GetContext(args);
+                  if (context is null)
+                     return;
+                  switch (context.Object) {
+                     case Program p:
+                        Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
+                        Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
+                        Database.Instance.NamedElements.Remove(p.GUID);
+                        Database.Instance.ElementsWithNotes.Remove(p.GUID);
+                        // The above is what needs to be done for a single element. It then needs to be repeated for all children.
+                        // ... Program doesn't have any, since Parts are not exactly children.
+                        // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
+                        WriteInfo($"{p.FQDN()} removed");
+                        break;
+                     case Module m:
+                        WriteInfo("Not implemented.");
+                        break;
+                     case Layer l:
+                        WriteInfo("Not implemented.");
+                        break;
+                     case Section s:
+                        WriteInfo("Not implemented.");
+                        break;
+                     case CDL2Object c:
+                        WriteInfo("Not implemented.");
+                        break;
+                     default:
+                        WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
+                        return;
+                  }
+                  break;
+               case CommandType.edit:
+                  break;
+               case CommandType.insert:
+                  break;
+               case CommandType.replace:
+                  break;
+               case CommandType.undo:
+                  break;
+               case CommandType.save:
+                  WriteInfo($"Saved: {Database.Save()}");
+                  break;
+               case CommandType.abort:
+                  Settings.SettingValue("NoSave",true);
+                  commandWindow?.Close();
+                  return;
+               case CommandType.bye:
+               case CommandType.quit:
+               case CommandType.exit:
+                  Settings.SettingValue("NoSave",false);
+                  commandWindow?.Close();
+                  return;
+               case CommandType.help:
+                  if (args == "") {
+                     WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
+                     foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
+                        WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
+                     }
+                     WriteInfo("\nType 'help selector' to list the valid selectors");
+                  } else if (args == "selector") {
+                     WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
+                     WriteInfo("Only the first letter of the selector must be capitalized.\n");
+                     foreach (Abbreviation<SelectorType> sel in Abbreviation<SelectorType>.FocusTypes) {
+                        WriteInfo($"   {sel.NameWithAbbreviation}");
+                     }
+                  }
+                  break;
+               case CommandType.generate:
+                  // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
+                  Program? program = CDL2.GetMainProgram();
+                  if (program is not null) {
+                     CDL2.GenerateCode(out string targetFileName,program);
+                     WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
+                  }
+                  break;
+               case CommandType.consult:
+                  break;
+               default:
+                  // Handle other commands as needed
+                  break;
+            }
+         } catch (Exception ex) {
+            WriteError($"Exception in command: {ex.Message}");
          }
       }
 

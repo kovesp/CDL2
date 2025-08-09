@@ -179,7 +179,7 @@ namespace CDL2v1 {
                // Create and show the window
                CommandPromptWindow commandWindow = new();
                CommandInterpreter CLI = new(commandWindow);
-               Focus.SetCLI(CLI);
+               Database.Instance.CLI = CLI;
 
                void ProcessInput(string input) {
                   if (input.Contains(',')) {
