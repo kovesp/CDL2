@@ -212,7 +212,7 @@ namespace CDL2v1 {
                // Remove the NamedElement from NamedElements.
                // If it is a program or a module, remove it from the appropriate database list
                // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
-               // If it is a Section, then remove all declarations and remove the synthetic procs generated for ludes.
+               // If it is a Section, then remove all declarations and remove the synthetic procedures generated for ludes.
                // In each case, update the ABSTR and EXT lists of the containing LAYER and the EXPORTS and IMPORTS of the containing module.
                // Rerun Semantic analysis to update the database.
                //
@@ -284,7 +284,7 @@ namespace CDL2v1 {
                }
                break;
             case CommandType.generate:
-               // TDOD: Pass the program derivable from the focus or settings. Same for the target code generator.
+               // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
                Program? program = CDL2.GetMainProgram();
                if (program is not null) {
                   CDL2.GenerateCode(out string targetFileName,program);

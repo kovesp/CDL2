@@ -456,7 +456,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Convert the strig to the case of the first letter.
+      /// Convert the string to the case of the first letter.
       /// </summary>
       /// <param name="str"></param>
       /// <returns></returns>

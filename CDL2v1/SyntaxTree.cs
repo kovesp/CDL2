@@ -12,11 +12,11 @@
 // <summary>
 //   Contains the classes that correspond to the elements of a CDL2 program.
 //   Notice that in order to support serialization/deserialization all linkages are maintained by GUIDs.
-//   This is not neccessary when the the linkage is 1-1 between parent and child.
+//   This is not necessary when the the linkage is 1-1 between parent and child.
 //   TODO: Replace Guids with generated unique indices?
 // </summary>
 // <remarks>
-// Classes with /*abstract*/ shuld be abstract, but this is not supported by the serializer.
+// Classes with /*abstract*/ should be abstract, but this is not supported by the serializer.
 // </remarks>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -85,7 +85,7 @@ namespace CDL2v1 {
    public interface IActualArg {
       ID Id { get; }
    }
-   public interface IParameter { // Afixxes and locals
+   public interface IParameter { // affixes and locals
       Algorithm? ContainingAlgorithm { get; set; }
    }
 
@@ -521,7 +521,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Gets the collection of modules associated with the current program.
       /// </summary>
-      /// <remarks>Note that here and elsewhere the iteration must be fixed to avoid multiple calls interferring with each other.</remarks>
+      /// <remarks>Note that here and elsewhere the iteration must be fixed to avoid multiple calls interfering with each other.</remarks>
       [JsonIgnore] public List<Module> Modules => [.. Database.Instance.NamedElements.Values.OfType<Module>().Where(mod => Parts.Contains(mod.Id))];
       public override IEnumerable<NamedElement> ChildElements() => Modules;
 
@@ -553,7 +553,7 @@ namespace CDL2v1 {
       public readonly IDDictionary<IProvidable> exports = [];        // Exports are specified in sections, but are propagated up the module level.
       /// <summary>
       /// Resolved imports are the imports that have been resolved to their definitions by the semantic analyzer.
-      /// Reconstiotuted each time the semantic analyzer is run.
+      /// reconstituted each time the semantic analyzer is run.
       /// </summary>
       [JsonIgnore]
       public readonly IDDictionary<IImportable> resolvedImports = [];
@@ -645,12 +645,12 @@ namespace CDL2v1 {
          public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => [.. Values.Select(From<T>).OfType<T>().Where(pred)];
 
          /// <summary>
-         /// Try add a declration. If successful, the object is added to the Siblings of the object.
+         /// Try add a declaration. If successful, the object is added to the Siblings of the object.
          /// </summary>
          /// <param name="id"></param>
          /// <param name="obj"></param>
-         /// <param name="before">The postion before it should be added. ff <= 0 makes it the first. 
-         ///                      If omitted, or > than the Countit is added at the end.</param>
+         /// <param name="before">The position before it should be added. ff <= 0 makes it the first. 
+         ///                      If omitted, or > than the Count it is added at the end.</param>
          /// <returns></returns>
          public bool TryAdd(ID id,CDL2Object obj,uint before = uint.MaxValue) {
             if (base.TryAdd(id,obj.GUID)) {
@@ -840,7 +840,7 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(10)] public RW AlgorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
       [JsonInclude][JsonPropertyOrder(11)] public TT BodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
       [JsonInclude][JsonPropertyOrder(12)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
-      [JsonInclude][JsonPropertyOrder(13)] public Set<Guid> localGuids = [];   // The Dlocals of this algorithm.
+      [JsonInclude][JsonPropertyOrder(13)] public Set<Guid> localGuids = [];   // The locals of this algorithm.
 
       [JsonIgnore] public List<Affix> Affixes => [.. affixGuids.Select(guid => NamedElement.From<Affix>(guid))];
       [JsonIgnore] public Set<Local> Locals => [.. localGuids.Select(guid => NamedElement.From<Local>(guid))];
@@ -1006,7 +1006,7 @@ namespace CDL2v1 {
    /// An importable algorithm is a reference to an algorithm in another module. Thus it has only a header and no body.
    /// </summary>
    public class ImportedAlgorithm : Algorithm, IImportable {
-      public ImportedAlgorithm(ID id,List<Affix> affxies,Token algorithmType,Section section) : base(id,affxies,[],algorithmType,TT.NOBODY,section) {
+      public ImportedAlgorithm(ID id,List<Affix> affixes,Token algorithmType,Section section) : base(id,affixes,[],algorithmType,TT.NOBODY,section) {
       }
 
       [JsonConstructor]
@@ -1046,7 +1046,7 @@ namespace CDL2v1 {
       public override IEnumerable<NamedElement> ChildElements() => [group];
 
       /// <summary>
-      /// True if the procedure is an Action or Function that has only a single alternative (which is a sequence of calls none of which can fail ... which will be guarenteed by the sematic analyzer)
+      /// True if the procedure is an Action or Function that has only a single alternative (which is a sequence of calls none of which can fail ... which will be guaranteed by the sematic analyzer)
       /// </summary>
       [JsonIgnore] public bool IsVerySimple => AlwaysSucceeds && group.Alternatives.Count == 1 && HasNoGroups;
       /// <summary>
@@ -1058,7 +1058,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
-      /// TODO: This is the intial version. It will be refined to check that all calls in a procedure are to other procedures that are also conditional compilation flags.
+      /// TODO: This is the initial version. It will be refined to check that all calls in a procedure are to other procedures that are also conditional compilation flags.
       /// </summary>
       /// <returns></returns>
       [JsonIgnore] public override bool IsConditionalCompilationOff => CanFail && group.Alternatives.Count == 1 && group.Alternatives[0].calls.Count == 0 && group.Alternatives[0].lastCall.type == LCT.Fail;
@@ -1096,7 +1096,7 @@ namespace CDL2v1 {
       /// <param Id="algorithmType"></param>
       /// <param Id="bodyType"></param>
       /// <param Id="SectionById"></param>
-      public Procedure(ID id,List<Affix> affxies,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,affxies,locals,algorithmType,bodyType,section,synthetic) {
+      public Procedure(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,affixes,locals,algorithmType,bodyType,section,synthetic) {
          group.Parent = GUID;
          group.Id = id; // The group has the same ID as the procedure.
       }
@@ -1139,8 +1139,8 @@ namespace CDL2v1 {
 
       /// <summary>
       /// True if this procedure can be inlined by the code generator.
-      /// Current implemenation:
-      /// The procedure has a single alternative conssiting of calls only where only the last call can fail (in which case, of course, the procedure can fail).
+      /// Current implementation:
+      /// The procedure has a single alternative consisting of calls only where only the last call can fail (in which case, of course, the procedure can fail).
       /// Then if the procedure was marked for inlining OR contains only a single call or it is called only once, it is always inlineable.
       /// Otherwise let n = the number of times it is called, m = the number of calls in the procedure.
       /// It is inlinable if n*m <= the threshold specified in the settings.
@@ -1150,7 +1150,7 @@ namespace CDL2v1 {
          if (Settings.SettingValue<bool>("NoProcInlining"))
             return false;
          if (IsConditionalCompilationOff || IsConditionalCompilationOn)
-            return false;  // Handled explictily by the code generator.
+            return false;  // Handled explicitly by the code generator.
          Alternative alternative = group.Alternatives[0];
          if (group.Alternatives.Count != 1 || alternative.lastCall.type != LCT.Standard)
             return false;
@@ -1190,7 +1190,7 @@ namespace CDL2v1 {
                } else if (argRef is STRING str) {
                   return str;
                } else {
-                  throw new ArgumentException($"Call {this} has an argument referrence that is not an ID or a str: {argRef}.");
+                  throw new ArgumentException($"Call {this} has an argument reference that is not an ID or a str: {argRef}.");
                }
             })];
          }
@@ -1251,7 +1251,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// All cals are distinct.
+      /// All calls are distinct.
       /// </summary>
       /// <param name="obj"></param>
       /// <returns></returns>
@@ -1353,7 +1353,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// True if the alternative terminates the algorithm, i.e., its last call is a fail or abort.
-      /// No need to check for succeed becasue that is just normal alternative completion.
+      /// No need to check for succeed because that is just normal alternative completion.
       /// </summary>
       [JsonIgnore] public bool Terminates => lastCall.type == LCT.Fail || lastCall.type == LCT.Abort;
       [JsonIgnore] public bool IsConditionalCompilationOn => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOn;
@@ -1375,7 +1375,7 @@ namespace CDL2v1 {
    /// </summary>
    /// <remarks>A group contains a collection of <see cref="Alternative"/>-s.
    /// <see cref="Procedure"/>-s contain a single top level group. In this case the parent is the procedures.
-   /// A group nested in an alternative has the alteernative as its parent. Use 
+   /// A group nested in an alternative has the alternative as its parent. Use 
    /// </remarks>
    public class Group : NamedElement, IUnrecordedElement {
       [JsonInclude][JsonPropertyOrder(30)] public List<Alternative> Alternatives = [];

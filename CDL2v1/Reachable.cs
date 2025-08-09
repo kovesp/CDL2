@@ -54,7 +54,7 @@ namespace CDL2v1 {
       private bool collected = false;
       public Set<CDL2Object> Objects {
          get {
-            Debug.Assert(collecting || collected, "Must call CollectReachebleObjects(program/module)  before accessing Objects");
+            Debug.Assert(collecting || collected, "Must call CollectReachableObjects(program/module)  before accessing Objects");
             return field;
          }
          private set;
@@ -101,20 +101,20 @@ namespace CDL2v1 {
       }
 
       public void CollectReachableObjects(Module module) => throw new NotImplementedException($"CollectReachableObjects: Not yet implemented for modules.");
-      private void CollectReachableObjects(RW Ludetype, Module module) {
-         foreach (Section? section in module.Ludes[Ludetype].Select(id => module.SectionById(id))) {
-            if (section is not null) CollectReachableObjects(Ludetype, section);
+      private void CollectReachableObjects(RW LudeType, Module module) {
+         foreach (Section? section in module.Ludes[LudeType].Select(id => module.SectionById(id))) {
+            if (section is not null) CollectReachableObjects(LudeType, section);
          }
       }
-      private void CollectReachableObjects(RW ludetype, Section section) {
+      private void CollectReachableObjects(RW ludeType, Section section) {
          // Section ludes contain the single entry of a synthetic procedure that is the lude.
          // So we need to collect all the objects in the section that are reachable from this lude.
-         List<ID> ds = section.Ludes[ludetype];
+         List<ID> ds = section.Ludes[ludeType];
          if (ds.Count == 1) {
             if (section.Declarations.TryGetValue(ds[0], out CDL2Object? obj) && obj is Procedure proc) {
                if (Objects.Add(proc!)) CollectReachableObjects(proc.group);
             } else {
-               throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludetype][0]} in {section}");
+               throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludeType][0]} in {section}");
             }
          } else {
             // The section was mentioned in a Module lude, but it has no lude.
@@ -129,7 +129,7 @@ namespace CDL2v1 {
       /// Collect all the objects reachable from this alternative.
       /// </summary>
       /// <param name="alt"></param>
-      /// <returns>true if this alternative was governed by positive conditional compilatiom, i.e., that subsequent alternatives should <b>not</b> be processed.</returns>
+      /// <returns>true if this alternative was governed by positive conditional compilation, i.e., that subsequent alternatives should <b>not</b> be processed.</returns>
       private bool CollectReachableObjects(Alternative alt) {
          foreach (Call call in alt.calls) {
             if (!CollectReachableObjects(call)) return true; // Skip the rest of the alternative.
@@ -170,7 +170,7 @@ namespace CDL2v1 {
                }
             }
 
-            // Collect objects referrenced in actual args
+            // Collect objects referenced in actual args
             int i = 0;
             foreach (IActualArg arg in call.Args) {
                Affix affix = called.Affixes[i++];

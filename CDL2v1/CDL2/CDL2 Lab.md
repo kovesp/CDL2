@@ -71,8 +71,8 @@ setting : plus or minus token, setting name, setting argument option.
   in the current module, section, layer, etc. If the current focus is a module, then it will
   select all algorithms in that module that have *le* in their name.
 - One instance of `imported` may be placed before anywhere in the selector.
-  Only imported algorithms and/or constants will thenbe selected. Other
-  selectors will supress instaces of import declarations.
+  Only imported algorithms and/or constants will then be selected. Other
+  selectors will suppress instances of import declarations.
 - The `name selector` matches any name that contains these characters. So `ALG le` matches
   any algorithm that has *le* in its name, e.g., `less`, `less than`, `clear`, etc. Use a regular
   expression to be more specific, e.g., `ALG /^le` matches only algorithms that start with *le*.
@@ -222,7 +222,7 @@ MOD myModule
       SEC section4
 ```
 Notice that if the ``print-depth`` is set to -1 (the default), then the entire object is printed.
-If the depth is such that printing of structures is supressed, then the ENDMOD, ENDLAY and ENDSEC
+If the depth is such that printing of structures is suppressed, then the ENDMOD, ENDLAY and ENDSEC
 is omitted as in the above example.
 Here is another example: `print -print-depth 3 ALG`. This will print the above structure, but also
 add all the algorithm headers without the locals if any.

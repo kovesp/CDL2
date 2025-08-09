@@ -72,7 +72,7 @@ namespace CDL2v1 {
       );
 
       public EmitterCommandWindow(CommandPromptWindow commandWindow) {
-         SupressDebug = true;
+         SuppressDebug = true;
          this.commandWindow = commandWindow;
 
          SupportsDecoration = true;

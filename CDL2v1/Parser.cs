@@ -223,7 +223,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Parse a module.
-      /// This implementation uses the implementation favoured by the CDL2 lab, i.e., that a PROGRAM is required to specify the participating modules.
+      /// This implementation uses the implementation favored by the CDL2 lab, i.e., that a PROGRAM is required to specify the participating modules.
       /// The PROGRAM Ludes specify modules, such modules must have corresponding Ludes which specify sections, and the sections have Ludes specifying the algorithms to call.
       /// 
       /// The CDL2 Compiler required that only a single module have Ludes.

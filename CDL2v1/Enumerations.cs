@@ -67,6 +67,7 @@ namespace CDL2v1 {
    /// Token types for the CDL2 language.
    /// The aliases are meant to be used in the parser to make the code more readable.
    /// </summary>
+
    public enum TokenType {
       ERROR          = 0,
       RESWORD        = 1,
@@ -160,11 +161,12 @@ namespace CDL2v1 {
       // whatever is called from there recursively.
       //   ACTION parse prolog:
       //      BUILTIN is option value*"Prolog Syntax"*"MProlog", parse mprolog;
-      //      parse clockins mellish.
+      //      parse clocksin mellish.
       //   
       BUILTIN,
       NONE,
    }
+
 
    /// <summary>
    /// Command types for the command interpreter. See the Commands set in Abbreviations.
@@ -205,8 +207,9 @@ namespace CDL2v1 {
    /// Focus types.
    /// For simplicity, the FocusTypes contin the SelectionTypes as well.
    /// This allows a single abbreviation table for both.
-   /// Diferentiation will be made using SelectionType
+   /// Differentiation will be made using SelectionType
    /// </summary>
+   // cspell:disable
    public enum SelectorType {
       INVALID,
       ABSTR,
@@ -245,6 +248,7 @@ namespace CDL2v1 {
       CALL,
       LOCAL,
    }
+   // cspell:enable
 
    /// <summary>
    /// Used to categorize annotations.
@@ -302,7 +306,7 @@ namespace CDL2v1 {
       Id,                        // Default for ids, unless otherwise specified, e.g., AlgorithmName, ...Affix, Local.
       ReservedWord,              // Default for reserved words, unless otherwise specified, e.g., Unit
       Unit,                      // Units (PROGRAM, MODULE, LAYER, SECTION).
-      Builtin,                   // The builin indicator
+      Builtin,                   // The built in indicator
       AlgorithmName,             // When used it will be overridden by the AlgorithmNameDecorators table
       InputAffix,                // Applied to affixes ids in both Algorithm definitions and invocations.
       OutputAffix,               // Ditto

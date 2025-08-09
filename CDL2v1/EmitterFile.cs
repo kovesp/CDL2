@@ -10,7 +10,7 @@
 // <creation-date>2025-03-02</creation-date>
 // 
 // <summary>
-//   This emitter writes conetent to a file. Used by the target specific code generators to write the target code to a file.
+//   This emitter writes content to a file. Used by the target specific code generators to write the target code to a file.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the

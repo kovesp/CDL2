@@ -10,7 +10,7 @@
 // <creation-date>2025-03-02</creation-date>
 // 
 // <summary>
-//   Acts a asink. All output is discarded.
+//   Acts a sink. All output is discarded.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the

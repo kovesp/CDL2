@@ -46,10 +46,10 @@ namespace CDL2v1 {
       protected Emitter() { }
 
       private void WriteDebug(string s) {
-         if (!SupressDebug) EmitterDebug.WriteDebug(s);
+         if (!SuppressDebug) EmitterDebug.WriteDebug(s);
       }
 
-      public bool SupressDebug = false;
+      public bool SuppressDebug = false;
 
       public virtual string Target { get; set; } = "";
       /// <summary>

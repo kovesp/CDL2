@@ -47,7 +47,7 @@ namespace CDL2v1 {
       public EmitterString(string prefix = "", string suffix = "") {
          this.prefix = prefix;
          this.suffix = suffix;
-         SupressDebug = true;
+         SuppressDebug = true;
       }
 
       private readonly StringBuilder sb = new();

@@ -1,0 +1,7 @@
+{
+  "version": "0.2",
+  "words": [
+
+  ]
+"cspell.ignoreRegExpList": ["\\b[A-Z_]{2,}\\b"]
+}

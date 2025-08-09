@@ -62,7 +62,7 @@ namespace CDL2v1 {
       /// A replaceable action to actually write the message. The default is _WriteLine defined here.
       /// </summary>
       /// <param Id="level">The level of the message. In order for the line to bw written the level must be less or equal
-      ///         to the Compilerr.VerbosityLevel for the main output and Compiler.DebugVerbosityLevel for the debug output.
+      ///         to the Compiler.VerbosityLevel for the main output and Compiler.DebugVerbosityLevel for the debug output.
       /// </param>
       /// <param Id="message">The message to write.</param>"
       public Action<int,string> WriteLine { get; set; }

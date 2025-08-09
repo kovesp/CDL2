@@ -10,7 +10,7 @@
 // <creation-date>2025-02-10</creation-date>
 // 
 // <summary>
-//   Tiis is the target independedn code generator. It collaborates with a selected target specific code generator to generate the target code.
+//   This is the target independent code generator. It collaborates with a selected target specific code generator to generate the target code.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -54,7 +54,7 @@ namespace CDL2v1 {
    /// <param Id="cg"></param>
    public class CodeGenerator(ICodeGenerator cg, CDL2 compiler) : CompilationPhase(compiler) {
       /// <summary>
-      /// Target specific code gnerator to use.
+      /// Target specific code generator to use.
       /// </summary>
       private readonly ICodeGenerator cg = cg;
 
@@ -74,7 +74,7 @@ namespace CDL2v1 {
       public void GenerateCode(Program program, Emitter emitter, bool isSeparate = false) {
          foreach (Var var in Compiler.Reachable.Objects.OfType<Var>()) {
             if (Compiler.Reachable.AmbigousVars.Contains(var)) {
-               // We know the variable was written to, but we can't tell whether it was read (becasue it was only referenced in an ACTION/PREDICATE macro).
+               // We know the variable was written to, but we can't tell whether it was read (because it was only referenced in an ACTION/PREDICATE macro).
                var.AddNote("CodeGeneration", Note.VariableMayNotHaveBeenRead, var);
                Logger.ReportError($"Variable {var} may not have been read. It was only referenced in an ACTION/PREDICATE macro.");
             } else if (!Compiler.Reachable.ReadVars.Contains(var)) {
@@ -156,7 +156,7 @@ namespace CDL2v1 {
          cg.GenerateModuleEnd(module, isSeparate);
       }
       /// <summary>
-      /// Generate code for the module ludes. There is aone for each type if it exists.
+      /// Generate code for the module ludes. There is one for each type if it exists.
       /// </summary>
       /// <param name="ludeType"></param>
       /// <param name="module"></param>
@@ -182,7 +182,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Generate a section. Again, there will likely be no target proc associated with section itself.
-      /// So generate the constants, variables and lists folowed by the algorithms. Macros first, then user procedures and synthetic procdures (the ludes).
+      /// So generate the constants, variables and lists followed by the algorithms. Macros first, then user procedures and synthetic procedures (the ludes).
       /// </summary>
       /// <param Id="section"></param>
       private void GenerateSection(Section section) {
@@ -323,7 +323,7 @@ namespace CDL2v1 {
          /// <summary>
          /// Construct a parameter list from a list of affixes and actual arguments.
          /// If an actual argument is an Affix, then it is replaced with the corresponding argument from the parameters list.
-         /// This implements actula args cascaded through multiple procedure inlinings.
+         /// This implements actual args cascaded through multiple procedure inlinings.
          /// </summary>
          /// <param name="parameters"></param>
          /// <param name="affixes"></param>
@@ -450,7 +450,7 @@ namespace CDL2v1 {
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
       /// <summary>
-      /// Generate the comment for an algorithm. This is adds the pretty printed text of the algorthm as a comment.
+      /// Generate the comment for an algorithm. This is adds the pretty printed text of the algorithm as a comment.
       /// </summary>
       /// <param name="alg"></param>
       private void GenerateAlgorithmComment(Algorithm alg) {
@@ -463,7 +463,7 @@ namespace CDL2v1 {
       }
       /// <summary>
       /// Generate the code for a procedure.
-      /// If the procedures is conditioanl compilation or it is inlined, only the algorithm comment is generated.
+      /// If the procedures is conditional compilation or it is inlined, only the algorithm comment is generated.
       /// </summary>
       /// <param name="proc"></param>
       private void GenerateProcedure(Procedure proc, int _) {
@@ -494,30 +494,30 @@ namespace CDL2v1 {
       private void GenerateProcedureBody(Procedure proc) => GenerateAlternatives(proc, proc.group);
       /// <summary>
       /// Generate the alternatives for argAffix procedure.
-      /// This method manages the conditional compilation of the alternatives based on whether the first call in the altarnative is conditional compilation on or off.
-      /// TODO: Currently only single level of conditonal compilation is handled.
+      /// This method manages the conditional compilation of the alternatives based on whether the first call in the alternative is conditional compilation on or off.
+      /// TODO: Currently only single level of conditional compilation is handled.
       /// If it is off, then no code is generated for that alternative.
       /// If it is on, then that alternative is generated, but all later alternatives are skipped.
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
       private void GenerateAlternatives(Procedure proc, Group group) {
-         bool supressRest = false;
+         bool suppressRest = false;
          bool removed;
          
          int i = 1;
          foreach (Alternative alternative in group.Alternatives) {   
             cg.GenerateAlternativeStart(proc, group, i);
             removed = false;
-            if (supressRest) {
-               cg.GenerateComment($"Alternative supressed by previous conditional compilation ON");
+            if (suppressRest) {
+               cg.GenerateComment($"Alternative suppressed by previous conditional compilation ON");
                removed = true;
             } else if (alternative.IsConditionalCompilationOff) {           // Ignore this alternative
                cg.GenerateComment($"Alternative removed by conditional compilation OFF");
                removed = true;
             } else {          
-               supressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
-               GenerateAlternative(proc, group, alternative, supressRest || group.Alternatives.Count == i);
+               suppressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
+               GenerateAlternative(proc, group, alternative, suppressRest || group.Alternatives.Count == i);
             }
             cg.GenerateAlternativeEnd(proc, group, i, alternative, removed);
 

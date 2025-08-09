@@ -10,7 +10,7 @@
 // <creation-date>2025-02-10</creation-date>
 // 
 // <summary>
-//   The source is tokenized into a token list. This list is what is then paarsed.
+//   The source is tokenized into a token list. This list is what is then parsed.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -51,7 +51,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Used only to initilize instance variable in parser. Will not actually be used.
+      /// Used only to initialize instance variable in parser. Will not actually be used.
       /// </summary>
       public TokenList() : this((_,_,_) => { }, Options.None) { }
 

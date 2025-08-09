@@ -10,7 +10,7 @@
 // <creation-date>2025-03-17</creation-date>
 // 
 // <summary>
-//   Responsilbe for the content of the Lab database.
+//   Responsible for the content of the Lab database.
 //   It contains the parsed syntax trees of CDL2 Programs and Modules.
 //   THe Database class also handles the saving and loading of the database to and from a gzip compressed JSON file.
 // </summary>
@@ -54,7 +54,7 @@ using System.Collections.Concurrent;
 namespace CDL2v1 {
    /// <summary>
    /// Base class for all classes that will be serialize.
-   /// This is just a convenience so that items in the serliazied form can be more easily identified.
+   /// This is just a convenience so that items in the serialized form can be more easily identified.
    /// </summary>
    public class SerializationBase {
 #if DEBUG_SERIALIZATION
@@ -121,7 +121,7 @@ namespace CDL2v1 {
       [JsonPropertyOrder(2)]
       public Dictionary<Guid,NamedElement> NamedElements = [];
       /// <summary>
-      /// Undo records for NamedElements.  entries are inserted wheneer an elment is changed or removed.
+      /// Undo records for NamedElements.  entries are inserted whenever an elment is changed or removed.
       /// Each entry is a stack of undo records for the element.
       /// A record contains
       /// <ol>
@@ -190,7 +190,7 @@ namespace CDL2v1 {
          return canonicalName;
       }
       /// <summary>
-      /// The diplay name of the identifer.
+      /// The display name of the identifier.
       /// </summary>
       /// <param name="name"></param>
       /// <returns></returns>

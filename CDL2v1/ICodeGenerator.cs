@@ -204,9 +204,9 @@ namespace CDL2v1 {
       /// <summary>
       /// This is called at the start generation of program and module ludes
       /// </summary>
-      /// <param name="ludetype"></param>
+      /// <param name="ludeType"></param>
       /// <param name="program"></param>
-      void GenerateProgramLudeStart(RW ludetype, Program program);
+      void GenerateProgramLudeStart(RW ludeType, Program program);
       /// <summary>
       /// This is called for each lude of the given type in the program and in modules.
       /// </summary>
@@ -224,10 +224,10 @@ namespace CDL2v1 {
       /// <summary>
       /// This is called at the start generation of program and module ludes
       /// </summary>
-      /// <param name="ludetype"></param>
+      /// <param name="ludeType"></param>
       /// <param name="module"></param>
       /// <param name="wrapped"></param>
-      void GenerateModuleLudeStart(RW ludetype, Module module, bool wrapped);
+      void GenerateModuleLudeStart(RW ludeType, Module module, bool wrapped);
       /// <summary>
       /// This is called for each lude of the given type in the program and in modules.
       /// </summary>
@@ -368,7 +368,7 @@ namespace CDL2v1 {
       /// <example>
       /// The Powershell code generator uses this to copy the values of the output and transput affixes and variables to a temporary variable.
       /// The finalizer then copies the values back to the original affixes and variables, but only if the algorithm succeeds.
-      /// For Powershell, both initilization and finalization is always necessary due to how Powershell handles paramters passed by reference 
+      /// For Powershell, both initialization and finalization is always necessary due to how Powershell handles parameters passed by reference 
       /// <see cref="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_ref?view=powershell-7.5"/>.
       /// </example>
       void GenerateAffixAndVariableInitializationStart(Algorithm alg);
@@ -386,7 +386,7 @@ namespace CDL2v1 {
       void GenerateAffixAndVariableInitializationEnd(Algorithm alg);
 
       /// <summary>
-      /// This is calledat the end of the algorithm to finalize the affixes and variables.
+      /// This is called at the end of the algorithm to finalize the affixes and variables.
       /// </summary>
       /// <param name="algorithm"></param>
       /// 
@@ -557,7 +557,7 @@ namespace CDL2v1 {
       void DecrementIndent();
 
       /// <summary>
-      /// Provides the file extentsion for the target language.
+      /// Provides the file extension for the target language.
       /// </summary>
       string FileExtension { get; }
 

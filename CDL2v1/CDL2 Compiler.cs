@@ -270,7 +270,7 @@ namespace CDL2v1 {
 
          if (cg != null) {
             targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name, cg.FileExtension));
-            Emitter emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SupressDebug = true };
+            Emitter emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SuppressDebug = true };
             Log(0, $"\nGenerating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
             CodeGenerator codeGenerator = new(cg, Compiler);
             codeGenerator.GenerateCode(MainProgram, emitter);

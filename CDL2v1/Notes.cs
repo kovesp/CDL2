@@ -10,7 +10,7 @@
 // <creation-date>2025-04-24</creation-date>
 // 
 // <summary>
-//   Notes are Annotations that can be atteched to NamedElements.
+//   Notes are Annotations that can be attached to NamedElements.
 //   They are used to annotate objects with error/warning/info messages.
 //   The name Note is used to avoid confusion with the Annotation class, which is used for other purposes.
 // </summary>
@@ -98,7 +98,7 @@ namespace CDL2v1 {
       public static readonly Note DuplicateDeclaration              = new(Severity.Error  , 015, "{0} has been already declared as {1} in this section");
       public static readonly Note InvalidConstElement               = new(Severity.Error  , 016, "References {0}. Only other constants may be referenced.");
       public static readonly Note UnresolvedConstElement            = new(Severity.Error  , 017, "References undefined id {0}.");
-      public static readonly Note MissingImportSpec                 = new(Severity.Error  , 018, "{0} is imported in section {1} but has no specificaion");
+      public static readonly Note MissingImportSpec                 = new(Severity.Error  , 018, "{0} is imported in section {1} but has no specification");
       public static readonly Note ObjectNotImported                 = new(Severity.Error  , 019, "{0} has no body but is not imported");
       public static readonly Note ObjectImportedButHasBody          = new(Severity.Error  , 020, "{0} is imported but has a body");
       public static readonly Note InterfaceElementNotProvidable     = new(Severity.Error  , 021, "Only CONSTs and Algorithms may be in {1} declarations. {0} is of type {2}");
@@ -113,7 +113,7 @@ namespace CDL2v1 {
       public static readonly Note MissingImport                     = new(Severity.Error  , 030, "{0} is imported but was not exported by any program part");
       public static readonly Note ImpexMismatch                     = new(Severity.Error  , 031, "Import {0} does not match export {1} ({2})");
       public static readonly Note InterfaceElementMissing           = new(Severity.Error  , 032, "{0} is in {1} list, but not declared in section");
-      public static readonly Note MissingInvoke                     = new(Severity.Error  , 033, "{0} is invoked in {1}, but is not extended or abstacted from anywhere");
+      public static readonly Note MissingInvoke                     = new(Severity.Error  , 033, "{0} is invoked in {1}, but is not extended or abstracted from anywhere");
       public static readonly Note ModuleNotFound                    = new(Severity.Error  , 034, "Part {0} not found among modules");
       public static readonly Note LudeNotFound                      = new(Severity.Error  , 035, "{2} references {0} {1}, but this does not have a {2}");
       public static readonly Note InvalidListBound                  = new(Severity.Error  , 036, "Invalid list {0} {1}. Must be CONST, but is {2}");

@@ -45,7 +45,7 @@ namespace CDL2v1 {
       public readonly string Name;
       public readonly int MinLength;
       public readonly T Type;
-      public readonly List<T>? Containers; // Use to determine hierarhcy of focus kewywords, not used for commands
+      public readonly List<T>? Containers; // Use to determine hierarchy of focus keywords, not used for commands
       public readonly bool IsFocusable = true;
       public string HelpText;
 

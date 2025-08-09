@@ -94,7 +94,7 @@ namespace CDL2v1 {
       public static SingleSelection Empty => new();
       /// <summary>
       /// The Guid of a NamedElement in the selection.
-      /// For "simple" objects (e.g., Vars, Layers) this uniquely identifiest the objct.
+      /// For "simple" objects (e.g., Vars, Layers) this uniquely identifies the object.
       /// For others, further identification is needed.
       /// </summary>
       [JsonInclude, JsonPropertyOrder(0)]
@@ -112,7 +112,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// The ordianl of the selection sub element for types where this makes sense, -1 otherwise.
+      /// The ordinal of the selection sub element for types where this makes sense, -1 otherwise.
       /// </summary>
       [JsonInclude, JsonPropertyOrder(1)]
       public int Ordinal = -1;
@@ -249,7 +249,7 @@ namespace CDL2v1 {
                segments.Index = int.Parse(match.Groups["index"].Value.Trim()); // Parse the index from the segment
             } else if (previousSegmentWasNameOrOffset) {
                ErrorMessage = $"Invalid selection: {segment} after a name or offset segment";
-               return; // Invalid sequence, can't have adjacent name and offsset segments
+               return; // Invalid sequence, can't have adjacent name and offset segments
             } else if (char.IsAsciiLetterLower(segment[0]) || segment[0]=='/') { // Name segment
                segments.Add(new NameSegment(segment));
                previousSegmentWasUnit = false;
@@ -313,7 +313,7 @@ namespace CDL2v1 {
                case SelectorType.FACE:         NarrowSelectionToList         (); break;
                case SelectorType.OBJECT:       NarrowSelection<CDL2Object>   (); break;
 
-               // Specific CONTANIERs
+               // Specific containers
                case SelectorType.PROGRAM:      NarrowSelection<Program>      (); break;
                case SelectorType.MODULE:       NarrowSelection<Module>       (); break;
                case SelectorType.LAYER:        NarrowSelection<Layer>        (); break;
@@ -331,7 +331,7 @@ namespace CDL2v1 {
                case SelectorType.VAR:          NarrowSelection<Var>          (); break;
                case SelectorType.LIST:         NarrowSelection<LIST>         (); break;
 
-               // Lists where the slection is the entire list (for now)
+               // Lists where the selection is the entire list (for now)
                case SelectorType.ABSTR:
                case SelectorType.EXT:
                case SelectorType.INV:
@@ -547,7 +547,7 @@ namespace CDL2v1 {
       }
 
       private static CommandInterpreter? CLI;
-      internal static void SetCLI(CommandInterpreter clie) => CLI = clie;
+      internal static void SetCLI(CommandInterpreter cli) => CLI = cli;
    }
 }
 

@@ -10,7 +10,7 @@
 // <creation-date>2025-03-02</creation-date>
 // 
 // <summary>
-//   This emitter writes output to the Visusal Studio Debug Console. Can be used in conjuction with another emitter.
+//   This emitter writes output to the Visual Studio Debug Console. Can be used in conjunction with another emitter.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -44,7 +44,7 @@ namespace CDL2v1 {
       private static readonly EmitterDebug Instance = new();
       public EmitterDebug() {
          Target = "Debug";
-         SupressDebug = true;
+         SuppressDebug = true;
       }
       protected override void WriteLine(string line) => Debug.WriteLine(LinePrefix+line.Replace("\n","\n"+LinePrefix));
       public static void WriteDebug(string line) => Instance.WriteLine(Instance.RemoveSpans(line));

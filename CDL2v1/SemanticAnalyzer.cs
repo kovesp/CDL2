@@ -11,7 +11,7 @@
 // 
 // <summary>
 //   Performs static semantic analysis on the CDL2 source tree.
-//   Rtesponsible for verifying identifiers and connecting those mentioned in the section interfaces.
+//   responsible for verifying identifiers and connecting those mentioned in the section interfaces.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -32,7 +32,6 @@
 //=======================================================================
 // </auto-gen>
 
-// Ignore Sludeelling: CDL
 
 using Microsoft.VisualBasic;
 
@@ -61,7 +60,7 @@ namespace CDL2v1 {
    /// - TESTs and PREDICATEs may fail. The analyzer verifies that PROCEDURES of this kind can indeed fail.
    /// - If a PREDICATE fails after it has invoked a PREDICATE or ACTION it is said to have a defect. This is not allowed.
    /// - The output and transput parameters of a TEST and PREDICATE are not modified if the ALGORITHM fails. This is enforced by the target specific code generator.
-   /// - Only ALGORRITHMs and CONSTs may appear in the interface (ABSTR, EXT, INV, IMPORT, EXPORT) lists of sections.
+   /// - Only algorithms and CONSTs may appear in the interface (ABSTR, EXT, INV, IMPORT, EXPORT) lists of sections.
    /// - For ABSTR, EXT, EXPORT the corresponding declaration must be in the same SECTION.
    /// - For IMPORT the corresponding stub declaration must be in the same SECTION.
    /// - For INV a corresponding declaration must NOT be in the same SECTION. It must be either in the EXT list of one of the sections of the same LAYER, or
@@ -125,7 +124,7 @@ namespace CDL2v1 {
          // Now verify that each import has a corresponding export and that the specs match.
          foreach (Module module in mainProgram.Modules) {
             // First collect all the imports in the sections into the imports table of the module.
-            // While doing this check for consistency in case an object is imported inot multiple sections.
+            // While doing this check for consistency in case an object is imported ínto multiple sections.
             foreach (Section section in module.Sections) {
                foreach (ID elemid in section.import) {
                   if (section.Declarations.TryGetValue(elemid, out CDL2Object? obj)) {
@@ -333,11 +332,11 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Compare obj1 to obj2.
-      /// Both are imported when checking consistency beetween imports in the same module.
+      /// Both are imported when checking consistency between imports in the same module.
       /// One is imported and the other is not when checking consistency between imports and exports.
       /// If they are both constants return true.
       /// If they are both algorithms, then their affix counts ahd directions must match.
-      /// If there is any mismatch attach an apropriate note or notes to the first object
+      /// If there is any mismatch attach an appropriate note or notes to the first object
       /// </summary>
       /// <param name="problemObject">If there are issues with the spec, attach the note to this object.</param>
       /// <param name="obj1"></param>
@@ -356,19 +355,19 @@ namespace CDL2v1 {
                }
             }
          } else {
-            AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "type mismatch, Agorithm vs. CONST");
+            AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "type mismatch, ALGORITHM vs. CONST");
          }
       }
 
       /// <summary>
-      /// Verify that the provied interfaces are valid within the section.
-      ///  -- No duplications: uniqeness is already guaranteed by the collection being a interfaceElements.
+      /// Verify that the provided interfaces are valid within the section.
+      ///  -- No duplications: uniqueness is already guaranteed by the collection being a interfaceElements.
       ///  -- Each item in the list is declared in the same section and is a subject or an Algorithm
-      ///  -- Does not already occur in the providables, which will be
+      ///  -- Does not already occur in the providable-s, which will be
       ///     -- The current layer's Visible dictionary for kind = EXT
       ///     -- The successor layer's Visible dictionary for kind = ABSTR. In this case it may be null if the layer is the last one.
       ///        if null generate a warning.
-      ///     -- The module's exprots dictionary for kind = EXPORT
+      ///     -- The module's exports dictionary for kind = EXPORT
       /// </summary>
       /// <param name="section"></param>
       /// <param name="kind"></param>
@@ -520,7 +519,7 @@ namespace CDL2v1 {
       /// <param name="call"></param>
       /// <param name="proc"></param>
       /// <param name="info"></param>
-      /// <returns>true if ther call is undefined</returns>
+      /// <returns>true if there call is undefined</returns>
       private bool AnalyzeCall(Call call, Procedure proc, DataFlowInfo info) {
          if (!call.IsBuiltin) {
             if (call.Called is null) {

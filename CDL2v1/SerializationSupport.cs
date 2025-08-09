@@ -10,7 +10,7 @@
 // <creation-date>System.Object[]</creation-date>
 // 
 // <summary>
-//   Implements serialization and deserializon of syntax elements.
+//   Implements serialization and deserialization of syntax elements.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the

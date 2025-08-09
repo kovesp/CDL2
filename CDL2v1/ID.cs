@@ -10,8 +10,8 @@
 // <creation-date>2025-02-27</creation-date>
 // 
 // <summary>
-//   Implemments CDL2 identifiers. Includes support for the equivalence of identifiers that have spaces in them.
-//   The first occurence of spacing is used. The Database class maintains the mapping between the cannonical names (no spaces), and the single version with spaces. 
+//   Implements CDL2 identifiers. Includes support for the equivalence of identifiers that have spaces in them.
+//   The first occurrence of spacing is used. The Database class maintains the mapping between the canonical names (no spaces), and the single version with spaces. 
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the

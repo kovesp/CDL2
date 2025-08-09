@@ -10,7 +10,7 @@
 // <creation-date>2025-02-10</creation-date>
 // 
 // <summary>
-//   this is the actual lexical anylyzer. It creates the next token from the input stream and returns it.
+//   this is the actual lexical analyzer. It creates the next token from the input stream and returns it.
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -70,7 +70,7 @@ namespace CDL2v1 {
       public static readonly Token ErrorToken;
       public static readonly Token ACTIONToken;
 
-      // RE-s that have to be initialized in the static constructor becasue they make use of dynamic data
+      // RE-s that have to be initialized in the static constructor because they make use of dynamic data
       private static readonly Regex GlyphRE_;
       private static readonly Regex ReservedWordRE_;
       private static readonly Regex IdRE_;

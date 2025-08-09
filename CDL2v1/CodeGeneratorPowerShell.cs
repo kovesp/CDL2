@@ -51,7 +51,7 @@ using System.Xml.Linq;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorPowerShell : TargetCodeGenerator, ICodeGenerator {
-      #region Instance and Static Varibles, Constructors
+      #region Instance and Static Variables, Constructors
       private readonly string DataType;
       private readonly string DT;
 

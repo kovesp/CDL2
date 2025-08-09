@@ -362,7 +362,7 @@ namespace CDL2v1 {
       },updateUI: true);
 
       /// <summary>
-      /// Print a single data defintion.
+      /// Print a single data definition.
       /// </summary>
       /// <typeparam name="T">In Actual use T is one of Const, Var, or List. Since CDL2Object is a class, I'm too lazy
       /// to use a generic constraint on CDL2Object, so we can use this method for any CDL2Object type.</typeparam>
