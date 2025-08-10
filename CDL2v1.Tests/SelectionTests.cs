@@ -61,7 +61,13 @@ namespace CDL2v1.Tests {
          }
       }
 
-      private static bool IsFocusedElement<T>(string name) where T : NamedElement => Focus.Current.Object is T element && element.Id.Name == name;
+      /// <summary>
+      /// Check wether the focused element is of type T and has the expected canonical name (no spaces!).
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="name"></param>
+      /// <returns></returns>
+      private static bool IsFocusedElement<T>(string name) where T : NamedElement => Focus.Current.Object is T element && element.Id.CanonicalName == name;
 
       /// <summary>
       /// Sets the focus to a known section, then moves it to verify movement commands.
@@ -77,7 +83,7 @@ namespace CDL2v1.Tests {
          Assert.True(IsFocusedSection("touch"));
 
          CLI.InterpretCommand("previous");
-         Assert.True(IsFocusedSection("touch"));
+         Assert.True(IsFocusedSection("arithmetic"));
 
          CLI.InterpretCommand("first");
          Assert.True(IsFocusedSection("parametrization"));
@@ -101,7 +107,7 @@ namespace CDL2v1.Tests {
          Assert.True(IsFocusedCDL2Object("incr"));
 
          CLI.InterpretCommand("next 2");
-         Assert.True(IsFocusedCDL2Object("incr with"));
+         Assert.True(IsFocusedCDL2Object("incrwith"));
 
          CLI.InterpretCommand("previous");
          Assert.True(IsFocusedCDL2Object("decr"));

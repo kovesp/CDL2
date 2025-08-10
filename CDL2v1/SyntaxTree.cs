@@ -460,7 +460,7 @@ namespace CDL2v1 {
       /// <summary>
       /// The Container children of the container. Layers are ordered, hence the list.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(10)] public List<Guid> Children { get; set; } = [];
+      [JsonInclude][JsonPropertyOrder(10)] public virtual List<Guid> Children { get; set; } = [];
       public override IEnumerable<NamedElement> ChildElements() => Children.Select(guid => Database.Instance.NamedElements[guid]);
 
       public Container(ID id,Container? parent,string comments = "",Notes? notes = null,SelectorType FocusType = SelectorType.INVALID,int after = -1) : base(id,focusType: FocusType) {
@@ -643,6 +643,7 @@ namespace CDL2v1 {
       public class DeclarationDictionary : IDDictionary<Guid> {
          public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => [.. Values.Select(From<T>).OfType<T>()];
          public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => [.. Values.Select(From<T>).OfType<T>().Where(pred)];
+         public List<Guid> AsChildren() => [.. Values ];
 
          /// <summary>
          /// Try add a declaration. If successful, the object is added to the Siblings of the object.
@@ -681,7 +682,10 @@ namespace CDL2v1 {
       /// </summary>
       [JsonInclude][JsonPropertyOrder(45)] public DeclarationDictionary Declarations = [];
 
-      public override IEnumerable<NamedElement> ChildElements() => Declarations.Values.Select(guid => Database.Instance.NamedElements[guid]);
+      /// <summary>
+      /// For sections the Children are the GUIDs of the declarations in the section.
+      /// </summary>
+      [JsonIgnore][JsonPropertyOrder(46)] public override List<Guid> Children => Declarations.AsChildren();
 
       [JsonIgnore] public List<Const> Constants => [.. Declarations.AsCDL2Objects<Const>()];
       [JsonIgnore] public List<Const> ImportedConstants => [.. Declarations.AsCDL2Objects<ImportedConst>()];
