@@ -812,7 +812,7 @@ namespace CDL2v1 {
             if (comments.IsNotEmptyOrWhitespace()) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
                if (note.NoteType == Severity.Note) {
-                  NlEmitnl(note.Text.Decorate(Emitter, SE.Comment));
+                  NlEmitnl(note.Text.TrimEnd().Decorate(Emitter, SE.Comment));
                   Emitnl(RW.NOTE, Token.TokenType2Glyph[TT.END]);
                } else {
                   Emitnl(string.Concat("#", Note.Marker, (note.NoteType.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
@@ -829,7 +829,7 @@ namespace CDL2v1 {
       }
       private string NormalizeDividers(string comments) 
          => string.Join("\n", comments.Split("\r\n").Select(l 
-            => DividerLineRegex().Replace(l,m => $"\n#{new string(m.Groups[1].Value[0], Emitter.LineLength-4)}#"))).TrimStart();
+            => DividerLineRegex().Replace(l,m => $"\n#{new string(m.Groups[1].Value[0], Emitter.LineLength-4)}#"))).Trim();
 
       /// <summary>
       /// Translate all objects to strings using their to ToString, unless it is a TokenType, then use the glyph.

@@ -301,6 +301,30 @@ namespace CDL2v1 {
                   if (segNo < segments.Count - 2) candidateObjects = elements.SelectMany(e => e.DescendantElements());              
                }
             }
+            void NarrowSelectionToNonFocusable<T>(SelectorType elementType) where T : Algorithm {
+               // TODO: this implementaton should also work for CALLs in ludes since they are synthetic PROCEDUREs. Verification needed.
+               NarrowSelection<T>(); // Narrow down to algorithms for AFFIX and LOCAL any, for CALL PROCEDUREs only.
+               void NarrowToHeaderSubComponent<U>() where U : NamedElement {
+                  selectedObjects = 
+                     selectedObjects.SelectMany(obj
+                        => Database.TryGetNamedElements<U>(((Algorithm)obj).Affixes,segments[segNo+1].SegmentName,out IEnumerable<U>? affixes) ? affixes : []);
+               }
+               switch (elementType) {
+                  case SelectorType.AFFIX:
+                     NarrowToHeaderSubComponent<Affix>();
+                     break;
+                  case SelectorType.LOCAL:
+                     NarrowToHeaderSubComponent<Local>();
+                     break;
+                  case SelectorType.CALL:
+                     /// TODO: Implement later. Needs to somwhow collect all calls in each algorithm and the filter by name.
+                     break;
+                  default:
+                     ErrorMessage = $"NarrowSelectionToNonFocusable: Unrecognized element type {elementType}";
+                     return;
+               }
+            }
+
             void NarrowSelectionToLude() => throw new NotImplementedException();
 
             void NarrowSelectionToList() => throw new NotImplementedException();
@@ -342,10 +366,13 @@ namespace CDL2v1 {
                   break;
 
                // Non-focusable types
-               case SelectorType.AFFIX:       NarrowSelection<Affix>         (); break;  
-               case SelectorType.LOCAL:       NarrowSelection<Local>         (); break;  
-               case SelectorType.CALL:        NarrowSelection<Call>          (); break;  
-
+               case SelectorType.AFFIX: 
+               case SelectorType.LOCAL:
+                  NarrowSelectionToNonFocusable<Algorithm>(segments[segNo].SegmentType);
+                  break;
+               case SelectorType.CALL:
+                  NarrowSelectionToNonFocusable<Procedure>(SelectorType.CALL);
+                  break;
                // Ludes
                case SelectorType.PRELUDE:    NarrowSelectionToLude           (); break;
                case SelectorType.ROOT:       NarrowSelectionToLude           (); break;

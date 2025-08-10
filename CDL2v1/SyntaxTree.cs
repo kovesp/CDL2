@@ -60,6 +60,7 @@ using System.Security;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using System.Windows.Navigation;
@@ -265,6 +266,19 @@ namespace CDL2v1 {
       /// </summary>
       [JsonConstructor]
       public NamedElement() => Id = ID.AnonID;
+
+      /// <summary>
+      /// Return true if
+      ///   a. the pattern si the empty string, or
+      ///   b. the pattern starts with a slash and the canonical name matches the pattern as an RE, or
+      ///   c. the canonical name contains the pattern.
+      /// </summary>
+      /// <param name="pattern"></param>
+      /// <returns></returns>
+      public bool MatchesNamePattern(string pattern) 
+            =>    pattern == string.Empty
+               || (pattern.StartsWith('/') && Regex.IsMatch(Id.CanonicalName,pattern.Trim('/').RemoveWhitespace()))
+               || Id.CanonicalName.Contains(pattern.RemoveWhitespace());
 
       /// <summary>
       /// Return the ancestor of the required type which must be a container.
@@ -1096,7 +1110,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// The parser will set this if a repeat operator reference the procedure itself.
+      /// The parser will set this if a repeat operator references the procedure itself.
       /// </summary>
       [JsonInclude] public bool repeatsProcedure = false;
       /// <param Id="Id"></param>
@@ -1129,6 +1143,12 @@ namespace CDL2v1 {
             }
          }
       }
+
+      /// <summary>
+      /// Return all calls is this procedure that match the given name pattern.
+      /// </summary>
+      /// <returns></returns>
+      public IEnumerable<Call> GetCalls(string namePattern) => group.GetCalls(namePattern);
 
       public class InliningParameters(Procedure proc,Reachable reachable) {
          public int MaxInlineCalls = Settings.SettingValue<int>("MaxInlineCalls");
@@ -1436,6 +1456,28 @@ namespace CDL2v1 {
       }
       public override string ToString() => $"GRP {Id.Name} {Alternatives.Count.Plural("ALT")}";
       internal int CallCount() => Alternatives.Sum(alt => alt.CallCount());
+
+      /// <summary>
+      /// Return all calls in this group that match the given name pattern.
+      /// </summary>
+      /// <param name="namePattern"></param>
+      /// <returns></returns>
+      internal IEnumerable<Call> GetCalls(string namePattern) {
+         foreach (Alternative alternative in Alternatives) {
+            foreach (Call call in alternative.calls) {
+               if (call.MatchesNamePattern(namePattern))
+                  yield return call;
+            }
+            if (alternative.lastCall.type == LCT.Standard && alternative.lastCall.call!.MatchesNamePattern(namePattern)) {
+               yield return alternative.lastCall.call;
+            }
+            if (alternative.lastCall.type == LCT.Group && alternative.lastCall.group != null) {
+               foreach (Call call in alternative.lastCall.group.GetCalls(namePattern)) {
+                  yield return call;
+               }
+            }
+         }
+      }
    }
 
 

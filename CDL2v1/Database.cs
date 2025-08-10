@@ -377,14 +377,7 @@ namespace CDL2v1 {
       /// <param name="elements"></param>
       /// <returns></returns>
       public static bool TryGetNamedElements<T>(IEnumerable<NamedElement> objects,string name,[MaybeNullWhen(false)] out IEnumerable<T> elements) where T : NamedElement {
-         IEnumerable<T> typedElements = objects.OfType<T>();
-         if (name == string.Empty) {
-            elements = typedElements;
-         } else if (name.StartsWith('/')) {
-            elements = typedElements.Where(e => Regex.IsMatch(e.Id.CanonicalName,name.Trim('/').RemoveWhitespace()));
-         } else {
-            elements = typedElements.Where(e => e.Id.CanonicalName.Contains(name.RemoveWhitespace()));
-         }
+         elements = objects.OfType<T>().Where(e => e.MatchesNamePattern(name));
          return elements.Any();
       }
 
