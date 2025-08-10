@@ -50,6 +50,7 @@ using System.Windows;
 using System.Text.Json.Serialization;
 using System.Collections;
 using System.Text.Json;
+using System.Security.Policy;
 
 namespace CDL2v1 {  
    public class Set<T> : HashSet<T> {
@@ -420,7 +421,7 @@ namespace CDL2v1 {
       }
    }
 
-   public static class Extensions {
+   public static partial class Extensions {
       public static bool TRUE<T>(T _) => true;
 
       /// <summary>
@@ -540,7 +541,8 @@ namespace CDL2v1 {
       /// <param name="objects"></param>
       /// <returns></returns>
       public static IEnumerable<NamedElement> OrderedAsSiblings(this IEnumerable<NamedElement> objects) {
-         Debug.Assert(objects.Any(),"The collection of objects must not be empty.");
+         //Debug.Assert(objects.Any(),"The collection of objects must not be empty.");
+         if (!objects.Any()) return objects;
          List<Guid> siblings = objects.First().Siblings;
          if (objects.Skip(1).All(obj => siblings.Contains(obj.GUID))) {
             return objects.OrderBy(obj => siblings.IndexOf(obj.GUID));
@@ -695,7 +697,7 @@ namespace CDL2v1 {
             } else if (decoration == null) {
             }
             Debug.Assert(decoration != null,$"No decoration for {element}");
-            return string.Join("\n",Regex.Split(str,@"\r\n|\r|\n",RegexOptions.Compiled)
+            return string.Join("\n",NewlineRegex().Split(str)
                            .Select(str => $"<span fg='{decoration.FG}' bg='{decoration.BG}' style='{decoration.Style}'>{str}</span>"));
          } else {
             return str;
@@ -709,6 +711,8 @@ namespace CDL2v1 {
       internal static string Decorate(this long i,Emitter emitter) => i.ToString().Decorate(emitter,SE.Number);
       internal static string Decorate(this double d,Emitter emitter) => d.ToString().Decorate(emitter,SE.Number);
       internal static string Decorate(this ID algorithmId,Emitter emitter,PrettyPrinter.Decoration decoration) => algorithmId.ToString().Decorate(emitter,SE.AlgorithmName,decoration);
+      [GeneratedRegex(@"\r\n|\r|\n",RegexOptions.Compiled)]
+      private static partial Regex NewlineRegex();
    }
 }
 

@@ -57,7 +57,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Formatted printing of the parse tree.
    /// </summary>
-   public class PrettyPrinter {
+   public partial class PrettyPrinter {
       private const int DEFAULT_LINE_LENGTH          = 100;
       private const int DEFAULT_INDENT_MULTIPLIER    = 3;
       private const int DEFAULT_MAX_INDENT_INCREMENT = 3;
@@ -97,7 +97,7 @@ namespace CDL2v1 {
       /// Colors may be specified as hex values of the form #rrggbb or
       /// as a color name, <see cref="System.Windows.Media.Colors"/> and https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.colors?view=windowsdesktop-9.0
       /// </summary>
-      public static Dictionary<SE,Decoration> Decorators = new() {
+      public readonly static Dictionary<SE,Decoration> Decorators = new() {
          { SE.Id                       ,DefaultDecoration },
          { SE.Unit                     ,new(FG:"#569cd6",Style:DS.Bold) },
          { SE.Builtin                  ,new(FG:"#569cd6",Style:DS.Italic)},
@@ -124,7 +124,7 @@ namespace CDL2v1 {
          { SE.AlgorithmName            ,DefaultDecoration},                         // Not used, but required entry
        };
 
-      public static Dictionary<AlgorithmNameType,Decoration> AlgorithmNameDecorators = new() {
+      public readonly static Dictionary<AlgorithmNameType,Decoration> AlgorithmNameDecorators = new() {
          { AlgorithmNameType.None,new Decoration(FG:"#dcdcaa") },
        };
 
@@ -313,14 +313,17 @@ namespace CDL2v1 {
       public void Print(Layer layer)   => PrintContainer(layer,() => { foreach (Section section in layer.Sections) Print(section); },updateUI: false);
 
       public void Print(Section section) => PrintContainer(section,() => {
+         // Always print the interfaces at the top
+         EmitOptNl(
+           PrintList(RW.EXPORT,section.export)  |
+           PrintList(RW.IMPORT,section.import)  |
+           PrintList(RW.ABSTR,section.abstr)    |
+           PrintList(RW.EXT,section.ext)        |
+           PrintList(RW.INV,section.inv)
+         );
+
          if (Settings.SettingValue<bool>("PPSorted")) {
             // Sort the section contents by their type
-            PrintList(RW.EXPORT,section.export);
-            PrintList(RW.IMPORT,section.import);
-            PrintList(RW.ABSTR,section.abstr);
-            PrintList(RW.EXT,section.ext);
-            PrintList(RW.INV,section.inv);
-
             int EmitCount<T>(IEnumerable<T> list,string type) {
                int count = list.Count();
                if (count > 0) { Emitnl(); NlEmitnl($"# {count} {type} definition{(count == 1 ? "" : "s")} #".Decorate(Emitter,SE.Comment)); }
@@ -568,15 +571,17 @@ namespace CDL2v1 {
          //}
       });
 
-      private void PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true) {
+      private bool PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true) {
          if (ids.Any()) {
             Emit(rw.Decorate(Emitter,SE.ReservedWord)," ",DecoratedID(ids.First(),section,decorate));
             foreach (ID id in ids.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
-               Emit(DecoratedID(id,section,decorate));
+               EmitWithExtraSpace(true,DecoratedID(id,section,decorate));
             }
             EmitSeparatorWithNL(TT.END);
+            return true;
          }
+         return false;
       }
 
       /// <summary>
@@ -824,7 +829,7 @@ namespace CDL2v1 {
       }
       private string NormalizeDividers(string comments) 
          => string.Join("\n", comments.Split("\r\n").Select(l 
-            => Regex.Replace(l, @"^#?\s*([=~#-])+\s*#?$",m => $"\n#{new string(m.Groups[1].Value[0], Emitter.LineLength-4)}#"))).TrimStart();
+            => DividerLineRegex().Replace(l,m => $"\n#{new string(m.Groups[1].Value[0], Emitter.LineLength-4)}#"))).TrimStart();
 
       /// <summary>
       /// Translate all objects to strings using their to ToString, unless it is a TokenType, then use the glyph.
@@ -849,7 +854,8 @@ namespace CDL2v1 {
       }
       private void NlEmit(params object[] items) => Emitter.NlEmit(TranslateTokens(items));
       private void NlEmitnl(params object[] items) => Emitter.NlEmitnl(TranslateTokens(items));
-
+      [GeneratedRegex(@"^#?\s*([=~#-])+\s*#?$")]
+      private static partial Regex DividerLineRegex();
    }
 }
 

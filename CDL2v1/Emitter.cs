@@ -42,7 +42,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CDL2v1 {
-   public abstract class Emitter {
+   public abstract partial class Emitter {
       protected Emitter() { }
 
       private void WriteDebug(string s) {
@@ -52,10 +52,18 @@ namespace CDL2v1 {
       public bool SuppressDebug = false;
 
       public virtual string Target { get; set; } = "";
+      private int _indentWidth = 3;
       /// <summary>
       /// The number of spaces to use for each level of indentation.
       /// </summary>
-      public int IndentWidth { get; set; } = 3;
+      public int IndentWidth { 
+         get => _indentWidth; 
+         set {
+            _indentWidth = value;
+            IndentString = new(' ',value);
+         } 
+      }
+      private string IndentString = new(' ',3);
       /// <summary>
       /// The number of characters to use for the line width.
       /// </summary>
@@ -116,8 +124,7 @@ namespace CDL2v1 {
       public string LinePrefix { get; set; } = "";
 
       public bool SupportsDecoration { get; set; } = false;
-      public Regex spanRegex = new(@"<span\s+(fg='(?<fg>[^']*)')?\s+(bg='(?<bg>[^']*)')?\s+(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",
-                                 RegexOptions.IgnoreCase | RegexOptions.Compiled);
+      public Regex spanRegex = SpanRegex();
       protected string RemoveSpans(string text) => spanRegex.Replace(text, "${text}");
 
       public void Indented(Action action) {
@@ -205,7 +212,7 @@ namespace CDL2v1 {
          } else {
             WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
             // Split the items into lines.
-            string[] lines = Regex.Split(string.Join("",items.Select(i => i?.ToString() ?? "")),@"\r\n|\r|\n",RegexOptions.Compiled);
+            string[] lines = NewLineRegex().Split(string.Join("",items.Select(i => i?.ToString() ?? "")));
             // Write the previous line if it would be too long with the first new item AND if line length is being honoured.
             if (!IgnoreLineLength && honorLineLength && WillNotFitOnCurrentLine(lines[0])) WriteNewLine(true);
             AddToCurrentLine(lines[0],extraSpace);
@@ -240,6 +247,11 @@ namespace CDL2v1 {
       public virtual void EndUpdate() { }
       public virtual void UpdateUI() { }
       public virtual string Content { get; } = "";
+
+      [GeneratedRegex(@"<span\s+(fg='(?<fg>[^']*)')?\s+(bg='(?<bg>[^']*)')?\s+(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",RegexOptions.IgnoreCase | RegexOptions.Compiled,"en-US")]
+      private static partial Regex SpanRegex();
+      [GeneratedRegex(@"\r\n|\r|\n",RegexOptions.Compiled)]
+      private static partial Regex NewLineRegex();
    }
 }
 

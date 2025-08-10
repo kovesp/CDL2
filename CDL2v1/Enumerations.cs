@@ -68,6 +68,9 @@ namespace CDL2v1 {
    /// The aliases are meant to be used in the parser to make the code more readable.
    /// </summary>
 
+
+#pragma warning disable IDE0079 // Remove unnecessary suppression
+#pragma warning disable CA1069 // Enums values should not be duplicated
    public enum TokenType {
       ERROR          = 0,
       RESWORD        = 1,
@@ -110,6 +113,8 @@ namespace CDL2v1 {
       COMMENT        = 20,
       NOBODY         = 21,  // IMPORTed ALGORITHMs have no body
    }
+#pragma warning restore CA1069 // Enums values should not be duplicated
+#pragma warning restore IDE0079 // Remove unnecessary suppression
 
    /// <summary>
    /// Reserved words for the CDL2 language.

@@ -336,7 +336,7 @@ namespace CDL2v1 {
          }
       }
 
-      [JsonIgnore]
+      [JsonInclude]
       public SelectorType FocusType = SelectorType.INVALID;
       /// <summary>
       /// The section which contains this object or null
@@ -757,7 +757,7 @@ namespace CDL2v1 {
       [JsonConstructor]
       public Section() { LudeParser = Parser.ParseLudeOfCalls; FocusType = SelectorType.SECTION; }
 
-      public static Type[] ProvidedElementImplementors;
+      public readonly static Type[] ProvidedElementImplementors;
       static Section() => ProvidedElementImplementors = [.. Extensions.GetImplementorsOfInterface<IProvidable>()];
 
       /// <summary>
@@ -857,7 +857,13 @@ namespace CDL2v1 {
 
 
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false)
-            : base(id,section,algorithmType.Comments,synthetic) {
+            : base(id,section,algorithmType.Comments,synthetic,algorithmType.reservedWordValue switch {
+               RW.FUNCTION => SelectorType.FUNCTION,
+               RW.ACTION => SelectorType.ACTION,
+               RW.TEST => SelectorType.TEST,
+               RW.PREDICATE => SelectorType.PREDICATE,
+               _ => SelectorType.INVALID
+            }) {
          affixGuids = [.. affixes.Select(affix => affix.GUID)];
          localGuids = (Set<Guid>)locals.Select(local => local.GUID).ToSet<Guid>();
          this.AlgorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
@@ -867,7 +873,6 @@ namespace CDL2v1 {
             affix.ContainingAlgorithm = this;
          foreach (Local local in locals)
             local.ContainingAlgorithm = this;
-         FocusType = this is Procedure ? SelectorType.PROCEDURE : SelectorType.MACRO;
       }
       [JsonConstructor]
       public Algorithm() { }
