@@ -40,28 +40,30 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
 using System.Xml.Linq;
 
 namespace CDL2v1 {
    public class CommandInterpreter {
       private readonly CommandPromptWindow? commandWindow;
       private readonly PrettyPrinter pp;
+      private readonly PrettyPrinter ppEdit; // For use in the edit command
       private readonly Parser parser;
+      private bool IsEditing = false; // Used to determine if we are currently in edit mode
 
-      public CommandInterpreter(CommandPromptWindow window) {
+      public CommandInterpreter(CommandPromptWindow? window = null) {
          commandWindow = window;
          // Create a CommandWindowEmitter that integrates with our window
-         pp = new(new EmitterCommandWindow(commandWindow), includeComments: true);
          // Initialize the parser with the compiler and a callback for error messages
-         parser = new Parser(CDL2.Compiler,(severity,msg,_)=>commandWindow.WriteLine($"{severity}: {msg}",severity));
-      }
-
-      public CommandInterpreter() {
-         commandWindow = null;
-         // Create a CommandWindowEmitter that integrates with our window
-         pp = new(new EmitterDebug(),includeComments: true);
-         // Initialize the parser with the compiler and a callback for error messages
-         parser = new Parser(CDL2.Compiler,(severity,msg,_) => Debug.WriteLine($"{severity}: {msg}",severity));
+         if (commandWindow is not null) {
+            pp = new(new EmitterCommandWindow(commandWindow),includeComments: true);
+            parser = new Parser(CDL2.Compiler,(severity,msg,_) => commandWindow.WriteLine($"{severity}: {msg}",severity));
+         } else {
+            pp = new(new EmitterDebug(),includeComments: true);
+            parser = new Parser(CDL2.Compiler,(severity,msg,_) => Debug.WriteLine($"{severity}: {msg}"));
+         }
+         ppEdit = new(new EmitterString(),includeComments: true);
       }
 
       public void SetStatus(string? status = null) {
@@ -83,11 +85,29 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Uses the Windows message box for now
+      /// </summary>
+      /// <param name="message"></param>
+      /// <param name="buttons"></param>
+      /// <param name="icon"></param>
+      /// <returns></returns>
+      public bool QueryBox(string message,MessageBoxButton buttons = MessageBoxButton.OKCancel,MessageBoxImage icon = MessageBoxImage.Question) {
+         if (commandWindow is not null) { // Must be in interactive mode
+            return MessageBox.Show(commandWindow,message,"CDL2 Laboratory",buttons,icon) == MessageBoxResult.OK;
+         }
+         return false;
+      }
+
+      public bool CanReplace() {
+         if (IsEditing) return true; // We are in edit mode, so we can replace
+         return QueryBox("The current object will be replaced. Continue?");
+      }
       public void EnterCode(string input) {
          parser.Tokenize(input);
          Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
 
-         if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element)) Focus.SetFocus(element!);
+         if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input)) Focus.SetFocus(element!);
          ParsingContext = null; // Reset the parsing context after a parse
       }
       public bool EnterRawCode(string input) {
@@ -128,6 +148,7 @@ namespace CDL2v1 {
          InterpretCommand(command,commandType,"",args);
       }
       public void InterpretCommand(string command,CommandType commandType,string settings,string args) {
+         IsEditing = false;
          IEnumerable<string> arguments = Regex.Split(command.Trim(),@"\s+").Skip(1).Select(s => s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          string[] parts;
@@ -269,6 +290,27 @@ namespace CDL2v1 {
                   }
                   break;
                case CommandType.edit:
+                  if (commandWindow is null) return; // Ignore the command if there is no command window
+                  context = GetContext(args);
+                  if (context is null || context.Object is null || !context.IsFocusable) {
+                     WriteError("Can't edit.");
+                     return;
+                  }
+                  if (context.Object is Container) { // Container is a base class for Module, Layer, Section, Program, etc.
+                     // The idea is
+                     // 1. PrettyPrint the container into a file.
+                     // 2. Launch an external editor (VS Code by default).
+                     // 3. Detect the end of editing (like git does with an external edtor).
+                     // 4. Read the file back and parse it.
+                     WriteError("Editing of containers not yet implemented.");
+                     return;
+                  }
+
+                  // Display the object in the command window for editing.
+                  IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
+                  ppEdit.Emitter.Clear();
+                  commandWindow.EditText(ppEdit.Print(context.Object));
+                  // Nothing else. When editing is done the command window will call EnterCode with the edited text.
                   break;
                case CommandType.insert:
                   break;

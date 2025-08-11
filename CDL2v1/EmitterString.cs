@@ -51,7 +51,8 @@ namespace CDL2v1 {
       }
 
       private readonly StringBuilder sb = new();
-      //private string buffer = "";
+
+      public override void Clear() => sb.Clear();
 
       protected override void WriteLine(string line) => sb.Append(prefix).Append(line).AppendLine(suffix);
 
@@ -61,17 +62,10 @@ namespace CDL2v1 {
                return sb.ToString();
             }
             finally {
-               sb.Clear();
+               Clear();
             }
          }
       }
-      //protected override void WriteLine(string item) => buffer += prefix + item + suffix + "\n";
-      //public override string Content { get {
-      //      string s = buffer;
-      //      buffer = "";
-      //      return s;
-      //   }
-      //}
    }
 }
 

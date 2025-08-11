@@ -778,10 +778,17 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="context"></param>
       /// <param name="element"></param>
+      /// <param name="canReplace">A function which returns true if the element can be replaced.</param>
+      /// <param>The original input string. Used only as debug aid dureing development.</param>
       /// <returns></returns>
-      internal bool Parse(Focus context,out NamedElement? element) {
-         Debug.Assert(tokens.Peek().type == TokenType.RESWORD,"Expected a reserved word token at the start of the input.");
+      /// <param name="replace"></param>
+      internal bool Parse(Focus context,out NamedElement? element,Func<bool> canReplace,string input) {
          element = null;
+         if (tokens.Peek().type != TokenType.RESWORD) { 
+            ReportError($"Expected a reserved word at the start of input, not \"{tokens.Peek()}\".");
+            return false;
+         }
+
 
          Token initialToken = tokens.Peek();
          RW objectType = initialToken.reservedWordValue ?? RW.NONE;
@@ -853,12 +860,16 @@ namespace CDL2v1 {
             case RW.ACTION:
             case RW.TEST:
             case RW.PREDICATE:
+               ReportInfo($"Parsing algorithm with input: {input}");
                break;
             case RW.CONST:
+               ReportInfo($"Parsing const with input: {input}");
                break;
             case RW.VAR:
+               ReportInfo($"Parsing var with input: {input}");
                break;
             case RW.LIST:
+               ReportInfo($"Parsing list with input: {input}");
                break;
             case RW.ABSTR:
             case RW.EXT:

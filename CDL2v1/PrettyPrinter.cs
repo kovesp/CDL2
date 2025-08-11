@@ -235,7 +235,7 @@ namespace CDL2v1 {
          Emitter.EndUpdate();
       }
 
-      internal void Print(NamedElement namedElement) {
+      internal string Print(NamedElement namedElement) {
          switch (namedElement) {
             // Units
             case Program program:
@@ -261,7 +261,7 @@ namespace CDL2v1 {
                Print(variable);
                break;
             case LIST list:
-               Print(list, list.Section!);
+               Print(list,list.Section!);
                break;
 
             // Smaller elements
@@ -281,6 +281,7 @@ namespace CDL2v1 {
             default:
                throw new NotImplementedException($"Cannot print {namedElement.GetType()}");
          }
+         return Emitter.Content; // Return the content of the emitter. Only non-empty for EmitterString
       }
       internal void PauseUpdate(Action action) {
          // Save the current cursor
@@ -356,11 +357,11 @@ namespace CDL2v1 {
                } else if (cdl2obj is Var variable) {
                   PrintDataDefinition(RW.VAR,Print,variable);
                } else if (cdl2obj is LIST list) {
-                  PrintDataDefinition(RW.LIST,Print,list);
+                  PrintDataDefinition(RW.LIST,l => Print(l,section),list);
                } else {
                   ReportError($"Unknown CDL2Object type {cdl2obj.GetType()} in section {section.Id}");
                }
-            }
+            }            
          }
       },updateUI: true);
 
@@ -373,12 +374,11 @@ namespace CDL2v1 {
       /// <param name="print"></param>
       /// <param name="item"></param>
       private void PrintDataDefinition<T>(RW type,Action<T> print,T item) where T : CDL2Object {
-         if (item.HasCommentOrNote) PrintComment(item,nl:false);
-         PrintImportedComment(item);
-         Emit(type.Decorate(Emitter,SE.ReservedWord)," ");
+         EmitReservedwordForObject(type,item);
          print(item);
          EmitSeparatorWithNL(TT.END);
       }
+
 
       private void PrintLudes(Container container) {
          PrintLude(RW.PRELUDE,container);
@@ -389,7 +389,7 @@ namespace CDL2v1 {
       private void PrintLude(RW ludeType,Container container) {
          if (container is Section section) {
             if (section.Ludes[ludeType].Count != 0) {
-               Emit(ludeType.Decorate(Emitter,SE.ReservedWord)," ");
+               EmitReservedwordForObject(ludeType);
                // SectionById Ludes are stored as ids of a generated Procedure item.
                if (section.TryGetLocalDeclaration(section.Ludes[ludeType].First(),out Procedure? proc)) { // This should always be the case
                   Print(proc!.group.Alternatives.First(),section);
@@ -573,7 +573,8 @@ namespace CDL2v1 {
 
       private bool PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true) {
          if (ids.Any()) {
-            Emit(rw.Decorate(Emitter,SE.ReservedWord)," ",DecoratedID(ids.First(),section,decorate));
+            EmitReservedwordForObject(rw);
+            Emit(" ",DecoratedID(ids.First(),section,decorate));
             foreach (ID id in ids.Skip(1)) {
                EmitSeparator(TT.LISTSEP);
                EmitWithExtraSpace(true,DecoratedID(id,section,decorate));
@@ -637,7 +638,6 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alg"></param>
       public void Print(ImportedAlgorithm alg) {
-         PrintImportedComment(alg);
          PrintAlgorithmHeader(alg);
          EmitSeparatorWithNL(TT.END);
       }
@@ -699,9 +699,8 @@ namespace CDL2v1 {
       }
 
       private void PrintAlgorithmHeader(Algorithm algorithm) {
-         PrintComment(algorithm,nl:false);
-         Emit(algorithm.AlgorithmType.Decorate(Emitter,SE.ReservedWord)," ",
-            algorithm.Id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
+         EmitReservedwordForObject(algorithm.AlgorithmType,algorithm);
+         Emit(" ",algorithm.Id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
          foreach (Affix affix in algorithm.Affixes.Cast<Affix>()) {
             Emit(affix.affixType == AffixType.std ? TT.AFFIXSEP : TT.STRINGAFFIXSEP);
             if (affix.IsInput) Emit(TT.AFFIXDIR);
@@ -805,7 +804,7 @@ namespace CDL2v1 {
             Emit($"{Token.TokenType2Glyph[TT.COMMENT]}{comment}{Token.TokenType2Glyph[TT.COMMENT]} ".Decorate(Emitter, SE.Comment));
          }
       }
-      private void PrintImportedComment(CDL2Object obj) { if (obj.IsImported) PrintInlineComment("Imported"); }
+      private bool PrintImportedComment(CDL2Object obj) { if (obj.IsImported) PrintInlineComment("Imported"); return obj.IsImported; }
 
       private void PrintComment(string comments,Notes notes,bool nl = true) {
          if (IncludeComments) {
@@ -838,6 +837,24 @@ namespace CDL2v1 {
       /// <returns></returns>
       private static string[] TranslateTokens(params object[] items) => [.. items.Select(item => TranslateToken(item))];
       private static string TranslateToken(object item) => item is TT tt ? Token.ToGlyph(tt) : item.ToString() ?? "";
+
+      /// <summary>
+      /// Emit a reserved word. Together with any comment the object might have.
+      /// If the object is imported, add an inline comment "Imported".
+      /// Ensure it is on a new line.
+      /// </summary>
+      /// <param name="type"></param>
+      private void EmitReservedwordForObject(RW type,CDL2Object? obj = null) {
+         if (obj is not null) {
+            PrintComment(obj,nl: false);
+            if (obj.IsImported) {
+               PrintInlineComment("Imported");
+               Emit(type.Decorate(Emitter,SE.ReservedWord)," ");
+               return;
+            }
+         }
+         NlEmit(type.Decorate(Emitter,SE.ReservedWord)," ");
+      }
 
       /// <summary>
       /// Emit the specified items at the current indent level.

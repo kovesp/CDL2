@@ -246,6 +246,7 @@ namespace CDL2v1 {
       public virtual void BeginUpdate() { }
       public virtual void EndUpdate() { }
       public virtual void UpdateUI() { }
+      public virtual void Clear() { }
       public virtual string Content { get; } = "";
 
       [GeneratedRegex(@"<span\s+(fg='(?<fg>[^']*)')?\s+(bg='(?<bg>[^']*)')?\s+(style='(?<style>[^']*)')?\s*>(?<text>.*?)<\/span>",RegexOptions.IgnoreCase | RegexOptions.Compiled,"en-US")]

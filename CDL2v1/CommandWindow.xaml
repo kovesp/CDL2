@@ -176,7 +176,7 @@
       </GridSplitter>
 
       <!-- Input Area with proper background -->
-      <DockPanel Grid.Row="3" LastChildFill="True" Background="DarkSlateGray" Margin="0,10,0,10">
+      <DockPanel Grid.Row="4" LastChildFill="True" Background="DarkSlateGray" Margin="0,10,0,10">
          <TextBlock x:Name="PromptTextBlock" 
                      DockPanel.Dock="Left"
                      Text="> " 

@@ -714,5 +714,36 @@ namespace CDL2v1 {
       [GeneratedRegex(@"\r\n|\r|\n",RegexOptions.Compiled)]
       private static partial Regex NewlineRegex();
    }
+
+   /// <summary>
+   /// Here as a reminder. Not really useful.
+   /// Even more complicated than the Curry version.
+   /// They are problematic only when the method being parametrized has overloads.
+   /// 
+   /// Both work in all cases if the specific overload is fixed, e.g.,
+   /// Action<T1,T2> action = A;
+   /// ... F(A.Partial(x)) 
+   /// </summary>
+   public static class PartialExtensions {
+      // For void-returning methods
+      public static Action<T2> Partial<T1, T2>(this Action<T1,T2> func,T1 arg1) => t2 => func(arg1,t2);
+
+      // For returning methods
+      public static Func<T2,TResult> Partial<T1, T2, TResult>(this Func<T1,T2,TResult> func,T1 arg1) => arg2 => func(arg1,arg2);
+   }
+
+   /// <summary>
+   /// Here as a reminder. Not really useful.
+   /// Used as            F(Curry.Partial((Action<T1,T2>)Action, T1 fixedValue)) to create a new Action<T2> that calls the original action with the fixed value for T1.
+   /// Easier to just say F(x=> Action(fixedValue,x)) in the code.
+   /// </summary>
+   public static class Curry {
+      // For void-returning two-parameter actions
+      public static Action<T2> Partial<T1, T2>(Action<T1,T2> action,T1 fixedValue) => t2 => action(fixedValue,t2);
+
+      // For two-parameter functions returning a value
+      public static Func<T2,TResult> Partial<T1, T2, TResult>(Func<T1,T2,TResult> func,T1 fixedValue) => t2 => func(fixedValue,t2);
+   }
+
 }
 

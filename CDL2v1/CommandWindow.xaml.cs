@@ -57,8 +57,9 @@ namespace CDL2v1 {
       public event EventHandler<string>? CommandEntered;
 
       private bool _multilineMode = false;
-      private readonly string _singleLineTooltip = "Enter a Lab command and press Enter";
-      private readonly string _multilineTooltip  = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
+      private const string _singleLineTooltip = "Enter a Lab command and press Enter";
+      private const string _editTooltip = "Edit the item and press Enter. Esc to cancel, Ctrl-Enter to insert a newline.";
+      private const string _multilineTooltip  = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
 
       // Background brushes for input field
       private readonly Brush _standardInputBackground;
@@ -299,10 +300,25 @@ namespace CDL2v1 {
       /// </summary>
       private void DisplayPrompt() {
          Application.Current.Dispatcher.Invoke(() => {
-            PromptTextBlock.Text = "> ";
-            InputTextBox.Text = "";
-            InputTextBox.ToolTip = _singleLineTooltip;
+            if (!IsEditing) {
+               PromptTextBlock.Text = "> ";
+               InputTextBox.Text = "";
+               InputTextBox.ToolTip = _singleLineTooltip;
+               InputTextBox.Focus();
+            }
+         });
+         IsEditing = false;
+      }
+
+      private bool IsEditing = false;
+      public void EditText(string text) {
+         Application.Current.Dispatcher.Invoke(() => {
+            SwitchToMultiline();
+            PromptTextBlock.Text = ": ";
+            InputTextBox.Text = text.Trim();
+            InputTextBox.ToolTip = _editTooltip;
             InputTextBox.Focus();
+            IsEditing = true;
          });
       }
 
@@ -330,14 +346,10 @@ namespace CDL2v1 {
             string input = InputTextBox.Text;
 
             if (_multilineMode) {
-               var lines = input.Split(["\r\n","\n"],StringSplitOptions.None);
-               string lastLine = lines.Length > 0 ? lines[^1].TrimEnd() : "";
-               if (lastLine.EndsWith('.')) {
-                  _multilineMode = false;
-                  InputTextBox.AcceptsReturn = false;
-                  InputTextBox.ToolTip = _singleLineTooltip;
-                  InputTextBox.Background = _standardInputBackground;
-                  InputTextBox.Foreground = InputTextBox.CaretBrush = _standardInputForeground;
+               //var lines = input.Split(["\r\n","\n"],StringSplitOptions.None);
+               //string lastLine = lines.Length > 0 ? lines[^1].TrimEnd() : "";
+               if (input.Trim().EndsWith('.') && !e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control)) {
+                  SwitchToSingleLine();
                   ExecuteCommand();
                   e.Handled = true;
                } else {
@@ -367,16 +379,16 @@ namespace CDL2v1 {
                   e.Handled = true;
                   return;
                } else {
-                  _multilineMode = true;
-                  InputTextBox.AcceptsReturn = true;
-                  InputTextBox.ToolTip = _multilineTooltip;
-                  InputTextBox.Background = _multilineInputBackground;
-                  InputTextBox.Foreground = InputTextBox.CaretBrush = _multilineInputForeground;
-
+                  SwitchToMultiline();
                   e.Handled = false; // Let Enter insert a new line
                   return;
                }
             }
+         } else if (e.Key == Key.Escape) {
+            SwitchToSingleLine();
+            DisplayPrompt();
+            IsEditing = false;
+            e.Handled = true;
          } else if (e.Key == Key.Up) {
             InputTextBox.Text = _commandHistory.Previous();
             InputTextBox.CaretIndex = InputTextBox.Text.Length;
@@ -388,24 +400,38 @@ namespace CDL2v1 {
          }
       }
 
+      private void SwitchToSingleLine() {
+         _multilineMode = false;
+         InputTextBox.AcceptsReturn = false;
+         InputTextBox.ToolTip = _singleLineTooltip;
+         InputTextBox.Background = _standardInputBackground;
+         InputTextBox.Foreground = InputTextBox.CaretBrush = _standardInputForeground;
+      }
+
+      private void SwitchToMultiline() {
+         _multilineMode = true;
+         InputTextBox.AcceptsReturn = true;
+         InputTextBox.ToolTip = _multilineTooltip;
+         InputTextBox.Background = _multilineInputBackground;
+         InputTextBox.Foreground = InputTextBox.CaretBrush = _multilineInputForeground;
+      }
+
       /// <summary>
       /// Executes the current command
       /// </summary>
       private void ExecuteCommand() {
          string command = InputTextBox.Text.Trim();
-         if (string.IsNullOrEmpty(command)) {
-            DisplayPrompt();
-            return;
+         // Add command to history
+         if (!IsEditing) {
+            _commandHistory.Add(command);
+            // Echo command
+            WriteLine($"> {command}");
          }
 
-         // Add command to history
-         _commandHistory.Add(command);
-
-         // Echo command
-         WriteLine($"> {command}");
-
-         // Raise event to handle the command
-         CommandEntered?.Invoke(this,command);
+         if (command.IsNotEmptyOrWhitespace()) {
+            // Raise event to handle the command
+            CommandEntered?.Invoke(this,command);
+         }
 
          // Display new prompt
          DisplayPrompt();
