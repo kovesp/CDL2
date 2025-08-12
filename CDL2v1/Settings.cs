@@ -127,7 +127,9 @@ namespace CDL2v1 {
       public static bool AnyVerbosity(int level) => Verbosity(level) || DebugVerbosity(level);
 
       public static string OutputDirectory => SettingValue<string>("OutputDirectory") ?? Directory.GetCurrentDirectory();
-      public static string LabDB => Path.ChangeExtension(Path.Combine(OutputDirectory, SettingValue<string>("DB") ?? "CDL2v1"), Serializer.DBExtension);
+      public static string LabDBName => Path.ChangeExtension(SettingValue<string>("DB") ?? "CDL2v1", Serializer.DBExtension);
+      public static string LabDBPath => Path.Combine(OutputDirectory, LabDBName);
+
       public static bool LabMode => SettingValue<bool>("Lab") && ! SettingValue<bool>("ParseOnly");
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;

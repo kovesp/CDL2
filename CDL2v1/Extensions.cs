@@ -258,7 +258,8 @@ namespace CDL2v1 {
       /// Gets a value indicating whether the <see cref="BoundedStack{T}"/> is empty.
       /// </summary>
       public bool IsEmpty => _size == 0;
-   
+      public bool IsNonEmpty => _size > 0;
+
       /// <summary>
       /// Gets a value indicating whether the <see cref="BoundedStack{T}"/> is at full capacity.
       /// </summary>

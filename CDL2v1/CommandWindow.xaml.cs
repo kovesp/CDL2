@@ -57,9 +57,48 @@ namespace CDL2v1 {
       public event EventHandler<string>? CommandEntered;
 
       private bool _multilineMode = false;
-      private const string _singleLineTooltip = "Enter a Lab command and press Enter";
-      private const string _editTooltip = "Edit the item and press Ctrl-Enter to submit (last line must end with '.'', Esc to cancel.";
+      private class UndoEntry(TextBox input) { 
+         public string Text = input.Text; 
+         public int CaretIndex = input.CaretIndex;
+
+         public void SetTextBox(TextBox input) {
+            input.Text = Text;
+            input.CaretIndex = CaretIndex;
+         }
+      }
+      private BoundedStack<UndoEntry> _editUndoStack = new(100);
+      private BoundedStack<UndoEntry> _editRedoStack = new(100);
+
+      private const string _singleLineTooltip = "Enter a Lab command and press Enter. F1 for help.";
+      private const string _editTooltip = "Edit the item and press Ctrl-Enter to submit. F1 for help.";
       private const string _multilineTooltip  = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
+
+      private const string _multilineModeHelp = """
+Editing keys in multi-line mode.
+Pressing Esc or clicking in this window dismisses it.
+
+Key | Action
+---
+Enter       | Insert a new line.
+Ctrl-Enter  | Submit the CDL2 construct (last line must end with '.').
+Esc         | Cancel editing.
+Ctrl-Z      | Undo last edit.
+Ctrl-Y      | Redo last edit.
+Tab         | Insert indentation (based on indent width).
+F1          | Show this help message.
+""";
+      private const string _singleLineModeHelp = """
+Editing keys in single-line mode.
+Pressing Esc or clicking in this window dismisses it.
+
+Key | Action
+---
+Enter | Execute the command or
+      | Enter a single line CDL2 object terminated by a period.
+↑     | Previous command in history.
+↓     | Next command in history.
+F1    | Show this help message.
+""";
 
       // Background brushes for input field
       private readonly Brush _standardInputBackground;
@@ -350,6 +389,7 @@ namespace CDL2v1 {
             InputTextBox.CaretIndex = caretIndex + chars.Length;
          }
 
+         e.Handled = false; // Default is to let non handled and other keys pass through
          if (e.Key == Key.Enter) {
             string input = InputTextBox.Text;
             bool enterModifierPressed = e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control);
@@ -363,9 +403,7 @@ namespace CDL2v1 {
                   // Stay in multiline mode, allow Enter to insert a new line.
                   // Insert a newline manually, because AcceptsReturn applies only to Enter and ignores Ctrl-Enter.
                   // Insert(Environment.NewLine);
-                  e.Handled = false;
                }
-               return;
             } else {
                // Check whether we have a command or CDL2 object
                string trimmed = input.Trim();
@@ -380,44 +418,67 @@ namespace CDL2v1 {
                      WriteError($"Attempt to enter a CDL2 construct with non-existent reserved word: {firstWord}");
                      DisplayPrompt();
                      e.Handled = true;
-                     return;
                   }
-               }
-               if (isCommand || trimmed.EndsWith('.')) { // Command (lc word) or single line code.
+               } else if (isCommand || trimmed.EndsWith('.')) { // Command (lc word) or single line code.
                   ExecuteCommand();
                   e.Handled = true;
-                  return;
                } else {
                   SwitchToMultiline();
-                  e.Handled = false; // Let Enter insert a new line
-                  return;
                }
             }
+         } else if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None) {
+            string toastMessage = _multilineModeHelp;
+            if (!_multilineMode) {
+               toastMessage = _singleLineModeHelp;
+               string trimmed = InputTextBox.Text.Trim();
+               if (trimmed.Length == 0 || char.IsAsciiLetterLower(trimmed[0])) {
+                  string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
+                  string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat:true);
+                  if (commandHelp.IsNotEmptyOrWhitespace()) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
+               }
+            }
+            ToastWindow.ShowToast(toastMessage);
+            e.Handled = true;
          } else if (e.Key == Key.Escape) {
             SwitchToSingleLine();
             DisplayPrompt();
             IsEditing = false;
             e.Handled = true;
          } else if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None) {
-            Insert(new string(' ',Emitter!.IndentWidth));
+            // 0 1 2 -> 3 2 1
+            int spacesToInsert = Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex-1,0)) % Emitter!.IndentWidth;
+            Insert(new string(' ',spacesToInsert));
             e.Handled = true;
          } else if (e.Key == Key.Up) {
-            if (IsEditing) {
-               e.Handled = false;
-            } else {
+            if (!_multilineMode) {
                InputTextBox.Text = _commandHistory.Previous();
                InputTextBox.CaretIndex = InputTextBox.Text.Length;
                e.Handled = true;
             }
          } else if (e.Key == Key.Down) {
-            if (IsEditing) {
-               e.Handled = false;
-            } else {
+            if (!_multilineMode) {
                InputTextBox.Text = _commandHistory.Next();
                InputTextBox.CaretIndex = InputTextBox.Text.Length;
                e.Handled = true;
             }
+         } else if (e.Key == Key.Z && e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control)) {
+            // Undo last edit
+            if (_multilineMode && _editUndoStack.IsNonEmpty) {
+               _editRedoStack.Push(new(InputTextBox));
+               _editUndoStack.Pop();   // This is the current state, so get rid of it
+               _editUndoStack.Pop().SetTextBox(InputTextBox);
+               e.Handled = true;
+            }
+         } else if (e.Key == Key.Y && e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control)) {
+            // Redo last edit
+            if (_multilineMode && _editRedoStack.IsNonEmpty) {
+               //_editUndoStack.Push(new(InputTextBox));
+               _editRedoStack.Pop().SetTextBox(InputTextBox);
+               e.Handled = true;
+            }
          }
+
+         if (_multilineMode && (_editUndoStack.IsEmpty ||  _editUndoStack.Peek().Text != InputTextBox.Text)) _editUndoStack.Push(new(InputTextBox));
       }
 
       private void SwitchToSingleLine() {

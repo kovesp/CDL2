@@ -202,11 +202,27 @@ namespace CDL2v1 {
       /// <example>
       ///    Abbreviation<CommandType>.Identify(name);
       /// </example>
-      public static T Identify(string name) {
+      public static T Identify(string name) => IdentifyAbbreviation(name)?.Type ?? Abbreviation<T>.Invalid;
+      public static Abbreviation<T>? IdentifyAbbreviation(string name) {
          name = name.Trim().ToFirstLetterCase();
-         return Abbreviations.Where(abbr => name.Length >= abbr.MinLength && abbr.Name.StartsWith(name)).MinBy(abbr => abbr.MinLength)?.Type ?? Abbreviation<T>.Invalid;
+         return Abbreviations.Where(abbr => name.Length >= abbr.MinLength && abbr.Name.StartsWith(name)).MinBy(abbr => abbr.MinLength);
       }
 
+      /// <summary>
+      /// Currently returns the short help text for all commands.
+      /// </summary>
+      /// <param name="name"></param>
+      /// <returns></returns>
+      public static string LongHelp(string name,bool toastFormat = false) {
+         static string SingleCommandHelp(string text,string name) => $"{Regex.Replace(text,@"^[a-z]+",name + "|",RegexOptions.Compiled).Replace(':','|')}";
+         Abbreviation<T>? cmd = IdentifyAbbreviation(name);
+         if (cmd is not null) {
+            return SingleCommandHelp(cmd.HelpText,cmd.NameWithAbbreviation);
+         } else {
+            return string.Join("\n",Abbreviation<CommandType>.Commands.Select(cmd=> SingleCommandHelp(cmd.HelpText,cmd.NameWithAbbreviation)));
+         }
+
+      }
       public override string ToString() => $"{ShortTypeName}[{NameWithAbbreviation}]";
       public string NameWithAbbreviation => char.IsLower(Name[0])
          ? $"{Name[..MinLength].ToUpper()}{Name[MinLength..]}"

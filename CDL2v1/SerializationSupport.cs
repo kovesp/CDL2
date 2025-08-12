@@ -41,6 +41,7 @@ using System.IO.Compression;
 using System.IO.Enumeration;
 using System.Linq;
 using System.Printing;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -82,19 +83,21 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="path">Base path for the file (extension will be replaced)</param>
       /// TODO: Add a backup capability to save the previous database as a backup before overwriting
-      public static string SaveDB(string? path=null) {
-         path ??= Settings.LabDB; // Use the default lab database path if not provided
-         if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
+      public static string SaveDB(string? path = null) {
+         string pathWithSize = string.Empty;
+         path ??= Settings.LabDBPath; // Use the default lab database path if not provided
+         if (!path.EndsWith(DBExtension))
+            path = Path.ChangeExtension(path,DBExtension);
          //TODO: Add a backup capability to save the previous database as a backup before overwriting
-         Logger.logger.WriteLine(1, $"CDL2: Saving compressed database to {path}");
+         Logger.logger.WriteLine(1,$"CDL2: Saving compressed database to {path}");
 
          // Serialize to JSON first
-         string json = JsonSerializer.Serialize(Database.Instance, serializationOptions);
+         string json = JsonSerializer.Serialize(Database.Instance,serializationOptions);
 
-         CompressStringToFile(json, path);
+         CompressStringToFile(json,path);
 
-         string pathWithSize = $"{path}, {new FileInfo(path).Length.FormatByteSize()}";
-         Logger.logger.WriteLine(1, $"CDL2: Compressed database saved to {pathWithSize}");
+         pathWithSize = $"{path}, {new FileInfo(path).Length.FormatByteSize()}";
+         Logger.logger.WriteLine(1,$"CDL2: Compressed database saved to {pathWithSize}");
          return pathWithSize;
       }
 
@@ -106,29 +109,33 @@ namespace CDL2v1 {
       /// <param name="databaseName">Name for the loaded database</param>
       /// <returns>The loaded database or null if loading failed</returns>
       public static Database? LoadDB(string? path=null, bool addInstance = true) {
-         path ??= Settings.LabDB; // Use the default lab database path if not provided
-         if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
-         if (!Path.Exists(path)) throw new FileNotFoundException($"CDL2: Database file not found at {path}");
+         Database? database = null;
+         ToastWindow.ShowToast($"Loading ${Settings.LabDBPath}",() => {
+            path ??= Settings.LabDBPath; // Use the default lab database path if not provided
+            if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
+            if (!Path.Exists(path)) throw new FileNotFoundException($"CDL2: Database file not found at {path}");
 
-         Logger.logger.WriteLine(1, $"CDL2: Loading compressed database from {path}");
+            Logger.logger.WriteLine(1, $"CDL2: Loading compressed database from {path}");
 
-         try {
-            string json = DecompressFileToString(path);
+            try {
+               string json = DecompressFileToString(path);
 
-            // Deserialize the JSON
-            Database? db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
+               // Deserialize the JSON
+               Database? db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
 
-            if (db is not null) {
-               if (addInstance) Database.AddInstance(db);
-               Logger.logger.WriteLine(1, $"CDL2: Loaded compressed database from {path} with name {db.Name}");
+               if (db is not null) {
+                  if (addInstance) Database.AddInstance(db);
+                  Logger.logger.WriteLine(1, $"CDL2: Loaded compressed database from {path} with name {db.Name}");
+               }
+
+               database = db;
+            } catch (Exception ex) {
+               Logger.logger.WriteLine(0, $"CDL2: Error loading compressed database: {ex.Message}");
+               Logger.logger.WriteLine(0, $"CDL2: Stack trace: {ex.StackTrace}");
+               database =  null;
             }
-
-            return db;
-         } catch (Exception ex) {
-            Logger.logger.WriteLine(0, $"CDL2: Error loading compressed database: {ex.Message}");
-            Logger.logger.WriteLine(0, $"CDL2: Stack trace: {ex.StackTrace}");
-            return null;
-         }
+         },minShowInterval:2000);
+         return database;
       }
 #else
       public const string DBExtension = ".lab";

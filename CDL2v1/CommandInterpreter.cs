@@ -241,6 +241,7 @@ namespace CDL2v1 {
                   WriteLine($"Set {key} to {value}");
                   break;
                case CommandType.status:
+                  WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
                   Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
                   break;
                case CommandType.rename:
@@ -322,13 +323,13 @@ namespace CDL2v1 {
                   WriteInfo($"Saved: {Database.Save()}");
                   break;
                case CommandType.abort:
-                  Settings.SettingValue("NoSave",true);
+                  ToastWindow.ShowToast("abort command used, not saving the database.",2000);
                   commandWindow?.Close();
                   return;
                case CommandType.bye:
                case CommandType.quit:
                case CommandType.exit:
-                  Settings.SettingValue("NoSave",false);
+                  ToastWindow.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);  
                   commandWindow?.Close();
                   return;
                case CommandType.help:
