@@ -57,7 +57,7 @@ namespace CDL2v1 {
          // Create a CommandWindowEmitter that integrates with our window
          // Initialize the parser with the compiler and a callback for error messages
          if (commandWindow is not null) {
-            pp = new(new EmitterCommandWindow(commandWindow),includeComments: true);
+            pp = new(commandWindow.Emitter = new EmitterCommandWindow(commandWindow),includeComments: true);
             parser = new Parser(CDL2.Compiler,(severity,msg,_) => commandWindow.WriteLine($"{severity}: {msg}",severity));
          } else {
             pp = new(new EmitterDebug(),includeComments: true);

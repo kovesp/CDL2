@@ -58,7 +58,7 @@ namespace CDL2v1 {
 
       private bool _multilineMode = false;
       private const string _singleLineTooltip = "Enter a Lab command and press Enter";
-      private const string _editTooltip = "Edit the item and press Enter. Esc to cancel, Ctrl-Enter to insert a newline.";
+      private const string _editTooltip = "Edit the item and press Ctrl-Enter to submit (last line must end with '.'', Esc to cancel.";
       private const string _multilineTooltip  = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
 
       // Background brushes for input field
@@ -66,6 +66,8 @@ namespace CDL2v1 {
       private readonly Brush _multilineInputBackground = Brushes.White;
       private readonly Brush _standardInputForeground;
       private readonly Brush _multilineInputForeground = Brushes.Black;
+
+      public Emitter? Emitter;   // Used to get the indent width
 
       public CommandPromptWindow() {
          InitializeComponent();
@@ -342,18 +344,25 @@ namespace CDL2v1 {
       /// Handle input text box key down events
       /// </summary>
       private void InputTextBox_PreviewKeyDown(object sender,KeyEventArgs e) {
+         void Insert(string chars) {
+            int caretIndex = InputTextBox.CaretIndex;
+            InputTextBox.Text = InputTextBox.Text.Insert(caretIndex,chars);
+            InputTextBox.CaretIndex = caretIndex + chars.Length;
+         }
+
          if (e.Key == Key.Enter) {
             string input = InputTextBox.Text;
+            bool enterModifierPressed = e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control);
 
             if (_multilineMode) {
-               //var lines = input.Split(["\r\n","\n"],StringSplitOptions.None);
-               //string lastLine = lines.Length > 0 ? lines[^1].TrimEnd() : "";
-               if (input.Trim().EndsWith('.') && !e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control)) {
+               if (input.Trim().EndsWith('.') && enterModifierPressed) {
                   SwitchToSingleLine();
                   ExecuteCommand();
                   e.Handled = true;
                } else {
-                  // Stay in multiline mode, allow Enter to insert a new line
+                  // Stay in multiline mode, allow Enter to insert a new line.
+                  // Insert a newline manually, because AcceptsReturn applies only to Enter and ignores Ctrl-Enter.
+                  // Insert(Environment.NewLine);
                   e.Handled = false;
                }
                return;
@@ -389,14 +398,25 @@ namespace CDL2v1 {
             DisplayPrompt();
             IsEditing = false;
             e.Handled = true;
+         } else if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None) {
+            Insert(new string(' ',Emitter!.IndentWidth));
+            e.Handled = true;
          } else if (e.Key == Key.Up) {
-            InputTextBox.Text = _commandHistory.Previous();
-            InputTextBox.CaretIndex = InputTextBox.Text.Length;
-            e.Handled = true;
+            if (IsEditing) {
+               e.Handled = false;
+            } else {
+               InputTextBox.Text = _commandHistory.Previous();
+               InputTextBox.CaretIndex = InputTextBox.Text.Length;
+               e.Handled = true;
+            }
          } else if (e.Key == Key.Down) {
-            InputTextBox.Text = _commandHistory.Next();
-            InputTextBox.CaretIndex = InputTextBox.Text.Length;
-            e.Handled = true;
+            if (IsEditing) {
+               e.Handled = false;
+            } else {
+               InputTextBox.Text = _commandHistory.Next();
+               InputTextBox.CaretIndex = InputTextBox.Text.Length;
+               e.Handled = true;
+            }
          }
       }
 
