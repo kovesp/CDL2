@@ -408,7 +408,7 @@ F1    | Show this help message.
                   for (newlinePos = InputTextBox.CaretIndex ; newlinePos > 0 && input[newlinePos] != '\n' ; newlinePos--) ;
                   // Find the number of blanks at the begining of the current line
                   for (nonSpacePos = newlinePos ; nonSpacePos < input.Length && char.IsWhiteSpace(input[nonSpacePos]) ; nonSpacePos++) ;
-                  Insert(Environment.NewLine + new string(' ',Math.Min(nonSpacePos - newlinePos - 1,0)));
+                  Insert(Environment.NewLine + new string(' ',Math.Max(nonSpacePos - newlinePos - 1,0)));
                   e.Handled = true;
                }
             } else {
