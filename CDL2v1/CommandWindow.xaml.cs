@@ -40,13 +40,16 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
-namespace CDL2v1 {
+namespace CDL2v1
+{
    /// <summary>
    /// Interaction logic for CommandWindow.xaml
    /// </summary>
-   public partial class CommandPromptWindow : Window {
+   public partial class CommandPromptWindow : Window
+   {
       private readonly History _commandHistory = new();
       private readonly FontFamily _textFont = new("Cascadia Mono");
 
@@ -57,8 +60,9 @@ namespace CDL2v1 {
       public event EventHandler<string>? CommandEntered;
 
       private bool _multilineMode = false;
-      private class UndoEntry(TextBox input) { 
-         public string Text = input.Text; 
+      private class UndoEntry(TextBox input)
+      {
+         public string Text = input.Text;
          public int CaretIndex = input.CaretIndex;
 
          public void SetTextBox(TextBox input) {
@@ -71,7 +75,7 @@ namespace CDL2v1 {
 
       private const string _singleLineTooltip = "Enter a Lab command and press Enter. F1 for help.";
       private const string _editTooltip = "Edit the item and press Ctrl-Enter to submit. F1 for help.";
-      private const string _multilineTooltip  = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
+      private const string _multilineTooltip = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
 
       private const string _multilineModeHelp = """
 Editing keys in multi-line mode.
@@ -357,6 +361,7 @@ F1    | Show this help message.
             SwitchToMultiline();
             PromptTextBlock.Text = ": ";
             InputTextBox.Text = text.Trim();
+            _editUndoStack.Push(new(InputTextBox)); // For consistency with fwith Undo
             InputTextBox.ToolTip = _editTooltip;
             InputTextBox.Focus();
             IsEditing = true;
@@ -401,8 +406,13 @@ F1    | Show this help message.
                   e.Handled = true;
                } else {
                   // Stay in multiline mode, allow Enter to insert a new line.
-                  // Insert a newline manually, because AcceptsReturn applies only to Enter and ignores Ctrl-Enter.
-                  // Insert(Environment.NewLine);
+                  // Find the position of the last newline before the caret
+                  int newlinePos, nonSpacePos;
+                  for (newlinePos = InputTextBox.CaretIndex ; newlinePos > 0 && input[newlinePos] != '\n' ; newlinePos--) ;
+                  // Find the number of blanks at the begining of the current line
+                  for (nonSpacePos = newlinePos ; nonSpacePos < input.Length && char.IsWhiteSpace(input[nonSpacePos]) ; nonSpacePos++) ;
+                  Insert(Environment.NewLine + new string(' ',nonSpacePos - newlinePos - 1));
+                  e.Handled = true;
                }
             } else {
                // Check whether we have a command or CDL2 object
@@ -433,7 +443,7 @@ F1    | Show this help message.
                string trimmed = InputTextBox.Text.Trim();
                if (trimmed.Length == 0 || char.IsAsciiLetterLower(trimmed[0])) {
                   string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
-                  string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat:true);
+                  string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat: true);
                   if (commandHelp.IsNotEmptyOrWhitespace()) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
                }
             }
@@ -446,7 +456,7 @@ F1    | Show this help message.
             e.Handled = true;
          } else if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None) {
             // 0 1 2 -> 3 2 1
-            int spacesToInsert = Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex-1,0)) % Emitter!.IndentWidth;
+            int spacesToInsert = Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex - 1,0)) % Emitter!.IndentWidth;
             Insert(new string(' ',spacesToInsert));
             e.Handled = true;
          } else if (e.Key == Key.Up) {
@@ -463,22 +473,29 @@ F1    | Show this help message.
             }
          } else if (e.Key == Key.Z && e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control)) {
             // Undo last edit
-            if (_multilineMode && _editUndoStack.IsNonEmpty) {
-               _editRedoStack.Push(new(InputTextBox));
-               _editUndoStack.Pop();   // This is the current state, so get rid of it
-               _editUndoStack.Pop().SetTextBox(InputTextBox);
-               e.Handled = true;
+            if (_multilineMode) {
+               if (_editUndoStack.Count >= 1) {
+                  _editRedoStack.Push(new(InputTextBox));
+                  _editUndoStack.Pop();   // This is the current state, so get rid of it
+                  _editUndoStack.Pop().SetTextBox(InputTextBox);
+                  e.Handled = true;
+               } else {
+                  FlashInputError();
+               }
             }
          } else if (e.Key == Key.Y && e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control)) {
             // Redo last edit
-            if (_multilineMode && _editRedoStack.IsNonEmpty) {
-               //_editUndoStack.Push(new(InputTextBox));
-               _editRedoStack.Pop().SetTextBox(InputTextBox);
-               e.Handled = true;
+            if (_multilineMode) {
+               if (_editRedoStack.IsNonEmpty) {
+                  //_editUndoStack.Push(new(InputTextBox));
+                  _editRedoStack.Pop().SetTextBox(InputTextBox);
+                  e.Handled = true;
+               } else {
+                  FlashInputError();
+               }
             }
          }
-
-         if (_multilineMode && (_editUndoStack.IsEmpty ||  _editUndoStack.Peek().Text != InputTextBox.Text)) _editUndoStack.Push(new(InputTextBox));
+         if (_multilineMode && (_editUndoStack.IsEmpty || _editUndoStack.Peek().Text != InputTextBox.Text)) _editUndoStack.Push(new(InputTextBox));
       }
 
       private void SwitchToSingleLine() {
@@ -597,7 +614,8 @@ F1    | Show this help message.
       /// <summary>
       /// Command history manager
       /// </summary>
-      private class History {
+      private class History
+      {
          private readonly List<string> _history = [];
          private int _currentIndex = -1;
 
@@ -625,5 +643,46 @@ F1    | Show this help message.
       #endregion
 
       public void SetStatus(string message) => StatusBarTextBox.Text = message;
+
+      // Call this method to flash the InputTextBox as an error
+      private void FlashInputError() {
+         SolidColorBrush solidBrush = InputTextBox.Background as SolidColorBrush;
+         if (solidBrush != null) {
+            SolidColorBrush animBrush;
+            if (solidBrush.IsFrozen) {
+               animBrush = solidBrush.Clone();
+               InputTextBox.Background = animBrush;
+            } else {
+               animBrush = solidBrush;
+            }
+
+            Color originalColor = animBrush.Color;
+
+            ColorAnimation animation = new ColorAnimation {
+               To = Colors.Red,
+               Duration = TimeSpan.FromMilliseconds(100),
+               AutoReverse = true,
+               RepeatBehavior = new RepeatBehavior(2)
+            };
+
+            animation.Completed += (s,e) => {
+               animBrush.Color = originalColor;
+            };
+
+            animBrush.BeginAnimation(SolidColorBrush.ColorProperty,animation);
+         } else {
+            Brush originalBrush = InputTextBox.Background;
+            InputTextBox.Background = new SolidColorBrush(Colors.Red);
+
+            DispatcherTimer timer = new DispatcherTimer {
+               Interval = TimeSpan.FromMilliseconds(400)
+            };
+            timer.Tick += (s,e) => {
+               InputTextBox.Background = originalBrush;
+               ((DispatcherTimer)s).Stop();
+            };
+            timer.Start();
+         }
+      }
    }
 }

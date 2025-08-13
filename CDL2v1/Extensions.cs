@@ -345,8 +345,7 @@ namespace CDL2v1 {
       /// Thrown when the stack is empty.
       /// </exception>
       public T Pop() {
-         if (IsEmpty)
-            throw new InvalidOperationException("The stack is empty.");
+         if (IsEmpty) throw new InvalidOperationException("The stack is empty.");
       
          _head = (_head - 1 + _items.Length) % _items.Length;
          T item = _items[_head];
