@@ -40,13 +40,16 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
-namespace CDL2v1 {
+namespace CDL2v1
+{
    /// <summary>
    /// Interaction logic for CommandWindow.xaml
    /// </summary>
-   public partial class CommandPromptWindow : Window {
+   public partial class CommandPromptWindow : Window
+   {
       private readonly History _commandHistory = new();
       private readonly FontFamily _textFont = new("Cascadia Mono");
 
@@ -57,8 +60,9 @@ namespace CDL2v1 {
       public event EventHandler<string>? CommandEntered;
 
       private bool _multilineMode = false;
-      private class UndoEntry(TextBox input) { 
-         public string Text = input.Text; 
+      private class UndoEntry(TextBox input)
+      {
+         public string Text = input.Text;
          public int CaretIndex = input.CaretIndex;
 
          public void SetTextBox(TextBox input) {
@@ -66,12 +70,10 @@ namespace CDL2v1 {
             input.CaretIndex = CaretIndex;
          }
       }
-      private BoundedStack<UndoEntry> _editUndoStack = new(100);
-      private BoundedStack<UndoEntry> _editRedoStack = new(100);
 
       private const string _singleLineTooltip = "Enter a Lab command and press Enter. F1 for help.";
       private const string _editTooltip = "Edit the item and press Ctrl-Enter to submit. F1 for help.";
-      private const string _multilineTooltip  = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
+      private const string _multilineTooltip = "Enter CDL2 construct. Submit occurs when a line ends with a period ('.').";
 
       private const string _multilineModeHelp = """
 Editing keys in multi-line mode.
@@ -102,8 +104,8 @@ F1    | Show this help message.
 
       // Background brushes for input field
       private readonly Brush _standardInputBackground;
-      private readonly Brush _multilineInputBackground = Brushes.White;
       private readonly Brush _standardInputForeground;
+      private readonly Brush _multilineInputBackground = Brushes.White;
       private readonly Brush _multilineInputForeground = Brushes.Black;
 
       public Emitter? Emitter;   // Used to get the indent width
@@ -138,10 +140,10 @@ F1    | Show this help message.
             Keyboard.Focus(InputTextBox);
          };
 
-         // Store the original background at startup
          _standardInputBackground = InputTextBox.Background;
          _standardInputForeground = InputTextBox.Foreground;
          InputTextBox.ToolTip = _singleLineTooltip;
+         // Store the original background at startup
 
          // Get the Info color from PrettyPrinter.Decorators
          var infoColorHex = PrettyPrinter.Decorators[SE.NoteInfo].FG;
@@ -343,8 +345,9 @@ F1    | Show this help message.
          Application.Current.Dispatcher.Invoke(() => {
             if (!IsEditing) {
                PromptTextBlock.Text = "> ";
-               InputTextBox.Text = "";
+               InputTextBox.Clear();
                InputTextBox.ToolTip = _singleLineTooltip;
+               InputTextBox.IsUndoEnabled = false;
                InputTextBox.Focus();
             }
          });
@@ -354,12 +357,11 @@ F1    | Show this help message.
       private bool IsEditing = false;
       public void EditText(string text) {
          Application.Current.Dispatcher.Invoke(() => {
-            SwitchToMultiline();
             PromptTextBlock.Text = ": ";
             InputTextBox.Text = text.Trim();
-            InputTextBox.ToolTip = _editTooltip;
             InputTextBox.Focus();
             IsEditing = true;
+            SwitchToMultiline(_editTooltip);
          });
       }
 
@@ -401,8 +403,13 @@ F1    | Show this help message.
                   e.Handled = true;
                } else {
                   // Stay in multiline mode, allow Enter to insert a new line.
-                  // Insert a newline manually, because AcceptsReturn applies only to Enter and ignores Ctrl-Enter.
-                  // Insert(Environment.NewLine);
+                  // Find the position of the last newline before the caret
+                  int newlinePos, nonSpacePos;
+                  for (newlinePos = InputTextBox.CaretIndex ; newlinePos > 0 && input[newlinePos] != '\n' ; newlinePos--) ;
+                  // Find the number of blanks at the begining of the current line
+                  for (nonSpacePos = newlinePos ; nonSpacePos < input.Length && char.IsWhiteSpace(input[nonSpacePos]) ; nonSpacePos++) ;
+                  Insert(Environment.NewLine + new string(' ',Math.Min(nonSpacePos - newlinePos - 1,0)));
+                  e.Handled = true;
                }
             } else {
                // Check whether we have a command or CDL2 object
@@ -433,7 +440,7 @@ F1    | Show this help message.
                string trimmed = InputTextBox.Text.Trim();
                if (trimmed.Length == 0 || char.IsAsciiLetterLower(trimmed[0])) {
                   string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
-                  string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat:true);
+                  string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat: true);
                   if (commandHelp.IsNotEmptyOrWhitespace()) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
                }
             }
@@ -446,7 +453,7 @@ F1    | Show this help message.
             e.Handled = true;
          } else if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None) {
             // 0 1 2 -> 3 2 1
-            int spacesToInsert = Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex-1,0)) % Emitter!.IndentWidth;
+            int spacesToInsert = Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex - 1,0)) % Emitter!.IndentWidth;
             Insert(new string(' ',spacesToInsert));
             e.Handled = true;
          } else if (e.Key == Key.Up) {
@@ -461,24 +468,23 @@ F1    | Show this help message.
                InputTextBox.CaretIndex = InputTextBox.Text.Length;
                e.Handled = true;
             }
-         } else if (e.Key == Key.Z && e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control)) {
-            // Undo last edit
-            if (_multilineMode && _editUndoStack.IsNonEmpty) {
-               _editRedoStack.Push(new(InputTextBox));
-               _editUndoStack.Pop();   // This is the current state, so get rid of it
-               _editUndoStack.Pop().SetTextBox(InputTextBox);
+         } else if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control) {
+            if (_multilineMode && !InputTextBox.CanUndo) {
+               FlashInputError();
                e.Handled = true;
             }
-         } else if (e.Key == Key.Y && e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control)) {
-            // Redo last edit
-            if (_multilineMode && _editRedoStack.IsNonEmpty) {
-               //_editUndoStack.Push(new(InputTextBox));
-               _editRedoStack.Pop().SetTextBox(InputTextBox);
+         } else if (e.Key == Key.Y && Keyboard.Modifiers == ModifierKeys.Control) {
+            if (_multilineMode && !InputTextBox.CanRedo) {
+               FlashInputError();
                e.Handled = true;
             }
          }
+      }
 
-         if (_multilineMode && (_editUndoStack.IsEmpty ||  _editUndoStack.Peek().Text != InputTextBox.Text)) _editUndoStack.Push(new(InputTextBox));
+      private void ClearUndoRedo(TextBox box) {
+         bool undoState = box.IsUndoEnabled;
+         box.IsUndoEnabled = false;
+         box.IsUndoEnabled = undoState;
       }
 
       private void SwitchToSingleLine() {
@@ -487,14 +493,17 @@ F1    | Show this help message.
          InputTextBox.ToolTip = _singleLineTooltip;
          InputTextBox.Background = _standardInputBackground;
          InputTextBox.Foreground = InputTextBox.CaretBrush = _standardInputForeground;
+         InputTextBox.IsUndoEnabled = false;
       }
 
-      private void SwitchToMultiline() {
+      private void SwitchToMultiline(string tip = _multilineTooltip) {
          _multilineMode = true;
          InputTextBox.AcceptsReturn = true;
-         InputTextBox.ToolTip = _multilineTooltip;
+         InputTextBox.ToolTip = tip;
          InputTextBox.Background = _multilineInputBackground;
          InputTextBox.Foreground = InputTextBox.CaretBrush = _multilineInputForeground;
+         ClearUndoRedo(InputTextBox);
+         InputTextBox.IsUndoEnabled = true;
       }
 
       /// <summary>
@@ -597,7 +606,8 @@ F1    | Show this help message.
       /// <summary>
       /// Command history manager
       /// </summary>
-      private class History {
+      private class History
+      {
          private readonly List<string> _history = [];
          private int _currentIndex = -1;
 
@@ -625,5 +635,45 @@ F1    | Show this help message.
       #endregion
 
       public void SetStatus(string message) => StatusBarTextBox.Text = message;
+
+      // Call this method to flash the InputTextBox as an error
+      private void FlashInputError() {
+         if (InputTextBox.Background is SolidColorBrush solidBrush) {
+            SolidColorBrush animBrush;
+            if (solidBrush.IsFrozen) {
+               animBrush = solidBrush.Clone();
+               InputTextBox.Background = animBrush;
+            } else {
+               animBrush = solidBrush;
+            }
+
+            Color originalColor = animBrush.Color;
+
+            ColorAnimation animation = new ColorAnimation {
+               To = Colors.Red,
+               Duration = TimeSpan.FromMilliseconds(100),
+               AutoReverse = true,
+               RepeatBehavior = new RepeatBehavior(2)
+            };
+
+            animation.Completed += (s,e) => {
+               animBrush.Color = originalColor;
+            };
+
+            animBrush.BeginAnimation(SolidColorBrush.ColorProperty,animation);
+         } else {
+            Brush originalBrush = InputTextBox.Background;
+            InputTextBox.Background = new SolidColorBrush(Colors.Red);
+
+            DispatcherTimer timer = new DispatcherTimer {
+               Interval = TimeSpan.FromMilliseconds(400)
+            };
+            timer.Tick += (s,e) => {
+               InputTextBox.Background = originalBrush;
+               ((DispatcherTimer)s).Stop();
+            };
+            timer.Start();
+         }
+      }
    }
 }
