@@ -464,6 +464,16 @@ namespace CDL2v1 {
       public static string ToFirstLetterCase(this string str) => string.IsNullOrEmpty(str) ? str : char.IsUpper(str[0]) ? str.ToUpper() : str.ToLower();
 
       /// <summary>
+      /// Return the index of the first non-blank character in the string.
+      /// </summary>
+      /// <param name="text"></param>
+      /// <returns></returns>
+      public static int FindIndex(this string text,Func<char,bool> predicate) {
+         for (int i = 0 ; i < text.Length ; i++) if (predicate(text[i])) return i;
+         return -1;
+      }
+
+      /// <summary>
       /// Return true if the string is composed of alphanumeric characters only.
       /// </summary>
       /// <param name="input"></param>

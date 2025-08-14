@@ -43,6 +43,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
+
 namespace CDL2v1
 {
    /// <summary>
@@ -390,6 +391,20 @@ F1    | Show this help message.
             InputTextBox.Text = InputTextBox.Text.Insert(caretIndex,chars);
             InputTextBox.CaretIndex = caretIndex + chars.Length;
          }
+         void InsertNewline() {
+            int lineIndex = InputTextBox.GetLineIndexFromCharacterIndex(InputTextBox.CaretIndex);
+            string currentLine = InputTextBox.GetLineText(lineIndex);
+            int firstNonBlank = Math.Max(0,currentLine.FindIndex(c => !char.IsWhiteSpace(c))-1);
+
+            string input = InputTextBox.Text;
+            int newlinePos;
+            int nonSpacePos;
+            int startPose = Math.Min(InputTextBox.CaretIndex,input.Length - 1);
+            for (newlinePos = startPose ; newlinePos > 0 && input[newlinePos] != '\n' ; newlinePos--) ;
+            // Find the number of blanks at the begining of the current line
+            for (nonSpacePos = newlinePos ; nonSpacePos < input.Length && char.IsWhiteSpace(input[nonSpacePos]) ; nonSpacePos++) ;
+            Insert(Environment.NewLine + new string(' ',Math.Max(nonSpacePos - newlinePos - 1,0)));
+         }
 
          e.Handled = false; // Default is to let non handled and other keys pass through
          if (e.Key == Key.Enter) {
@@ -398,17 +413,14 @@ F1    | Show this help message.
 
             if (_multilineMode) {
                if (input.Trim().EndsWith('.') && enterModifierPressed) {
+                  // TODO: Prevent construct from being added to history
                   SwitchToSingleLine();
                   ExecuteCommand();
                   e.Handled = true;
                } else {
                   // Stay in multiline mode, allow Enter to insert a new line.
                   // Find the position of the last newline before the caret
-                  int newlinePos, nonSpacePos;
-                  for (newlinePos = InputTextBox.CaretIndex ; newlinePos > 0 && input[newlinePos] != '\n' ; newlinePos--) ;
-                  // Find the number of blanks at the begining of the current line
-                  for (nonSpacePos = newlinePos ; nonSpacePos < input.Length && char.IsWhiteSpace(input[nonSpacePos]) ; nonSpacePos++) ;
-                  Insert(Environment.NewLine + new string(' ',Math.Max(nonSpacePos - newlinePos - 1,0)));
+                  InsertNewline();
                   e.Handled = true;
                }
             } else {
@@ -421,16 +433,22 @@ F1    | Show this help message.
                   if (type != SelectorType.INVALID) {
                      InputTextBox.Text = $"{type} {input[firstWord.Length..]}";
                      InputTextBox.CaretIndex = InputTextBox.Text.Length;
-                  } else {                      // If not a command, treat as CDL2 object
+                     if (trimmed.EndsWith('.')) { // Valid single line construct (e.g., Var v.)
+                        ExecuteCommand();
+                        e.Handled = true;
+                     } else { // CDL2 object that was not completed on a single line
+                        SwitchToMultiline();
+                        InsertNewline();
+                        e.Handled = true;
+                     }
+                  } else { // Invalid selector, so supply error message.
                      WriteError($"Attempt to enter a CDL2 construct with non-existent reserved word: {firstWord}");
                      DisplayPrompt();
                      e.Handled = true;
                   }
-               } else if (isCommand || trimmed.EndsWith('.')) { // Command (lc word) or single line code.
+               } else { // Must be a command
                   ExecuteCommand();
                   e.Handled = true;
-               } else {
-                  SwitchToMultiline();
                }
             }
          } else if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None) {
@@ -479,6 +497,7 @@ F1    | Show this help message.
                e.Handled = true;
             }
          }
+
       }
 
       private void ClearUndoRedo(TextBox box) {
