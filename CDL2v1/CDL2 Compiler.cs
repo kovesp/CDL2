@@ -183,11 +183,11 @@ namespace CDL2v1 {
                Database.Instance.CLI = CLI;
 
                void ProcessInput(string input) {
-                  if (input.Contains(',')) {
-                     // If the input contains a comma, split it into multiple "lines"
-                     // and interpret each one separately.
-                     foreach (string cmd in input.Split(',',StringSplitOptions.RemoveEmptyEntries)) ProcessInput(cmd);
-                  } else {
+                  //if (input.Contains(',')) {
+                  //   // If the input contains a comma, split it into multiple "lines"
+                  //   // and interpret each one separately.
+                  //   foreach (string cmd in input.Split(',',StringSplitOptions.RemoveEmptyEntries)) ProcessInput(cmd);
+                  //} else {
                      Match match = Regex.Match(input,@"^\s*(?<verb>[a-z]+)(?:\s+(?<settings>[+-][a-z-]+(?:[:=]\S+?)?))?(?:\s+(?<args>.*))?$",RegexOptions.Compiled);
                      if (match.Success) {
                         CommandType commandType = Abbreviation<CommandType>.Identify(match.Groups["verb"].Value);
@@ -196,7 +196,7 @@ namespace CDL2v1 {
                         // Assume it is a cdl2 construct that must be parsed
                         CLI.EnterCode(input);
                      }
-                  }
+                  //}
                }
 
                // Handle commands

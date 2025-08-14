@@ -375,6 +375,7 @@ namespace CDL2v1 {
       /// <param name="item"></param>
       private void PrintDataDefinition<T>(RW type,Action<T> print,T item) where T : CDL2Object {
          EmitReservedwordForObject(type,item);
+         Emit(" ");
          print(item);
          EmitSeparatorWithNL(TT.END);
       }
@@ -849,11 +850,11 @@ namespace CDL2v1 {
             PrintComment(obj,nl: false);
             if (obj.IsImported) {
                PrintInlineComment("Imported");
-               Emit(type.Decorate(Emitter,SE.ReservedWord)," ");
+               Emit(type.Decorate(Emitter,SE.ReservedWord));
                return;
             }
          }
-         NlEmit(type.Decorate(Emitter,SE.ReservedWord)," ");
+         NlEmit(type.Decorate(Emitter,SE.ReservedWord));
       }
 
       /// <summary>

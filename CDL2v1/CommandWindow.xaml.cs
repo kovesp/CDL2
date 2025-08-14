@@ -352,7 +352,7 @@ F1    | Show this help message.
                InputTextBox.Focus();
             }
          });
-         IsEditing = false;
+         //IsEditing = false;
       }
 
       private bool IsEditing = false;
@@ -386,24 +386,23 @@ F1    | Show this help message.
       /// Handle input text box key down events
       /// </summary>
       private void InputTextBox_PreviewKeyDown(object sender,KeyEventArgs e) {
+         /// <summary>
+         /// Insert text at the current caret position and move the caret after the inserted text.
+         /// </summary>
          void Insert(string chars) {
-            int caretIndex = InputTextBox.CaretIndex;
-            InputTextBox.Text = InputTextBox.Text.Insert(caretIndex,chars);
-            InputTextBox.CaretIndex = caretIndex + chars.Length;
+            int index = InputTextBox.CaretIndex;
+            InputTextBox.Text = InputTextBox.Text.Insert(index,chars);
+            InputTextBox.CaretIndex = index + chars.Length;
          }
-         void InsertNewline() {
-            int lineIndex = InputTextBox.GetLineIndexFromCharacterIndex(InputTextBox.CaretIndex);
-            string currentLine = InputTextBox.GetLineText(lineIndex);
-            int firstNonBlank = Math.Max(0,currentLine.FindIndex(c => !char.IsWhiteSpace(c))-1);
-
-            string input = InputTextBox.Text;
-            int newlinePos;
-            int nonSpacePos;
-            int startPose = Math.Min(InputTextBox.CaretIndex,input.Length - 1);
-            for (newlinePos = startPose ; newlinePos > 0 && input[newlinePos] != '\n' ; newlinePos--) ;
-            // Find the number of blanks at the begining of the current line
-            for (nonSpacePos = newlinePos ; nonSpacePos < input.Length && char.IsWhiteSpace(input[nonSpacePos]) ; nonSpacePos++) ;
-            Insert(Environment.NewLine + new string(' ',Math.Max(nonSpacePos - newlinePos - 1,0)));
+         /// <summary>
+         /// Inserts a newline with the same indentation as the current line.
+         /// If the first non-whitespace character is an open parenthesis, add an extra space for that.
+         /// </summary>
+         void InsertNewlineWithIndent() {
+            string caretLine = InputTextBox.GetLineText(InputTextBox.GetLineIndexFromCharacterIndex(InputTextBox.CaretIndex));
+            int leadingSpaces = Math.Max(0,caretLine.FindIndex(c => !char.IsWhiteSpace(c)));
+            if (caretLine[leadingSpaces] == '(') leadingSpaces++; 
+            Insert(Environment.NewLine + new string(' ',leadingSpaces));
          }
 
          e.Handled = false; // Default is to let non handled and other keys pass through
@@ -412,15 +411,13 @@ F1    | Show this help message.
             bool enterModifierPressed = e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control);
 
             if (_multilineMode) {
-               if (input.Trim().EndsWith('.') && enterModifierPressed) {
+               if (input.Trim().EndsWith('.') && (input.Length == InputTextBox.CaretIndex || enterModifierPressed)) {
                   // TODO: Prevent construct from being added to history
                   SwitchToSingleLine();
                   ExecuteCommand();
                   e.Handled = true;
                } else {
-                  // Stay in multiline mode, allow Enter to insert a new line.
-                  // Find the position of the last newline before the caret
-                  InsertNewline();
+                  InsertNewlineWithIndent();
                   e.Handled = true;
                }
             } else {
@@ -438,7 +435,7 @@ F1    | Show this help message.
                         e.Handled = true;
                      } else { // CDL2 object that was not completed on a single line
                         SwitchToMultiline();
-                        InsertNewline();
+                        InsertNewlineWithIndent();
                         e.Handled = true;
                      }
                   } else { // Invalid selector, so supply error message.
@@ -508,7 +505,6 @@ F1    | Show this help message.
 
       private void SwitchToSingleLine() {
          _multilineMode = false;
-         InputTextBox.AcceptsReturn = false;
          InputTextBox.ToolTip = _singleLineTooltip;
          InputTextBox.Background = _standardInputBackground;
          InputTextBox.Foreground = InputTextBox.CaretBrush = _standardInputForeground;
@@ -517,7 +513,6 @@ F1    | Show this help message.
 
       private void SwitchToMultiline(string tip = _multilineTooltip) {
          _multilineMode = true;
-         InputTextBox.AcceptsReturn = true;
          InputTextBox.ToolTip = tip;
          InputTextBox.Background = _multilineInputBackground;
          InputTextBox.Foreground = InputTextBox.CaretBrush = _multilineInputForeground;
