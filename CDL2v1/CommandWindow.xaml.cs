@@ -352,7 +352,7 @@ F1    | Show this help message.
                InputTextBox.Focus();
             }
          });
-         //IsEditing = false;
+         IsEditing = false;
       }
 
       private bool IsEditing = false;
@@ -411,8 +411,9 @@ F1    | Show this help message.
             bool enterModifierPressed = e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control);
 
             if (_multilineMode) {
-               if (input.Trim().EndsWith('.') && (input.Length == InputTextBox.CaretIndex || enterModifierPressed)) {
-                  // TODO: Prevent construct from being added to history
+               // Terminat multiline mode either when Ctrl-enter is pressed or
+               // when enter is pressed with the caret at the end of input just after a period.
+               if (input.EndsWith('.') && (input.Length == InputTextBox.CaretIndex || enterModifierPressed)) {
                   SwitchToSingleLine();
                   ExecuteCommand();
                   e.Handled = true;
@@ -526,7 +527,8 @@ F1    | Show this help message.
       private void ExecuteCommand() {
          string command = InputTextBox.Text.Trim();
          // Add command to history
-         if (!IsEditing) {
+         if (char.IsAsciiLetterLower(command[0])) {
+            // It's a command, so add it to history and echo it.
             _commandHistory.Add(command);
             // Echo command
             WriteLine($"> {command}");
