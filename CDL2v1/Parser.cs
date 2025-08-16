@@ -292,7 +292,7 @@ namespace CDL2v1 {
          while (!tokens.IsNext(RW.ENDSEC)) {
             Notes internalNotes = ParseNotes();
             if (tokens.IsNext(AlgTypes)) {
-               ParseAlgorithm(internalNotes);
+               ParseAlgorithm(internalNotes,out _);
             } else if (tokens.IsNext(RW.LIST)) {
                ParseList(internalNotes);
             } else if (tokens.IsNext(RW.VAR)) {
@@ -311,30 +311,26 @@ namespace CDL2v1 {
       }
 
       private static readonly List<TT> bodyTypes = [TT.INLINEPROCBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
-      private void ParseAlgorithm(Notes notes) {
+      private void ParseAlgorithm(Notes notes,out Algorithm? algorithm) {
          Debug.Assert(currentSection != null);
+         algorithm = null;
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             Logger.Log(4,$"Parsing {algType} {id}");
             RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
             currentObject.Object = (algTypeRW, id);
-            if (DuplicateDeclaration(id,algTypeRW))
-               return;
+            if (DuplicateDeclaration(id,algTypeRW)) return;
             List<Affix>? affixes = ParseAffixes();
-            if (affixes == null)
-               return;
-            Algorithm? algorithm = null;
+            if (affixes == null) return;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the imports list.
                algorithm = new ImportedAlgorithm(id,affixes,algType,currentSection);
                algorithm.AddNotes(PhaseName,notes);
                if (!currentSection.import.Contains(id)) {
-                  AddNote(currentSection,Note.ObjectNotImported,algorithm);
-                  return;
+                  AddNote(currentSection,Note.ObjectNotImported,algorithm); return;
                }
             } else {
                Set<Local>? locals = ParseLocals();
-               if (locals == null)
-                  return;
+               if (locals == null) return;
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
                   if (bodyType.type == TT.PROCBODY || bodyType.type == TT.INLINEPROCBODY) {
                      // Parse the code body
@@ -861,6 +857,14 @@ namespace CDL2v1 {
             case RW.TEST:
             case RW.PREDICATE:
                ReportInfo($"Parsing algorithm with input: {input}");
+               // Verify that the section can be determined from the context.
+               Section? section = context.Section;
+               if (section is not null) {
+                  currentSection = section;
+                  ParseAlgorithm(Notes.Empty,out Algorithm? alg); element = alg;
+               } else {
+                  ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
+               }
                break;
             case RW.CONST:
                ReportInfo($"Parsing const with input: {input}");
@@ -894,7 +898,7 @@ namespace CDL2v1 {
                         break;
                      default:
                         // Either the context is a Section or it is inside a section.
-                        Section? section = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
+                        section = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
                         Debug.Assert(section != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
                         ParseLudeOfCalls(this,objectType,section);
                         break;

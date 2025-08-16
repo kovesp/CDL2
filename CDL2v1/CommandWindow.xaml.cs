@@ -35,6 +35,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -44,13 +45,11 @@ using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 
-namespace CDL2v1
-{
+namespace CDL2v1 {
    /// <summary>
    /// Interaction logic for CommandWindow.xaml
    /// </summary>
-   public partial class CommandPromptWindow : Window
-   {
+   public partial class CommandPromptWindow : Window {
       private readonly History _commandHistory = new();
       private readonly FontFamily _textFont = new("Cascadia Mono");
 
@@ -61,8 +60,7 @@ namespace CDL2v1
       public event EventHandler<string>? CommandEntered;
 
       private bool _multilineMode = false;
-      private class UndoEntry(TextBox input)
-      {
+      private class UndoEntry(TextBox input) {
          public string Text = input.Text;
          public int CaretIndex = input.CaretIndex;
 
@@ -87,6 +85,10 @@ Ctrl-Enter  | Submit the CDL2 construct (last line must end with '.').
 Esc         | Cancel editing.
 Ctrl-Z      | Undo last edit.
 Ctrl-Y      | Redo last edit.
+Ctrl-C      | Copy selection to clipboard.
+Ctrl-X      | Cut selection to clipboard.
+Ctrl-V      | Paste from clipboard.
+Left-Dbl-Click | Select CDL2 identifier or reserved word.
 Tab         | Insert indentation (based on indent width).
 F1          | Show this help message.
 """;
@@ -401,7 +403,7 @@ F1    | Show this help message.
          void InsertNewlineWithIndent() {
             string caretLine = InputTextBox.GetLineText(InputTextBox.GetLineIndexFromCharacterIndex(InputTextBox.CaretIndex));
             int leadingSpaces = Math.Max(0,caretLine.FindIndex(c => !char.IsWhiteSpace(c)));
-            if (caretLine[leadingSpaces] == '(') leadingSpaces++; 
+            if (caretLine[leadingSpaces] == '(') leadingSpaces++;
             Insert(Environment.NewLine + new string(' ',leadingSpaces));
          }
 
@@ -474,14 +476,24 @@ F1    | Show this help message.
             e.Handled = true;
          } else if (e.Key == Key.Up) {
             if (!_multilineMode) {
-               InputTextBox.Text = _commandHistory.Previous();
-               InputTextBox.CaretIndex = InputTextBox.Text.Length;
+               string? history = _commandHistory.Previous();
+               if (history is null) {
+                  FlashInputError();
+               } else {
+                  InputTextBox.Text = history;
+                  InputTextBox.CaretIndex = history.Length;
+               }
                e.Handled = true;
             }
          } else if (e.Key == Key.Down) {
             if (!_multilineMode) {
-               InputTextBox.Text = _commandHistory.Next();
-               InputTextBox.CaretIndex = InputTextBox.Text.Length;
+               string? history = _commandHistory.Next();
+               if (history is null) {
+                  FlashInputError();
+               } else {
+                  InputTextBox.Text = history;
+                  InputTextBox.CaretIndex =history.Length;
+               }
                e.Handled = true;
             }
          } else if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control) {
@@ -616,14 +628,83 @@ F1    | Show this help message.
             e.Handled = true;
          }
       }
+
+      /// <summary>
+      /// In multiline mode, handl;e double-click.
+      /// </summary>
+      /// <param name="sender"></param>
+      /// <param name="e"></param>
+      private void InputTextBox_PreviewMouseLeftButtonDown(object sender,MouseButtonEventArgs e) {
+         e.Handled = false; // Default is to let the event pass through
+         if (e.ClickCount != 2 && e.ClickCount != 3) return;
+         if (sender is not TextBox textBox) return;
+         if (!_multilineMode) return;
+
+
+         // Get mouse position and character index
+         Point mousePos = e.GetPosition(textBox);
+         int charIndex = textBox.GetCharacterIndexFromPoint(mousePos,true);
+         if (charIndex < 0 || charIndex >= textBox.Text.Length) return;
+
+         string text = textBox.Text;
+
+         // Find the line containing the click
+         int lineIndex = textBox.GetLineIndexFromCharacterIndex(charIndex);
+         string line = textBox.GetLineText(lineIndex);
+         int lineStart = textBox.GetCharacterIndexFromLineIndex(lineIndex);
+         int posInLine = charIndex - lineStart;
+
+         // Check for comment: starts with #, ends with # or end of line
+         int commentStart = line.IndexOf('#');
+         if (commentStart >= 0) {
+            int commentEnd = line.IndexOf('#',commentStart + 1);
+            if (commentEnd == -1) commentEnd = line.Length;
+            if (posInLine >= commentStart && posInLine < commentEnd) {
+               // Click is inside a comment, do not handle
+               return;
+            }
+         }
+
+         int start = charIndex;
+         int end = charIndex;
+         bool IsUpper = char.IsAsciiLetterUpper(text[start]);
+         Predicate<char> validChar = IsUpper
+                            ? char.IsAsciiLetterUpper
+                            : c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == ' ';
+         switch (e.ClickCount) {
+            case 2: // Double click - select word or identifier
+               if (!char.IsAsciiLetter(text[start])) return;
+               ExpandSelection(validChar);         
+               break;
+            case 3: // Triple click - select reserved word or call
+
+               break;
+            default:
+               return; // Should not happen
+         }         
+
+         textBox.Select(start,end - start + 1);
+         e.Handled = true;
+
+         bool ExpandSelection(Predicate<char> validChar) {
+            int startStart = start;
+            int endStart = end;
+            // Expand to the left
+            while (start > 0 && validChar(text[start - 1])) start--;
+            while (!char.IsAsciiLetter(text[start])) start++; // Skip leading non-letter characters
+            // Expand to right
+            while (end < text.Length - 1 && validChar(text[end + 1])) end++;
+            while (text[end] == ' ') end--; // Skip trailing spaces
+            return start != startStart || end != endStart;
+         }
+      }
       #endregion
 
       #region Command History
       /// <summary>
-      /// Command history manager
       /// </summary>
-      private class History
-      {
+      /// Command history manager
+      private class History {
          private readonly List<string> _history = [];
          private int _currentIndex = -1;
 
@@ -632,17 +713,15 @@ F1    | Show this help message.
             _currentIndex = _history.Count;
          }
 
-         public string Previous() {
-            if (_history.Count == 0)
-               return "";
+         public string? Previous() {
+            if (_history.Count == 0 || _currentIndex == 0) return null;
 
             _currentIndex = Math.Max(0,_currentIndex - 1);
             return _currentIndex < _history.Count ? _history[_currentIndex] : "";
          }
 
-         public string Next() {
-            if (_history.Count == 0)
-               return "";
+         public string? Next() {
+            if (_history.Count == 0 || _currentIndex >= _history.Count) return null;
 
             _currentIndex = Math.Min(_history.Count,_currentIndex + 1);
             return _currentIndex < _history.Count ? _history[_currentIndex] : "";

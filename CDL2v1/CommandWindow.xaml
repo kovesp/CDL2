@@ -193,7 +193,8 @@
                    FontFamily="Cascadia Mono"
                    CaretBrush="White"
                    Margin="0,5,10,5"
-                   PreviewKeyDown="InputTextBox_PreviewKeyDown" />
+                   PreviewKeyDown="InputTextBox_PreviewKeyDown" 
+                   PreviewMouseLeftButtonDown="InputTextBox_PreviewMouseLeftButtonDown"/>
       </DockPanel>
       <!-- Zoom buttons and Clear button -->
       <StackPanel Grid.Row="2" 

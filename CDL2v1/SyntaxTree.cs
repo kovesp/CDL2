@@ -825,7 +825,8 @@ namespace CDL2v1 {
    /// Algorithm (Macro, Porcedure, ImportedAlgorithm), Const (ImportedConst), Var and LIST.
    /// </summary>
    public /*abstract*/ class CDL2Object : NamedElement, ISibling {
-      public CDL2Object(ID id,Section section,string comments,bool synthetic = false,SelectorType FocusType = SelectorType.INVALID) : base(id,synthetic,FocusType) {
+      public CDL2Object(ID id,Section section,string comments,bool synthetic = false,SelectorType FocusType = SelectorType.INVALID) 
+         : base(id,synthetic,FocusType) {
          Parent = section.GUID;
          Comments = comments;
       }
@@ -1119,7 +1120,8 @@ namespace CDL2v1 {
       /// <param Id="algorithmType"></param>
       /// <param Id="bodyType"></param>
       /// <param Id="SectionById"></param>
-      public Procedure(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) : base(id,affixes,locals,algorithmType,bodyType,section,synthetic) {
+      public Procedure(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
+            : base(id,affixes,locals,algorithmType,bodyType,section,synthetic) {
          group.Parent = GUID;
          group.Id = id; // The group has the same ID as the procedure.
       }

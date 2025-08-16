@@ -103,6 +103,7 @@ namespace CDL2v1 {
          if (IsEditing) return true; // We are in edit mode, so we can replace
          return QueryBox("The current object will be replaced. Continue?");
       }
+
       public void EnterCode(string input) {
          parser.Tokenize(input);
          Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
