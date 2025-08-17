@@ -213,9 +213,9 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse (and skip) NOTEs.
       /// </summary>
-      private Notes ParseNotes() {
+      private Notes ParseNotes(bool needsEnd = true) {
          Notes notes = [];
-         while (tokens.CanConsumeNote(out Note? note)) {
+         while (tokens.CanConsumeNote(out Note? note,needsEnd:needsEnd)) {
             notes.Add(note!);
          }
          return notes;
@@ -378,7 +378,7 @@ namespace CDL2v1 {
       private List<Alternative> ParseAlternatives(Procedure proc,Group group) {
          List<Alternative> alternatives = [];
          do {
-            Notes notes = ParseNotes();
+            Notes notes = ParseNotes(needsEnd: false);
             alternatives.Add(ParseAlternative(proc,group,notes));
          } while (tokens.Optional(TT.ALTSEP));
          return alternatives;

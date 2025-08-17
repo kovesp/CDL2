@@ -229,10 +229,11 @@ namespace CDL2v1 {
       /// A note is written as "NOTE." and can be used to place comments in multiple places.
       /// </summary>
       /// <param name="note">Return comment(s) attached to the NOTE as Note of type Note.</param>
+      /// <param name="needsEnd">When a NOTE is inside a PROCEDURE, there is no period.</param>
       /// <returns></returns>
-      internal bool CanConsumeNote(out Note? note) {
+      internal bool CanConsumeNote(out Note? note,bool needsEnd = true) {
          if (Optional(RW.NOTE,out string? comments) && comments is not null) {
-            CanConsumeEnd();
+            if (needsEnd) CanConsumeEnd();
             note = new Note(Severity.Note, 400, comments);
             return true;
          } else {

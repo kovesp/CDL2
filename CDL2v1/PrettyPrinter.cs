@@ -411,7 +411,7 @@ namespace CDL2v1 {
       private void Print(Alternative alternative, Section section,bool extraSpace=false) {
          Emitter.ExtraIndent = 0;
          if (alternative.calls.Count > 0) {
-            PrintComment(alternative);
+            PrintComment(alternative,needsEnd:false);
             Print(alternative.calls.First(), section, extraSpace: extraSpace, firstInAlternative: true);
             foreach (Call call in alternative.calls.Skip(1)) {
                EmitSeparator(TT.CALLSEP);
@@ -797,8 +797,8 @@ namespace CDL2v1 {
       /// Print the comments for the element.
       /// </summary>
       /// <param name="element"></param>
-      private void PrintComment(NamedElement element,bool nl = true) => PrintComment(element.Comments,element.Notes,nl);
-      private void PrintComment(Alternative element) => PrintComment(string.Empty,element.Notes);
+      private void PrintComment(NamedElement element,bool nl = true,bool needsEnd = true) => PrintComment(element.Comments,element.Notes,nl,needsEnd);
+      private void PrintComment(Alternative element,bool needsEnd = true) => PrintComment(string.Empty,element.Notes,needsEnd:needsEnd);
 
       private void PrintInlineComment(string comment) {
          if (IncludeComments) {
@@ -807,13 +807,17 @@ namespace CDL2v1 {
       }
       private bool PrintImportedComment(CDL2Object obj) { if (obj.IsImported) PrintInlineComment("Imported"); return obj.IsImported; }
 
-      private void PrintComment(string comments,Notes notes,bool nl = true) {
+      private void PrintComment(string comments,Notes notes,bool nl = true,bool needsEnd = true) {
          if (IncludeComments) {
             if (comments.IsNotEmptyOrWhitespace()) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
                if (note.NoteType == Severity.Note) {
                   NlEmitnl(note.Text.TrimEnd().Decorate(Emitter, SE.Comment));
-                  Emitnl(RW.NOTE, Token.TokenType2Glyph[TT.END]);
+                  if (needsEnd) {
+                     Emitnl(RW.NOTE,Token.TokenType2Glyph[TT.END]);
+                  } else {
+                     Emitnl(RW.NOTE);
+                  }
                } else {
                   Emitnl(string.Concat("#", Note.Marker, (note.NoteType.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
                      .Decorate(Emitter, note.NoteType switch {
