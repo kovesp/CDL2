@@ -104,22 +104,33 @@ namespace CDL2v1 {
          return QueryBox("The current object will be replaced. Continue?");
       }
 
-      public void EnterCode(string input) {
-         parser.Tokenize(input);
-         Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
+      public void EnterCode(string input,bool setFocus = true) {
+         if (input.Contains('.')) {
+            IEnumerable<string> lines = input.Split('.',StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            foreach (string line in lines.SkipLast(1)) EnterCode(line,setFocus = false);
+            EnterCode(lines.Last(),setFocus:true);
+         } else {
+            input = input.Trim();
+            if (input[^1] != '.') input += '.';
+            string firstWord = input.Split(' ','\t','\r','\n')[0];
+            SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
+            if (type != SelectorType.INVALID) {
+               input = type + input[firstWord.Length..];
+               parser.Tokenize(input);
+               Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
 
-         if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input)) Focus.SetFocus(element!);
-         ParsingContext = null; // Reset the parsing context after a parse
+               if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input) & setFocus)
+                  Focus.SetFocus(element!);
+            }
+            ParsingContext = null; // Reset the parsing context after a parse
+         }
       }
+
       public bool EnterRawCode(string input) {
          string trimmed = input.Trim();
          if (char.IsAsciiLetterUpper(trimmed[0])) {
-            string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
-            SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
-            if (type != SelectorType.INVALID) {
-               EnterCode($"{type} {input[firstWord.Length..]}");
-               return true;
-            }
+            EnterCode(trimmed);
+            return true;
          }
          return false;
       }

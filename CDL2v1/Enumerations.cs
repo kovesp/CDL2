@@ -258,6 +258,15 @@ namespace CDL2v1 {
    // cspell:enable
 
    /// <summary>
+   /// How to parse. Used by some parsing methods.
+   /// </summary>
+   public enum ParseMode { 
+      Full,    // Parse and add result to syntax-tree.
+      Check,   // Just verify syntax.
+      Result,  // Verify syntax and if correct, return cosntruct but don't add to parse tree.
+   }
+
+   /// <summary>
    /// Used to categorize annotations.
    /// </summary>
    public enum Severity {

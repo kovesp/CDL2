@@ -305,13 +305,64 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// When registration is suspended, named elements are still added to the NamedElements dictionary,
+      /// but are removed when suspension is turned off.
+      /// This implementation allows for nested suspensions, as long as the Resume call is made the same number of times.
+      /// </summary>
+      [JsonIgnore] private bool _suspendNamedElementRegistration = false;
+      [JsonIgnore] private readonly List<Guid> _suspendedNamedElementRegistrationList = [];
+      [JsonIgnore] private uint _suspendNamedElementRegistrationCount = 0;
+      public void SuspendNamedElementRegistration() {
+         if (_suspendNamedElementRegistrationCount++ == 0) _suspendedNamedElementRegistrationList.Clear();
+         _suspendNamedElementRegistration = true;
+      }
+      public void ResumeNamedElementRegistration() {
+         if (_suspendNamedElementRegistrationCount == 0) {
+            throw new InvalidOperationException("Cannot resume named element registration when it is not suspended.");
+         }
+         if (--_suspendNamedElementRegistrationCount == 0) {
+            foreach (Guid guid in _suspendedNamedElementRegistrationList) NamedElements.Remove(guid);
+            _suspendedNamedElementRegistrationList.Clear();
+         }
+         _suspendNamedElementRegistration = false;
+      }
+
+      public static void WithSuspendedNamedElementRegistration(Action action) {
+         Instance.SuspendNamedElementRegistration();
+         try {
+            action();
+         } finally {
+            Instance.ResumeNamedElementRegistration();
+         }
+      }
+      public static T WithSuspendedNamedElementRegistration<T>(Func<T> func) {
+         Instance.SuspendNamedElementRegistration();
+         try {
+            return func();
+         } finally {
+            Instance.ResumeNamedElementRegistration();
+         }
+      }
+      public static void WithSuspendedNamedElementRegistration(bool iftrue,Action action) {
+         if (iftrue) {
+            WithSuspendedNamedElementRegistration(action);
+         } else {
+            action();
+         }
+      }
+      public static T WithSuspendedNamedElementRegistration<T>(bool iftrue,Func<T> func) 
+         => iftrue ? WithSuspendedNamedElementRegistration(func) : func();
+
+      /// <summary>
       /// Add a named element to the database.
-      /// Add to Programs or Modules if of that type.
+      /// If registration is suspenede, add the guid to the suspend list. 
+      /// These will be removed when registration is resumed.
       /// </summary>
       /// <param name="element"></param>
       public void AddNamedElement(NamedElement element) {
          if (element is not IUnrecordedElement) {
             NamedElements[element.GUID] = element;
+            if (_suspendNamedElementRegistration) _suspendedNamedElementRegistrationList.Add(element.GUID);
          }
       }
 

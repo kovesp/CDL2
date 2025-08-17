@@ -311,49 +311,54 @@ namespace CDL2v1 {
       }
 
       private static readonly List<TT> bodyTypes = [TT.INLINEPROCBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
-      private void ParseAlgorithm(Notes notes,out Algorithm? algorithm) {
+      private bool ParseAlgorithm(Notes notes,out Algorithm? algorithm,ParseMode mode = ParseMode.Full,bool replace = false) {
          Debug.Assert(currentSection != null);
-         algorithm = null;
-         if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
-            Logger.Log(4,$"Parsing {algType} {id}");
-            RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
-            currentObject.Object = (algTypeRW, id);
-            if (DuplicateDeclaration(id,algTypeRW)) return;
-            List<Affix>? affixes = ParseAffixes();
-            if (affixes == null) return;
-            if (tokens.Optional(TT.END)) {
-               // IMPORT declaration. Check if it is in the imports list.
-               algorithm = new ImportedAlgorithm(id,affixes,algType,currentSection);
-               algorithm.AddNotes(PhaseName,notes);
-               if (!currentSection.import.Contains(id)) {
-                  AddNote(currentSection,Note.ObjectNotImported,algorithm); return;
-               }
-            } else {
-               Set<Local>? locals = ParseLocals();
-               if (locals == null) return;
-               if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
-                  if (bodyType.type == TT.PROCBODY || bodyType.type == TT.INLINEPROCBODY) {
-                     // Parse the code body
-                     algorithm = new Procedure(id,affixes,locals,algType,bodyType.type,currentSection);
-                     algorithm.AddNotes(PhaseName,notes);
-                     ParseProcedureBody((Procedure)algorithm);
-                  } else {
-                     // Parse the macro body
-                     algorithm = new Macro(id,affixes,locals,algType,bodyType.type,currentSection);
-                     algorithm.AddNotes(PhaseName,notes);
-                     ParseMacroBody((Macro)algorithm);
+         // TODO: Experimental. If this works, mode to the top level parse.
+         algorithm = Database.WithSuspendedNamedElementRegistration<Algorithm?>(mode != ParseMode.Full,() => {
+            Algorithm? alg = null;
+            if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
+               Logger.Log(4,$"Parsing {algType} {id}");
+               RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
+               currentObject.Object = (algTypeRW, id);
+               if (!replace && DuplicateDeclaration(id,algTypeRW)) return alg;
+               List<Affix>? affixes = ParseAffixes();
+               if (affixes == null) return alg;
+               if (tokens.Optional(TT.END)) {
+                  // IMPORT declaration. Check if it is in the imports list.
+                  alg = new ImportedAlgorithm(id,affixes,algType,currentSection);
+                  alg.AddNotes(PhaseName,notes);
+                  if (mode == ParseMode.Full && !currentSection.import.Contains(id)) {
+                     AddNote(currentSection,Note.ObjectNotImported,alg); return alg;
+                  }
+               } else {
+                  Set<Local>? locals = ParseLocals();
+                  if (locals == null) return alg;
+                  if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
+                     if (bodyType.type == TT.PROCBODY || bodyType.type == TT.INLINEPROCBODY) {
+                        // Parse the code body
+                        alg = new Procedure(id,affixes,locals,algType,bodyType.type,currentSection);
+                        alg.AddNotes(PhaseName,notes);
+                        ParseProcedureBody((Procedure)alg);
+                     } else {
+                        // Parse the macro body
+                        alg = new Macro(id,affixes,locals,algType,bodyType.type,currentSection);
+                        alg.AddNotes(PhaseName,notes);
+                        ParseMacroBody((Macro)alg);
+                     }
+                  }
+                  Debug.Assert(alg != null);
+                  if (mode == ParseMode.Full && currentSection.import.Contains(id)) {
+                     AddNote(currentSection,Note.ObjectImportedButHasBody,alg);
+                     return alg;
                   }
                }
-               Debug.Assert(algorithm != null);
-               if (currentSection.import.Contains(id)) {
-                  AddNote(currentSection,Note.ObjectImportedButHasBody,algorithm);
-                  return;
-               }
+               if (mode == ParseMode.Full) currentSection.Declarations[id] = alg.GUID;
+            } else {
+               ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
             }
-            currentSection.Declarations[id] = algorithm.GUID;
-         } else {
-            ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
-         }
+            return alg;
+         });
+         return algorithm != null;
       }
 
       private bool DuplicateDeclaration(ID id,RW type) {

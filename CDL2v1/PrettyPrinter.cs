@@ -797,8 +797,8 @@ namespace CDL2v1 {
       /// Print the comments for the element.
       /// </summary>
       /// <param name="element"></param>
-      private void PrintComment(NamedElement element,bool nl = true,bool needsEnd = true) => PrintComment(element.Comments,element.Notes,nl,needsEnd);
-      private void PrintComment(Alternative element,bool needsEnd = true) => PrintComment(string.Empty,element.Notes,needsEnd:needsEnd);
+      private void PrintComment(NamedElement element,bool nl = true) => PrintComment(element.Comments,element.Notes,nl);
+      private void PrintComment(Alternative element,bool needsEnd = true) => PrintComment(string.Empty,element.Notes,needsEnd:false);
 
       private void PrintInlineComment(string comment) {
          if (IncludeComments) {
