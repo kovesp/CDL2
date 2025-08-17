@@ -36,6 +36,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -80,7 +81,8 @@ Pressing Esc or clicking in this window dismisses it.
 
 Key | Action
 ---
-Enter       | Insert a new line.
+Enter       | Insert a new line, but submit when caret
+            | is just after the terminating period.
 Ctrl-Enter  | Submit the CDL2 construct (last line must end with '.').
 Esc         | Cancel editing.
 Ctrl-Z      | Undo last edit.
@@ -88,9 +90,13 @@ Ctrl-Y      | Redo last edit.
 Ctrl-C      | Copy selection to clipboard.
 Ctrl-X      | Cut selection to clipboard.
 Ctrl-V      | Paste from clipboard.
-Left-Dbl-Click | Select CDL2 identifier or reserved word.
+L-D-Click   | Select CDL2 identifier, reserved word
+            | or block of comments and notes.
+L-T-Click   | Select the call clicked in a procedure body.
 Tab         | Insert indentation (based on indent width).
 F1          | Show this help message.
+
+(L: Left, R: Right, D: Double, T: Triple)
 """;
       private const string _singleLineModeHelp = """
 Editing keys in single-line mode.
@@ -634,232 +640,235 @@ F1    | Show this help message.
       /// </summary>
       /// <param name="sender"></param>
       /// <param name="e"></param>
-      private void InputTextBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-      {
-         e.Handled = false;
-         if (e.ClickCount != 2 && e.ClickCount != 3) return;
-         if (sender is not TextBox textBox) return;
-         if (!_multilineMode) return;
+      private void InputTextBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
+          e.Handled = false;
+          if (e.ClickCount != 2 && e.ClickCount != 3) return;
+          if (sender is not TextBox textBox) return;
+          if (!_multilineMode) return;
 
-         // Get mouse position and character index
-         Point mousePos = e.GetPosition(textBox);
-         int charIndex = textBox.GetCharacterIndexFromPoint(mousePos, true);
-         if (charIndex < 0 || charIndex >= textBox.Text.Length) return;
+          // Get mouse position and character index
+          Point mousePos = e.GetPosition(textBox);
+          int charIndex = textBox.GetCharacterIndexFromPoint(mousePos, true);
+          if (charIndex < 0 || charIndex >= textBox.Text.Length) return;
+          int startSel = charIndex;
+          int endSel = charIndex;
 
-         string text = textBox.Text;
-         string[] lines = text.Split('\n');
-         int lineIndex = textBox.GetLineIndexFromCharacterIndex(charIndex);
-         string line = textBox.GetLineText(lineIndex);
-         int lineStart = textBox.GetCharacterIndexFromLineIndex(lineIndex);
-         int posInLine = charIndex - lineStart;
+          string text = textBox.Text;
+          string[] lines = text.Split('\n');
+          int lineIndex = textBox.GetLineIndexFromCharacterIndex(charIndex);
+          string line = textBox.GetLineText(lineIndex);
+          int lineStart = textBox.GetCharacterIndexFromLineIndex(lineIndex);
+          int posInLine = charIndex - lineStart;
 
-         // --- BLOCK SELECTION LOGIC: comments/whitespace/Note ---
-         static bool IsCommentLine(string l) => l.TrimStart().StartsWith('#');
-         static bool IsNoteLine(string l)
-         {
-            var trimmed = l.TrimStart();
-            if (trimmed.Length < 4) return false;
-            if (!char.IsUpper(trimmed[0])) return false;
-            if (trimmed.StartsWith("Note", StringComparison.OrdinalIgnoreCase))
-            {
-               if (trimmed.Length == 4 ||
-                   char.IsWhiteSpace(trimmed[4]) ||
-                   char.IsPunctuation(trimmed[4]))
-                  return true;
-            }
-            return false;
-         }
+          // --- Helper: comment/note/blank detection ---
+          static bool IsCommentLine(string l) => l.TrimStart().StartsWith('#');
+          static bool IsNoteLine(string l) {
+              var trimmed = l.TrimStart();
+              if (trimmed.Length < 4) return false;
+              if (!char.IsUpper(trimmed[0])) return false;
+              if (trimmed.StartsWith("Note", StringComparison.OrdinalIgnoreCase)) {
+                  if (trimmed.Length == 4 ||
+                      char.IsWhiteSpace(trimmed[4]) ||
+                      char.IsPunctuation(trimmed[4]))
+                     return true;
+              }
+              return false;
+          }
 
-         if (IsCommentLine(lines[lineIndex]) || string.IsNullOrWhiteSpace(lines[lineIndex]) || IsNoteLine(lines[lineIndex]))
-         {
-            int first = lineIndex, last = lineIndex;
-            int totalLines = lines.Length;
+          // --- Block selection for comment/note/blank lines (always, anywhere) ---
+          if (IsCommentLine(line) || IsNoteLine(line) || string.IsNullOrWhiteSpace(line)) {
+              int first = lineIndex, last = lineIndex;
+              int totalLines = lines.Length;
+              for (int i = lineIndex - 1; i >= 0; i--) {
+                  if (string.IsNullOrWhiteSpace(lines[i]) || IsCommentLine(lines[i]) || IsNoteLine(lines[i]))
+                     first = i;
+                  else
+                     break;
+              }
+              for (int i = lineIndex + 1; i < totalLines; i++) {
+                  if (string.IsNullOrWhiteSpace(lines[i]) || IsCommentLine(lines[i]) || IsNoteLine(lines[i]))
+                     last = i;
+                  else
+                     break;
+              }
+              int selStart = textBox.GetCharacterIndexFromLineIndex(first);
+              int selEnd = textBox.GetCharacterIndexFromLineIndex(last) + lines[last].Length;
+              textBox.Select(selStart, selEnd - selStart);
+              e.Handled = true;
+              return;
+          }
 
-            // Expand upwards: include all contiguous comment or whitespace lines
-            for (int i = lineIndex - 1; i >= 0; i--)
-            {
-               if (string.IsNullOrWhiteSpace(lines[i]) || IsCommentLine(lines[i]))
-                  first = i;
-               else
-                  break;
-            }
-
-            // Expand downwards: include all contiguous comment or whitespace lines
-            for (int i = lineIndex + 1; i < totalLines; i++)
-            {
-               if (string.IsNullOrWhiteSpace(lines[i]) || IsCommentLine(lines[i]))
-                  last = i;
-               else
-                  break;
-            }
-
-            // If the next line after the block is a NOTE line, include it
-            if (last + 1 < totalLines && IsNoteLine(lines[last + 1]))
-               last = last + 1;
-
-            int selStart = textBox.GetCharacterIndexFromLineIndex(first);
-            int selEnd = textBox.GetCharacterIndexFromLineIndex(last) + lines[last].Length;
-            textBox.Select(selStart, selEnd - selStart);
-            e.Handled = true;
+          // --- Find the algorithm context (first non-comment/note line above or at current line) ---
+          int algoLineIndex = lineIndex;
+          bool isAlgorithm = false;
+          Regex algoHeaderRegex = new(@"^(?:A(?i:CTION)|F(?i:UNCTION)|T(?i:EST)|P(?i:REDICATE))\s", RegexOptions.Compiled);
+          while (algoLineIndex >= 0) {
+              string candidate = lines[algoLineIndex].TrimStart();
+              if (algoHeaderRegex.IsMatch(candidate)) {
+                 isAlgorithm = true;
+                 break;
+              }
+              algoLineIndex--;
+          }
+          if (!isAlgorithm) {
+            // Not in an algorithm context, use default logic (let WPF handle selection)
             return;
-         }
+          }
+          string algoLine = lines[algoLineIndex].TrimStart();
 
-         // --- Existing selection logic below ---
+          // --- Find the first separator in the header line ---
+          int headerLineStart = textBox.GetCharacterIndexFromLineIndex(algoLineIndex);
+          string headerLine = lines[algoLineIndex];
+          int idxColonEq = headerLine.IndexOf(":=");
+          int idxEqColon = headerLine.IndexOf("=:");
+          int idxColon = headerLine.IndexOf(':');
+          int idxEq = headerLine.IndexOf('=');
 
-         int start = charIndex;
-         int end = charIndex;
+          int sepIdx = -1, sepLen = 0;
+          string sepType = "";
+          if (idxColonEq >= 0 && (sepIdx == -1 || idxColonEq < sepIdx)) { sepIdx = idxColonEq; sepLen = 2; sepType = ":="; }
+          if (idxEqColon >= 0 && (sepIdx == -1 || idxEqColon < sepIdx)) { sepIdx = idxEqColon; sepLen = 2; sepType = "=:"; }
+          if (idxColon >= 0 && (sepIdx == -1 || idxColon < sepIdx)) { sepIdx = idxColon; sepLen = 1; sepType = ":"; }
+          if (idxEq >= 0 && (sepIdx == -1 || idxEq < sepIdx)) { sepIdx = idxEq; sepLen = 1; sepType = "="; }
 
-         // Robust comment detection: any region between odd/even # is a comment
-         int hashCount = 0;
-         for (int i = 0; i < posInLine; i++)
-         {
-            if (line[i] == '#') hashCount++;
-         }
-         if ((hashCount % 2) == 1)
-         {
-            // Click is inside a comment, do not handle
-            return;
-         }
+          // Determine if the click is in the header (on the header line, and before or at the separator)
+          bool inHeader = (lineIndex == algoLineIndex) && (sepIdx >= 0) && (posInLine <= sepIdx + sepLen - 1);
 
-         switch (e.ClickCount)
-         {
-            case 2:
-               if (!char.IsAsciiLetter(text[start])) return;
-               ExpandSelection(GetValidCharPredicate(text, start));
-               break;
-            case 3:
-               // Find the first ':' or ':=' in the line
-               int colonIdx = line.IndexOf(':');
-               int assignIdx = line.IndexOf(":=");
-               int delimiterIdx = -1;
-               if (assignIdx >= 0)
-               {
-                  delimiterIdx = assignIdx;
-               }
-               else if (colonIdx >= 0)
-               {
-                  delimiterIdx = colonIdx;
-               }
+          // Determine if the click is in the body (after the separator on the header line, or any line after the header)
+          bool inBody = (lineIndex > algoLineIndex) ||
+                        (lineIndex == algoLineIndex && sepIdx >= 0 && posInLine > sepIdx + sepLen - 1);
 
-               // If triple-click is in the header (before ':' or ':='), act like double-click
-               if (delimiterIdx >= 0 && posInLine < delimiterIdx)
-               {
-                  // Double-click logic: select identifier/word
-                  if (!char.IsAsciiLetter(text[start])) return;
-                  ExpandSelection(GetValidCharPredicate(text, start));
-                  break;
-               }
-
-               // --- Otherwise, use call selection logic as before ---
-               int i = charIndex;
-               bool inString = false;
-               while (i > 0)
-               {
-                  char c = text[i - 1];
-                  if (c == '"')
-                  {
-                     int dollarCount = 0;
-                     int j = i - 2;
-                     while (j >= 0 && text[j] == '$') { dollarCount++; j--; }
-                     if (dollarCount % 2 == 0)
-                        inString = !inString;
-                  }
-                  if (!inString)
-                  {
-                     int k = i - 1;
-                     // Only skip spaces, not newlines
-                     while (k >= 0 && text[k] == ' ') k--;
-
-                     // Accept delimiter, open paren, or newline as valid call start
-                     if (k < 0) { i = 0; break; }
-                     if (k > 0 && text[k - 1] == ':' && text[k] == '=')
-                     {
-                        i = k + 1;
-                        break;
-                     }
-                     if (text[k] == ':' || text[k] == ';' || text[k] == ',' || text[k] == '(' ||
-                         text[k] == '\n' || text[k] == '\r')
-                     {
-                        i = k + 1;
-                        break;
-                     }
-
-                     // Accept capitalized word as call boundary
-                     int wordEnd = k;
-                     while (wordEnd >= 0 && char.IsLetter(text[wordEnd])) wordEnd--;
-                     int wordStart = wordEnd + 1;
-                     if (wordStart <= k && char.IsUpper(text[wordStart]))
-                     {
-                        i = k + 1;
-                        break;
-                     }
-                  }
-                  i--;
-               }
-               start = i;
-               // Skip spaces after delimiter, paren, or start of line/text
-               while (start < text.Length && text[start] == ' ') start++;
-               // If open paren, skip it and any spaces after it
-               if (start < text.Length && text[start] == '(')
-               {
-                  start++;
-                  while (start < text.Length && text[start] == ' ') start++;
-               }
-               // Require lowercase letter at start
-               if (start >= text.Length || !char.IsAsciiLetterLower(text[start])) return;
-
-               // --- Find call end ---
-               i = charIndex;
-               inString = false;
-               while (i < text.Length)
-               {
-                  char c = text[i];
-                  if (c == '"')
-                  {
-                     int dollarCount = 0;
-                     int j = i - 1;
-                     while (j >= 0 && text[j] == '$') { dollarCount++; j--; }
-                     if (dollarCount % 2 == 0)
-                        inString = !inString;
-                  }
-                  if (!inString)
-                  {
-                     if (c == ',' || c == ';' || c == '.')
-                        break;
-                  }
-                  i++;
-               }
-               end = i - 1;
-               // Trim trailing whitespace and all close parens
-               while (end > start && char.IsWhiteSpace(text[end])) end--;
-               while (end >= start && text[end] == ')') end--;
-               while (end > start && char.IsWhiteSpace(text[end])) end--;
-               break;
-            default:
+         // --- HEADER LOGIC ---
+         if (inHeader) {
+            if (e.ClickCount == 3) {
+               // Triple-click in header: do nothing
+               e.Handled = true;
                return;
+            }
+            if (e.ClickCount == 2) {
+               ExpandSelection(GetValidCharPredicate(text,startSel));
+               textBox.Select(startSel,endSel - startSel + 1);
+               e.Handled = true;
+               return;
+            }
          }
 
-         textBox.Select(start, end - start + 1);
-         e.Handled = true;
+         // --- BODY LOGIC ---
+         if (inBody) {
+            bool isProcedure = sepType == ":" || sepType == ":=";
+            bool isMacro = sepType == "=" || sepType == "=:";
+            if (isMacro && e.ClickCount == 3) {
+               // In macro body, triple-click does nothing
+              e.Handled = true;
+              return;
+            }
 
-         // Helper: get valid char predicate for identifier
-         static Predicate<char> GetValidCharPredicate(string text, int idx) =>
+            // Robust comment detection: any region between odd/even # is a comment
+            int hashCount = 0;
+            for (int i = 0; i < posInLine; i++) {
+                if (line[i] == '#') hashCount++;
+            }
+            if ((hashCount % 2) == 1) {
+                // Click is inside a comment, do not handle
+                e.Handled = true;
+                return;
+            }
+
+            switch (e.ClickCount) {
+               case 2:
+                  if (!char.IsAsciiLetter(text[startSel])) { e.Handled = true; return; }
+                  ExpandSelection(GetValidCharPredicate(text,startSel));
+                  textBox.Select(startSel,endSel - startSel + 1);
+                  e.Handled = true;
+                  return;
+               case 3:
+                  // Only allowed for procedures
+                  if (!isProcedure) { e.Handled = true; return; }
+                  int i = charIndex;
+                  bool inString = false;
+                  while (i > 0) {
+                     char c = text[i - 1];
+                     if (c == '"') {
+                        int dollarCount = 0;
+                        int j = i - 2;
+                        while (j >= 0 && text[j] == '$') { dollarCount++; j--; }
+                        if (dollarCount % 2 == 0)
+                           inString = !inString;
+                     }
+                     if (!inString) {
+                        int k = i - 1;
+                        while (k >= 0 && text[k] == ' ') k--;
+                        if (k < 0) { i = 0; break; }
+                        if (k > 0 && text[k - 1] == ':' && text[k] == '=') {
+                           i = k + 1;
+                           break;
+                        }
+                        if (text[k] == ':' || text[k] == ';' || text[k] == ',' || text[k] == '(' ||
+                            text[k] == '\n' || text[k] == '\r') {
+                           i = k + 1;
+                           break;
+                        }
+                        int wordEnd = k;
+                        while (wordEnd >= 0 && char.IsLetter(text[wordEnd])) wordEnd--;
+                        int wordStart = wordEnd + 1;
+                        if (wordStart <= k && char.IsUpper(text[wordStart])) {
+                           i = k + 1;
+                           break;
+                        }
+                     }
+                     i--;
+                  }
+                  startSel = i;
+                  while (startSel < text.Length && text[startSel] == ' ') startSel++;
+                  if (startSel < text.Length && text[startSel] == '(') {
+                     startSel++;
+                     while (startSel < text.Length && text[startSel] == ' ') startSel++;
+                  }
+                  if (startSel >= text.Length || !char.IsAsciiLetterLower(text[startSel])) { e.Handled = true; return; }
+                  i = charIndex;
+                  inString = false;
+                  while (i < text.Length) {
+                     char c = text[i];
+                     if (c == '"') {
+                        int dollarCount = 0;
+                        int j = i - 1;
+                        while (j >= 0 && text[j] == '$') { dollarCount++; j--; }
+                        if (dollarCount % 2 == 0)
+                           inString = !inString;
+                     }
+                     if (!inString) {
+                        if (c == ',' || c == ';' || c == '.')
+                           break;
+                     }
+                     i++;
+                  }
+                  endSel = i - 1;
+                  while (endSel > startSel && char.IsWhiteSpace(text[endSel])) endSel--;
+                  while (endSel >= startSel && text[endSel] == ')') endSel--;
+                  while (endSel > startSel && text[endSel] == ' ') endSel--;
+                  textBox.Select(startSel,endSel - startSel + 1);
+                  e.Handled = true;
+                  return;
+            }
+            return;
+         }
+         // If not in header or body, let WPF handle selection
+         return;
+
+         // --- Helper functions ---
+         static Predicate<char> GetValidCharPredicate(string text,int idx) =>
              char.IsAsciiLetterUpper(text[idx])
                  ? char.IsAsciiLetterUpper
                  : c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == ' ';
 
-         // Helper: expand selection left/right for identifier
-         bool ExpandSelection(Predicate<char> validChar)
-         {
-            int startStart = start;
-            int endStart = end;
-            // Expand to the left
-            while (start > 0 && validChar(text[start - 1])) start--;
-            while (!char.IsAsciiLetter(text[start]) && start < end) start++; // Skip leading non-letter characters
-            // Expand to right
-            while (end < text.Length - 1 && validChar(text[end + 1])) end++;
-            while (end > start && text[end] == ' ') end--; // Skip trailing spaces
-            return start != startStart || end != endStart;
+         bool ExpandSelection(Predicate<char> validChar) {
+            int startStart = startSel;
+            int endStart = endSel;
+            while (startSel > 0 && validChar(text[startSel - 1])) startSel--;
+            while (!char.IsAsciiLetter(text[startSel]) && startSel < endSel) startSel++;
+            while (endSel < text.Length - 1 && validChar(text[endSel + 1])) endSel++;
+            while (endSel > startSel && text[endSel] == ' ') endSel--;
+            return startSel != startStart || endSel != endStart;
          }
       }
       #endregion
