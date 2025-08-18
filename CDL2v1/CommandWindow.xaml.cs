@@ -218,10 +218,7 @@ F1    | Show this help message.
       /// <summary>
       /// Configure the output area for formatted text (called by CommandWindowEmitter)
       /// </summary>
-      public void ConfigureFormattedOutput() {
-         // TextBlock doesn't need special configuration
-         OutputScrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
-      }
+      public void ConfigureFormattedOutput() => OutputScrollViewer.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
 
       // Cache to improve scrolling performance
       private bool _autoScrollEnabled = true;
@@ -278,9 +275,7 @@ F1    | Show this help message.
       /// <summary>
       /// Begin batch updating of formatted text
       /// </summary>
-      public void BeginFormattedUpdate() {
-         _autoScrollEnabled = false;
-      }
+      public void BeginFormattedUpdate() => _autoScrollEnabled = false;
 
       /// <summary>
       /// End batch updating of formatted text
@@ -293,9 +288,7 @@ F1    | Show this help message.
       /// <summary>
       /// Force UI update during batch operations
       /// </summary>
-      public void UpdateFormattedUI() {
-         OutputTextBlock.UpdateLayout();
-      }
+      public void UpdateFormattedUI() => OutputTextBlock.UpdateLayout();
       #endregion
 
       #region Simple Text Output
@@ -305,15 +298,13 @@ F1    | Show this help message.
       /// </summary>
       /// <param name="text">The text to write</param>
       /// <param name="severity">Optional note type that determines text color (default None)</param>
-      public void WriteLine(string text,Severity severity = Severity.NONE) {
-         Application.Current.Dispatcher.Invoke(() => {
-            // Get the appropriate brush based on note type from PrettyPrinter.Decorators
-            Brush foreground = GetNoteTypeBrush(severity);
+      public void WriteLine(string text,Severity severity = Severity.NONE) => Application.Current.Dispatcher.Invoke(() => {
+         // Get the appropriate brush based on note type from PrettyPrinter.Decorators
+         Brush foreground = GetNoteTypeBrush(severity);
 
-            // Add formatted text with the appropriate color
-            AddFormattedText(text,foreground,Brushes.Transparent,lineBreak: true);
-         });
-      }
+         // Add formatted text with the appropriate color
+         AddFormattedText(text,foreground,Brushes.Transparent,lineBreak: true);
+      });
 
       public void WriteError(string text) => WriteLine(text,Severity.Error);
       public void WriteWarning(string text) => WriteLine(text,Severity.Warning);
@@ -364,111 +355,37 @@ F1    | Show this help message.
       }
 
       private bool IsEditing = false;
-      public void EditText(string text) {
-         Application.Current.Dispatcher.Invoke(() => {
-            PromptTextBlock.Text = ": ";
-            InputTextBox.Text = text.Trim();
-            InputTextBox.Focus();
-            IsEditing = true;
-            SwitchToMultiline(_editTooltip);
-         });
-      }
+      public void EditText(string text) => Application.Current.Dispatcher.Invoke(() => {
+         PromptTextBlock.Text = ": ";
+         InputTextBox.Text = text.Trim();
+         InputTextBox.Focus();
+         IsEditing = true;
+         SwitchToMultiline(_editTooltip);
+      });
 
       /// <summary>
       /// Clear the output area
       /// </summary>
-      private void ClearOutput_Click(object sender,RoutedEventArgs e) {
-         Application.Current.Dispatcher.Invoke(() => {
-            // Clear all content from the TextBlock
-            OutputTextBlock.Inlines.Clear();
+      private void ClearOutput_Click(object sender,RoutedEventArgs e) => Application.Current.Dispatcher.Invoke(() => {
+         // Clear all content from the TextBlock
+         OutputTextBlock.Inlines.Clear();
 
-            // Add initial message
-            WriteLine($"CDL2 Laboratory v{CDL2.Version} - Output cleared");
+         // Add initial message
+         WriteLine($"CDL2 Laboratory v{CDL2.Version} - Output cleared");
 
-            // Focus back on input box
-            InputTextBox.Focus();
-         });
-      }
+         // Focus back on input box
+         InputTextBox.Focus();
+      });
 
       /// <summary>
       /// Handle input text box key down events
       /// </summary>
       private void InputTextBox_PreviewKeyDown(object sender,KeyEventArgs e) {
-         /// <summary>
-         /// Insert text at the current caret position and move the caret after the inserted text.
-         /// </summary>
-         void Insert(string chars) {
-            int index = InputTextBox.CaretIndex;
-            InputTextBox.Text = InputTextBox.Text.Insert(index,chars);
-            InputTextBox.CaretIndex = index + chars.Length;
-         }
-         /// <summary>
-         /// Inserts a newline with the same indentation as the current line.
-         /// If the first non-whitespace character is an open parenthesis, add an extra space for that.
-         /// </summary>
-         void InsertNewlineWithIndent() {
-            string caretLine = InputTextBox.GetLineText(InputTextBox.GetLineIndexFromCharacterIndex(InputTextBox.CaretIndex));
-            int leadingSpaces = Math.Max(0,caretLine.FindIndex(c => !char.IsWhiteSpace(c)));
-            if (caretLine[leadingSpaces] == '(') leadingSpaces++;
-            Insert(Environment.NewLine + new string(' ',leadingSpaces));
-         }
-
-         e.Handled = false; // Default is to let non handled and other keys pass through
+         e.Handled = false;
          if (e.Key == Key.Enter) {
-            string input = InputTextBox.Text;
-            bool enterModifierPressed = e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control);
-
-            if (_multilineMode) {
-               // Terminat multiline mode either when Ctrl-enter is pressed or
-               // when enter is pressed with the caret at the end of input just after a period.
-               if (input.EndsWith('.') && (input.Length == InputTextBox.CaretIndex || enterModifierPressed)) {
-                  SwitchToSingleLine();
-                  ExecuteCommand();
-                  e.Handled = true;
-               } else {
-                  InsertNewlineWithIndent();
-                  e.Handled = true;
-               }
-            } else {
-               // Check whether we have a command or CDL2 object
-               string trimmed = input.Trim();
-               bool isCommand = char.IsAsciiLetterLower(trimmed[0]);
-               string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
-               if (!isCommand) {
-                  SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
-                  if (type != SelectorType.INVALID) {
-                     InputTextBox.Text = $"{type} {input[firstWord.Length..]}";
-                     InputTextBox.CaretIndex = InputTextBox.Text.Length;
-                     if (trimmed.EndsWith('.')) { // Valid single line construct (e.g., Var v.)
-                        ExecuteCommand();
-                        e.Handled = true;
-                     } else { // CDL2 object that was not completed on a single line
-                        SwitchToMultiline();
-                        InsertNewlineWithIndent();
-                        e.Handled = true;
-                     }
-                  } else { // Invalid selector, so supply error message.
-                     WriteError($"Attempt to enter a CDL2 construct with non-existent reserved word: {firstWord}");
-                     DisplayPrompt();
-                     e.Handled = true;
-                  }
-               } else { // Must be a command
-                  ExecuteCommand();
-                  e.Handled = true;
-               }
-            }
+            HandleEnterKey();
          } else if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None) {
-            string toastMessage = _multilineModeHelp;
-            if (!_multilineMode) {
-               toastMessage = _singleLineModeHelp;
-               string trimmed = InputTextBox.Text.Trim();
-               if (trimmed.Length == 0 || char.IsAsciiLetterLower(trimmed[0])) {
-                  string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
-                  string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat: true);
-                  if (commandHelp.IsNotEmptyOrWhitespace()) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
-               }
-            }
-            ToastWindow.ShowToast(toastMessage);
+            ShowHelpToast();
             e.Handled = true;
          } else if (e.Key == Key.Escape) {
             SwitchToSingleLine();
@@ -476,32 +393,14 @@ F1    | Show this help message.
             IsEditing = false;
             e.Handled = true;
          } else if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None) {
-            // 0 1 2 -> 3 2 1
-            int spacesToInsert = Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex - 1,0)) % Emitter!.IndentWidth;
-            Insert(new string(' ',spacesToInsert));
+            InsertIndentation();
             e.Handled = true;
          } else if (e.Key == Key.Up) {
-            if (!_multilineMode) {
-               string? history = _commandHistory.Previous();
-               if (history is null) {
-                  FlashInputError();
-               } else {
-                  InputTextBox.Text = history;
-                  InputTextBox.CaretIndex = history.Length;
-               }
-               e.Handled = true;
-            }
+            HandleHistoryNavigation(true);
+            e.Handled = true;
          } else if (e.Key == Key.Down) {
-            if (!_multilineMode) {
-               string? history = _commandHistory.Next();
-               if (history is null) {
-                  FlashInputError();
-               } else {
-                  InputTextBox.Text = history;
-                  InputTextBox.CaretIndex = history.Length;
-               }
-               e.Handled = true;
-            }
+            HandleHistoryNavigation(false);
+            e.Handled = true;
          } else if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control) {
             if (_multilineMode && !InputTextBox.CanUndo) {
                FlashInputError();
@@ -514,9 +413,100 @@ F1    | Show this help message.
             }
          }
 
+/////////////////////
+// Local functions //
+/////////////////////
+         void Insert(string chars) {
+            int index = InputTextBox.CaretIndex;
+            InputTextBox.Text = InputTextBox.Text.Insert(index,chars);
+            InputTextBox.CaretIndex = index + chars.Length;
+         }
+         void InsertNewlineWithIndent() {
+            string caretLine = InputTextBox.GetLineText(InputTextBox.GetLineIndexFromCharacterIndex(InputTextBox.CaretIndex));
+            int leadingSpaces = Math.Max(0,caretLine.FindIndex(c => !char.IsWhiteSpace(c)));
+            if (caretLine.Length > leadingSpaces && caretLine[leadingSpaces] == '(') leadingSpaces++;
+            Insert(Environment.NewLine + new string(' ',leadingSpaces));
+         }
+
+         void HandleEnterKey() {
+            string input = InputTextBox.Text;
+            bool enterModifierPressed = e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Control);
+
+            if (_multilineMode) {
+               if (input.EndsWith('.') && (input.Length == InputTextBox.CaretIndex || enterModifierPressed)) {
+                  SwitchToSingleLine();
+                  ExecuteCommand();
+                  e.Handled = true;
+               } else {
+                  InsertNewlineWithIndent();
+                  e.Handled = true;
+               }
+            } else {
+               string trimmed = input.Trim();
+               if (trimmed.Length == 0) {
+                  ExecuteCommand();
+                  e.Handled = true;
+                  return;
+               }
+               bool isCommand = char.IsAsciiLetterLower(trimmed[0]);
+               string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
+               if (!isCommand) {
+                  SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
+                  if (type != SelectorType.INVALID) {
+                     InputTextBox.Text = $"{type} {input[firstWord.Length..]}";
+                     InputTextBox.CaretIndex = InputTextBox.Text.Length;
+                     if (trimmed.EndsWith('.')) {
+                        ExecuteCommand();
+                        e.Handled = true;
+                     } else {
+                        SwitchToMultiline();
+                        InsertNewlineWithIndent();
+                        e.Handled = true;
+                     }
+                  } else {
+                     WriteError($"Attempt to enter a CDL2 construct with non-existent reserved word: {firstWord}");
+                     DisplayPrompt();
+                     e.Handled = true;
+                  }
+               } else {
+                  ExecuteCommand();
+                  e.Handled = true;
+               }
+            }
+         }
+
+         void ShowHelpToast() {
+            string toastMessage = _multilineModeHelp;
+            if (!_multilineMode) {
+               toastMessage = _singleLineModeHelp;
+               string trimmed = InputTextBox.Text.Trim();
+               if (trimmed.Length == 0 || char.IsAsciiLetterLower(trimmed[0])) {
+                  string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
+                  string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat: true);
+                  if (commandHelp.IsNotEmptyOrWhitespace()) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
+               }
+            }
+            ToastWindow.ShowToast(toastMessage);
+         }
+
+         void InsertIndentation() {
+            int spacesToInsert = Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex - 1,0)) % Emitter!.IndentWidth;
+            Insert(new string(' ',spacesToInsert));
+         }
+
+         void HandleHistoryNavigation(bool previous) {
+            if (_multilineMode) return;
+            string? history = previous ? _commandHistory.Previous() : _commandHistory.Next();
+            if (history is null) {
+               FlashInputError();
+            } else {
+               InputTextBox.Text = history;
+               InputTextBox.CaretIndex = history.Length;
+            }
+         }
       }
 
-      private void ClearUndoRedo(TextBox box) {
+      private static void ClearUndoRedo(TextBox box) {
          bool undoState = box.IsUndoEnabled;
          box.IsUndoEnabled = false;
          box.IsUndoEnabled = undoState;
@@ -596,30 +586,22 @@ F1    | Show this help message.
       /// <summary>
       /// Zoom in button click handler
       /// </summary>
-      private void ZoomIn_Click(object sender,RoutedEventArgs e) {
-         ZoomIn(20);
-      }
+      private void ZoomIn_Click(object sender,RoutedEventArgs e) => ZoomIn(20);
 
       /// <summary>
       /// Zoom out button click handler
       /// </summary>
-      private void ZoomOut_Click(object sender,RoutedEventArgs e) {
-         ZoomOut(20);
-      }
+      private void ZoomOut_Click(object sender,RoutedEventArgs e) => ZoomOut(20);
 
       /// <summary>
       /// Increase font size
       /// </summary>
-      private void ZoomIn(int percentage = 20) {
-         OutputTextBlock.FontSize *= (100 + percentage) / 100.0;
-      }
+      private void ZoomIn(int percentage = 20) => OutputTextBlock.FontSize *= (100 + percentage) / 100.0;
 
       /// <summary>
       /// Decrease font size
       /// </summary>
-      private void ZoomOut(int percentage = 20) {
-         OutputTextBlock.FontSize /= (100 + percentage) / 100.0;
-      }
+      private void ZoomOut(int percentage = 20) => OutputTextBlock.FontSize /= (100 + percentage) / 100.0;
 
       /// <summary>
       /// Handle mouse wheel zoom with Ctrl key on the ScrollViewer
@@ -640,235 +622,195 @@ F1    | Show this help message.
       /// </summary>
       /// <param name="sender"></param>
       /// <param name="e"></param>
-      private void InputTextBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
-          e.Handled = false;
-          if (e.ClickCount != 2 && e.ClickCount != 3) return;
-          if (sender is not TextBox textBox) return;
-          if (!_multilineMode) return;
+      private void InputTextBox_PreviewMouseLeftButtonDown(object sender,MouseButtonEventArgs e) {
+         e.Handled = false;
+         if (e.ClickCount != 2 && e.ClickCount != 3) return;
+         if (sender is not TextBox textBox) return;
+         if (!_multilineMode) return;
 
-          // Get mouse position and character index
-          Point mousePos = e.GetPosition(textBox);
-          int charIndex = textBox.GetCharacterIndexFromPoint(mousePos, true);
-          if (charIndex < 0 || charIndex >= textBox.Text.Length) return;
-          int startSel = charIndex;
-          int endSel = charIndex;
+         Point mousePos = e.GetPosition(textBox);
+         int charIndex = textBox.GetCharacterIndexFromPoint(mousePos,true);
+         if (charIndex < 0 || charIndex >= textBox.Text.Length) return;
 
-          string text = textBox.Text;
-          string[] lines = text.Split('\n');
-          int lineIndex = textBox.GetLineIndexFromCharacterIndex(charIndex);
-          string line = textBox.GetLineText(lineIndex);
-          int lineStart = textBox.GetCharacterIndexFromLineIndex(lineIndex);
-          int posInLine = charIndex - lineStart;
+         string text = textBox.Text;
+         string[] lines = text.Split('\n');
+         int lineIndex = textBox.GetLineIndexFromCharacterIndex(charIndex);
+         string line = textBox.GetLineText(lineIndex);
+         int lineStart = textBox.GetCharacterIndexFromLineIndex(lineIndex);
+         int posInLine = charIndex - lineStart;
+         int startSel = charIndex;
+         int endSel = charIndex;
 
-          // --- Helper: comment/note/blank detection ---
-          static bool IsCommentLine(string l) => l.TrimStart().StartsWith('#');
-          static bool IsNoteLine(string l) {
-              var trimmed = l.TrimStart();
-              if (trimmed.Length < 4) return false;
-              if (!char.IsUpper(trimmed[0])) return false;
-              if (trimmed.StartsWith("Note", StringComparison.OrdinalIgnoreCase)) {
-                  if (trimmed.Length == 4 ||
-                      char.IsWhiteSpace(trimmed[4]) ||
-                      char.IsPunctuation(trimmed[4]))
-                     return true;
-              }
-              return false;
-          }
-
-          // --- Block selection for comment/note/blank lines (always, anywhere) ---
-          if (IsCommentLine(line) || IsNoteLine(line) || string.IsNullOrWhiteSpace(line)) {
-              int first = lineIndex, last = lineIndex;
-              int totalLines = lines.Length;
-              for (int i = lineIndex - 1; i >= 0; i--) {
-                  if (string.IsNullOrWhiteSpace(lines[i]) || IsCommentLine(lines[i]) || IsNoteLine(lines[i]))
-                     first = i;
-                  else
-                     break;
-              }
-              for (int i = lineIndex + 1; i < totalLines; i++) {
-                  if (string.IsNullOrWhiteSpace(lines[i]) || IsCommentLine(lines[i]) || IsNoteLine(lines[i]))
-                     last = i;
-                  else
-                     break;
-              }
-              int selStart = textBox.GetCharacterIndexFromLineIndex(first);
-              int selEnd = textBox.GetCharacterIndexFromLineIndex(last) + lines[last].Length;
-              textBox.Select(selStart, selEnd - selStart);
-              e.Handled = true;
-              return;
-          }
-
-          // --- Find the algorithm context (first non-comment/note line above or at current line) ---
-          int algoLineIndex = lineIndex;
-          bool isAlgorithm = false;
-          Regex algoHeaderRegex = new(@"^(?:A(?i:CTION)|F(?i:UNCTION)|T(?i:EST)|P(?i:REDICATE))\s", RegexOptions.Compiled);
-          while (algoLineIndex >= 0) {
-              string candidate = lines[algoLineIndex].TrimStart();
-              if (algoHeaderRegex.IsMatch(candidate)) {
-                 isAlgorithm = true;
-                 break;
-              }
-              algoLineIndex--;
-          }
-          if (!isAlgorithm) {
-            // Not in an algorithm context, use default logic (let WPF handle selection)
+         if (IsCommentOrNoteOrBlank(line)) {
+            SelectCommentOrNoteBlock();
+            e.Handled = true;
             return;
-          }
-          string algoLine = lines[algoLineIndex].TrimStart();
+         }
 
-          // --- Find the first separator in the header line ---
-          int headerLineStart = textBox.GetCharacterIndexFromLineIndex(algoLineIndex);
-          string headerLine = lines[algoLineIndex];
-          int idxColonEq = headerLine.IndexOf(":=");
-          int idxEqColon = headerLine.IndexOf("=:");
-          int idxColon = headerLine.IndexOf(':');
-          int idxEq = headerLine.IndexOf('=');
+         int algoLineIndex = FindAlgorithmHeaderLine();
+         if (algoLineIndex < 0) return;
+         string headerLine = lines[algoLineIndex];
+         int headerLineStart = textBox.GetCharacterIndexFromLineIndex(algoLineIndex);
 
-          int sepIdx = -1, sepLen = 0;
-          string sepType = "";
-          if (idxColonEq >= 0 && (sepIdx == -1 || idxColonEq < sepIdx)) { sepIdx = idxColonEq; sepLen = 2; sepType = ":="; }
-          if (idxEqColon >= 0 && (sepIdx == -1 || idxEqColon < sepIdx)) { sepIdx = idxEqColon; sepLen = 2; sepType = "=:"; }
-          if (idxColon >= 0 && (sepIdx == -1 || idxColon < sepIdx)) { sepIdx = idxColon; sepLen = 1; sepType = ":"; }
-          if (idxEq >= 0 && (sepIdx == -1 || idxEq < sepIdx)) { sepIdx = idxEq; sepLen = 1; sepType = "="; }
 
-          // Determine if the click is in the header (on the header line, and before or at the separator)
-          bool inHeader = (lineIndex == algoLineIndex) && (sepIdx >= 0) && (posInLine <= sepIdx + sepLen - 1);
+         GetHeaderSeparator(headerLine,out int sepIdx,out int sepLen,out string sepType);
 
-          // Determine if the click is in the body (after the separator on the header line, or any line after the header)
-          bool inBody = (lineIndex > algoLineIndex) ||
-                        (lineIndex == algoLineIndex && sepIdx >= 0 && posInLine > sepIdx + sepLen - 1);
+         bool inHeader = (lineIndex == algoLineIndex) && (sepIdx >= 0) && (posInLine <= sepIdx + sepLen - 1);
+         bool inBody = (lineIndex > algoLineIndex) ||
+                       (lineIndex == algoLineIndex && sepIdx >= 0 && posInLine > sepIdx + sepLen - 1);
 
-         // --- HEADER LOGIC ---
          if (inHeader) {
-            if (e.ClickCount == 3) {
-               // Triple-click in header: do nothing
-               e.Handled = true;
-               return;
-            }
+            if (e.ClickCount == 3) { e.Handled = true; return; }
             if (e.ClickCount == 2) {
                ExpandSelection(GetValidCharPredicate(text,startSel));
                textBox.Select(startSel,endSel - startSel + 1);
                e.Handled = true;
                return;
             }
-         }
-
-         // --- BODY LOGIC ---
-         if (inBody) {
+         } else if (inBody) {
             bool isProcedure = sepType == ":" || sepType == ":=";
             bool isMacro = sepType == "=" || sepType == "=:";
-            if (isMacro && e.ClickCount == 3) {
-               // In macro body, triple-click does nothing
-              e.Handled = true;
-              return;
-            }
+            if (isMacro && e.ClickCount == 3) { e.Handled = true; return; }
 
-            // Robust comment detection: any region between odd/even # is a comment
             int hashCount = 0;
-            for (int i = 0; i < posInLine; i++) {
-                if (line[i] == '#') hashCount++;
-            }
-            if ((hashCount % 2) == 1) {
-                // Click is inside a comment, do not handle
-                e.Handled = true;
-                return;
-            }
+            for (int i = 0 ; i < posInLine ; i++) if (line[i] == '#') hashCount++;
+            if ((hashCount % 2) == 1) { e.Handled = true; return; }
 
-            switch (e.ClickCount) {
-               case 2:
-                  if (!char.IsAsciiLetter(text[startSel])) { e.Handled = true; return; }
-                  ExpandSelection(GetValidCharPredicate(text,startSel));
-                  textBox.Select(startSel,endSel - startSel + 1);
-                  e.Handled = true;
-                  return;
-               case 3:
-                  // Only allowed for procedures
-                  if (!isProcedure) { e.Handled = true; return; }
-                  int i = charIndex;
-                  bool inString = false;
-                  while (i > 0) {
-                     char c = text[i - 1];
-                     if (c == '"') {
-                        int dollarCount = 0;
-                        int j = i - 2;
-                        while (j >= 0 && text[j] == '$') { dollarCount++; j--; }
-                        if (dollarCount % 2 == 0)
-                           inString = !inString;
-                     }
-                     if (!inString) {
-                        int k = i - 1;
-                        while (k >= 0 && text[k] == ' ') k--;
-                        if (k < 0) { i = 0; break; }
-                        if (k > 0 && text[k - 1] == ':' && text[k] == '=') {
-                           i = k + 1;
-                           break;
-                        }
-                        if (text[k] == ':' || text[k] == ';' || text[k] == ',' || text[k] == '(' ||
-                            text[k] == '\n' || text[k] == '\r') {
-                           i = k + 1;
-                           break;
-                        }
-                        int wordEnd = k;
-                        while (wordEnd >= 0 && char.IsLetter(text[wordEnd])) wordEnd--;
-                        int wordStart = wordEnd + 1;
-                        if (wordStart <= k && char.IsUpper(text[wordStart])) {
-                           i = k + 1;
-                           break;
-                        }
-                     }
-                     i--;
-                  }
-                  startSel = i;
-                  while (startSel < text.Length && text[startSel] == ' ') startSel++;
-                  if (startSel < text.Length && text[startSel] == '(') {
-                     startSel++;
-                     while (startSel < text.Length && text[startSel] == ' ') startSel++;
-                  }
-                  if (startSel >= text.Length || !char.IsAsciiLetterLower(text[startSel])) { e.Handled = true; return; }
-                  i = charIndex;
-                  inString = false;
-                  while (i < text.Length) {
-                     char c = text[i];
-                     if (c == '"') {
-                        int dollarCount = 0;
-                        int j = i - 1;
-                        while (j >= 0 && text[j] == '$') { dollarCount++; j--; }
-                        if (dollarCount % 2 == 0)
-                           inString = !inString;
-                     }
-                     if (!inString) {
-                        if (c == ',' || c == ';' || c == '.')
-                           break;
-                     }
-                     i++;
-                  }
-                  endSel = i - 1;
-                  while (endSel > startSel && char.IsWhiteSpace(text[endSel])) endSel--;
-                  while (endSel >= startSel && text[endSel] == ')') endSel--;
-                  while (endSel > startSel && text[endSel] == ' ') endSel--;
-                  textBox.Select(startSel,endSel - startSel + 1);
-                  e.Handled = true;
-                  return;
+            if (e.ClickCount == 2) {
+               if (!char.IsAsciiLetter(text[startSel])) { e.Handled = true; return; }
+               ExpandSelection(GetValidCharPredicate(text,startSel));
+               textBox.Select(startSel,endSel - startSel + 1);
+               e.Handled = true;
+               return;
+            } else if (e.ClickCount == 3) {
+               if (!isProcedure) { e.Handled = true; return; }
+               startSel = FindProcedureCallStart();
+               if (startSel >= text.Length || !char.IsAsciiLetterLower(text[startSel])) { e.Handled = true; return; }
+               endSel = FindProcedureCallEnd();
+               textBox.Select(startSel,endSel - startSel + 1);
+               e.Handled = true;
+               return;
             }
-            return;
          }
-         // If not in header or body, let WPF handle selection
-         return;
+         // Let WPF handle selection if not handled above
 
-         // --- Helper functions ---
-         static Predicate<char> GetValidCharPredicate(string text,int idx) =>
-             char.IsAsciiLetterUpper(text[idx])
+         /////////////////////
+         // Local functions //
+         /////////////////////
+         bool IsCommentOrNoteOrBlank(string l) {
+            if (string.IsNullOrWhiteSpace(l)) return true;
+            string trimmed = l.TrimStart();
+            if (trimmed.StartsWith('#')) return true;
+            return trimmed.Length >= 4 && char.IsUpper(trimmed[0]) &&
+                trimmed.StartsWith("Note",StringComparison.OrdinalIgnoreCase) &&
+                (trimmed.Length == 4 || char.IsWhiteSpace(trimmed[4]) || char.IsPunctuation(trimmed[4]));
+         }
+
+         void SelectCommentOrNoteBlock() {
+            int first = lineIndex, last = lineIndex, totalLines = lines.Length;
+            for (int i = lineIndex - 1 ; i >= 0 ; i--) {
+               if (IsCommentOrNoteOrBlank(lines[i])) first = i;
+               else break;
+            }
+            for (int i = lineIndex + 1 ; i < totalLines ; i++) {
+               if (IsCommentOrNoteOrBlank(lines[i])) last = i;
+               else break;
+            }
+            int selStart = textBox.GetCharacterIndexFromLineIndex(first);
+            int selEnd = textBox.GetCharacterIndexFromLineIndex(last) + lines[last].Length;
+            textBox.Select(selStart,selEnd - selStart);
+         }
+
+         int FindAlgorithmHeaderLine() {
+            Regex algoHeaderRegex = AlgorithmHeaderRE();
+            int idx = lineIndex;
+            while (idx >= 0) {
+               string candidate = lines[idx].TrimStart();
+               if (algoHeaderRegex.IsMatch(candidate)) return idx;
+               idx--;
+            }
+            return -1;
+         }
+
+         void GetHeaderSeparator(string headerLine,out int sepIdx,out int sepLen,out string sepType) {
+            int idxColonEq = headerLine.IndexOf(":=");
+            int idxEqColon = headerLine.IndexOf("=:");
+            int idxColon = headerLine.IndexOf(':');
+            int idxEq = headerLine.IndexOf('=');
+            sepIdx = -1; sepLen = 0; sepType = "";
+            if (idxColonEq >= 0 && (sepIdx == -1 || idxColonEq < sepIdx)) { sepIdx = idxColonEq; sepLen = 2; sepType = ":="; }
+            if (idxEqColon >= 0 && (sepIdx == -1 || idxEqColon < sepIdx)) {
+               sepIdx = idxEqColon; sepLen = 2; sepType = "=:";
+            }
+            if (idxColon >= 0 && (sepIdx == -1 || idxColon < sepIdx)) { sepIdx = idxColon; sepLen = 1; sepType = ":"; }
+            if (idxEq >= 0 && (sepIdx == -1 || idxEq < sepIdx)) { sepIdx = idxEq; sepLen = 1; sepType = "="; }
+         }
+
+         Predicate<char> GetValidCharPredicate(string t,int idx) =>
+             char.IsAsciiLetterUpper(t[idx])
                  ? char.IsAsciiLetterUpper
                  : c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == ' ';
 
-         bool ExpandSelection(Predicate<char> validChar) {
-            int startStart = startSel;
-            int endStart = endSel;
+         void ExpandSelection(Predicate<char> validChar) {
+            int startStart = startSel, endStart = endSel;
             while (startSel > 0 && validChar(text[startSel - 1])) startSel--;
             while (!char.IsAsciiLetter(text[startSel]) && startSel < endSel) startSel++;
             while (endSel < text.Length - 1 && validChar(text[endSel + 1])) endSel++;
             while (endSel > startSel && text[endSel] == ' ') endSel--;
-            return startSel != startStart || endSel != endStart;
+         }
+
+         int FindProcedureCallStart() {
+            int i = charIndex;
+            bool inString = false;
+            while (i > 0) {
+               char c = text[i - 1];
+               if (c == '"') {
+                  int dollarCount = 0, j = i - 2;
+                  while (j >= 0 && text[j] == '$') { dollarCount++; j--; }
+                  if (dollarCount % 2 == 0) inString = !inString;
+               }
+               if (!inString) {
+                  int k = i - 1;
+                  while (k >= 0 && text[k] == ' ') k--;
+                  if (k < 0) { i = 0; break; }
+                  if (k > 0 && text[k - 1] == ':' && text[k] == '=') { i = k + 1; break; }
+                  if (text[k] == ':' || text[k] == ';' || text[k] == ',' || text[k] == '(' ||
+                      text[k] == '\n' || text[k] == '\r') { i = k + 1; break; }
+                  int wordEnd = k;
+                  while (wordEnd >= 0 && char.IsLetter(text[wordEnd])) wordEnd--;
+                  int wordStart = wordEnd + 1;
+                  if (wordStart <= k && char.IsUpper(text[wordStart])) { i = k + 1; break; }
+               }
+               i--;
+            }
+            while (i < text.Length && text[i] == ' ') i++;
+            if (i < text.Length && text[i] == '(') {
+               i++;
+               while (i < text.Length && text[i] == ' ') i++;
+            }
+            return i;
+         }
+
+         int FindProcedureCallEnd() {
+            int i = charIndex;
+            bool inString = false;
+            while (i < text.Length) {
+               char c = text[i];
+               if (c == '"') {
+                  int dollarCount = 0, j = i - 1;
+                  while (j >= 0 && text[j] == '$') { dollarCount++; j--; }
+                  if (dollarCount % 2 == 0) inString = !inString;
+               }
+               if (!inString) {
+                  if (c == ',' || c == ';' || c == '.') break;
+               }
+               i++;
+            }
+            int endSelLocal = i - 1;
+            while (endSelLocal > startSel && char.IsWhiteSpace(text[endSelLocal])) endSelLocal--;
+            while (endSelLocal >= startSel && text[endSelLocal] == ')') endSelLocal--;
+            while (endSelLocal > startSel && text[endSelLocal] == ' ') endSelLocal--;
+            return endSelLocal;
          }
       }
       #endregion
@@ -917,7 +859,7 @@ F1    | Show this help message.
 
             Color originalColor = animBrush.Color;
 
-            ColorAnimation animation = new ColorAnimation {
+            ColorAnimation animation = new() {
                To = Colors.Red,
                Duration = TimeSpan.FromMilliseconds(100),
                AutoReverse = true,
@@ -933,15 +875,18 @@ F1    | Show this help message.
             Brush originalBrush = InputTextBox.Background;
             InputTextBox.Background = new SolidColorBrush(Colors.Red);
 
-            DispatcherTimer timer = new DispatcherTimer {
+            DispatcherTimer timer = new() {
                Interval = TimeSpan.FromMilliseconds(400)
             };
             timer.Tick += (s,e) => {
                InputTextBox.Background = originalBrush;
-               ((DispatcherTimer)s).Stop();
+               if (s is not null) ((DispatcherTimer)s).Stop();
             };
             timer.Start();
          }
       }
+
+      [GeneratedRegex(@"^(?:A(?i:CTION)|F(?i:UNCTION)|T(?i:EST)|P(?i:REDICATE))\s",RegexOptions.Compiled,"en-US")]
+      private static partial Regex AlgorithmHeaderRE();
    }
 }
