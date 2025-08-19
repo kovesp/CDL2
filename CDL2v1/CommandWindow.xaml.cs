@@ -116,6 +116,7 @@ F1    | Show this help message.
       private readonly Brush _standardInputForeground;
       private readonly Brush _multilineInputBackground = Brushes.White;
       private readonly Brush _multilineInputForeground = Brushes.Black;
+      private readonly Brush _multilineInputErrorBackground = Brushes.Orange;
 
       public Emitter? Emitter;   // Used to get the indent width
 
@@ -811,6 +812,12 @@ F1    | Show this help message.
             while (endSelLocal >= startSel && text[endSelLocal] == ')') endSelLocal--;
             while (endSelLocal > startSel && text[endSelLocal] == ' ') endSelLocal--;
             return endSelLocal;
+         }
+      }
+
+      private void InputTextBox_TextChanged(object sender,TextChangedEventArgs e) {
+         if (_multilineMode && sender is TextBox box) {
+            box.Background = Database.Instance.CLI.VerifySyntax(box.Text) ? _multilineInputBackground : _multilineInputErrorBackground;
          }
       }
       #endregion

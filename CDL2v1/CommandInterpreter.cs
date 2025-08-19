@@ -37,6 +37,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -124,6 +125,20 @@ namespace CDL2v1 {
             }
             ParsingContext = null; // Reset the parsing context after a parse
          }
+      }
+      /// <summary>
+      /// Parse the input and verify whther it is syntactically correct.
+      /// DO not add anything to the database, just check the syntax.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
+      public bool VerifySyntax(string input) {
+         input = input.Trim();
+         if (input[^1] != '.') input += '.';
+         parser.Tokenize(input);
+         Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
+         return Database.WithSuspendedNamedElementRegistration(true,
+            () => parser.Parse(ParsingContext ?? Focus.Current,out _,() => false,input,ParseMode.Check));
       }
 
       public bool EnterRawCode(string input) {

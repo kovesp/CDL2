@@ -194,7 +194,8 @@
                    CaretBrush="White"
                    Margin="0,5,10,5"
                    PreviewKeyDown="InputTextBox_PreviewKeyDown" 
-                   PreviewMouseLeftButtonDown="InputTextBox_PreviewMouseLeftButtonDown"/>
+                   PreviewMouseLeftButtonDown="InputTextBox_PreviewMouseLeftButtonDown"
+                   TextChanged="InputTextBox_TextChanged"/>
       </DockPanel>
       <!-- Zoom buttons and Clear button -->
       <StackPanel Grid.Row="2" 
@@ -233,20 +234,3 @@
       </StackPanel>
    </Grid>
 </Window>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
