@@ -39,6 +39,7 @@ using System.Collections.Generic;
 using System.CommandLine.Parsing;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -144,7 +145,6 @@ namespace CDL2v1 {
          base.ReportNoteCounts(reachable,message);
       }
 
-
       /// <summary>
       /// Recursive descent parser for CDL2.
       /// </summary>
@@ -152,13 +152,12 @@ namespace CDL2v1 {
       /// <exception cref="Exception"></exception>
       internal void Parse(string filePath) => ParseString(File.ReadAllText(filePath));
       private void ParseString(string input) {
-         Tokenize(input);
-         ParseTokens();
+         if (Tokenize(input,ParseMode.Full)) ParseTokens();
       }
 
-      public void Tokenize(string input) {
+      public bool Tokenize(string input,ParseMode mode) {
          tokens = new TokenList(ReportInvalidToken);
-         (Lexer = new LexicalAnalyzer(Compiler,tokens)).Tokenize(input);
+         return (Lexer = new LexicalAnalyzer(Compiler,tokens)).Tokenize(input,mode);
       }
 
       public void ParseTokens() {
@@ -337,12 +336,18 @@ namespace CDL2v1 {
                      // Parse the code body
                      algorithm = new Procedure(id,affixes,locals,algType,bodyType.type,currentSection);
                      algorithm.AddNotes(PhaseName,notes);
-                     ParseProcedureBody((Procedure)algorithm,mode);
+                     if (!ParseProcedureBody((Procedure)algorithm,mode)) {
+                        if (mode == ParseMode.Full) ReportError("Expected procedure body");
+                        return false;
+                     }
                   } else {
                      // Parse the macro body
                      algorithm = new Macro(id,affixes,locals,algType,bodyType.type,currentSection);
                      algorithm.AddNotes(PhaseName,notes);
-                     ParseMacroBody((Macro)algorithm,mode);
+                     if (!ParseMacroBody((Macro)algorithm,mode)) {
+                        if (mode == ParseMode.Full) ReportError("Expected macro body");
+                        return false;
+                     }
                   }
                }
                Debug.Assert(algorithm != null);
@@ -353,7 +358,7 @@ namespace CDL2v1 {
             }
             if (mode == ParseMode.Full) currentSection.Declarations[id] = algorithm.GUID;
          } else {
-            ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
+            if (mode==ParseMode.Full) ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
 
          return algorithm != null;
@@ -373,7 +378,7 @@ namespace CDL2v1 {
             if (mode == ParseMode.Full) ReportError("Expected .");
             return false;
          } else {
-            return false;
+            return true;
          }
       }
 
@@ -383,7 +388,7 @@ namespace CDL2v1 {
             return false;
          }
          if (!tokens.CanConsume(TT.END)) {
-            ReportError("Expected .");
+            if (mode == ParseMode.Full) ReportError("Expected .");
             return false;
          }
          return true;
@@ -395,7 +400,7 @@ namespace CDL2v1 {
             if (ParseAlternative(proc,group,notes,mode,out Alternative alternative)) {
                alternatives.Add(alternative);
             } else {
-               ReportError("Expected alternative");
+               if (mode==ParseMode.Full) ReportError("Expected alternative");
                return false;
             }
          } while (tokens.Optional(TT.ALTSEP));
@@ -406,18 +411,28 @@ namespace CDL2v1 {
          alternative = new(notes,group);
          do {
             if (alternative.lastCall.type != LCT.None) {
-               // If we have a last call, then we should NOT have see a separator
+               // If we have a last call, then we should NOT have seen a separator
                if (mode==ParseMode.Full) ReportError("Unexpected ,");
                return false;
             } else if (tokens.Optional(RW.BUILTIN) && tokens.Optional(out ID id)) {
-               alternative.calls.Add(ParseCall(id,proc,alternative,builtin: true));
+               if (ParseCall(id,proc,alternative,mode,out Call? call,builtin: true)) {
+                  alternative.calls.Add(call);
+               } else {
+                  if (mode == ParseMode.Full) ReportError("Expected built-in ID");
+                  return false;
+               }
             } else if (tokens.Optional(out id)) {
-               alternative.calls.Add(ParseCall(id,proc,alternative));
+               if (ParseCall(id,proc,alternative,mode,out Call? call)) {
+                  alternative.calls.Add(call);
+               } else {
+                  if (mode == ParseMode.Full) ReportError("Expected built-in ID");
+                  return false;
+               }
             } else if (tokens.Optional(TT.SUCCEED)) {
                alternative.lastCall = new LastCall(LCT.Succeed,alternative);
             } else if (tokens.Optional(TT.FAIL)) {
                alternative.lastCall = new LastCall(LCT.Fail,alternative);
-               if (!proc.CanFail) {
+               if (mode == ParseMode.Full && !proc.CanFail) {
                   AddNote(proc,Note.IllegalFailOperator,proc.AlgorithmType);
                   ReportError($"{proc} contains fail operator",suppressErrorAction: true);
                }
@@ -425,61 +440,77 @@ namespace CDL2v1 {
                alternative.lastCall = new LastCall(LCT.Abort,alternative);
             } else if (tokens.Optional(TT.REPEAT)) {
                if (tokens.Optional(out ID label)) {
-                  if (group.HasLabeledAncestorGroup(label)) {
+                  if (mode == ParseMode.Full && group.HasLabeledAncestorGroup(label)) {
                      AddNote(proc,Note.LabelNotFound,label.Name);
                   }
                   alternative.lastCall = new LastCall(label,alternative);
-                  if (id == proc.Id)
-                     proc.repeatsProcedure = true;
+                  if (id == proc.Id) proc.repeatsProcedure = true;
                } else {
                   alternative.lastCall = new LastCall(LCT.Repeat,alternative);
                }
             } else if (tokens.Optional(TT.GRPOPEN)) {
-               alternative.lastCall = ParseGroup(proc,containingGroup: group,containingAlternative: alternative);
+               if (!ParseGroup(proc,containingGroup: group,containingAlternative: alternative,mode,out LastCall? grp)) {
+                  if (mode == ParseMode.Full) ReportError($"Expected group",suppressErrorAction: true);
+                  return false;
+               }
+               alternative.lastCall = grp;
             } else if (tokens.IsNext(TT.END) || tokens.IsNext(TT.ALTSEP)) {
                // The last item in an alternative can be empty which is equivalent to a succeed and is represented as such.
                alternative.lastCall = new LastCall(LCT.Succeed,alternative);
             } else {
-               ReportError("Expected ID, +, -, ?, or *");
+               if (mode == ParseMode.Full) ReportError("Expected ID, +, -, ?, or *");
+               return false;
             }
          } while (tokens.Optional(TT.CALLSEP));
          alternative.NormalizeCalls();
          return true;
       }
 
-      private Call ParseCall(ID id,Procedure proc,Alternative containingAlternative,bool builtin = false) => ParseCall(this,id,proc,containingAlternative,builtin);
-      private static Call ParseCall(Parser parser,ID id,Procedure containingProc,Alternative containingAlternative,bool builtin = false) {
+      private bool ParseCall(ID id,Procedure proc,Alternative containingAlternative,ParseMode mode,
+         [NotNullWhen(true)] out Call? call,bool builtin = false)
+         => ParseCall(this,id,proc,containingAlternative,mode,out call,builtin);
+      private static bool ParseCall(Parser parser,ID id,Procedure containingProc,Alternative containingAlternative,
+            ParseMode mode,[NotNullWhen(true)] out Call? call,bool builtin = false) {
          Debug.Assert(parser.currentSection != null);
-         Call call = new(id,containingProc,containingAlternative,builtin);
-         ParseActualArgs(parser,call,containingProc);
-         return call;
+         call = new(id,containingProc,containingAlternative,builtin);
+         return ParseActualArgs(parser,call,containingProc,mode);
       }
 
-      private LastCall ParseGroup(Procedure proc,Group containingGroup,Alternative containingAlternative) {
-         LastCall? lastCall;
-         ID? label = ParseOptionalLabel(containingGroup,proc);
+      private bool ParseGroup(Procedure proc,Group containingGroup,Alternative containingAlternative,ParseMode mode,
+            [NotNullWhen(true)] out LastCall? lastCall) {
+         lastCall = null;
+         if (!ParseOptionalLabel(containingGroup,proc,mode,out ID? label)) {
+            if (mode == ParseMode.Full) ReportError("Invalid label");
+            return false;
+         }
          Group group = new(label,[],containingAlternative.GUID,synthetic: label is null);
-         group.Alternatives = ParseAlternatives(proc,group);
-         if (!tokens.CanConsume(TT.GRPCLOSE))
-            ReportError("Expected )");
+         if (!ParseAlternatives(proc,group,mode,out group.Alternatives)) {
+            if (mode == ParseMode.Full) ReportError("Expected alternatives in group");
+            return false;
+         }
+         if (!tokens.CanConsume(TT.GRPCLOSE)) {
+            if (mode == ParseMode.Full) ReportError("Expected )");
+            return false;
+         }
          lastCall = new LastCall(group,containingAlternative);
-         return lastCall;
+         return true;
       }
 
-      private ID? ParseOptionalLabel(Group group,Procedure proc) {
+      private bool ParseOptionalLabel(Group group,Procedure proc,ParseMode mode,out ID? label) {
          if (tokens.Peek().type == TT.ID && tokens.Peek(1).type == TT.LABELSEP) {
             // Consume the label and the colon
-            ID label = ID.From(tokens.Next());
+            label = ID.From(tokens.Next());
             tokens.Next();
             // Go up the group hierarchy to see if the label is already defined.
-            if (group.HasLabeledAncestorGroup(label)) {
+            if (mode == ParseMode.Full && group.HasLabeledAncestorGroup(label)) {
                AddNote(proc,Note.DuplicateLabel,label.Name);
-               return ID.AnonID; // Return a dummy ID to indicate the error
+               return false;
             } else {
-               return label;
+               return true;
             }
          }
-         return null;
+         label = null;
+         return true;
       }
 
       /// <summary>
@@ -487,7 +518,7 @@ namespace CDL2v1 {
       /// Actual arguments are a sequence of IDs or strings separated by '+'.
       /// </summary>
       /// <param Id="call"></param>
-      private static void ParseActualArgs(Parser parser,Call call,Procedure proc) {
+      private static bool ParseActualArgs(Parser parser,Call call,Procedure proc,ParseMode mode) {
          Debug.Assert(parser.currentSection != null);
          while (parser.tokens.Optional(TT.AFFIXSEP)) {
             if (parser.tokens.Optional(out ID id)) {
@@ -495,9 +526,11 @@ namespace CDL2v1 {
             } else if (parser.tokens.CanConsume(TT.STRING,out Token str)) {
                call.argRefs.Add(new STRING(str));
             } else {
-               parser.ReportError("Expected ID or STRING");
+               if (mode == ParseMode.Full) parser.ReportError("Expected ID or STRING");
+               return false;
             }
          }
+         return true;
       }
 
       private bool ParseLocals(ParseMode mode,out Set<Local> locals) {
@@ -593,7 +626,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST,out string? comments)) {
             Debug.Assert(currentSection != null);
-            ParseIDDeclarationList(currentSection.Declarations,comments!,id=>ParseConstBody(id,mode),notes);
+            ParseIDDeclarationList(currentSection.Declarations,comments!,id=>ParseConstBody(id,mode),notes,mode);
             return true;
          } else {
             return false;
@@ -720,7 +753,12 @@ namespace CDL2v1 {
             Alternative alternative = new(parser.ParseNotes(),lude.group);
 
             while (parser.tokens.Optional(TT.ID,out Token id)) {
-               alternative.calls.Add(ParseCall(parser,ID.From(id),lude,alternative));
+               if (ParseCall(parser,ID.From(id),lude,alternative,ParseMode.Full,out Call? call)) {
+                  alternative.calls.Add(call);
+               } else {
+                  parser.ReportError("Expected ID");
+                  return;
+               }
                if (!parser.tokens.CanConsumeSep())
                   break;
             }
@@ -815,10 +853,9 @@ namespace CDL2v1 {
       internal bool Parse(Focus context,out NamedElement? element,Func<bool> canReplace,string input,ParseMode mode = ParseMode.Full) {
          element = null;
          if (tokens.Peek().type != TokenType.RESWORD) { 
-            ReportError($"Expected a reserved word at the start of input, not \"{tokens.Peek()}\".");
+            if (mode == ParseMode.Full) ReportError($"Expected a reserved word at the start of input, not \"{tokens.Peek()}\".");
             return false;
          }
-
 
          Token initialToken = tokens.Peek();
          RW objectType = initialToken.reservedWordValue ?? RW.NONE;
@@ -894,9 +931,10 @@ namespace CDL2v1 {
                Section? section = context.Section;
                if (section is not null) {
                   currentSection = section;
-                  ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode); element = alg;
+                  if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode)) element = alg;
                } else {
-                  ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
+                  if (mode == ParseMode.Full) ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
+                  element = null;
                }
                break;
             case RW.CONST:

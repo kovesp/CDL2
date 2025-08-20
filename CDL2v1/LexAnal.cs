@@ -39,23 +39,37 @@ using System.Text.RegularExpressions;
 namespace CDL2v1 {
    internal partial class LexicalAnalyzer(CDL2 compiler, TokenList tokens) : CompilationPhase(compiler) {
 
-      public string Tokenize(string input) {
+      /// <summary>
+      /// Break the input string into tokens.
+      /// If the input does not start with a valid token, report the error and skip
+      /// <list type="bullet">
+      /// <item>a single special character</item>
+      /// <item>a run of lower case or upper case characters</item>
+      /// <item>a run of digits</item>
+      /// </list>
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
+      public bool Tokenize(string input,ParseMode mode) {
          while (!string.IsNullOrEmpty(input)) {
             if (Token.TryCreateToken(ref input,out Token token)) {
                tokens.Add(token);
             } else {
                Match match = InvalidTokenSkipRE().Match(input);
                if (match.Success) {
-                  AddNote(Note.InvalidToken,match.Value);
                   input = input[match.Length..];
+                  if (mode == ParseMode.Full) {
+                     AddNote(Note.InvalidToken,match.Value);
+                  } else {
+                     return false; // In non-full mode, stop at the first error.
+                  }
                }
             }
          }
-
-         return input;
+         return true;
       }
 
-      [GeneratedRegex(@"^((?:[^"".]+|""(?:[^""$]|(\$.))*"")*?)\.", RegexOptions.Compiled)]
+      [GeneratedRegex(@"^\s*(?:\p{Ll}+)|(?:\p{Lu}+)|(?:\d+)|(?:[\p{P}\p{S}])", RegexOptions.Compiled)]
       private static partial Regex InvalidTokenSkipRE();
    }
 }

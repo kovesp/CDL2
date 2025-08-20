@@ -117,11 +117,12 @@ namespace CDL2v1 {
             SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
             if (type != SelectorType.INVALID) {
                input = type + input[firstWord.Length..];
-               parser.Tokenize(input);
-               Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
+               if (parser.Tokenize(input,ParseMode.Full)) {
+                  Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
 
-               if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input) & setFocus)
-                  Focus.SetFocus(element!);
+                  if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input) & setFocus)
+                     Focus.SetFocus(element!);
+               }
             }
             ParsingContext = null; // Reset the parsing context after a parse
          }
@@ -134,11 +135,12 @@ namespace CDL2v1 {
       /// <returns></returns>
       public bool VerifySyntax(string input) {
          input = input.Trim();
-         if (input[^1] != '.') input += '.';
-         parser.Tokenize(input);
-         Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
-         return Database.WithSuspendedNamedElementRegistration(true,
-            () => parser.Parse(ParsingContext ?? Focus.Current,out _,() => false,input,ParseMode.Check));
+         if (input.Length > 0 && input[^1] != '.') input += '.';
+         if (parser.Tokenize(input,ParseMode.Check)) {
+            return Database.WithSuspendedNamedElementRegistration(true,
+               () => parser.Parse(ParsingContext ?? Focus.Current,out _,() => false,input,ParseMode.Check));
+         }
+         return false;
       }
 
       public bool EnterRawCode(string input) {
@@ -337,6 +339,7 @@ namespace CDL2v1 {
                   // Display the object in the command window for editing.
                   IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
                   ppEdit.Emitter.Clear();
+                  ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
                   commandWindow.EditText(ppEdit.Print(context.Object));
                   // Nothing else. When editing is done the command window will call EnterCode with the edited text.
                   break;

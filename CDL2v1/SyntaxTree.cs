@@ -1363,6 +1363,7 @@ namespace CDL2v1 {
       public Alternative(Notes notes,Group group) : base(ID.AnonID,synthetic: false,SelectorType.INVALID) {
          Notes = notes;
          Parent = group.GUID;
+         lastCall = new LastCall(LCT.None,this); // No last call yet.
       }
 
       [JsonConstructor] public Alternative() : base(ID.AnonID,synthetic: false,SelectorType.INVALID) { } // For deserialization
