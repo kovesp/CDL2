@@ -850,6 +850,33 @@ namespace CDL2v1 {
 
       public static bool operator ==(CDL2Object? left,CDL2Object? right) => EqualityComparer<CDL2Object>.Default.Equals(left,right);
       public static bool operator !=(CDL2Object? left,CDL2Object? right) => !(left == right);
+
+      /// <summary>
+      /// Remove references to this object the parent section, and from siblings.
+      /// The object itself is added to the undo stack so it can be revived later.
+      /// For this reason, the subcomponents (groups, calls, lastCalls, affixes, locals) of the object are not removed.
+      /// If the replacement object is given then its GUID is swapped with this objects GUID. In effect the replacement
+      /// object becomes this object as far as references are concerned.
+      /// </summary>
+      /// <param name="replacement"></param>
+      /// <remarks>
+      /// Not removing the subcomponents works because subcomponents are never reused, i.e., only this object
+      /// references their GUID.
+      /// </remarks>
+      public void RemoveOrReplace(CDL2Object? replacement = null) {
+         Database.Instance.RecordUndo(this);
+         Database.Instance.ElementsWithNotes.Remove(GUID);
+         if (replacement is not null) {
+            // Replace the GUID of this object with the GUID of the replacement object.
+            (GUID,replacement.GUID) = (replacement.GUID,GUID);
+            if (replacement.Notes is not null && replacement.Notes.Count > 0) Database.Instance.ElementsWithNotes.Add(replacement.GUID);
+         } else {
+            Section?.Declarations.Remove(Id);
+            Siblings.Remove(GUID);
+         }
+      }
+      public void Remove() => RemoveOrReplace();
+      public void Replace(CDL2Object replacement) => RemoveOrReplace(replacement);
    }
 
    /// <summary>
@@ -1024,6 +1051,20 @@ namespace CDL2v1 {
       public virtual IEnumerable<Var> GetReferencedVariables() => [];
       [JsonIgnore]
       override public string TypeShortName => $"{AlgorithmType}";
+
+      /// <summary>
+      /// Will be called when this Algorithm is being discarded from the undo stack.
+      /// Its subcomponents are still being held by this object as well as by Database.NamedElements.
+      /// However, the object is no longer in the declarations of its section, neither is in the siblings list.
+      /// </summary>
+      void Dispose() {
+         foreach (Affix affix in Affixes) Database.Instance.NamedElements.Remove(affix.GUID);
+         foreach (Local local in Locals) Database.Instance.NamedElements.Remove(local.GUID);
+         affixGuids.Clear();
+         localGuids.Clear();
+         if (this is Procedure procedure) procedure.group.Dispose();
+         Database.Instance.NamedElements.Remove(GUID);
+      }
    }
 
    /// <summary>
@@ -1293,6 +1334,8 @@ namespace CDL2v1 {
       [JsonIgnore] public bool AlwaysSucceeds => Called?.AlwaysSucceeds ?? false;
       [JsonIgnore] public bool HasEffect => Called?.HasEffect ?? false;
       [JsonIgnore] public bool HasNoEffect => Called?.HasNoEffect ?? false;
+
+      internal void Dispose() => Database.Instance.NamedElements.Remove(GUID);
    }
    /// <summary>
    /// The last element(in an alternative) can be:
@@ -1400,6 +1443,16 @@ namespace CDL2v1 {
             calls.RemoveAt(calls.Count - 1);
          }
       }
+
+      internal void Dispose() {
+         foreach (Call call in calls) call.Dispose();
+         if (lastCall.type == LCT.Standard) {
+            lastCall.call?.Dispose();
+         } else if (lastCall.type == LCT.Group) {
+            lastCall.group?.Dispose();
+         }
+         Database.Instance.NamedElements.Remove(GUID);
+      }
    }
 
    /// <summary>
@@ -1480,6 +1533,11 @@ namespace CDL2v1 {
                }
             }
          }
+      }
+
+      internal void Dispose() {
+         foreach (Alternative alternative in Alternatives) alternative.Dispose();
+         Database.Instance.NamedElements.Remove(GUID);
       }
    }
 

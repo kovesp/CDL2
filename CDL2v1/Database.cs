@@ -132,9 +132,10 @@ namespace CDL2v1 {
       /// <li> The serialized element</li>"
       /// </ol>
       /// </summary>
+      private const int UndoStackDefaultSize = 1000;
       [JsonInclude]
       [JsonPropertyOrder(3)]
-      public Dictionary<Guid,Stack<UndoRecord<NamedElement>>> NamedElementUndoRecords = [];
+      public BoundedStack<UndoRecord> UndoStack = new(UndoStackDefaultSize);
       /// <summary>
       /// Contains the guids of all the programs in the syntax tree.
       /// </summary>
@@ -252,6 +253,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       public string DisplayName(string name) => CanonicalNames.TryGetValue(name.Replace(" ",""),out string? displayName) ? displayName : name;
 
+#if SERIALIZED_UNDO_RECORDS
       public class UndoRecord<T> : SerializationBase where T : NamedElement {
          [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
          [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
@@ -267,40 +269,54 @@ namespace CDL2v1 {
          [JsonConstructor]
          public UndoRecord() => SerializedElement = "";
       }
+#else // Not SERIALIZED_UNDO_RECORDS
+      public class UndoRecord : IDisposable {
+         [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
+         [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
+         [JsonInclude][JsonPropertyOrder(3)] public CDL2Object? CDL2Object { get; set; } = null!;
+
+         public UndoRecord(CDL2Object element) => CDL2Object = element;
+
+         [JsonConstructor]
+         public UndoRecord() => CDL2Object = null!;
+         public void Dispose() {
+            if (CDL2Object is IDisposable disposable) {
+               disposable.Dispose();
+               GC.SuppressFinalize(this);
+            }
+            CDL2Object = null;
+         }
+      }
+#endif // SERIALIZED_UNDO_RECORDS
 
       /// <summary>
       /// Create an undo record for the given named element.
       /// </summary>
       /// <param name="element"></param>
-      public void RecordUndo(NamedElement element) {
-         if (!NamedElementUndoRecords.TryGetValue(element.GUID,out Stack<UndoRecord<NamedElement>>? undoStack)) {
-            NamedElementUndoRecords[element.GUID] = undoStack = new Stack<UndoRecord<NamedElement>>();
-         }
-         undoStack.Push(new UndoRecord<NamedElement>(element));
-      }
+      public void RecordUndo(CDL2Object element) => UndoStack.Push(new UndoRecord(element));
       /// <summary>
       /// Add a tag to the top undo record for the given named element.
       /// </summary>
       /// <param name="guid"></param>
-      /// <param name="label"></param>
+      /// <param name="tag"></param>
       /// <returns></returns>
-      public bool TagUndoRecord(Guid guid,string label) {
-         if (NamedElementUndoRecords.TryGetValue(guid,out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
-            undoStack.Peek().Tag = label;
+      public bool TagUndoRecord(Guid guid,string tag) {
+         UndoRecord? record = UndoStack.FirstOrDefault(ur => ur.CDL2Object?.GUID == guid);
+         if (record != null) {
+            record.Tag = tag;
+            return true;
+         }
+         return false;
+      }
+      public bool TagUndoRecord(CDL2Object element,string tag) => TagUndoRecord(element.GUID,tag);
+      public bool TryGetUndo(string tag,out CDL2Object? element) {
+         UndoRecord? record = UndoStack.FirstOrDefault(ur => ur.Tag == tag);
+         if (record != null) {
+            element = record.CDL2Object!;
             return true;
          } else {
+            element = null;
             return false;
-         }
-      }
-      public bool TagUndoRecord(NamedElement element,string label) => TagUndoRecord(element.GUID,label);
-      public T GetUndo<T>(Guid guid) where T : NamedElement {
-         if (NamedElementUndoRecords.TryGetValue(guid,out Stack<UndoRecord<NamedElement>>? undoStack) && undoStack.Count > 0) {
-            if (undoStack.Peek().RecordType != typeof(T).Name) {
-               throw new InvalidCastException($"Cannot cast undo record of type {undoStack.Peek().RecordType} to {typeof(T).Name}");
-            }
-            return Serializer.DeserializeElement<T>(undoStack.Pop())!;
-         } else {
-            throw new KeyNotFoundException($"No undo record found for element with GUID {guid}");
          }
       }
 
@@ -386,15 +402,15 @@ namespace CDL2v1 {
       /// Remove an element
       /// </summary>
       /// <param name="element"></param>
-      public void RemoveElement(NamedElement element) {
-         RecordUndo(element);
-         NamedElements.Remove(element.GUID);
-         if (element is Program) {
-            Programs.Remove(element.GUID);
-         } else if (element is Module) {
-            Modules.Remove(element.GUID);
-         }
-      }
+      //public void RemoveElement(NamedElement element) {
+      //   RecordUndo(element);
+      //   NamedElements.Remove(element.GUID);
+      //   if (element is Program) {
+      //      Programs.Remove(element.GUID);
+      //   } else if (element is Module) {
+      //      Modules.Remove(element.GUID);
+      //   }
+      //}
 #if GroupCounter
       public long labelCounter = 0;
       /// <summary>

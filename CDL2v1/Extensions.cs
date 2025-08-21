@@ -217,34 +217,36 @@ namespace CDL2v1 {
          set {
             if (value < 1)
                throw new ArgumentOutOfRangeException(nameof(value), "Capacity must be positive.");
-            
-            // If new capacity is the same, no need to resize
+
             if (value == _items.Length)
                return;
-            
-            // Create new array with the desired capacity
+
             T[] newItems = new T[value];
-         
+
             if (_size > 0) {
-               // Copy elements, starting from the newest (top of stack)
                int elementsToCopy = Math.Min(_size, value);
-            
-               // Start copying from the top element (_head - 1) moving down
+
+               // Dispose items that will be discarded (from the bottom of the stack)
+               int itemsToDiscard = _size - elementsToCopy;
+               for (int i = 0; i < itemsToDiscard; i++) {
+                  int discardIndex = (_tail + i) % _items.Length;
+                  DisposeIfDisposable(_items[discardIndex]);
+               }
+
+               // Copy the elements to keep (from newest to oldest)
                for (int i = 0; i < elementsToCopy; i++) {
                   int sourceIndex = (_head - 1 - i + _items.Length) % _items.Length;
                   newItems[value - 1 - i] = _items[sourceIndex];
                }
-            
-               // Update size and pointers
+
                _size = elementsToCopy;
                _tail = value - _size;
-               _head = value;  // Head points to the position after the newest item
+               _head = value;
             } else {
-               // Stack is empty
                _tail = 0;
                _head = 0;
             }
-         
+
             _items = newItems;
          }
       }
@@ -305,20 +307,19 @@ namespace CDL2v1 {
       /// <returns>True if an item was removed from the bottom of the stack, otherwise false.</returns>
       public bool Push(T item) {
          bool itemRemoved = false;
-      
+
          if (IsFull) {
-            // When full, the oldest item gets overwritten
-            _items[_tail] = default!;  // Clear reference to help GC
+            DisposeIfDisposable(_items[_tail]);
+            _items[_tail] = default!;
             _tail = (_tail + 1) % _items.Length;
             itemRemoved = true;
          } else {
-            // Increase size when not full
             _size++;
          }
-      
+
          _items[_head] = item;
          _head = (_head + 1) % _items.Length;
-      
+
          return itemRemoved;
       }
    
@@ -359,6 +360,7 @@ namespace CDL2v1 {
       /// Removes all items from the stack.
       /// </summary>
       public void Clear() {
+         for (int i = 0; i < _items.Length; i++) DisposeIfDisposable(_items[i]);
          Array.Clear(_items, 0, _items.Length);
          _size = 0;
          _head = 0;
@@ -418,6 +420,10 @@ namespace CDL2v1 {
       
          sb.Append(']');
          return sb.ToString();
+      }
+
+      private static void DisposeIfDisposable(T item) {
+         if (item is IDisposable disposable) disposable.Dispose();
       }
    }
 

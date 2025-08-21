@@ -53,10 +53,12 @@ namespace CDL2v1 {
 
    public static class Serializer {
       public static string SerializeElement<T>(T element) where T : NamedElement => JsonSerializer.Serialize(element, serializationOptions);
+#if SERIALIZED_UNDO_RECORDS
       public static T DeserializeElement<T>(Database.UndoRecord<NamedElement> undo) where T : NamedElement {
          T? element = JsonSerializer.Deserialize(undo.SerializedElement, undo.RecordType.AsType(), serializationOptions) as T;
          return element ?? throw new JsonException($"Deserializer.DeserializeElement: Could not deserialize undo record for {undo.RecordType}");
       }
+#endif
 
       private static readonly JsonSerializerOptions serializationOptions = new() {
 #if DEBUG_SERIALIZATION
