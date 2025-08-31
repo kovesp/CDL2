@@ -193,165 +193,44 @@ namespace CDL2v1 {
                   WriteError($"Invalid command: {command}");
                   return;
                case CommandType.focus:
-                  if (!Focus.SetFocus(args,out string errorMessage)) {
-                     WriteError(errorMessage);
-                  }
-                  break;
+                  if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
                case CommandType.next:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Forward))
-                     WriteWarning("Invalid command");
-                  break;
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Forward)) WriteWarning("Invalid command"); break;
                case CommandType.previous:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Backward))
-                     WriteWarning("Invalid command");
-                  break;
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Backward)) WriteWarning("Invalid command"); break;
                case CommandType.first:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.First))
-                     WriteWarning("Invalid command");
-                  break;
+                  if (!Focus.Current.Move(args,FocusMoveDirection.First)) WriteWarning("Invalid command"); break;
                case CommandType.last:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Last))
-                     WriteWarning("Invalid command");
-                  break;
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Last)) WriteWarning("Invalid command"); break;
                case CommandType.list:
-                  if (args == "") {
-                     if (Focus.Current.Object is not null) {
-                        //TODO: Ignore Focus sub object for now
-                        WriteLine(Focus.Current.Object.FQDN());
-                     } else {
-                        WriteInfo($"Nothing");
-                     }
-                  } else {
-                     Selection selection = new(args);
-                     if (selection.IsInvalid) {
-                        WriteError(selection.ErrorMessage);
-                        return;
-                     }
-                     if (selection.Count == 0) {
-                        WriteError(selection.ErrorMessage);
-                     } else {
-                        foreach (SingleSelection sel in selection) {
-                           WriteLine(sel.Object!.FQDN());
-                        }
-                     }
-                  }
-                  break;
+                  InterpretCommandList(args); break;
                case CommandType.print:
                case CommandType.type:
-                  if (args == "") {
-                     if (Focus.Current.Object is not null) {
-                        //TODO: Ignore Focus sub object for now
-                        pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
-                     }
-                     return;
-                  } else {
-                     Selection selection = new(args);
-                     if (selection.IsInvalid) {
-                        WriteError(selection.ErrorMessage);
-                        return;
-                     }
-                     pp.PauseUpdate(() => {
-                        foreach (SingleSelection sel in selection) {
-                           pp.Print(sel.Object!);
-                        }
-                     });
-                  }
-                  break;
+                  InterpretCommandPrint(args); break;
                case CommandType.set:
-                  // Handle set command
-                  parts = command.Split(' ',3);
-                  if (parts.Length < 3) {
-                     WriteInfo("Usage: set <key> <value>");
-                     return;
-                  }
-                  string key = parts[1];
-                  string value = parts[2];
-                  // Set logic here
-                  WriteLine($"Set {key} to {value}");
-                  break;
+                  parts = InterpretCommandSet(command); break;
                case CommandType.status:
-                  WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
-                  Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
-                  break;
+                  InterpretCommandStatus(); break;
                case CommandType.rename:
-                  break;
+                  InterpretCommandRename(args); break;
                case CommandType.add:
                case CommandType.append:
-                  break;
+                  InterpretCommandAdd(args,InsertLocation.After); break;
+               case CommandType.insert:
+                  InterpretCommandAdd(args,InsertLocation.Before); break;
                case CommandType.delete:
                case CommandType.remove:
-                  // Remove the NamedElement from NamedElements.
-                  // If it is a program or a module, remove it from the appropriate database list
-                  // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
-                  // If it is a Section, then remove all declarations and remove the synthetic procedures generated for ludes.
-                  // In each case, update the ABSTR and EXT lists of the containing LAYER and the EXPORTS and IMPORTS of the containing module.
-                  // Rerun Semantic analysis to update the database.
-                  //
-                  // For now only handle the case when a program is being deleted: It has no children and is not contained in anything.
-                  SingleSelection? context = GetContext(args);
-                  if (context is null)
-                     return;
-                  switch (context.Object) {
-                     case Program p:
-                        Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
-                        Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
-                        Database.Instance.NamedElements.Remove(p.GUID);
-                        Database.Instance.ElementsWithNotes.Remove(p.GUID);
-                        // The above is what needs to be done for a single element. It then needs to be repeated for all children.
-                        // ... Program doesn't have any, since Parts are not exactly children.
-                        // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
-                        WriteInfo($"{p.FQDN()} removed");
-                        break;
-                     case Module m:
-                        WriteInfo("Not implemented.");
-                        break;
-                     case Layer l:
-                        WriteInfo("Not implemented.");
-                        break;
-                     case Section s:
-                        WriteInfo("Not implemented.");
-                        break;
-                     case CDL2Object c:
-                        WriteInfo("Not implemented.");
-                        break;
-                     default:
-                        WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
-                        return;
-                  }
-                  break;
+                  InterpretCommandDelete(args); break;
                case CommandType.edit:
-                  if (commandWindow is null) return; // Ignore the command if there is no command window
-                  context = GetContext(args);
-                  if (context is null || context.Object is null || !context.IsFocusable) {
-                     WriteError("Can't edit.");
-                     return;
-                  }
-                  if (context.Object is Container) { // Container is a base class for Module, Layer, Section, Program, etc.
-                     // The idea is
-                     // 1. PrettyPrint the container into a file.
-                     // 2. Launch an external editor (VS Code by default).
-                     // 3. Detect the end of editing (like git does with an external edtor).
-                     // 4. Read the file back and parse it.
-                     WriteError("Editing of containers not yet implemented.");
-                     return;
-                  }
-
-                  // Display the object in the command window for editing.
-                  IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
-                  ppEdit.Emitter.Clear();
-                  ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
-                  commandWindow.EditText(ppEdit.Print(context.Object));
-                  // Nothing else. When editing is done the command window will call EnterCode with the edited text.
-                  break;
-               case CommandType.insert:
-                  break;
+                  InterpretCommandEdit(args); break;
                case CommandType.replace:
-                  break;
+                  InterpretCommandReplace(args); break;
                case CommandType.undo:
-                  break;
+                  InterpretCommandUndoRedo(args,undo:true); break;
+               case CommandType.redo:
+                  InterpretCommandUndoRedo(args,undo: false); break;
                case CommandType.save:
-                  WriteInfo($"Saved: {Database.Save()}");
-                  break;
+                  WriteInfo($"Saved: {Database.Save()}"); break;
                case CommandType.abort:
                   ToastWindow.ShowToast("abort command used, not saving the database.",2000);
                   commandWindow?.Close();
@@ -363,20 +242,7 @@ namespace CDL2v1 {
                   commandWindow?.Close();
                   return;
                case CommandType.help:
-                  if (args == "") {
-                     WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
-                     foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
-                        WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
-                     }
-                     WriteInfo("\nType 'help selector' to list the valid selectors");
-                  } else if (args == "selector") {
-                     WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
-                     WriteInfo("Only the first letter of the selector must be capitalized.\n");
-                     foreach (Abbreviation<SelectorType> sel in Abbreviation<SelectorType>.FocusTypes) {
-                        WriteInfo($"   {sel.NameWithAbbreviation}");
-                     }
-                  }
-                  break;
+                  InterpretCommandHelp(args); break;
                case CommandType.generate:
                   // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
                   Program? program = CDL2.GetMainProgram();
@@ -393,6 +259,157 @@ namespace CDL2v1 {
             }
          } catch (Exception ex) {
             WriteError($"Exception in command: {ex.Message}");
+         }
+      }
+
+      private void InterpretCommandHelp(string args) {
+         if (args == "") {
+            WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
+            foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
+               WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
+            }
+            WriteInfo("\nType 'help selector' to list the valid selectors");
+         } else if (args == "selector") {
+            WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
+            WriteInfo("Only the first letter of the selector must be capitalized.\n");
+            foreach (Abbreviation<SelectorType> sel in Abbreviation<SelectorType>.FocusTypes) {
+               WriteInfo($"   {sel.NameWithAbbreviation}");
+            }
+         }
+      }
+
+      private void InterpretCommandUndoRedo(string args,bool undo) => throw new NotImplementedException();
+      private void InterpretCommandReplace(string args) => throw new NotImplementedException();
+
+      private void InterpretCommandEdit(string args) {
+         if (commandWindow is null) return; // Ignore the command if there is no command window
+         SingleSelection context = GetContext(args);
+         if (context is null || context.Object is null || !context.IsFocusable) {
+            WriteError("Can't edit.");
+         } else if (context.Object is Container) { 
+            // Container is a base class for Module, Layer, Section, Program, etc.
+            // The idea is
+            // 1. PrettyPrint the container into a file.
+            // 2. Launch an external editor (VS Code by default).
+            // 3. Detect the end of editing (like git does with an external edtor).
+            // 4. Read the file back and parse it.
+            WriteError("Editing of containers not yet implemented.");
+            return;
+         }
+
+         // Display the object in the command window for editing.
+         IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
+         ppEdit.Emitter.Clear();
+         ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
+         commandWindow.EditText(ppEdit.Print(context.Object));
+         // Nothing else. When editing is done the command window will call EnterCode with the edited text.
+      }
+
+      private SingleSelection? InterpretCommandDelete(string args) {
+         // Remove the NamedElement from NamedElements.
+         // If it is a program or a module, remove it from the appropriate database list
+         // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
+         // If it is a Section, then remove all declarations and remove the synthetic procedures generated for ludes.
+         // In each case, update the ABSTR and EXT lists of the containing LAYER and the EXPORTS and IMPORTS of the containing module.
+         // Rerun Semantic analysis to update the database.
+         //
+         // For now only handle the case when a program is being deleted: It has no children and is not contained in anything.
+         SingleSelection? context = GetContext(args);
+         if (context is not null) {
+            switch (context.Object) {
+               case Program p:
+                  Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
+                  Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
+                  Database.Instance.NamedElements.Remove(p.GUID);
+                  Database.Instance.ElementsWithNotes.Remove(p.GUID);
+                  // The above is what needs to be done for a single element. It then needs to be repeated for all children.
+                  // ... Program doesn't have any, since Parts are not exactly children.
+                  // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
+                  WriteInfo($"{p.FQDN()} removed");
+                  break;
+               case Module m:
+                  WriteInfo("Not implemented.");
+                  break;
+               case Layer l:
+                  WriteInfo("Not implemented.");
+                  break;
+               case Section s:
+                  WriteInfo("Not implemented.");
+                  break;
+               case CDL2Object c:
+                  WriteInfo("Not implemented.");
+                  break;
+               default:
+                  WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
+                  break;
+            }
+         }
+
+         return context;
+      }
+
+      private void InterpretCommandAdd(string args,InsertLocation after) => throw new NotImplementedException();
+      private void InterpretCommandRename(string args) => throw new NotImplementedException();
+
+      private void InterpretCommandStatus() {
+         WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
+         Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
+      }
+
+      private string[] InterpretCommandSet(string command) {
+         // Handle set command
+         string[] parts = command.Split(' ',3);
+         if (parts.Length < 3) {
+            WriteInfo("Usage: set <key> <value>");
+         } else {
+            string key = parts[1];
+            string value = parts[2];
+            // Set logic here
+            WriteLine($"Set {key} to {value}");
+         }
+
+         return parts;
+      }
+
+      private void InterpretCommandPrint(string args) {
+         if (args == "") {
+            if (Focus.Current.Object is not null) {
+               //TODO: Ignore Focus sub object for now
+               pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
+            }
+         } else {
+            Selection selection = new(args);
+            if (selection.IsInvalid) {
+               WriteError(selection.ErrorMessage);
+            } else {
+               pp.PauseUpdate(() => {
+                  foreach (SingleSelection sel in selection) {
+                     pp.Print(sel.Object!);
+                  }
+               });
+            }
+         }
+      }
+
+      private void InterpretCommandList(string args) {
+         if (args == "") {
+            if (Focus.Current.Object is not null) {
+               //TODO: Ignore Focus sub object for now
+               WriteLine(Focus.Current.Object.FQDN());
+            } else {
+               WriteInfo($"Nothing");
+            }
+         } else {
+            Selection selection = new(args);
+            if (selection.IsInvalid) {
+               WriteError(selection.ErrorMessage);
+            } else if (selection.Count == 0) {
+               WriteError(selection.ErrorMessage);
+            } else {
+               foreach (SingleSelection sel in selection) {
+                  WriteLine(sel.Object!.FQDN());
+               }
+            }
          }
       }
 

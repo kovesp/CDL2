@@ -197,6 +197,7 @@ namespace CDL2v1 {
       previous,
       print,
       remove,
+      redo,
       rename,
       replace,
       quit,
@@ -315,6 +316,14 @@ namespace CDL2v1 {
       VerySimple,
       Simple,
       General
+   }
+
+   public enum InsertLocation {       
+      Before,
+      After,
+      First,
+      Last,
+      Sorted,
    }
 
    /// <summary>

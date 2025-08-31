@@ -96,6 +96,7 @@ namespace CDL2v1 {
          new ("previous", 1,"previous [n]:                move the focus to the nth previous object in a sequence"),
          new ("print"   , 2,"print    [SELECTOR]:         pretty print the selected object"),
          new ("quit"    , 4,"quit:                        exit the Lab after saving the database"),
+         new ("redo"    , 4,"redo:                        redo the last undo"),
          new ("remove"  , 3,"remove   [SELECTOR]:         removes(deletes) the selected object (eventually this can be undone ... but not yet"),
          new ("rename"  , 3,"rename   [SELECTOR] name:    rename the selected object; may be used just to add/remove spaces"),
          new ("replace" , 1,"replace  [SELECTOR] object:  replace the selection with the new object"),
