@@ -326,6 +326,16 @@ namespace CDL2v1 {
       Sorted,
    }
 
+   [Flags]
+   public enum InterfaceType {
+      None   = 0, 
+      Abstr  = 1,
+      Ext    = 2,
+      Inv    = 4,
+      Import = 8,
+      Export = 16,
+   }
+
    /// <summary>
    /// Used for PrettyPrint decoration
    /// </summary>
@@ -387,8 +397,6 @@ namespace CDL2v1 {
       AbstrExported = Abstr | Exported,
       ExtExported = Ext | Exported,
       AbstrExtExported = Abstr | Ext | Exported,
-
-
    }
    [Flags]
    public enum DecorationStyle {

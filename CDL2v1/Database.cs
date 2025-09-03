@@ -270,12 +270,22 @@ namespace CDL2v1 {
          public UndoRecord() => SerializedElement = "";
       }
 #else // Not SERIALIZED_UNDO_RECORDS
+      /// <summary>
+      /// Contains the information required to resurect a removed object. Editing an object is
+      /// treated as a remove followed by a create.
+      /// Records a timestamp when the record was created, possibly a tag allowing a named reference to the record,
+      /// the object itself and flags indicating the interface declarations the object was conctained in.
+      /// </summary>
       public class UndoRecord : IDisposable {
          [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
          [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
-         [JsonInclude][JsonPropertyOrder(3)] public CDL2Object? CDL2Object { get; set; } = null!;
+         [JsonInclude][JsonPropertyOrder(3)] public CDL2Object? CDL2Object { get; set; } = null;
+         [JsonInclude][JsonPropertyOrder(4)] public InterfaceType InterfaceStatus { get; set; } = InterfaceType.None;
 
-         public UndoRecord(CDL2Object element) => CDL2Object = element;
+         public UndoRecord(CDL2Object element) {
+            CDL2Object = element;
+            InterfaceStatus = element.GetInterfaceStatus();
+         }
 
          [JsonConstructor]
          public UndoRecord() => CDL2Object = null!;

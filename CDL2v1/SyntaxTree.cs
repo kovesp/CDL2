@@ -63,6 +63,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using System.Windows;
 using System.Windows.Navigation;
 using System.Xml.Linq;
 
@@ -651,6 +652,14 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(43)] public SortedSet<ID> export = [];
       [JsonInclude][JsonPropertyOrder(44)] public SortedSet<ID> import = [];
 
+      public Dictionary<InterfaceType,SortedSet<ID>> Interfaces => new() {
+         { InterfaceType.Ext,ext },
+         { InterfaceType.Abstr,abstr },
+         { InterfaceType.Inv,inv },
+         { InterfaceType.Export,export },
+         { InterfaceType.Import,import }
+      };
+
       /// <summary>
       /// 
       /// </summary>
@@ -839,6 +848,47 @@ namespace CDL2v1 {
       public SyntacticElement SE { get; protected set; }
 
       public override List<Guid> Siblings => Section?.Children ?? [];
+
+      /// <summary>
+      /// Checks whether this object is in the given interface type.
+      /// </summary>
+      /// <param name="type"></param>
+      /// <returns></returns>
+      public bool HasInterface(InterfaceType type) => Section!.Interfaces[type].Contains(Id);
+      /// <summary>
+      /// Get the interface status of this object as a bitwise combination of InterfaceType values.
+      /// </summary>
+      /// <returns></returns>
+      public InterfaceType GetInterfaceStatus() {
+         InterfaceType status = InterfaceType.None;
+         foreach (InterfaceType type in Enum.GetValues(typeof(InterfaceType))) {
+            if (type != InterfaceType.None && HasInterface(type)) status |= type;
+         }
+         return status;
+      }
+      /// <summary>
+      /// Sets the interface status of this object by adding the object to the appropriate interface sets in the parent section.
+      /// </summary>
+      /// <param name="status"></param>
+      public void SetInterfaceStatus(InterfaceType status) {
+         foreach (InterfaceType type in Enum.GetValues(typeof(InterfaceType))) {
+            if (type != InterfaceType.None && (status & type) == type) Section!.Interfaces[type].Add(Id);
+         }
+      }
+      /// <summary>
+      /// Clears the interface status of this object of the given type(s).
+      /// The default is to clear all interfaces
+      /// </summary>
+      /// <param name="status"></param>
+      public void ClearInterfaceStatus(InterfaceType status=InterfaceType.None) {
+         if (status == InterfaceType.None) { // Clear all
+            foreach (SortedSet<ID> intf in Section!.Interfaces.Values) intf.Remove(Id);
+         } else { // Clear the ones that are set
+            foreach (InterfaceType type in Enum.GetValues(typeof(InterfaceType))) {
+               if (type != InterfaceType.None && (status & type) == type) Section!.Interfaces[type].Remove(Id);
+            }
+         }
+      }
 
       /// <summary>
       /// Given that objects have to be unique by name within a section and extended//*abstract*/ed objects within a layer, objects with the same Id are considered the same.

@@ -312,8 +312,6 @@ namespace CDL2v1 {
          // If it is a Section, then remove all declarations and remove the synthetic procedures generated for ludes.
          // In each case, update the ABSTR and EXT lists of the containing LAYER and the EXPORTS and IMPORTS of the containing module.
          // Rerun Semantic analysis to update the database.
-         //
-         // For now only handle the case when a program is being deleted: It has no children and is not contained in anything.
          SingleSelection? context = GetContext(args);
          if (context is not null) {
             switch (context.Object) {
