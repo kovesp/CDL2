@@ -33,6 +33,8 @@
 
 #define Debug
 #define COMPRESSED_DATABASE
+using CDL2v1;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -52,7 +54,7 @@ using System.Windows.Input;
 namespace CDL2v1 {
 
    public static class Serializer {
-      public static string SerializeElement<T>(T element) where T : NamedElement => JsonSerializer.Serialize(element, serializationOptions);
+      public static string SerializeElement<T>(T element) where T : NamedElement => JsonSerializer.Serialize(element,serializationOptions);
 #if SERIALIZED_UNDO_RECORDS
       public static T DeserializeElement<T>(Database.UndoRecord<NamedElement> undo) where T : NamedElement {
          T? element = JsonSerializer.Deserialize(undo.SerializedElement, undo.RecordType.AsType(), serializationOptions) as T;
@@ -71,6 +73,8 @@ namespace CDL2v1 {
             new IElementListJsonConverter(),
             //new LudeJsonConverter(),
             new IDJsonConverter(),
+            new BoundedStackJsonConverter<Focus>(),
+            new BoundedStackJsonConverter<Database.UndoRecord>(),
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
          },
          IncludeFields = true,
@@ -110,33 +114,33 @@ namespace CDL2v1 {
       /// <param name="addInstance">Whether to push the loaded database onto the stack</param>
       /// <param name="databaseName">Name for the loaded database</param>
       /// <returns>The loaded database or null if loading failed</returns>
-      public static Database? LoadDB(string? path=null, bool addInstance = true) {
+      public static Database? LoadDB(string? path = null,bool addInstance = true) {
          Database? database = null;
          ToastWindow.ShowToast($"Loading ${Settings.LabDBPath}",() => {
             path ??= Settings.LabDBPath; // Use the default lab database path if not provided
-            if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path, DBExtension);
+            if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path,DBExtension);
             if (!Path.Exists(path)) throw new FileNotFoundException($"CDL2: Database file not found at {path}");
 
-            Logger.logger.WriteLine(1, $"CDL2: Loading compressed database from {path}");
+            Logger.logger.WriteLine(1,$"CDL2: Loading compressed database from {path}");
 
             try {
                string json = DecompressFileToString(path);
 
                // Deserialize the JSON
-               Database? db = JsonSerializer.Deserialize<Database>(json, serializationOptions);
+               Database? db = JsonSerializer.Deserialize<Database>(json,serializationOptions);
 
                if (db is not null) {
                   if (addInstance) Database.AddInstance(db);
-                  Logger.logger.WriteLine(1, $"CDL2: Loaded compressed database from {path} with name {db.Name}");
+                  Logger.logger.WriteLine(1,$"CDL2: Loaded compressed database from {path} with name {db.Name}");
                }
 
                database = db;
             } catch (Exception ex) {
-               Logger.logger.WriteLine(0, $"CDL2: Error loading compressed database: {ex.Message}");
-               Logger.logger.WriteLine(0, $"CDL2: Stack trace: {ex.StackTrace}");
-               database =  null;
+               Logger.logger.WriteLine(0,$"CDL2: Error loading compressed database: {ex.Message}");
+               Logger.logger.WriteLine(0,$"CDL2: Stack trace: {ex.StackTrace}");
+               database = null;
             }
-         },minShowInterval:2000);
+         },minShowInterval: 2000);
          return database;
       }
 #else
@@ -172,9 +176,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="data">The string to compress</param>
       /// <param name="filePath">The path to save the compressed data to</param>
-      public static void CompressStringToFile(string data, string filePath) {
+      public static void CompressStringToFile(string data,string filePath) {
          using FileStream fileStream = File.Create(filePath);
-         using GZipStream gzipStream = new(fileStream, CompressionLevel.Optimal);
+         using GZipStream gzipStream = new(fileStream,CompressionLevel.Optimal);
          using StreamWriter writer = new(gzipStream);
 
          writer.Write(data);
@@ -187,7 +191,7 @@ namespace CDL2v1 {
       /// <returns>The decompressed string</returns>
       public static string DecompressFileToString(string filePath) {
          using FileStream fileStream = File.OpenRead(filePath);
-         using GZipStream gzipStream = new(fileStream, CompressionMode.Decompress);
+         using GZipStream gzipStream = new(fileStream,CompressionMode.Decompress);
          using StreamReader reader = new(gzipStream);
 
          return reader.ReadToEnd();
@@ -205,7 +209,7 @@ namespace CDL2v1 {
    /// "FLOAT", "STRING", and "ID".
    /// </remarks>
    public class IElementListJsonConverter : JsonConverter<List<IElement>> {
-      public override List<IElement> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+      public override List<IElement> Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
          var list = new List<IElement>();
          if (reader.TokenType != JsonTokenType.StartArray)
             throw new JsonException("Expected start of array for List<IElement>.");
@@ -251,16 +255,16 @@ namespace CDL2v1 {
          return list;
       }
 
-      public override void Write(Utf8JsonWriter writer, List<IElement> value, JsonSerializerOptions options) {
+      public override void Write(Utf8JsonWriter writer,List<IElement> value,JsonSerializerOptions options) {
          writer.WriteStartArray();
          foreach (IElement element in value) {
             writer.WriteStartObject();
-            writer.WriteString("type", element.GetType().Name);
+            writer.WriteString("type",element.GetType().Name);
             switch (element) {
-               case INT ei: writer.WriteNumber("value", ei.value); break;
-               case FLOAT ef: writer.WriteNumber("value", ef.value); break;
-               case STRING es: writer.WriteString("value", es.value); break;
-               case ID id: writer.WriteString("value", id.CanonicalName); break;
+               case INT ei: writer.WriteNumber("value",ei.value); break;
+               case FLOAT ef: writer.WriteNumber("value",ef.value); break;
+               case STRING es: writer.WriteString("value",es.value); break;
+               case ID id: writer.WriteString("value",id.CanonicalName); break;
             }
             writer.WriteEndObject();
          }
@@ -278,16 +282,16 @@ namespace CDL2v1 {
    /// It is designed specifically for the Lude JSON format used in CDL2v1, where reserved words (RW) are used as keys.
    /// Not currently used as the standard mechanism handles it correctly, but kept for reference.
    /// </remarks>
-   public class LudeJsonConverter : JsonConverter<Dictionary<RW, List<ID>>> {
-      public override Dictionary<RW, List<ID>> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
-         var dict = new Dictionary<RW, List<ID>>();
+   public class LudeJsonConverter : JsonConverter<Dictionary<RW,List<ID>>> {
+      public override Dictionary<RW,List<ID>> Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
+         var dict = new Dictionary<RW,List<ID>>();
          if (reader.TokenType != JsonTokenType.StartObject)
             throw new JsonException("Expected start of object for Dictionary<RW, List<ID>>.");
-         while(reader.Read()) {
+         while (reader.Read()) {
             if (reader.TokenType == JsonTokenType.EndObject) break;
             if (reader.TokenType != JsonTokenType.PropertyName) throw new JsonException("Expected property name for Dictionary<RW, List<ID>>.");
             string propertyName = reader.GetString()!;
-            if (!Enum.TryParse<RW>(propertyName, out RW ludeType)) {
+            if (!Enum.TryParse<RW>(propertyName,out RW ludeType)) {
                throw new JsonException($"Unknown reserved word '{propertyName}' for Lude.");
             }
             reader.Read(); // Move to the start of the array
@@ -303,7 +307,7 @@ namespace CDL2v1 {
          return dict;
       }
 
-      public override void Write(Utf8JsonWriter writer, Dictionary<RW, List<ID>> value, JsonSerializerOptions options) {
+      public override void Write(Utf8JsonWriter writer,Dictionary<RW,List<ID>> value,JsonSerializerOptions options) {
          writer.WriteStartObject();
          foreach (RW ludeType in value.Keys) {
             writer.WritePropertyName(ludeType.ToString());
@@ -327,14 +331,14 @@ namespace CDL2v1 {
    /// This is an optimization as IDs occur often in the CDL2v1 format, and using a custom converter avoids the overhead of writing it as an object with a single property.
    /// </remarks>
    public class IDJsonConverter : JsonConverter<ID> {
-      public override ID Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+      public override ID Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
          if (reader.TokenType != JsonTokenType.String)
             throw new JsonException("Expected string value for ID.");
          string idString = reader.GetString()!;
          return new ID(idString);
       }
 
-      public override void Write(Utf8JsonWriter writer, ID value, JsonSerializerOptions options) => writer.WriteStringValue(value.CanonicalName);
+      public override void Write(Utf8JsonWriter writer,ID value,JsonSerializerOptions options) => writer.WriteStringValue(value.CanonicalName);
    }
 
    /// <summary>
@@ -347,7 +351,7 @@ namespace CDL2v1 {
    /// </remarks>
    /// <typeparam name="V">The type of the values stored in the <see cref="IDDictionary{V}"/>.</typeparam>
    public class IDDictionaryJsonConverter<V> : JsonConverter<IDDictionary<V>> {
-      public override IDDictionary<V> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+      public override IDDictionary<V> Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
          var dictionary = new IDDictionary<V>();
 
          if (reader.TokenType != JsonTokenType.StartObject)
@@ -359,19 +363,19 @@ namespace CDL2v1 {
             string keyString = reader.GetString()!;
             // Read the value
             reader.Read();
-            dictionary[new ID(keyString)] = JsonSerializer.Deserialize<V>(ref reader, options)!;
+            dictionary[new ID(keyString)] = JsonSerializer.Deserialize<V>(ref reader,options)!;
          }
          return dictionary;
       }
 
-      public override void Write(Utf8JsonWriter writer, IDDictionary<V> value, JsonSerializerOptions options) {
+      public override void Write(Utf8JsonWriter writer,IDDictionary<V> value,JsonSerializerOptions options) {
          //Debug.WriteLine($"Write(IDDictionary<{typeof(V)}>)");
          writer.WriteStartObject();
          foreach (ID key in value.Keys) {
             //Debug.WriteLine($"{key} -> {value[key]}");
             writer.WritePropertyName(key.CanonicalName);
             try {
-               JsonSerializer.Serialize(writer, value[key], options);
+               JsonSerializer.Serialize(writer,value[key],options);
             } catch (Exception e) {
                Debug.WriteLine(e.Message);
                Debugger.Break();
@@ -389,7 +393,7 @@ namespace CDL2v1 {
    /// During deserialization, the keys are reconstructed from their string representations.
    /// </remarks>
    public class DeclarationDictionaryJsonConverter : JsonConverter<Section.DeclarationDictionary> {
-      public override Section.DeclarationDictionary Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+      public override Section.DeclarationDictionary Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
          var dictionary = new Section.DeclarationDictionary();
          if (reader.TokenType != JsonTokenType.StartObject)
             throw new JsonException();
@@ -399,15 +403,15 @@ namespace CDL2v1 {
             string keyString = reader.GetString()!;
             // Read the value
             reader.Read();
-            dictionary[new ID(keyString)] = JsonSerializer.Deserialize<Guid>(ref reader, options)!;
+            dictionary[new ID(keyString)] = JsonSerializer.Deserialize<Guid>(ref reader,options)!;
          }
          return dictionary;
       }
-      public override void Write(Utf8JsonWriter writer, Section.DeclarationDictionary value, JsonSerializerOptions options) {
+      public override void Write(Utf8JsonWriter writer,Section.DeclarationDictionary value,JsonSerializerOptions options) {
          writer.WriteStartObject();
          foreach (ID key in value.Keys) {
             writer.WritePropertyName(key.CanonicalName);
-            JsonSerializer.Serialize(writer, value[key], options);
+            JsonSerializer.Serialize(writer,value[key],options);
          }
          writer.WriteEndObject();
       }
@@ -420,7 +424,7 @@ namespace CDL2v1 {
    /// cref="IDSet"/> from the array of strings.
    /// </remarks>
    public class IDSetJsonConverter : JsonConverter<IDSet> {
-      public override IDSet Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+      public override IDSet Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
          var set = new IDSet();
          if (reader.TokenType != JsonTokenType.StartArray)
             throw new JsonException();
@@ -435,7 +439,7 @@ namespace CDL2v1 {
          return set;
       }
 
-      public override void Write(Utf8JsonWriter writer, IDSet value, JsonSerializerOptions options) {
+      public override void Write(Utf8JsonWriter writer,IDSet value,JsonSerializerOptions options) {
          writer.WriteStartArray();
          foreach (ID key in value) {
             writer.WriteStringValue(key.CanonicalName);
@@ -443,5 +447,57 @@ namespace CDL2v1 {
          writer.WriteEndArray();
       }
    }
+
+   /// <summary>
+   /// Provides custom JSON serialization and deserialization for <see cref="BoundedStack{T}"/>.
+   /// Serializes as an object with "Capacity" and "Items" (top-to-bottom order).
+   /// </summary>
+   public class BoundedStackJsonConverter<T> : JsonConverter<BoundedStack<T>> {
+      public override BoundedStack<T>? Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
+         if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException("Expected start of object for BoundedStack<T>.");
+
+         int capacity = 0;
+         List<T> items = new List<T>();
+
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndObject) break;
+            if (reader.TokenType != JsonTokenType.PropertyName)
+               throw new JsonException("Expected property name in BoundedStack<T> object.");
+
+            string propertyName = reader.GetString()!;
+            reader.Read();
+
+            if (propertyName == "Capacity") {
+               capacity = reader.GetInt32();
+            } else if (propertyName == "Items") {
+               if (reader.TokenType != JsonTokenType.StartArray)
+                  throw new JsonException("Expected start of array for Items in BoundedStack<T>.");
+               while (reader.Read()) {
+                  if (reader.TokenType == JsonTokenType.EndArray) break;
+                  T item = JsonSerializer.Deserialize<T>(ref reader,options)!;
+                  items.Add(item);
+               }
+            } else {
+               reader.Skip();
+            }
+         }
+         if (capacity < 1)
+            throw new JsonException("BoundedStack<T> must have positive Capacity.");
+         return new BoundedStack<T>(capacity,items);
+      }
+
+      public override void Write(Utf8JsonWriter writer,BoundedStack<T> value,JsonSerializerOptions options) {
+         writer.WriteStartObject();
+         writer.WriteNumber("Capacity",value.Capacity);
+         writer.WritePropertyName("Items");
+         writer.WriteStartArray();
+         foreach (T item in value)
+            JsonSerializer.Serialize(writer,item,options);
+         writer.WriteEndArray();
+         writer.WriteEndObject();
+      }
+   }
 }
+
 
