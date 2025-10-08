@@ -125,7 +125,7 @@ decimal fraction : decimal separator token, decimal integer.
 decimal exponent : letter e token, decimal integer.
 
 string: quote token, string element sequence option, quote token.
-string element: letter ALPHA token, digit DIGIT token, other glyph token except quote and dollar, string escape.
+string element: letter ALPHA token ; digit DIGIT token ; other glyph token except quote and dollar ; string escape.
 string escape: string escape token, escaped item.
 escaped item: letter l token ; letter t token ; string escape token ; quote token.
 

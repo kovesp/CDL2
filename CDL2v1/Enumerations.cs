@@ -278,6 +278,12 @@ namespace CDL2v1 {
       NONE,
    }
 
+   public enum SettingType {
+      Boolean,
+      Integer,
+      String,
+   }
+
    public enum FocusMoveDirection { Forward, Backward, First, Last };
 
    /// <summary>

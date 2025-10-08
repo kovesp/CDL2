@@ -107,9 +107,19 @@ namespace CDL2v1 {
          new Setting<double>(  "WindowTop",           "--window-top",      -1.0,           "Last window top position",saved:true),
          new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width",saved:true),
          new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height",saved:true),
-         new Setting<bool>(    "PPSorted",            "--pretty-print-sorted",false,      "When printing sections, print its objects collected by type",saved:true),
+         new Setting<bool>(    "PPSorted",            "--pretty-print-sorted",false,       "When printing sections, print its objects collected by type",saved:true),
+         new Setting<int>(     "PrintDepth",          "--print-depth",      -1,            "Depth of printing. -1 means full. Applicable to containers.",saved:true),
+         new Setting<bool>(    "AutoPrint",           "--auto-print",      false,          "The focused object is printed after a coomand when set.",saved:true),
+         new Setting<int>(     "AutoSaveCount",       "--autosave-count",  10,             "The database is saved after this many commands that modify it.",saved:true),
+         new Setting<int>(     "AutoSaveInterval",    "--autosave-interval",300,           "The database is saved after this many seconds if modified.",saved:true),
+
+
+         // Settings that cannot be used from the lab command line. A dummy option is generated for each
+         new Setting<bool>(    "list",                NoOption,             false,         "Modify a command to list available objects. Used by Undo and redo."),
       ];
 
+      private static int NoOptionCounter = 1;
+      private static string NoOption => $"--NA{NoOptionCounter++}";
 
       private readonly Dictionary<string, ISetting> SettingsDict = [];
 
@@ -141,6 +151,7 @@ namespace CDL2v1 {
          }
          throw new KeyNotFoundException($"Setting with name '{name}' not found or of incorrect type.");
       }
+      public static bool IsValidSetting(string name) => Instance.SettingsDict.ContainsKey(name);
       public static bool TryGetSettingValue(string name, out string value) {
          if (Instance.SettingsDict.TryGetValue(name, out ISetting? setting)) {
             if (setting is Setting<string> sSetting) {

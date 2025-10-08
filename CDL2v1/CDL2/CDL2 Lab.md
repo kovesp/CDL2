@@ -13,6 +13,7 @@ ALPHA :: a ; b ; c ; d ; e ; f ; g ; h ; i ; j ; k ; l ; m ; n ; o ; p ; q ; r ;
 DIGIT :: 0 ; 1 ; 2 ; 3 ; 4 ; 5 ; 6 ; 7 ; 8 ; 9.
 SPECIAL :: + ; - ; ... . # ... is any unicode character not listed in ALPHA and DIGIT.
 GLYPH :: ALPHA ; DIGIT ; SPECIAL.
+STRINGGLYPH :: GLYPH.  # But white-space, control characters, " and $ are excluded from GLYPH
 NOTETY :: NOTION ; EMPTY .
 NOTION1 or NOTION2 :: NOTION1 ; NOTION2.
 NOTION1 and NOTION2 :: NOTON1 , NOTION2.
@@ -47,7 +48,6 @@ ordinal : colon token, offset.
 unit type : SUNIT token.
 top token : ^.
 regex token : /.
-setting : plus or minus token, setting name, setting argument option.
 ```
 #### Notes
 
@@ -148,6 +148,33 @@ Call
 LOCal
 ```
 
+### Settings Syntax
+
+```
+setting : minus token, boolean setting or numeric setting or string setting.
+boolean setting : setting name, plus token or minus token option.
+numeric setting : setting name, value indicator, DIGIT token sequence.
+string setting  : setting name, value indicator, STRINGGLYPH sequence or string.
+setting name : ALPHA token sequence.
+value indicator : colon token ; equals token.
+```
+
+#### Notes
+
+1. For boolean settings there are three possibilities:
+    * The setting name is followed by a +: the setting is set to true.
+    * The setting name is followed by a -: the setting is set to false.
+    * There is neither a + or a -: the global value of the setting value is flipped.
+2. The `string` in `string setting` is a CDL2 string as specified in the CDL2 grammar. It is a double
+   quoted string which may contain escapes. Quoting is only required if the string contains
+   white space, control characters, dollar or double quote.
+
+Examples:
+
+  * Boolean: `-list`, `-list-`, `-list+`.
+  * Numeric: `-autoSaveCount:10`, `-autoSaveInterval=60`.
+  * String:  `-target:C#`, `-file=C:\CDL2\Tests.cdl2`, `-title:"$"Importable$" Modules"`.
+
 ## Commands
 
 ## Command Settings
@@ -156,8 +183,11 @@ Settings may be set globally (see the `set` command) or locally
 (using the the `setting sequence option` in the commands below). When using the latter, the setting
 is changed for the duration of the command, in the former case it is changed globally.
 Any setting may be specified for commands, tough of course not all are relevant for all commands.
-For boolean settings the leading + or - determines whether the setting is on or off. For
-other settings the setting is followed by the value of the setting, for
+
+
+
+
+For other settings the setting is followed by the value of the setting, for
 example `print -print-depth 3`.
 
 ### Focus Change Commands
@@ -232,21 +262,18 @@ add all the algorithm headers without the locals if any.
 #### Set
 
 ```
-set command : set token, setting sequence option.
+set command : set token, setting sequence option. 
 ```
 
 If no settings are given, all current settings are listed. The following is a list of settings.
 
-##### General Settings
+##### Command Settings
 
 | Setting Name | Type | Default | Description |
 |--------------|------|---------|-------------|
-| auto-print   | bool | false   | If true, then the focus is printed after the command. |
-| print-depth  | int  | -1      | The depth of printing. If -1, then the entire object is printed. |
-| auto-save-count  | int | 10    | The database is saved after this many commands that modify it (the editing commands).
-| auto-save-interval | int | 60 | The database is saved after this many seconds if there are any modifications. |
+| list          | bool | false  | Commands that support this option will list appropriate object instead of taking action. See the undo and redo commands.
 
-##### Command Line Settings
+##### Settings that Can Also Be Used on the Lab Invocation Command Line
 
 | Setting Name | Type | Default | Description |
 |--------------|------|---------|-------------|
@@ -254,7 +281,7 @@ If no settings are given, all current settings are listed. The following is a li
 | debug-log | int  | 0 | Debug logging verbosity |
 | target | string | "PowerShell" | The target code generator |
 | program | string | "" | The default program to generate |
-| stop-on-warmings | bool | false | If true, then code code cannot be generated if the program or any parts have warnings. |
+| stop-on-warnings | bool | false | If true, then code code cannot be generated if the program or any parts have warnings. |
 | allow-errors | bool | false | If true, then code code can be generated even if there are errors. |
 | gen-debug-info | bool | false | If true, then debug information is generated. Not implemented. |
 | output-dir | string | "" | The directory where the generated code is written. If empty, then the current directory is used. |
@@ -263,6 +290,10 @@ If no settings are given, all current settings are listed. The following is a li
 | no-proc-inlining | bool | false | If true, then procedures are not inlined. This is useful for debugging. |
 | messages | string | "all" | The messages to show. Can be "all", "errors", "warnings", "info", or "none". |
 | report-all | bool | false | If true, then all messages are reported, otherwise only those that pertain to reachable objects. |
+| auto-print   | bool | false   | If true, then the focused object is printed after the command. |
+| print-depth  | int  | -1      | The depth of printing. If -1, then the entire object is printed. |
+| auto-save-count  | int | 10   | The database is saved after this many commands that modify it (the editing commands).
+| auto-save-interval | int | 300| The database is saved after this many seconds if there are any modifications. |
 
 
 #### Editing Commands

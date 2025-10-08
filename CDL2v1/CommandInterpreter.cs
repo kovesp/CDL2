@@ -174,13 +174,32 @@ namespace CDL2v1 {
          string firstWord = Regex.Split(command.Trim(),@"\s+")[0].Trim();
          CommandType commandType = Abbreviation<CommandType>.Identify(firstWord.ToLower());
          string args = command[firstWord.Length..].Trim();
-         InterpretCommand(command,commandType,"",args);
+         InterpretCommand(command,commandType,[],args);
       }
-      public void InterpretCommand(string command,CommandType commandType,string settings,string args) {
+      public void InterpretCommand(string command,CommandType commandType,IEnumerable<CDL2.ParsedSetting> settings,string args) {
          IsEditing = false;
          IEnumerable<string> arguments = Regex.Split(command.Trim(),@"\s+").Skip(1).Select(s => s.Trim());
          //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
          string[] parts;
+         // Use settings to change global settings. Save previous values so they can be restored later.
+         foreach (CDL2.ParsedSetting setting in settings) {
+            if (Settings.IsValidSetting(setting.Name)) {
+               setting.PreviousValue = setting.Type switch {
+                  SettingType.Boolean => Settings.SettingValue<bool>(setting.Name),
+                  SettingType.Integer => Settings.SettingValue<int>(setting.Name),
+                  SettingType.String => Settings.SettingValue<string>(setting.Name),
+                  _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
+               };
+               if (setting.Type == SettingType.Boolean && setting.Value is null) {
+                  // Toggle the boolean setting
+                  Settings.SettingValue(setting.Name,!Settings.SettingValue<bool>(setting.Name));
+               } else {
+                  Settings.SettingValue(setting.Name,setting.Value);
+               }
+            } else {
+               WriteError($"Invalid setting: {setting.Name} ignored");
+            }
+         }
 
          try {
             switch (commandType) {
@@ -226,7 +245,7 @@ namespace CDL2v1 {
                case CommandType.replace:
                   InterpretCommandReplace(args); break;
                case CommandType.undo:
-                  InterpretCommandUndoRedo(args,undo:true); break;
+                  InterpretCommandUndoRedo(args,undo: true); break;
                case CommandType.redo:
                   InterpretCommandUndoRedo(args,undo: false); break;
                case CommandType.save:
@@ -238,7 +257,7 @@ namespace CDL2v1 {
                case CommandType.bye:
                case CommandType.quit:
                case CommandType.exit:
-                  ToastWindow.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);  
+                  ToastWindow.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
                   commandWindow?.Close();
                   return;
                case CommandType.help:
@@ -260,6 +279,10 @@ namespace CDL2v1 {
          } catch (Exception ex) {
             WriteError($"Exception in command: {ex.Message}");
          }
+         // Restore previous settings
+         foreach (CDL2.ParsedSetting setting in settings) {
+            if (Settings.IsValidSetting(setting.Name)) Settings.SettingValue(setting.Name,setting.PreviousValue);
+         }
       }
 
       private void InterpretCommandHelp(string args) {
@@ -278,7 +301,30 @@ namespace CDL2v1 {
          }
       }
 
-      private void InterpretCommandUndoRedo(string args,bool undo) => throw new NotImplementedException();
+      private void InterpretCommandUndoRedo(string args,bool undo) {
+         //SettingValue<int>("VerbosityLevel") >= level
+         //int count = 1;
+         //if (args != "") {
+         //   if (!int.TryParse(args,out count) || count < 1) {
+         //      WriteError("Invalid argument for undo/redo command.");
+         //      return;
+         //   }
+         //}
+         //if (undo) {
+         //   if (Database.Undo(count,out int actual)) {
+         //      WriteInfo($"Undid {actual} step{(actual == 1 ? "" : "s")}");
+         //   } else {
+         //      WriteWarning("Nothing to undo.");
+         //   }
+         //} else {
+         //   if (Database.Redo(count,out int actual)) {
+         //      WriteInfo($"Redid {actual} step{(actual == 1 ? "" : "s")}");
+         //   } else {
+         //      WriteWarning("Nothing to redo.");
+         //   }
+         //}
+      }
+
       private void InterpretCommandReplace(string args) => throw new NotImplementedException();
 
       private void InterpretCommandEdit(string args) {
@@ -334,8 +380,13 @@ namespace CDL2v1 {
                case Section s:
                   WriteInfo("Not implemented.");
                   break;
-               case CDL2Object c:
-                  WriteInfo("Not implemented.");
+               case CDL2Object obj:
+                  Focus.MoveFocusFrom(obj);
+                  Database.Instance.RecordUndo(obj);
+                  obj.Section?.Declarations.Remove(obj.Id);
+                  obj.Siblings.Remove(obj.GUID);
+                  obj.ClearInterfaceStatus();
+                  // WriteInfo($"{obj.FQDN()} removed");
                   break;
                default:
                   WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
