@@ -41,12 +41,14 @@ namespace CDL2v1 {
    public interface ISetting {
       string Name { get; }
       int Index { get; set; }
+      Type Type { get; set; }
       Option Option { get; set; }
    }
 
    public class Setting<T> : ISetting {
       public string Name { get; }
       public int Index { get; set; }
+      public Type Type { get; set; }
       public T? Value { get; set; } = default;
       public Option Option { get; set; }
       public bool IsSaved { get; set; } = false; // Whether this setting should be saved to a file
@@ -56,6 +58,7 @@ namespace CDL2v1 {
 
       public Setting(string name, string[] optionName, T defaultValue, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "") {
          Name = name;
+         Type = typeof(T);
          Option = new Option<T>(optionName, () => defaultValue, description);
          if (arity != null) Option.Arity = (ArgumentArity)arity;
          IsSaved = saved;
@@ -66,6 +69,7 @@ namespace CDL2v1 {
       }
       public Setting(string name, string optionName, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "") {
          Name = name;
+         Type = typeof(string[]);
          Option = new Option<T>(optionName, description);
          if (arity != null) Option.Arity = (ArgumentArity)arity;
          IsSaved = saved;
@@ -116,7 +120,10 @@ namespace CDL2v1 {
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each
          new Setting<bool>(    "list",                NoOption,             false,         "Modify a command to list available objects. Used by Undo and redo."),
+         new Setting<bool>(    "DebugCommands",       NoOption,             false,         "Display the parsed command."),
       ];
+
+      public static List<ISetting> AllSettings => Instance.SettingsList;
 
       private static int NoOptionCounter = 1;
       private static string NoOption => $"--NA{NoOptionCounter++}";
@@ -143,7 +150,18 @@ namespace CDL2v1 {
       public static bool LabMode => SettingValue<bool>("Lab") && ! SettingValue<bool>("ParseOnly");
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
+      public static object? SettingValue(string name) => Setting<object>(name);
+
       public static void SettingValue<T>(string name,T value) => Setting<T>(name)!.Value = value;
+
+      public static void SettingValue(string name,SettingType type,object? value) {
+         switch (type) {
+            case SettingType.Boolean: SettingValue<bool>(name,value is null ? !SettingValue<bool>(name) : (bool)value); break;
+            case SettingType.Integer: SettingValue<int>(name,(int)value!); break;
+            case SettingType.String:  SettingValue<string>(name,(string)value!); break;
+            default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");
+         }
+      }
 
       public static Setting<T>? Setting<T>(string name) {
          if (Instance.SettingsDict.TryGetValue(name, out ISetting? setting) && setting is Setting<T> typedSetting) {

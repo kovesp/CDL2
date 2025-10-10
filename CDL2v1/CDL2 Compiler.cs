@@ -165,72 +165,7 @@ namespace CDL2v1 {
       public Reachable Reachable = new();
       public SemanticAnalyzer? SemanticAnalyzer;
 
-      /// <summary>
-      /// Replaces all spaces in quoted strings with $S, to allow splitting the command line into arguments and settings.
-      /// </summary>
-      /// <param name="input"></param>
-      /// <returns></returns>
-      private static string ReplaceSpacesInQuotedStrings(string input) {
-         bool inQuotes = false;
-         int length = input.Length;
-         StringBuilder result = new StringBuilder(length);
-         for (int i = 0 ; i < length ; i++) {
-            char c = input[i];
-            if (inQuotes) {
-               if (c == '$' && i + 1 < length && (input[i + 1] == '"' || input[i + 1] == '$')) {
-                  result.Append(c);
-                  result.Append(input[i + 1]);
-                  i++;
-               } else if (c == '"') {
-                  inQuotes = false;
-                  result.Append(c);
-               } else if (c == ' ') {
-                  result.Append("$S");
-               } else {
-                  result.Append(c);
-               }
-            } else {
-               if (c == '"') {
-                  inQuotes = true;
-               }
-               result.Append(c);
-            }
-         }
-         return result.ToString();
-      }
-
-      public record class ParsedSetting(string Name,SettingType Type,object? Value,object? currentValue) {
-         public readonly string Name = Name;
-         public readonly SettingType Type = Type;
-         public readonly object? Value = Value;
-         public object? PreviousValue = currentValue;
-      }
-
-      private ParsedSetting SplitSetting(string setting) {
-         string[] parts = ReplaceSpacesInQuotedStrings(setting).TrimStart('-').Split([':','='],2);
-         if (parts.Length > 1) {
-            // A numeric or string setting.
-            if (int.TryParse(parts[1], out int intValue)) {
-               return new ParsedSetting(parts[0].ToLower(),SettingType.Integer,intValue,null);
-            } else {
-               if (parts[1].StartsWith('"')) {
-                  parts[1] = Regex.Replace(parts[1],@"$(.)",m => m.Groups[1].Value switch {
-                     "S" or "s" => " ",
-                     "$"        => "$",
-                     "\""       => "\"",
-                     "L" or "l" => "\n",
-                     "T" or "t" => "\t",
-                     _          => m.Value
-                  });
-               }
-
-               return new ParsedSetting(parts[0].ToLower(),SettingType.String,parts[1],null);
-            }
-         } else {
-            // A boolean setting, possibly with + or - suffix.
-            return new ParsedSetting(parts[0].ToLower().TrimEnd('-','+'),SettingType.Boolean, parts[0][^1] == '+' ? true : parts[0][^1] == '-' ? false : null,null);
-         }
-      }
+      
 
       public void CompileSources(string[] args) {
          Log(0, $"Options: --sources {string.Join(',', args)} {Settings.IntOption("VerbosityLevel")}{Settings.IntOption("DebugVerbosityLevel")}" +
@@ -251,15 +186,11 @@ namespace CDL2v1 {
                Database.Instance.CLI = CLI;
 
                void ProcessInput(string input) {
-                  string[] commandParts = Regex.Split(input, @"\s+");
-                  string verb = commandParts[0].ToLower();
+                  input = input.Trim();
 
-                  IEnumerable<ParsedSetting> settings = commandParts.Skip(1).Where(part => part.StartsWith('-')).Select(SplitSetting);
-                  string args = string.Join(' ', commandParts.Skip(1).Where(part => !part.StartsWith('-')));
-
-                  if (true) { 
-                     CommandType commandType = Abbreviation<CommandType>.Identify(verb);
-                     CLI.InterpretCommand(input,commandType,settings, args);
+                  if (char.IsAsciiLetterLower(input[0])) {
+                     // Commands start with a lowercase letter
+                     CLI.InterpretCommand(input);
                   } else {
                      // Assume it is a cdl2 construct that must be parsed
                      CLI.EnterCode(input);

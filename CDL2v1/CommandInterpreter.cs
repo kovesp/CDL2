@@ -166,23 +166,117 @@ namespace CDL2v1 {
       private void WriteWarning(string message) => WriteLine("Warning: " + message,Severity.Warning);
 
       /// <summary>
-      /// For use by unit tests and other non-interactive uses.
+      /// Replaces all spaces in quoted strings with $S, to allow splitting the command line into arguments and settings.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
+      private static string ReplaceSpacesInQuotedStrings(string input) {
+         bool inQuotes = false;
+         int length = input.Length;
+         StringBuilder result = new StringBuilder(length);
+         for (int i = 0 ; i < length ; i++) {
+            char c = input[i];
+            if (inQuotes) {
+               if (c == '$' && i + 1 < length && (input[i + 1] == '"' || input[i + 1] == '$')) {
+                  result.Append(c);
+                  result.Append(input[i + 1]);
+                  i++;
+               } else if (c == '"') {
+                  inQuotes = false;
+                  result.Append(c);
+               } else if (c == ' ') {
+                  result.Append("$S");
+               } else {
+                  result.Append(c);
+               }
+            } else {
+               if (c == '"') {
+                  inQuotes = true;
+               }
+               result.Append(c);
+            }
+         }
+         return result.ToString();
+      }
+      public record class ParsedSetting(string Name,SettingType Type,object? Value,object? currentValue) {
+         public readonly string Name = Name;
+         public readonly SettingType Type = Type;
+         public readonly object? Value = Value;
+         public object? PreviousValue = currentValue;
+
+         public override string ToString() => Type switch {
+            SettingType.Boolean => $"-{Name}{(Value is null ? "" : (bool)Value ? "+" : "-")}",
+            SettingType.Integer => $"-{Name}={Value}",
+            SettingType.String  => $"-{Name}=\"{Value}\"",
+            _                   => $"-{Name}=<unknown type>"
+         };
+      }
+
+      private ParsedSetting SplitSetting(string setting) {
+         string[] parts = setting.TrimStart('-').Split([':','='],2);
+         if (parts.Length > 1) {
+            // A numeric or string setting.
+            if (int.TryParse(parts[1],out int intValue)) {
+               return new ParsedSetting(parts[0],SettingType.Integer,intValue,null);
+            } else {
+               if (parts[1].StartsWith('"')) {
+                  parts[1] = Regex.Replace(parts[1],@"$(.)",m => m.Groups[1].Value switch {
+                     "S" or "s" => " ",
+                     "$" => "$",
+                     "\"" => "\"",
+                     "L" or "l" => "\n",
+                     "T" or "t" => "\t",
+                     _ => m.Value
+                  });
+               }
+
+               return new ParsedSetting(parts[0],SettingType.String,parts[1],null);
+            }
+         } else {
+            // A boolean setting, possibly with + or - suffix.
+            return new ParsedSetting(parts[0].TrimEnd('-','+'),SettingType.Boolean,parts[0][^1] == '+' ? true : parts[0][^1] == '-' ? false : null,null);
+         }
+      }
+
+      /// <summary>
+      /// Pasrse the command into verb, argumensts and settings and then interprete it.
       /// </summary>
       /// <param name="command"></param>
       public void InterpretCommand(string command) {
-         if (command.Trim() == "") return; // Ignore empty commands
-         string firstWord = Regex.Split(command.Trim(),@"\s+")[0].Trim();
-         CommandType commandType = Abbreviation<CommandType>.Identify(firstWord.ToLower());
-         string args = command[firstWord.Length..].Trim();
-         InterpretCommand(command,commandType,[],args);
+         if ((command = command.Trim()) == "") return; // Ignore empty commands
+         ParseCommand(command,out string verb,out CommandType commandType,out string args,out ParsedSetting[] settings);
+         InterpretCommand(verb,commandType,settings,args);
       }
-      public void InterpretCommand(string command,CommandType commandType,IEnumerable<CDL2.ParsedSetting> settings,string args) {
+
+      /// <summary>
+      /// Parse the command into verb, arguments and settings.
+      /// </summary>
+      /// <param name="command"></param>
+      /// <param name="verb"></param>
+      /// <param name="commandType"></param>
+      /// <param name="args"></param>
+      /// <param name="settings"></param>
+      private void ParseCommand(string command,out string verb,out CommandType commandType,out string args,out ParsedSetting[] settings) {
+         string input = ReplaceSpacesInQuotedStrings(command); // Replace spaces in quoted strings with $S to allow splitting the command line into arguments and settings.
+         string[] commandParts = Regex.Split(input,@"\s+");
+         verb = commandParts[0].ToLower();
+         commandType = Abbreviation<CommandType>.Identify(verb.ToLower());
+         args = string.Join(' ',commandParts.Skip(1).Where(part => !part.StartsWith('-')));
+         settings = [.. commandParts.Skip(1).Where(part => part.StartsWith('-')).Select(SplitSetting)];
+      }
+
+      /// <summary>
+      /// Interpret the command with the given verb, arguments and settings.
+      /// </summary>
+      /// <param name="command"></param>
+      /// <param name="commandType"></param>
+      /// <param name="settings"></param>
+      /// <param name="args"></param>
+      /// <exception cref="NotImplementedException"></exception>
+      public void InterpretCommand(string verb,CommandType commandType,ParsedSetting[] settings,string args) {
          IsEditing = false;
-         IEnumerable<string> arguments = Regex.Split(command.Trim(),@"\s+").Skip(1).Select(s => s.Trim());
-         //commandWindow.WriteLine($"> {commandType} {string.Join(" ",arguments)}");
-         string[] parts;
          // Use settings to change global settings. Save previous values so they can be restored later.
-         foreach (CDL2.ParsedSetting setting in settings) {
+         foreach (ParsedSetting setting in settings) {
             if (Settings.IsValidSetting(setting.Name)) {
                setting.PreviousValue = setting.Type switch {
                   SettingType.Boolean => Settings.SettingValue<bool>(setting.Name),
@@ -190,16 +284,17 @@ namespace CDL2v1 {
                   SettingType.String => Settings.SettingValue<string>(setting.Name),
                   _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
                };
-               if (setting.Type == SettingType.Boolean && setting.Value is null) {
-                  // Toggle the boolean setting
-                  Settings.SettingValue(setting.Name,!Settings.SettingValue<bool>(setting.Name));
-               } else {
-                  Settings.SettingValue(setting.Name,setting.Value);
-               }
+               Settings.SettingValue(setting.Name,setting.Type,setting.Value);
             } else {
                WriteError($"Invalid setting: {setting.Name} ignored");
             }
          }
+
+         if (Settings.SettingValue<bool>("DebugCommands")) {
+            WriteInfo($"Command: {verb} {string.Join(" ",settings.Select(s=>s.ToString()))} {args}");
+         }
+
+         bool ResetSettings = true; // Whether to reset settings after the command. Some commands may want to keep the settings.
 
          try {
             switch (commandType) {
@@ -209,7 +304,7 @@ namespace CDL2v1 {
                   break;
 #endif
                case CommandType.INVALID:
-                  WriteError($"Invalid command: {command}");
+                  WriteError($"Invalid command: {verb}");
                   return;
                case CommandType.focus:
                   if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
@@ -227,7 +322,16 @@ namespace CDL2v1 {
                case CommandType.type:
                   InterpretCommandPrint(args); break;
                case CommandType.set:
-                  parts = InterpretCommandSet(command); break;
+                  // Modify settings so that the reset actually sets the new values
+                  if (settings.Length == 0) {
+                     // List the current settings
+                     foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
+                        WriteInfo(setting.ToString());
+                     }
+                  } else {
+                     ResetSettings = false;
+                  }
+                  break;
                case CommandType.status:
                   InterpretCommandStatus(); break;
                case CommandType.rename:
@@ -278,10 +382,9 @@ namespace CDL2v1 {
             }
          } catch (Exception ex) {
             WriteError($"Exception in command: {ex.Message}");
-         }
-         // Restore previous settings
-         foreach (CDL2.ParsedSetting setting in settings) {
-            if (Settings.IsValidSetting(setting.Name)) Settings.SettingValue(setting.Name,setting.PreviousValue);
+         } finally {
+            // Restore previous settings (unless it is a set command
+            if (ResetSettings) foreach (ParsedSetting setting in settings) if (Settings.IsValidSetting(setting.Name)) Settings.SettingValue(setting.Name,setting.Type,setting.PreviousValue!);  
          }
       }
 
@@ -302,6 +405,9 @@ namespace CDL2v1 {
       }
 
       private void InterpretCommandUndoRedo(string args,bool undo) {
+         if (Settings.SettingValue<bool>("list")) {
+            WriteWarning("Undo/Redo with list option.");
+         }
          //SettingValue<int>("VerbosityLevel") >= level
          //int count = 1;
          //if (args != "") {
