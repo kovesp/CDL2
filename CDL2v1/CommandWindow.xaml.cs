@@ -536,16 +536,18 @@ F1    | Show this help message.
       private void ExecuteCommand() {
          string command = InputTextBox.Text.Trim();
          // Add command to history
-         if (char.IsAsciiLetterLower(command[0])) {
-            // It's a command, so add it to history and echo it.
-            _commandHistory.Add(command);
-            // Echo command
-            WriteLine($"> {command}");
-         }
+         if (!string.IsNullOrEmpty(command)) {
+            if (char.IsAsciiLetterLower(command[0])) {
+               // It's a command, so add it to history and echo it.
+               _commandHistory.Add(command);
+               // Echo command
+               WriteLine($"> {command}");
+            }
 
-         if (command.IsNotEmptyOrWhitespace()) {
-            // Raise event to handle the command
-            CommandEntered?.Invoke(this,command);
+            if (command.IsNotEmptyOrWhitespace()) {
+               // Raise event to handle the command
+               CommandEntered?.Invoke(this,command);
+            }
          }
 
          // Display new prompt

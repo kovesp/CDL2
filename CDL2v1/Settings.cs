@@ -36,6 +36,7 @@
 using System.CommandLine;
 using System.ComponentModel;
 using System.IO;
+using System.Windows.Controls;
 using System.Windows.Navigation;
 
 namespace CDL2v1 {
@@ -84,14 +85,15 @@ namespace CDL2v1 {
       public string LongOption => Option.Aliases.OrderByDescending(s => s.Length).First();
       public override string ToString() =>
          $"{Name}: {LongOption} => {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
+      private const char HorizontalBar = '\u2501'; // BOX DRAWINGS HEAVY HORIZONTAL
       public string ToTabularString(bool title = false) {
          if (title) {
             string titleString = $"{"Name".PadRight(Settings.Instance.MaxNameLength)} {"Type",-8} {"Command Line Option".PadRight(Settings.Instance.MaxOptionLength)} Value";
-            return $"{titleString}\n{new string('-', titleString.Length)}";
+            return $"{titleString}\n{new string(HorizontalBar, titleString.Length)}";
          } else {
             string longOption = (LongOption.StartsWith("--NA") ? "" : LongOption).PadRight(Settings.Instance.MaxOptionLength);
             string type = Type.Name switch { "Int32" => "int", /*"Severity" => "string",*/ _ => Type.Name.ToLower() };
-            return $"{Name.PadRight(Settings.Instance.MaxNameLength)} {type,-8} {longOption} => {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
+            return $"{Name.PadRight(Settings.Instance.MaxNameLength)} {type,-8} {longOption} {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
          }
       }
    }
@@ -101,30 +103,40 @@ namespace CDL2v1 {
       public static readonly Dictionary<string,string> DisjointSettings = [];
       private readonly List<ISetting> SettingsList = [
          new Setting<string[]>("Sources",            "--sources",                          "The source files to compile. Ignored if the --lab option is given."),
-         new Setting<int>(     "VerbosityLevel",     ["-v", "--verbose"],   -1,            "Set the verbosity level (0-3)"),
-         new Setting<int>(     "DebugVerbosityLevel",["-d", "--debug-log"], -1,            "Set the debug verbosity level (0-3)"),
+         new Setting<int>(     "VerbosityLevel",     ["-v", "--verbose"],   -1,            "Set the verbosity level (0-3)."),
+         new Setting<int>(     "DebugVerbosityLevel",["-d", "--debug-log"], -1,            "Set the debug verbosity level (0-3)."),
          new Setting<string>(  "Target",             ["-t","--target"],     "PowerShell",  "Generate code for the specified target language. Default is PowerShell."),
-         new Setting<string>(  "ProgramName",        ["-p","--program"],    "",            "Make program the one for which code is generated. The default is the first or only program that has been read."),
-         new Setting<bool>(    "Lab",                 "--lab",              false,         "Run in CDL2 Lab mode. The database is opened from the file specified in the --db option in --output-dir and the lab prompt is shown.",disjoint:"ParseOnly"),
-         new Setting<bool>(    "ParseOnly",           "--parse-only",       false,         "Do not generate code. Verifies whether the source is syntactically and semantically valid. Also, do not enter Lab mode."),
+         new Setting<string>(  "ProgramName",        ["-p","--program"],    "",            "Make program the one for which code is generated. The default is the first\n"+"" +
+                                                                                           "or only program that has been read."),
+         new Setting<bool>(    "Lab",                 "--lab",              false,         "Run in CDL2 Lab mode. The database is opened from the file specified in the\n"+
+                                                                                           "--db option in --output-dir and the lab prompt is shown.",disjoint:"ParseOnly"),
+         new Setting<bool>(    "ParseOnly",           "--parse-only",       false,         "Do not generate code. Verifies whether the source is syntactically and\n"+
+                                                                                           "semantically valid. Also, do not enter Lab mode."),
          new Setting<bool>(    "StopOnWarnings",      "--stop-on-warnings", false,         "Stop processing if any warnings are generated."),
          new Setting<bool>(    "AllowErrors",         "--allow-errors",     false,         "Continue even if there are errors. Mainly for debugging the Compiler."),
-         new Setting<string?>( "PrettyPrint",         "--pretty-print",     "",            "Pretty print the parsed code. If a value is given, it is assumed to be a file-name, Otherwise output goes to the Debugger.",ArgumentArity.ZeroOrOne),
-         new Setting<bool>(    "GenerateDebugInfo",   "--gen-debug-info",   false,         "Generate debug information"),
-         new Setting<string?>( "OutputDirectory",     "--output-dir",       null,          "Specify output directory for generated code"),
-         new Setting<bool>(    "NoMacroInlining",     "--no-macro-inlining",false,         "Do not inline macros, generate them as procedures"),
-         new Setting<bool>(    "NoProcInlining",      "--no-proc-inlining", false,         "Do not inline macros, generate them as procedures"),
-         new Setting<bool>(    "NoSave",              "--no-save",          false,         "Do not save the database when exiting"),
-         new Setting<int>(     "MaxInlineCalls",      "--max-inline-calls", 9,             "Maximum number of calls that can be inlined. This is a product of the number of calls in the procedure and the number of times the procedure is called. However, if the procedure contains a single call, it is always inlineable."),
-         new Setting<bool>(    "ReportAll",           "--report-all",       false,         "Report all messages (subject to --messages). Normally messages for non-reachable objects are suppressed"),
-         new Setting<Severity>("Messages",            "--messages",         Severity.Error,"Which messages should be shown: Error, Warning, Info. Default is errors only"),
-         new Setting<string>(  "DB",                  "--db",               "CDL2v1",      "The filename in --output-dir that contains the serialized lab data. The extension is .lab.gz. At exit the current parse tree is always saved."),
-         new Setting<int>(     "Backups",             "--backups",          3,             "The number of backups of the lab file to keep. Extensions are .lab.gz.1 ...NOT IMPLEMENTED."),
-         new Setting<double>(  "WindowLeft",          "--window-left",     -1.0,           "Last window left position",saved:true),
-         new Setting<double>(  "WindowTop",           "--window-top",      -1.0,           "Last window top position",saved:true),
-         new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width",saved:true),
-         new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height",saved:true),
-         new Setting<bool>(    "PPSorted",            "--pretty-print-sorted",false,       "When printing sections, print its objects collected by type",saved:true),
+         new Setting<string?>( "PrettyPrint",         "--pretty-print",     "",            "Pretty print the parsed code. If a value is given, it is assumed to be\n"+
+                                                                                           "a file-name, Otherwise output goes to the Debugger.",ArgumentArity.ZeroOrOne),
+         new Setting<bool>(    "GenerateDebugInfo",   "--gen-debug-info",   false,         "Generate debug information."),
+         new Setting<string?>( "OutputDirectory",     "--output-dir",       null,          "Specify output directory for generated code."),
+         new Setting<bool>(    "NoMacroInlining",     "--no-macro-inlining",false,         "Do not inline macros, generate them as procedures."),
+         new Setting<bool>(    "NoProcInlining",      "--no-proc-inlining", false,         "Do not inline procedures."),
+         new Setting<bool>(    "NoSave",              "--no-save",          false,         "Do not save the database when exiting."),
+         new Setting<int>(     "MaxInlineCalls",      "--max-inline-calls", 9,             "Maximum number of calls that can be inlined. This is a product of the\n"+
+                                                                                           "number of calls in the procedure and the number of times the procedure\n"+
+                                                                                           "is called. However, if the procedure contains a single call, it is always\n"+
+                                                                                           "inlineable."),
+         new Setting<bool>(    "ReportAll",           "--report-all",       false,         "Report all messages (subject to --messages). Normally messages for\n"+
+                                                                                           "non-reachable objects are suppressed."),
+         new Setting<Severity>("Messages",            "--messages",         Severity.Error,"Which messages should be shown: Error, Warning, Info. Default is errors only."),
+         new Setting<string>(  "DB",                  "--db",               "CDL2v1",      "The filename in --output-dir that contains the serialized lab data.\n"+
+                                                                                           "The extension is .lab.gz. At exit the current parse tree is always saved."),
+         new Setting<int>(     "Backups",             "--backups",          3,             "The number of backups of the lab file to keep. Extensions are .lab.gz.1.\n"+
+                                                                                           "...NOT IMPLEMENTED."),
+         new Setting<double>(  "WindowLeft",          "--window-left",     -1.0,           "Last window left position.",saved:true),
+         new Setting<double>(  "WindowTop",           "--window-top",      -1.0,           "Last window top position.",saved:true),
+         new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width.",saved:true),
+         new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height.",saved:true),
+         new Setting<bool>(    "PPSorted",            "--pretty-print-sorted",false,       "When printing sections, print its objects collected by type.",saved:true),
          new Setting<int>(     "PrintDepth",          "--print-depth",      -1,            "Depth of printing. -1 means full. Applicable to containers.",saved:true),
          new Setting<bool>(    "AutoPrint",           "--auto-print",      false,          "The focused object is printed after a coomand when set.",saved:true),
          new Setting<int>(     "AutoSaveCount",       "--autosave-count",  10,             "The database is saved after this many commands that modify it.",saved:true),

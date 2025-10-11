@@ -325,10 +325,7 @@ namespace CDL2v1 {
                   // Modify settings so that the reset actually sets the new values
                   if (settings.Length == 0) {
                      // List the current settings
-                     WriteLine(Settings.AllSettings.First().ToTabularString(title:true));
-                     foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
-                        WriteLine(setting.ToTabularString());
-                     }
+                     DisplaySettings();
                   } else {
                      ResetSettings = false;
                   }
@@ -389,18 +386,34 @@ namespace CDL2v1 {
          }
       }
 
+      private void DisplaySettings() {
+         WriteLine(Settings.AllSettings.First().ToTabularString(title: true));
+         foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
+            WriteLine(setting.ToTabularString());
+         }
+      }
+
       private void InterpretCommandHelp(string args) {
          if (args == "") {
-            WriteInfo("Capital letters denote the minimum abbreviation of the command.\n");
+            WriteInfo("Capital letters denote the minimum abbreviation of the command.");
             foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
-               WriteInfo(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
+               WriteLine(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
             }
-            WriteInfo("\nType 'help selector' to list the valid selectors");
+            WriteInfo("Type 'help selector' to list the valid selectors.");
+            WriteInfo("Type 'help setting' to list the valid settings.");
          } else if (args == "selector") {
             WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
             WriteInfo("Only the first letter of the selector must be capitalized.\n");
             foreach (Abbreviation<SelectorType> sel in Abbreviation<SelectorType>.FocusTypes) {
-               WriteInfo($"   {sel.NameWithAbbreviation}");
+               WriteLine($"   {sel.NameWithAbbreviation}");
+            }
+         } else if (args == "setting") {
+            foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
+               string[] desc = setting.Option.Description?.Split("\n") ?? [""];
+               WriteLine($"{setting.Name.PadRight(Settings.Instance.MaxNameLength)} : {desc[0]}");
+               foreach (string line in desc.Skip(1)) {
+                  WriteLine($"{new string(' ',Settings.Instance.MaxNameLength)}   {line}");
+               }
             }
          }
       }
