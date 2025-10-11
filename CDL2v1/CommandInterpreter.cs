@@ -325,8 +325,9 @@ namespace CDL2v1 {
                   // Modify settings so that the reset actually sets the new values
                   if (settings.Length == 0) {
                      // List the current settings
+                     WriteLine(Settings.AllSettings.First().ToTabularString(title:true));
                      foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
-                        WriteInfo(setting.ToString());
+                        WriteLine(setting.ToTabularString());
                      }
                   } else {
                      ResetSettings = false;

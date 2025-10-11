@@ -36,6 +36,7 @@
 using System.CommandLine;
 using System.ComponentModel;
 using System.IO;
+using System.Windows.Navigation;
 
 namespace CDL2v1 {
    public interface ISetting {
@@ -43,6 +44,8 @@ namespace CDL2v1 {
       int Index { get; set; }
       Type Type { get; set; }
       Option Option { get; set; }
+      string LongOption { get; }
+      string ToTabularString(bool title=false);
    }
 
    public class Setting<T> : ISetting {
@@ -81,6 +84,16 @@ namespace CDL2v1 {
       public string LongOption => Option.Aliases.OrderByDescending(s => s.Length).First();
       public override string ToString() =>
          $"{Name}: {LongOption} => {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
+      public string ToTabularString(bool title = false) {
+         if (title) {
+            string titleString = $"{"Name".PadRight(Settings.Instance.MaxNameLength)} {"Type",-8} {"Command Line Option".PadRight(Settings.Instance.MaxOptionLength)} Value";
+            return $"{titleString}\n{new string('-', titleString.Length)}";
+         } else {
+            string longOption = (LongOption.StartsWith("--NA") ? "" : LongOption).PadRight(Settings.Instance.MaxOptionLength);
+            string type = Type.Name switch { "Int32" => "int", /*"Severity" => "string",*/ _ => Type.Name.ToLower() };
+            return $"{Name.PadRight(Settings.Instance.MaxNameLength)} {type,-8} {longOption} => {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
+         }
+      }
    }
 
    public class Settings {
@@ -131,11 +144,14 @@ namespace CDL2v1 {
       private readonly Dictionary<string, ISetting> SettingsDict = [];
 
       public static readonly Settings Instance = new();
-
+      public int MaxNameLength = 0;
+      public int MaxOptionLength = 0;
       private Settings() {
          for (int i = 0 ; i < SettingsList.Count ; i++) {
             SettingsList[i].Index = i;
             SettingsDict[SettingsList[i].Name] = SettingsList[i];
+            MaxNameLength = Math.Max(MaxNameLength, SettingsList[i].Name.Length);
+            MaxOptionLength = Math.Max(MaxOptionLength, SettingsList[i].LongOption.Length);
          }
       }
 
