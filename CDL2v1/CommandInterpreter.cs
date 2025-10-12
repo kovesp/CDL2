@@ -199,7 +199,7 @@ namespace CDL2v1 {
          return result.ToString();
       }
       public record class ParsedSetting(string Name,SettingType Type,object? Value,object? currentValue) {
-         public readonly string Name = Name;
+         public readonly string Name = Name.ToLower();
          public readonly SettingType Type = Type;
          public readonly object? Value = Value;
          public object? PreviousValue = currentValue;
@@ -212,7 +212,14 @@ namespace CDL2v1 {
          };
       }
 
-      private ParsedSetting SplitSetting(string setting) {
+      /// <summary>
+      /// Parse a setting of the form -name[+|-] or -name[:|=]value.
+      /// Note that the leading - is removed and is optional for the set command.
+      /// This works becasue the call ensures that the - is present when required.
+      /// </summary>
+      /// <param name="setting"></param>
+      /// <returns></returns>
+      private ParsedSetting ParseSetting(string setting) {
          string[] parts = setting.TrimStart('-').Split([':','='],2);
          if (parts.Length > 1) {
             // A numeric or string setting.
@@ -261,8 +268,13 @@ namespace CDL2v1 {
          string[] commandParts = Regex.Split(input,@"\s+");
          verb = commandParts[0].ToLower();
          commandType = Abbreviation<CommandType>.Identify(verb.ToLower());
-         args = string.Join(' ',commandParts.Skip(1).Where(part => !part.StartsWith('-')));
-         settings = [.. commandParts.Skip(1).Where(part => part.StartsWith('-')).Select(SplitSetting)];
+         if (commandType == CommandType.set) {
+            args = "";
+            settings = [.. commandParts.Skip(1).Select(ParseSetting)];
+         } else {
+            args = string.Join(' ',commandParts.Skip(1).Where(part => !part.StartsWith('-')));
+            settings = [.. commandParts.Skip(1).Where(part => part.StartsWith('-')).Select(ParseSetting)];
+         }
       }
 
       /// <summary>

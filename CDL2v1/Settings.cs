@@ -161,7 +161,7 @@ namespace CDL2v1 {
       private Settings() {
          for (int i = 0 ; i < SettingsList.Count ; i++) {
             SettingsList[i].Index = i;
-            SettingsDict[SettingsList[i].Name] = SettingsList[i];
+            SettingsDict[SettingsList[i].Name] = SettingsDict[SettingsList[i].Name.ToLower()] = SettingsList[i];
             MaxNameLength = Math.Max(MaxNameLength, SettingsList[i].Name.Length);
             MaxOptionLength = Math.Max(MaxOptionLength, SettingsList[i].LongOption.Length);
          }

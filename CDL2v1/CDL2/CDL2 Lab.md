@@ -151,7 +151,9 @@ LOCal
 ### Settings Syntax
 
 ```
-setting : minus token, boolean setting or numeric setting or string setting.
+setting : minus token, actual setting.
+setting in set: minus token option, actual setting.
+actual setting : boolean setting ; numeric setting ; string setting.
 boolean setting : setting name, plus token or minus token option.
 numeric setting : setting name, value indicator, DIGIT token sequence.
 string setting  : setting name, value indicator, STRINGGLYPH sequence or string.
