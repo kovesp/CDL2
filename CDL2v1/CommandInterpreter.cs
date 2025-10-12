@@ -432,7 +432,16 @@ namespace CDL2v1 {
 
       private void InterpretCommandUndoRedo(string args,bool undo) {
          if (Settings.SettingValue<bool>("list")) {
-            WriteWarning("Undo/Redo with list option.");
+            BoundedStack<Database.UndoRecord> stack = undo ? Database.Instance.UndoStack : Database.Instance.RedoStack;
+            int n = 0;
+            foreach (Database.UndoRecord record in stack) {
+               CDL2Object? obj = record.CDL2Object;
+               if (obj is not null) {
+                  WriteLine($"{++n,3}: {obj}");
+               } else { 
+                  WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in Namedelements");
+               }
+            } 
          }
          //SettingValue<int>("VerbosityLevel") >= level
          //int count = 1;

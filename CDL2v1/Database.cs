@@ -132,21 +132,24 @@ namespace CDL2v1 {
       /// <li> The serialized element</li>"
       /// </ol>
       /// </summary>
-      private const int UndoStackDefaultSize = 1000;
+      private const int UndoStackDefaultSize = 100;
       [JsonInclude]
       [JsonPropertyOrder(3)]
       public BoundedStack<UndoRecord> UndoStack = new(UndoStackDefaultSize);
+      [JsonInclude]
+      [JsonPropertyOrder(4)]
+      public BoundedStack<UndoRecord> RedoStack = new(UndoStackDefaultSize);
       /// <summary>
       /// Contains the guids of all the programs in the syntax tree.
       /// </summary>
       [JsonInclude]
-      [JsonPropertyOrder(4)]
+      [JsonPropertyOrder(5)]
       public List<Guid> Programs = [];
       /// <summary>
       /// All the modules in the database.
       /// </summary>
       [JsonInclude]
-      [JsonPropertyOrder(5)]
+      [JsonPropertyOrder(6)]
       public List<Guid> Modules = [];
       /// <summary>
       /// When a note is added to an element, the element is also added here.
@@ -155,14 +158,14 @@ namespace CDL2v1 {
       /// analyzed elements are appropriately removed or added.
       /// </summary>
       [JsonInclude]
-      [JsonPropertyOrder(6)]
+      [JsonPropertyOrder(7)]
       public Set<Guid> ElementsWithNotes = [];
 
       /// <summary>
       /// Bookmarks are managed in the Focus class.
       /// </summary>
       [JsonInclude]
-      [JsonPropertyOrder(7)]
+      [JsonPropertyOrder(8)]
       public Dictionary<string,Focus> Bookmarks = [];
 
       public static void SetBookmark(string bookmarkName) {
@@ -253,57 +256,49 @@ namespace CDL2v1 {
       /// <returns></returns>
       public string DisplayName(string name) => CanonicalNames.TryGetValue(name.Replace(" ",""),out string? displayName) ? displayName : name;
 
-#if SERIALIZED_UNDO_RECORDS
-      public class UndoRecord<T> : SerializationBase where T : NamedElement {
-         [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
-         [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
-         [JsonInclude][JsonPropertyOrder(3)] public string RecordType { get; set; } = "";
-         [JsonInclude][JsonPropertyOrder(4)] public string SerializedElement { get; set; }
-
-         public UndoRecord(T element) {
-            RecordType = element.GetType().Name;
-
-            SerializedElement = Serializer.SerializeElement(element) ?? "";
-         }
-
-         [JsonConstructor]
-         public UndoRecord() => SerializedElement = "";
-      }
-#else // Not SERIALIZED_UNDO_RECORDS
       /// <summary>
       /// Contains the information required to resurect a removed object. Editing an object is
       /// treated as a remove followed by a create.
       /// Records a timestamp when the record was created, possibly a tag allowing a named reference to the record,
-      /// the object itself and flags indicating the interface declarations the object was conctained in.
+      /// the GUID of the object itself and flags indicating the interface declarations the object was contained in.
+      /// Note that the actual object remains in the NamedElements dictionary, it is just not referenced by any other object.
+      /// It is removed from the NamedElements dictionary when the undo record is pushed out of the BoundedStack.
       /// </summary>
       public class UndoRecord : IDisposable {
          [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
          [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
-         [JsonInclude][JsonPropertyOrder(3)] public CDL2Object? CDL2Object { get; set; } = null;
+         [JsonInclude][JsonPropertyOrder(3)] public Guid ObjectGuid { get; set; } = Guid.Empty;
          [JsonInclude][JsonPropertyOrder(4)] public InterfaceType InterfaceStatus { get; set; } = InterfaceType.None;
 
          public UndoRecord(CDL2Object element) {
-            CDL2Object = element;
+            ObjectGuid = element.GUID;
             InterfaceStatus = element.GetInterfaceStatus();
          }
 
+         public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
+
          [JsonConstructor]
-         public UndoRecord() => CDL2Object = null!;
+         public UndoRecord() => ObjectGuid = Guid.Empty;
          public void Dispose() {
-            if (CDL2Object is IDisposable disposable) {
-               disposable.Dispose();
-               GC.SuppressFinalize(this);
+            if (ObjectGuid == Guid.Empty) return;
+            Debug.Assert(Database.Instance.NamedElements.ContainsKey(ObjectGuid) && Database.Instance.NamedElements[ObjectGuid] is CDL2Object,"UndoRecord.Dispose: Object not in NamedElements or not CDL2Object");
+            if (Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj)) {
+               // Given how the UndoRecord is constructed, this should always be true and will be a CDL2Object. See the Debug.Assert above.
+               Database.Instance.NamedElements.Remove(ObjectGuid);
+               if (obj is IDisposable disposable) {
+                  disposable.Dispose();
+                  GC.SuppressFinalize(this);
+               }
             }
-            CDL2Object = null;
          }
       }
-#endif // SERIALIZED_UNDO_RECORDS
 
       /// <summary>
       /// Create an undo record for the given named element.
       /// </summary>
       /// <param name="element"></param>
       public void RecordUndo(CDL2Object element) => UndoStack.Push(new UndoRecord(element));
+
       /// <summary>
       /// Add a tag to the top undo record for the given named element.
       /// </summary>
