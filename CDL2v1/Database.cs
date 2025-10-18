@@ -269,16 +269,34 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
          [JsonInclude][JsonPropertyOrder(3)] public Guid ObjectGuid { get; set; } = Guid.Empty;
          [JsonInclude][JsonPropertyOrder(4)] public InterfaceType InterfaceStatus { get; set; } = InterfaceType.None;
+         [JsonInclude][JsonPropertyOrder(5)] public ChangeType ChangeType { get; set; }
 
-         public UndoRecord(CDL2Object element) {
+         // For rename operations
+         [JsonInclude][JsonPropertyOrder(6)] public string OriginalName { get; set; } = "";
+         [JsonInclude][JsonPropertyOrder(7)] public string NewName { get; set; } = "";
+
+         [JsonIgnore]public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
+
+         public UndoRecord(CDL2Object element, ChangeType changeType) {
             ObjectGuid = element.GUID;
             InterfaceStatus = element.GetInterfaceStatus();
+            ChangeType = changeType;
          }
 
-         public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
+         /// <summary>
+         /// Used when an object is renamed.
+         /// </summary>
+         /// <param name="element"></param>
+         /// <param name="originalName"></param>
+         /// <param name="newName"></param>
+         public UndoRecord(CDL2Object element,string originalName,string newName) : this (element,ChangeType.Renamed) {
+            OriginalName = originalName;
+            NewName = newName;
+         }
 
          [JsonConstructor]
-         public UndoRecord() => ObjectGuid = Guid.Empty;
+         public UndoRecord() { } 
+
          public void Dispose() {
             if (ObjectGuid == Guid.Empty) return;
             Debug.Assert(Database.Instance.NamedElements.ContainsKey(ObjectGuid) && Database.Instance.NamedElements[ObjectGuid] is CDL2Object,"UndoRecord.Dispose: Object not in NamedElements or not CDL2Object");
@@ -294,10 +312,17 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Create an undo record for the given named element.
+      /// Create an undo record for the given element. Used for Added, Removed, and Replaced change types.
       /// </summary>
       /// <param name="element"></param>
-      public void RecordUndo(CDL2Object element) => UndoStack.Push(new UndoRecord(element));
+      public void RecordUndo(CDL2Object element,ChangeType changeType) => UndoStack.Push(new UndoRecord(element,changeType));
+      /// <summary>
+      /// Create an undo record for a rename operation.
+      /// </summary>
+      /// <param name="element"></param>
+      /// <param name="originalName"></param>
+      /// <param name="newName"></param>
+      public void RecordUndo(CDL2Object element,string originalName,string newName) => UndoStack.Push(new UndoRecord(element,originalName,newName));
 
       /// <summary>
       /// Add a tag to the top undo record for the given named element.

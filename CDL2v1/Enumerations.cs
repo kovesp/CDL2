@@ -284,6 +284,16 @@ namespace CDL2v1 {
       String,
    }
 
+   /// <summary>
+   /// The type of change that occurred to an object. Recorded in the UndoRecord.
+   /// </summary>
+   public enum ChangeType {
+      Added,
+      Removed,
+      Replaced,
+      Renamed,
+   }
+
    public enum FocusMoveDirection { Forward, Backward, First, Last };
 
    /// <summary>

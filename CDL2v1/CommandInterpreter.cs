@@ -523,7 +523,7 @@ namespace CDL2v1 {
                   break;
                case CDL2Object obj:
                   Focus.MoveFocusFrom(obj);
-                  Database.Instance.RecordUndo(obj);
+                  Database.Instance.RecordUndo(obj, ChangeType.Removed);
                   obj.Section?.Declarations.Remove(obj.Id);
                   obj.Siblings.Remove(obj.GUID);
                   obj.ClearInterfaceStatus();
@@ -538,7 +538,10 @@ namespace CDL2v1 {
          return context;
       }
 
-      private void InterpretCommandAdd(string args,InsertLocation after) => throw new NotImplementedException();
+      private void InterpretCommandAdd(string args,InsertLocation after) {
+         // Database.Instance.RecordUndo(obj,ChangeType.Added);
+         throw new NotImplementedException();
+      }
       private void InterpretCommandRename(string args) => throw new NotImplementedException();
 
       private void InterpretCommandStatus() {
@@ -546,25 +549,9 @@ namespace CDL2v1 {
          Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
       }
 
-      private string[] InterpretCommandSet(string command) {
-         // Handle set command
-         string[] parts = command.Split(' ',3);
-         if (parts.Length < 3) {
-            WriteInfo("Usage: set <key> <value>");
-         } else {
-            string key = parts[1];
-            string value = parts[2];
-            // Set logic here
-            WriteLine($"Set {key} to {value}");
-         }
-
-         return parts;
-      }
-
       private void InterpretCommandPrint(string args) {
-         if (args == "") {
+         if (args.IsEmptyOrWhitespace()) {
             if (Focus.Current.Object is not null) {
-               //TODO: Ignore Focus sub object for now
                pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
             }
          } else {
@@ -582,9 +569,8 @@ namespace CDL2v1 {
       }
 
       private void InterpretCommandList(string args) {
-         if (args == "") {
+         if (args.IsEmptyOrWhitespace()) {
             if (Focus.Current.Object is not null) {
-               //TODO: Ignore Focus sub object for now
                WriteLine(Focus.Current.Object.FQDN());
             } else {
                WriteInfo($"Nothing");
