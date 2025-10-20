@@ -41,7 +41,8 @@ UNIT : program ; module ; layer ; section ;
 GUNIT : any ; container ; data ; face ; object.
 SUNIT : UNIT ; affix ; local ; call.
 single selector : unit type, name selector option.
-offset : plus token or minus token option, DIGIT sequence.
+number : DIGIT token sequence.
+offset : plus token or minus token option, number.
 name selector : ALPHA sequence option ; regex token, regular expression.
 selector : top token option, single selector sequence, ordinal option.
 ordinal : colon token, offset.
@@ -155,7 +156,7 @@ setting : minus token, actual setting.
 setting in set: minus token option, actual setting.
 actual setting : boolean setting ; numeric setting ; string setting.
 boolean setting : setting name, plus token or minus token option.
-numeric setting : setting name, value indicator, DIGIT token sequence.
+numeric setting : setting name, value indicator, number.
 string setting  : setting name, value indicator, STRINGGLYPH sequence or string.
 setting name : ALPHA token sequence.
 value indicator : colon token ; equals token.
@@ -273,7 +274,14 @@ If no settings are given, all current settings are listed. The following is a li
 
 | Setting Name | Type | Default | Description |
 |--------------|------|---------|-------------|
-| list          | bool | false  | Commands that support this option will list appropriate object instead of taking action. See the undo and redo commands.
+| list         | bool | false  | Commands that support this option will list appropriate object instead of taking action. See the undo and redo commands.
+| inv          | bool | false  | Apply the command to the INV list entry of the object.
+| ext          | bool | false  | Apply the command to the EXT list entry of the object.
+| abstr        | bool | false  | Apply the command to the ABSTR list entry of the object.
+| import       | bool | false  | Apply the command to the IMPORT list entry of the object.
+| export       | bool | false  | Apply the command to the EXPORT list entry of the object.
+| prompt       | bool | false  | For destructive commands, prompt before making changes.
+
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
 
@@ -300,6 +308,72 @@ If no settings are given, all current settings are listed. The following is a li
 
 #### Editing Commands
 
+##### Add
+```
+add command : add token, setting sequence option, selector option.
+```
+If one or more of the `inv`, `ext`, `abstr`, `import`, or `export` settings are given,
+then the selected object(s) is (are) added to the respective interface lists of the section.
+
+##### Insert
+
+##### Append
+
+##### Delete/Remove
+```
+delete command : delete token, setting sequence option, selector option.
+remove command : remove token, setting sequence option, selector option.
+```
+Deletes the objects selected by the selector (or the focused object if no selector is given)
+from the database. The deleted objects are placed on the undo stack, so they may be
+restored using the undo command.
+
+When an object is removed, its position among its siblings is **not** retained, see the
+`undo` command for details.
+
+If the object occurs in interface lists (i.e., it is an algorithm or constant) it is removed from
+these lists as well. However, the undo record will retain the information needed to restore
+the object to these lists by `undo`.
+
+If one or more of the `inv`, `ext`, `abstr`, `import`, or `export` settings are given,
+then the selected object(s) is (are) removed from the respective interface lists of the section.
+
+If the `list` setting is given, then no objects are removed, instead the objects that
+would be removed are listed.
+
+If the `prompt` setting is given, then the user is prompted to confirm the deletion
+of each object. If the user tries to delete a container (i.e., a module, layer,
+or section) that contains anything or a program, then the user is prompted unless `-prompt-` is given.
+
+
+##### Edit
+
+##### Replace
+
+##### Undo/Redo
+
+```
+undo command : undo token, setting sequence option, number option.
+redo command : redo token, setting sequence option, number option.
+```
+The undo command undoes the change(s) made to the database. The redo command redoes
+the change(s) that were undone. 
+If no number is given, then a single change is undone or redone.
+
+Relevant setting: `-list`. If given, no changes are made, instead the contents of the
+undo or redo stack is listed.
+
+Currently only the changes to CDL2 objects (i.e., algorithms, constants, variables, and lists)
+can be undone or redone. Note that 
+
+When an object is removed, its position among its siblings is **not** retained.
+Where it is restored by `undo` depends on the current focus.
+
+    * If the focus is on an object within the section of the object being restored, then
+      the object is placed after the focused object.
+    * Otherwise, the object is placed at the end of the section.
+
+
 #### Code Generation
 
 ####  General Commands
@@ -308,34 +382,90 @@ If no settings are given, all current settings are listed. The following is a li
 
 ```
 help command : help token, command name option.
+command name : valid command name ; selectors token ; settings token.
 ```
 
 Displays the list of commands, or the help for the given command.
+If `selectors` is given, then the list of valid selectors is displayed.
+If `settings` is given, then the list of valid settings is displayed.
 
-##### Quit
+##### Quit/Exit/Bye/Abort
 ```
 quit command : quit token.
+exit command : exit token.
+bye command : bye token.
+abort command : abort token.
 ```
 
-Exits the CDL2 Lab after saving the database.
+Exits the CDL2 Lab. `quit`, `exit` and `bye` are identical: the lab database is saved
+before exiting. The `abort` command exits without saving the database.
 
 ### Command names and abreviations
 
 Comands are always given in all lower case, but may be abbreviated. In the following list,
 the minimal apreviation is given in ***bold italic***.
 
+***abort***
 
-***f***ocus  
-***n***ext  
-***p***rev  
-***l***ist  
-***pr***int  
-***set***  
-***r***eplace  
-***a***ppend  
-***i***nsert  
-**e***dit  
-***u***ndo  
-***g***enerate  
-***quit***
+***a***pend
+
+***a***dd
+
+***bye***
+
+***c***onsult
+
+***del***ete
+
+***e***dit
+
+***exit***
+
+***f***ocus
+
+***g***enerate
+
 ***h***elp
+
+***i***nsert
+
+***last***
+
+***l***ist
+ 
+***n***ext 
+
+***p***revious
+
+***pr***int
+
+***re***do
+
+***rem***ove
+
+***ren***ame
+
+***r***eplace
+
+***quit***
+
+***s***ave
+
+***set***
+
+***stat***us
+
+***t***ype
+ 
+***set***
+
+***stat***us
+
+***t***ype
+  
+***u***ndo
+
+ 
+ 
+
+

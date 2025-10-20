@@ -56,6 +56,7 @@ namespace CDL2v1 {
       public T? Value { get; set; } = default;
       public Option Option { get; set; }
       public bool IsSaved { get; set; } = false; // Whether this setting should be saved to a file
+      public bool CommandOverride { get; set; } = false; // Whether this setting was specified from a lab command
 
       public Setting(string name, string optionName, T defaultValue, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "")
          : this(name, [optionName], defaultValue, description, arity, saved:saved,disjoint:disjoint) { }
@@ -145,6 +146,11 @@ namespace CDL2v1 {
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each
          new Setting<bool>(    "list",                NoOption,             false,         "Modify a command to list available objects. Used by Undo and redo."),
+         new Setting<bool>(    "inv",                 NoOption,             false,         "Modify the command to affect only the INV list entry of the object if any. Applies to delete and add."),
+         new Setting<bool>(    "ext",                 NoOption,             false,         "Modify the command to affect only the EXT list entry of the object if any. Applies to delete and add."),
+         new Setting<bool>(    "abstr",               NoOption,             false,         "Modify the command to affect only the ABSTR list entry of the object if any. Applies to delete and add."),
+         new Setting<bool>(    "import",              NoOption,             false,         "Modify the command to affect only the IMPORT list entry of the object if any. Applies to delete and add."),
+         new Setting<bool>(    "export",              NoOption,             false,         "Modify the command to affect only the EXPORT list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "DebugCommands",       NoOption,             false,         "Display the parsed command."),
       ];
 
@@ -182,13 +188,14 @@ namespace CDL2v1 {
 
       public static void SettingValue<T>(string name,T value) => Setting<T>(name)!.Value = value;
 
-      public static void SettingValue(string name,SettingType type,object? value) {
+      public static void SettingValue(string name,SettingType type,object? value,bool CommandOverride=false) {
          switch (type) {
             case SettingType.Boolean: SettingValue<bool>(name,value is null ? !SettingValue<bool>(name) : (bool)value); break;
             case SettingType.Integer: SettingValue<int>(name,(int)value!); break;
             case SettingType.String:  SettingValue<string>(name,(string)value!); break;
             default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");
          }
+         Setting<object>(name)!.CommandOverride = CommandOverride;
       }
 
       public static Setting<T>? Setting<T>(string name) {

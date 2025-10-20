@@ -292,6 +292,7 @@ namespace CDL2v1 {
       Removed,
       Replaced,
       Renamed,
+      InterfaceChanged,
    }
 
    public enum FocusMoveDirection { Forward, Backward, First, Last };

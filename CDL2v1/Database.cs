@@ -283,6 +283,7 @@ namespace CDL2v1 {
             ChangeType = changeType;
          }
 
+
          /// <summary>
          /// Used when an object is renamed.
          /// </summary>
@@ -292,6 +293,10 @@ namespace CDL2v1 {
          public UndoRecord(CDL2Object element,string originalName,string newName) : this (element,ChangeType.Renamed) {
             OriginalName = originalName;
             NewName = newName;
+         }
+
+         public UndoRecord(CDL2Object element,InterfaceType interfaceType) : this(element,ChangeType.InterfaceChanged) {
+            InterfaceStatus = interfaceType;
          }
 
          [JsonConstructor]
@@ -323,6 +328,16 @@ namespace CDL2v1 {
       /// <param name="originalName"></param>
       /// <param name="newName"></param>
       public void RecordUndo(CDL2Object element,string originalName,string newName) => UndoStack.Push(new UndoRecord(element,originalName,newName));
+      /// <summary>
+      /// Record an undo for an interface type change.
+      /// </summary>
+      /// <param name="element"></param>
+      /// <param name="intrfaceType"></param>
+      public void RecordUndo(CDL2Object element,InterfaceType intrfaceType) {
+         if (element.GetInterfaceStatus() != intrfaceType) {
+            UndoStack.Push(new UndoRecord(element,intrfaceType));
+         }
+      } 
 
       /// <summary>
       /// Add a tag to the top undo record for the given named element.

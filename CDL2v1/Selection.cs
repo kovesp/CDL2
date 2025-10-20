@@ -194,6 +194,8 @@ namespace CDL2v1 {
       /// Create a new empty selection.
       /// </summary>
       public Selection() : base() { }
+      public Selection(SingleSelection selection) : base() => Add(selection);
+
       private static readonly List<SelectorType> ImportableFocusType = [SelectorType.CONST,SelectorType.ALGORITHM,SelectorType.MACRO,SelectorType.PROCEDURE,SelectorType.FUNCTION,SelectorType.ACTION,SelectorType.TEST,SelectorType.PREDICATE];
       /// <summary>
       /// Create a new selection from a selection string.

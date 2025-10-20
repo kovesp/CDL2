@@ -296,7 +296,7 @@ namespace CDL2v1 {
                   SettingType.String => Settings.SettingValue<string>(setting.Name),
                   _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
                };
-               Settings.SettingValue(setting.Name,setting.Type,setting.Value);
+               Settings.SettingValue(setting.Name,setting.Type,setting.Value,CommandOverride:true);
             } else {
                WriteError($"Invalid setting: {setting.Name} ignored");
             }
@@ -347,10 +347,11 @@ namespace CDL2v1 {
                case CommandType.rename:
                   InterpretCommandRename(args); break;
                case CommandType.add:
+                  InterpretCommandAddAppendInsert(args,InsertLocation.After,add:true); break;
                case CommandType.append:
-                  InterpretCommandAdd(args,InsertLocation.After); break;
+                  InterpretCommandAddAppendInsert(args,InsertLocation.After); break;
                case CommandType.insert:
-                  InterpretCommandAdd(args,InsertLocation.Before); break;
+                  InterpretCommandAddAppendInsert(args,InsertLocation.Before); break;
                case CommandType.delete:
                case CommandType.remove:
                   InterpretCommandDelete(args); break;
@@ -394,7 +395,13 @@ namespace CDL2v1 {
             WriteError($"Exception in command: {ex.Message}");
          } finally {
             // Restore previous settings (unless it is a set command
-            if (ResetSettings) foreach (ParsedSetting setting in settings) if (Settings.IsValidSetting(setting.Name)) Settings.SettingValue(setting.Name,setting.Type,setting.PreviousValue!);  
+            if (ResetSettings) {
+               foreach (ParsedSetting setting in settings) {
+                  if (Settings.IsValidSetting(setting.Name)) {
+                     Settings.SettingValue(setting.Name,setting.Type,setting.PreviousValue!,CommandOverride: false);
+                  }
+               }
+            }
          }
       }
 
@@ -442,6 +449,10 @@ namespace CDL2v1 {
                   WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in Namedelements");
                }
             } 
+         } else if (undo) {
+
+         } else {
+
          }
          //SettingValue<int>("VerbosityLevel") >= level
          //int count = 1;
@@ -539,10 +550,43 @@ namespace CDL2v1 {
          return context;
       }
 
-      private void InterpretCommandAdd(string args,InsertLocation after) {
-         // Database.Instance.RecordUndo(obj,ChangeType.Added);
-         throw new NotImplementedException();
+      private void InterpretCommandAddAppendInsert(string args,InsertLocation after,bool add=false) {
+         Selection? context = GetMultiContext(args);
+         if (context is null || context.Count == 0) return;
+         //Database.Instance.RecordUndo(obj,ChangeType.Added);
+         if (add) {
+            InterfaceType interfaceType = InterfaceTypeFromSetting();
+            if (interfaceType != InterfaceType.None) {
+               foreach (SingleSelection sel in context) {
+                  if (sel.Object is CDL2Object obj) {
+                     Database.Instance.RecordUndo(obj,interfaceType);
+                     obj.SetInterfaceStatus(interfaceType);
+                  }
+               }
+               return;
+            }
+         }
+         // TODO: Perform the object add
+            
       }
+
+      private static readonly Dictionary<string,InterfaceType> interfaceTypeMap = new() {
+         ["abstr"]  = InterfaceType.Abstr,
+         ["ext"]    = InterfaceType.Ext,
+         ["inv"]    = InterfaceType.Inv,
+         ["export"] = InterfaceType.Export,
+         ["import"] = InterfaceType.Import,
+      };
+      private static InterfaceType InterfaceTypeFromSetting() {
+         InterfaceType interfaceType = InterfaceType.None;
+         foreach (string interfaceSetting in interfaceTypeMap.Keys) {
+            if (Settings.SettingValue<bool>(interfaceSetting)) {
+               interfaceType |= interfaceTypeMap[interfaceSetting];
+            }
+         }
+         return interfaceType;
+      }
+
       private void InterpretCommandRename(string args) => throw new NotImplementedException();
 
       private void InterpretCommandStatus() {
@@ -609,6 +653,19 @@ namespace CDL2v1 {
             }
          } else {
             return Focus.Current.Selection;
+         }
+      }
+      private Selection? GetMultiContext(string args) {
+         if (args != "") {
+            Selection selection = new(args);
+            if (selection.IsInvalid) {
+               WriteError(selection.ErrorMessage);
+               return null;
+            } else {
+               return selection;
+            }
+         } else {
+            return new Selection(Focus.Current.Selection);
          }
       }
    }
