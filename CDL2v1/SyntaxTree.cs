@@ -902,7 +902,7 @@ namespace CDL2v1 {
       public static bool operator !=(CDL2Object? left,CDL2Object? right) => !(left == right);
 
       /// <summary>
-      /// Remove references to this object the parent section, and from siblings.
+      /// Remove references to this object from the parent section, and from siblings.
       /// The object itself is added to the undo stack so it can be revived later.
       /// For this reason, the subcomponents (groups, calls, lastCalls, affixes, locals) of the object are not removed.
       /// If the replacement object is given then its GUID is swapped with this objects GUID. In effect the replacement
@@ -913,8 +913,8 @@ namespace CDL2v1 {
       /// Not removing the subcomponents works because subcomponents are never reused, i.e., only this object
       /// references their GUID.
       /// </remarks>
-      public void RemoveOrReplace(CDL2Object? replacement = null) {
-         Database.Instance.RecordUndo(this);
+      public void RemoveOrReplace(CDL2Object? replacement,ChangeType changeType) {
+         Database.Instance.RecordUndo(this,changeType);
          Database.Instance.ElementsWithNotes.Remove(GUID);
          if (replacement is not null) {
             // Replace the GUID of this object with the GUID of the replacement object.
@@ -923,10 +923,11 @@ namespace CDL2v1 {
          } else {
             Section?.Declarations.Remove(Id);
             Siblings.Remove(GUID);
+            ClearInterfaceStatus();
          }
       }
-      public void Remove() => RemoveOrReplace();
-      public void Replace(CDL2Object replacement) => RemoveOrReplace(replacement);
+      public void Remove() => RemoveOrReplace(null,ChangeType.Removed);
+      public void Replace(CDL2Object replacement) => RemoveOrReplace(replacement,ChangeType.Replaced);
    }
 
    /// <summary>

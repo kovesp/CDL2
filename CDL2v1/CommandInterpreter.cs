@@ -437,7 +437,7 @@ namespace CDL2v1 {
             foreach (Database.UndoRecord record in stack) {
                CDL2Object? obj = record.CDL2Object;
                if (obj is not null) {
-                  WriteLine($"{++n,3}: {obj}");
+                  WriteLine($"{++n,3}: {record.ChangeType,8} {obj}");
                } else { 
                   WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in Namedelements");
                }
@@ -523,10 +523,11 @@ namespace CDL2v1 {
                   break;
                case CDL2Object obj:
                   Focus.MoveFocusFrom(obj);
-                  Database.Instance.RecordUndo(obj, ChangeType.Removed);
-                  obj.Section?.Declarations.Remove(obj.Id);
-                  obj.Siblings.Remove(obj.GUID);
-                  obj.ClearInterfaceStatus();
+                  obj.Remove();
+                  //Database.Instance.RecordUndo(obj, ChangeType.Removed);
+                  //obj.Section?.Declarations.Remove(obj.Id);
+                  //obj.Siblings.Remove(obj.GUID);
+                  // obj.ClearInterfaceStatus();
                   // WriteInfo($"{obj.FQDN()} removed");
                   break;
                default:
