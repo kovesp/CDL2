@@ -652,12 +652,12 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(43)] public SortedSet<ID> export = [];
       [JsonInclude][JsonPropertyOrder(44)] public SortedSet<ID> import = [];
 
-      public Dictionary<InterfaceType,SortedSet<ID>> Interfaces => new() {
-         { InterfaceType.Ext,ext },
-         { InterfaceType.Abstr,abstr },
-         { InterfaceType.Inv,inv },
-         { InterfaceType.Export,export },
-         { InterfaceType.Import,import }
+      public Dictionary<InterfaceTypes,SortedSet<ID>> Interfaces => new() {
+         { InterfaceTypes.Ext,ext },
+         { InterfaceTypes.Abstr,abstr },
+         { InterfaceTypes.Inv,inv },
+         { InterfaceTypes.Export,export },
+         { InterfaceTypes.Import,import }
       };
 
       /// <summary>
@@ -854,38 +854,54 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="type"></param>
       /// <returns></returns>
-      public bool HasInterface(InterfaceType type) => Section!.Interfaces[type].Contains(Id);
+      public bool HasInterfaces(InterfaceTypes type) => Section!.Interfaces[type].Contains(Id);
       /// <summary>
       /// Get the interface status of this object as a bitwise combination of InterfaceType values.
       /// </summary>
       /// <returns></returns>
-      public InterfaceType GetInterfaceStatus() {
-         InterfaceType status = InterfaceType.None;
-         foreach (InterfaceType type in Enum.GetValues(typeof(InterfaceType))) {
-            if (type != InterfaceType.None && HasInterface(type)) status |= type;
+      public InterfaceTypes GetInterfaces() {
+         InterfaceTypes status = InterfaceTypes.None;
+         foreach (InterfaceTypes type in Enum.GetValues(typeof(InterfaceTypes))) {
+            if (type != InterfaceTypes.None && HasInterfaces(type)) status |= type;
          }
          return status;
       }
       /// <summary>
-      /// Sets the interface status of this object by adding the object to the appropriate interface sets in the parent section.
+      /// Adds the type of interfaces for this object given by status. Other interface types are not affected.
       /// </summary>
       /// <param name="status"></param>
-      public void SetInterfaceStatus(InterfaceType status) {
-         foreach (InterfaceType type in Enum.GetValues(typeof(InterfaceType))) {
-            if (type != InterfaceType.None && (status & type) == type) Section!.Interfaces[type].Add(Id);
+      public void AddInterfaces(InterfaceTypes status) {
+         foreach (InterfaceTypes type in Enum.GetValues(typeof(InterfaceTypes))) {
+            if (type != InterfaceTypes.None && (status & type) == type) Section!.Interfaces[type].Add(Id);
          }
       }
+      /// <summary>
+      /// Set the interface of this object to the given type(s). Other interface types are cleared.
+      /// </summary>
+      /// <param name="status"></param>
+      public void SetInterfaces(InterfaceTypes status) {
+         foreach (InterfaceTypes type in Enum.GetValues(typeof(InterfaceTypes))) {
+            if (type != InterfaceTypes.None) {
+               if ((status & type) == type) {
+                  Section!.Interfaces[type].Add(Id);
+               } else {
+                  Section!.Interfaces[type].Remove(Id);
+               }
+            }
+         }
+      }
+
       /// <summary>
       /// Clears the interface status of this object of the given type(s).
       /// The default is to clear all interfaces
       /// </summary>
       /// <param name="status"></param>
-      public void ClearInterfaceStatus(InterfaceType status=InterfaceType.None) {
-         if (status == InterfaceType.None) { // Clear all
+      public void ClearInterfaces(InterfaceTypes status=InterfaceTypes.None) {
+         if (status == InterfaceTypes.None) { // Clear all
             foreach (SortedSet<ID> intf in Section!.Interfaces.Values) intf.Remove(Id);
          } else { // Clear the ones that are set
-            foreach (InterfaceType type in Enum.GetValues(typeof(InterfaceType))) {
-               if (type != InterfaceType.None && (status & type) == type) Section!.Interfaces[type].Remove(Id);
+            foreach (InterfaceTypes type in Enum.GetValues(typeof(InterfaceTypes))) {
+               if (type != InterfaceTypes.None && (status & type) == type) Section!.Interfaces[type].Remove(Id);
             }
          }
       }
@@ -914,16 +930,20 @@ namespace CDL2v1 {
       /// references their GUID.
       /// </remarks>
       public void RemoveOrReplace(CDL2Object? replacement,ChangeType changeType) {
-         Database.Instance.RecordUndo(this,changeType);
          Database.Instance.ElementsWithNotes.Remove(GUID);
          if (replacement is not null) {
-            // Replace the GUID of this object with the GUID of the replacement object.
+            // Swap the GUID of this object with the GUID of the replacement object. Also swap them in NamedElements.
             (GUID,replacement.GUID) = (replacement.GUID,GUID);
+            Database.Instance.NamedElements[GUID] = this;
+            Database.Instance.NamedElements[replacement.GUID] = replacement;
+
             if (replacement.Notes is not null && replacement.Notes.Count > 0) Database.Instance.ElementsWithNotes.Add(replacement.GUID);
-         } else {
+            Database.Instance.RecordUndo(this,replacement.GUID);
+         } else { // No replacement, just remove.
             Section?.Declarations.Remove(Id);
             Siblings.Remove(GUID);
-            ClearInterfaceStatus();
+            ClearInterfaces();
+            Database.Instance.RecordUndo(this, ChangeType.Removed);
          }
       }
       public void Remove() => RemoveOrReplace(null,ChangeType.Removed);

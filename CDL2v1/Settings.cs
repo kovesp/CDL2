@@ -46,6 +46,7 @@ namespace CDL2v1 {
       Type Type { get; set; }
       Option Option { get; set; }
       string LongOption { get; }
+      bool CommandOverride { get; set; }
       string ToTabularString(bool title=false);
    }
 
@@ -195,7 +196,7 @@ namespace CDL2v1 {
             case SettingType.String:  SettingValue<string>(name,(string)value!); break;
             default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");
          }
-         Setting<object>(name)!.CommandOverride = CommandOverride;
+         SetCommandOverride(name,CommandOverride);
       }
 
       public static Setting<T>? Setting<T>(string name) {
@@ -203,6 +204,14 @@ namespace CDL2v1 {
             return typedSetting;
          }
          throw new KeyNotFoundException($"Setting with name '{name}' not found or of incorrect type.");
+      }
+
+      public static void SetCommandOverride(string name,bool commandOverride) {
+         if (Instance.SettingsDict.TryGetValue(name,out ISetting? setting)) {
+            setting.CommandOverride = commandOverride;
+         } else {
+            throw new KeyNotFoundException($"Setting with name '{name}' not found.");
+         }
       }
       public static bool IsValidSetting(string name) => Instance.SettingsDict.ContainsKey(name);
       public static bool TryGetSettingValue(string name, out string value) {

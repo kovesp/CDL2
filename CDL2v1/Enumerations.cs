@@ -344,7 +344,7 @@ namespace CDL2v1 {
    }
 
    [Flags]
-   public enum InterfaceType {
+   public enum InterfaceTypes {
       None   = 0, 
       Abstr  = 1,
       Ext    = 2,

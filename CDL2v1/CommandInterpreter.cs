@@ -36,6 +36,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -438,44 +439,57 @@ namespace CDL2v1 {
       }
 
       private void InterpretCommandUndoRedo(string args,bool undo) {
+         BoundedStack<Database.UndoRecord> stack = undo ? Database.Instance.UndoStack : Database.Instance.RedoStack;
+         BoundedStack<Database.UndoRecord> otherStack = undo ? Database.Instance.RedoStack : Database.Instance.UndoStack;
          if (Settings.SettingValue<bool>("list")) {
-            BoundedStack<Database.UndoRecord> stack = undo ? Database.Instance.UndoStack : Database.Instance.RedoStack;
             int n = 0;
             foreach (Database.UndoRecord record in stack) {
                CDL2Object? obj = record.CDL2Object;
                if (obj is not null) {
                   WriteLine($"{++n,3}: {record.ChangeType,8} {obj}");
-               } else { 
+               } else {
                   WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in Namedelements");
                }
-            } 
-         } else if (undo) {
-
+            }
          } else {
-
+            int count = 1;
+            if (int.TryParse(args,out int c)) count = c;
+            count = Math.Max(stack.Count,count);
+            for (int i = 0 ; i < count ; i++) {
+               SingleUndoRedo(stack,otherStack);
+            }
          }
-         //SettingValue<int>("VerbosityLevel") >= level
-         //int count = 1;
-         //if (args != "") {
-         //   if (!int.TryParse(args,out count) || count < 1) {
-         //      WriteError("Invalid argument for undo/redo command.");
-         //      return;
-         //   }
-         //}
-         //if (undo) {
-         //   if (Database.Undo(count,out int actual)) {
-         //      WriteInfo($"Undid {actual} step{(actual == 1 ? "" : "s")}");
-         //   } else {
-         //      WriteWarning("Nothing to undo.");
-         //   }
-         //} else {
-         //   if (Database.Redo(count,out int actual)) {
-         //      WriteInfo($"Redid {actual} step{(actual == 1 ? "" : "s")}");
-         //   } else {
-         //      WriteWarning("Nothing to redo.");
-         //   }
-         //}
       }
+
+      /// <summary>
+      /// Perform a single undo or redo operation.
+      /// The idea is that the operations are symetric, so which one is done depends on which stack is undo or redo and which is the other stack.
+      /// </summary>
+      /// <param name="stack">undo stack for undo, redo stack for redo</param>
+      /// <param name="otherStack">redo stack for undo, undo stack for redo</param>
+      /// <exception cref="NotImplementedException"></exception>
+      private static void SingleUndoRedo(BoundedStack<Database.UndoRecord> stack,BoundedStack<Database.UndoRecord> otherStack) {
+         Database.UndoRecord record = stack.Pop();
+         switch (record.ChangeType) {
+            case ChangeType.Added:
+               break;
+            case ChangeType.Removed:
+               break;
+            case ChangeType.InterfaceChanged:
+               InterfaceTypes currentInterfaceType = record.CDL2Object!.GetInterfaces();
+               record.CDL2Object!.SetInterfaces(record.InterfaceStatus);
+               record.InterfaceStatus = currentInterfaceType; // Swap the interface status for the symetric operation  
+               break;
+            case ChangeType.Replaced: 
+               break;
+            case ChangeType.Renamed: 
+               break;
+            default:
+               throw new NotImplementedException($"Undo of change type {record.ChangeType} not implemented.");
+         }
+         otherStack.Push(record);
+      }
+
 
       private void InterpretCommandReplace(string args) => throw new NotImplementedException();
 
@@ -503,51 +517,56 @@ namespace CDL2v1 {
          // Nothing else. When editing is done the command window will call EnterCode with the edited text.
       }
 
-      private SingleSelection? InterpretCommandDelete(string args) {
+      private void InterpretCommandDelete(string args) {
          // Remove the NamedElement from NamedElements.
          // If it is a program or a module, remove it from the appropriate database list
          // If it is a Module, Layer or a Section, remove it from its container, and also remove all children.
          // If it is a Section, then remove all declarations and remove the synthetic procedures generated for ludes.
+         //
          // In each case, update the ABSTR and EXT lists of the containing LAYER and the EXPORTS and IMPORTS of the containing module.
          // Rerun Semantic analysis to update the database.
-         SingleSelection? context = GetContext(args);
-         if (context is not null) {
-            switch (context.Object) {
-               case Program p:
-                  Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
-                  Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
-                  Database.Instance.NamedElements.Remove(p.GUID);
-                  Database.Instance.ElementsWithNotes.Remove(p.GUID);
-                  // The above is what needs to be done for a single element. It then needs to be repeated for all children.
-                  // ... Program doesn't have any, since Parts are not exactly children.
-                  // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
-                  WriteInfo($"{p.FQDN()} removed");
-                  break;
-               case Module m:
-                  WriteInfo("Not implemented.");
-                  break;
-               case Layer l:
-                  WriteInfo("Not implemented.");
-                  break;
-               case Section s:
-                  WriteInfo("Not implemented.");
-                  break;
-               case CDL2Object obj:
-                  Focus.MoveFocusFrom(obj);
-                  obj.Remove();
-                  //Database.Instance.RecordUndo(obj, ChangeType.Removed);
-                  //obj.Section?.Declarations.Remove(obj.Id);
-                  //obj.Siblings.Remove(obj.GUID);
-                  // obj.ClearInterfaceStatus();
-                  // WriteInfo($"{obj.FQDN()} removed");
-                  break;
-               default:
-                  WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
-                  break;
+         Selection? multiContext = GetMultiContext(args);
+         if (multiContext is not null && multiContext.IsValid) {
+            foreach (SingleSelection context in multiContext) {
+               switch (context.Object) {
+                  case Program p:
+                     Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
+                     Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
+                     Database.Instance.NamedElements.Remove(p.GUID);
+                     Database.Instance.ElementsWithNotes.Remove(p.GUID);
+                     // The above is what needs to be done for a single element. It then needs to be repeated for all children.
+                     // ... Program doesn't have any, since Parts are not exactly children.
+                     // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
+                     WriteInfo($"{p.FQDN()} removed");
+                     break;
+                  case Module m:
+                     WriteInfo("Not implemented.");
+                     break;
+                  case Layer l:
+                     WriteInfo("Not implemented.");
+                     break;
+                  case Section s:
+                     WriteInfo("Not implemented.");
+                     break;
+                  case CDL2Object obj:
+                     InterfaceTypes interfaceTypes = InterfaceTypeFromSetting();
+                     if (interfaceTypes != InterfaceTypes.None) { // Interface removal(s) were requested
+                        InterfaceTypes currentInterfaceTypes = obj.GetInterfaces();
+                        if (currentInterfaceTypes != interfaceTypes) {
+                           Database.Instance.RecordUndo(obj,ChangeType.InterfaceChanged);
+                           obj.ClearInterfaces(interfaceTypes);
+                        }
+                     } else {
+                        Focus.MoveFocusFrom(obj);
+                        obj.Remove();
+                     }
+                     break;
+                  default:
+                     WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
+                     break;
+               }
             }
          }
-
-         return context;
       }
 
       private void InterpretCommandAddAppendInsert(string args,InsertLocation after,bool add=false) {
@@ -555,12 +574,15 @@ namespace CDL2v1 {
          if (context is null || context.Count == 0) return;
          //Database.Instance.RecordUndo(obj,ChangeType.Added);
          if (add) {
-            InterfaceType interfaceType = InterfaceTypeFromSetting();
-            if (interfaceType != InterfaceType.None) {
+            InterfaceTypes interfaceTypes = InterfaceTypeFromSetting();
+            if (interfaceTypes != InterfaceTypes.None) {
                foreach (SingleSelection sel in context) {
                   if (sel.Object is CDL2Object obj) {
-                     Database.Instance.RecordUndo(obj,interfaceType);
-                     obj.SetInterfaceStatus(interfaceType);
+                     InterfaceTypes currentInterfaceTypes = obj.GetInterfaces();
+                     if (currentInterfaceTypes != interfaceTypes) {
+                        Database.Instance.RecordUndo(obj,ChangeType.InterfaceChanged);
+                        obj.AddInterfaces(interfaceTypes);
+                     }
                   }
                }
                return;
@@ -570,15 +592,15 @@ namespace CDL2v1 {
             
       }
 
-      private static readonly Dictionary<string,InterfaceType> interfaceTypeMap = new() {
-         ["abstr"]  = InterfaceType.Abstr,
-         ["ext"]    = InterfaceType.Ext,
-         ["inv"]    = InterfaceType.Inv,
-         ["export"] = InterfaceType.Export,
-         ["import"] = InterfaceType.Import,
+      private static readonly Dictionary<string,InterfaceTypes> interfaceTypeMap = new() {
+         ["abstr"]  = InterfaceTypes.Abstr,
+         ["ext"]    = InterfaceTypes.Ext,
+         ["inv"]    = InterfaceTypes.Inv,
+         ["export"] = InterfaceTypes.Export,
+         ["import"] = InterfaceTypes.Import,
       };
-      private static InterfaceType InterfaceTypeFromSetting() {
-         InterfaceType interfaceType = InterfaceType.None;
+      private static InterfaceTypes InterfaceTypeFromSetting() {
+         InterfaceTypes interfaceType = InterfaceTypes.None;
          foreach (string interfaceSetting in interfaceTypeMap.Keys) {
             if (Settings.SettingValue<bool>(interfaceSetting)) {
                interfaceType |= interfaceTypeMap[interfaceSetting];
@@ -616,7 +638,7 @@ namespace CDL2v1 {
       private void InterpretCommandList(string args) {
          if (args.IsEmptyOrWhitespace()) {
             if (Focus.Current.Object is not null) {
-               WriteLine(Focus.Current.Object.FQDN());
+               WriteWithInterface(Focus.Current.Object);
             } else {
                WriteInfo($"Nothing");
             }
@@ -628,9 +650,18 @@ namespace CDL2v1 {
                WriteError(selection.ErrorMessage);
             } else {
                foreach (SingleSelection sel in selection) {
-                  WriteLine(sel.Object!.FQDN());
+                  WriteWithInterface(sel.Object!);
                }
             }
+         }
+
+         void WriteWithInterface(NamedElement elem) {
+            string suffix = "";
+            if (elem is CDL2Object obj) {
+               InterfaceTypes interfaceTypes = obj.GetInterfaces();
+               if (interfaceTypes != InterfaceTypes.None) suffix = $" [{interfaceTypes}]";
+            }
+            WriteLine(elem!.FQDN() + suffix);
          }
       }
 

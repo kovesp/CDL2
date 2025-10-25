@@ -268,18 +268,19 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
          [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
          [JsonInclude][JsonPropertyOrder(3)] public Guid ObjectGuid { get; set; } = Guid.Empty;
-         [JsonInclude][JsonPropertyOrder(4)] public InterfaceType InterfaceStatus { get; set; } = InterfaceType.None;
+         [JsonInclude][JsonPropertyOrder(4)] public InterfaceTypes InterfaceStatus { get; set; } = InterfaceTypes.None;
          [JsonInclude][JsonPropertyOrder(5)] public ChangeType ChangeType { get; set; }
 
          // For rename operations
          [JsonInclude][JsonPropertyOrder(6)] public string OriginalName { get; set; } = "";
          [JsonInclude][JsonPropertyOrder(7)] public string NewName { get; set; } = "";
+         [JsonInclude][JsonPropertyOrder(8)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
 
          [JsonIgnore]public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
 
          public UndoRecord(CDL2Object element, ChangeType changeType) {
             ObjectGuid = element.GUID;
-            InterfaceStatus = element.GetInterfaceStatus();
+            InterfaceStatus = element.GetInterfaces();
             ChangeType = changeType;
          }
 
@@ -295,7 +296,7 @@ namespace CDL2v1 {
             NewName = newName;
          }
 
-         public UndoRecord(CDL2Object element,InterfaceType interfaceType) : this(element,ChangeType.InterfaceChanged) {
+         public UndoRecord(CDL2Object element,InterfaceTypes interfaceType) : this(element,ChangeType.InterfaceChanged) {
             InterfaceStatus = interfaceType;
          }
 
@@ -317,7 +318,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Create an undo record for the given element. Used for Added, Removed, and Replaced change types.
+      /// Create an undo record for the given element. Used for InterfaceChanged, Added, and Removed change types.
       /// </summary>
       /// <param name="element"></param>
       public void RecordUndo(CDL2Object element,ChangeType changeType) => UndoStack.Push(new UndoRecord(element,changeType));
@@ -328,16 +329,15 @@ namespace CDL2v1 {
       /// <param name="originalName"></param>
       /// <param name="newName"></param>
       public void RecordUndo(CDL2Object element,string originalName,string newName) => UndoStack.Push(new UndoRecord(element,originalName,newName));
+
       /// <summary>
-      /// Record an undo for an interface type change.
+      /// Records an undo operation for the specified element, indicating it has been replaced.
       /// </summary>
-      /// <param name="element"></param>
-      /// <param name="intrfaceType"></param>
-      public void RecordUndo(CDL2Object element,InterfaceType intrfaceType) {
-         if (element.GetInterfaceStatus() != intrfaceType) {
-            UndoStack.Push(new UndoRecord(element,intrfaceType));
-         }
-      } 
+      /// <remarks>This method pushes an undo record onto the undo stack, allowing the operation to be
+      /// reversed if needed.</remarks>
+      /// <param name="element">The object for which the undo operation is being recorded. Cannot be null.</param>
+      /// <param name="replacementGuid">The unique identifier of the replacement element. This is the now live guid.</param>
+      public void RecordUndo(CDL2Object element,Guid replacementGuid) => UndoStack.Push(new UndoRecord(element,ChangeType.Replaced) { ReplacementGuid = replacementGuid });
 
       /// <summary>
       /// Add a tag to the top undo record for the given named element.
