@@ -82,10 +82,11 @@ namespace CDL2v1 {
             if (element is null) {
                commandWindow.SetStatus("Nothing");
             } else {
-               commandWindow.SetStatus(element.FQDN());
+               commandWindow.SetStatus(element.FQDN(WithInterface:true));
             }
          }
       }
+      public void SetStatus() => SetStatus(Focus.Current.Object);
 
       /// <summary>
       /// Uses the Windows message box for now
@@ -461,7 +462,7 @@ namespace CDL2v1 {
             int index = int.TryParse(args,out int i) ? i : 0;
             string tag = Settings.SettingValue<string>("settag")!;
             if (tag != "") {
-               stack[index]?.Tag = tag;
+               stack[index]?.Tag = tag == "-" ? "" : tag;
             } else {
                tag = Settings.SettingValue<string>("tag")!;
                // Move the requested record to the top of the stack
@@ -472,6 +473,7 @@ namespace CDL2v1 {
                }
                SingleUndoRedo(stack,otherStack);
             }
+            SetStatus();
          }
       }
 
@@ -580,6 +582,7 @@ namespace CDL2v1 {
                      break;
                }
             }
+            SetStatus();
          }
       }
 
@@ -599,6 +602,7 @@ namespace CDL2v1 {
                      }
                   }
                }
+               SetStatus();
                return;
             }
          }
@@ -669,14 +673,11 @@ namespace CDL2v1 {
             }
          }
 
-         void WriteWithInterface(NamedElement elem) {
-            string suffix = "";
-            if (elem is CDL2Object obj) {
-               InterfaceTypes interfaceTypes = obj.GetInterfaces();
-               if (interfaceTypes != InterfaceTypes.None) suffix = $" [{interfaceTypes}]";
-            }
-            WriteLine(elem!.FQDN() + suffix);
-         }
+         /// <summary>
+         /// Writes the fully qualified name (FQDN) of the given element, including its interface types if specified.
+         /// </summary>
+         /// <param name="elem">The named element to write.</param>
+         void WriteWithInterface(NamedElement elem) => WriteLine(elem.FQDN(WithInterface:true));
       }
 
       /// <summary>

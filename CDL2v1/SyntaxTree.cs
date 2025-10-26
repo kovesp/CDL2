@@ -411,7 +411,7 @@ namespace CDL2v1 {
       /// Element display name, i.e. MOD mod LAY lay SEC sec declared.
       /// </summary>
       /// <returns></returns>
-      public string FQDN() => $"{AncestorContainer<Module>().WithSpace()}{AncestorContainer<Layer>().WithSpace()}{AncestorContainer<Section>().WithSpace()}{ToString()}";
+      public virtual string FQDN(bool WithInterface=false) => $"{AncestorContainer<Module>().WithSpace()}{AncestorContainer<Layer>().WithSpace()}{AncestorContainer<Section>().WithSpace()}{ToString()}";
 
       public static T? From<T>(Guid guid) where T : NamedElement => Database.Instance.NamedElements.TryGetValue(guid,out NamedElement? element) && element is T typedElement ? typedElement : null;
       public static bool From<T>(Guid guid,out T? element) where T : NamedElement => (element = NamedElement.From<T>(guid)) is not null;
@@ -846,6 +846,12 @@ namespace CDL2v1 {
 
       [JsonIgnore]
       public SyntacticElement SE { get; protected set; }
+
+      public override string FQDN(bool WithInterface = false) {
+         InterfaceTypes interfaceTypes = GetInterfaces();
+         string interfacePart = WithInterface && interfaceTypes != InterfaceTypes.None ? $" [{GetInterfaces()}] " : "";
+         return $"{base.FQDN()}{interfacePart}";
+      }
 
       public override List<Guid> Siblings => Section?.Children ?? [];
 

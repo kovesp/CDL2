@@ -272,15 +272,17 @@ If no settings are given, all current settings are listed. The following is a li
 
 ##### Command Settings
 
-| Setting Name | Type | Default | Description |
-|--------------|------|---------|-------------|
-| list         | bool | false  | Commands that support this option will list appropriate object instead of taking action. See the undo and redo commands.
-| inv          | bool | false  | Apply the command to the INV list entry of the object.
-| ext          | bool | false  | Apply the command to the EXT list entry of the object.
-| abstr        | bool | false  | Apply the command to the ABSTR list entry of the object.
-| import       | bool | false  | Apply the command to the IMPORT list entry of the object.
-| export       | bool | false  | Apply the command to the EXPORT list entry of the object.
-| prompt       | bool | false  | For destructive commands, prompt before making changes.
+| Setting Name | Type   | Default | Description |
+|--------------|--------|---------|-------------|
+| list         | bool   | false  | Commands that support this option will list appropriate object instead of taking action. See the undo and redo commands.
+| inv          | bool   | false  | Apply the command to the INV list entry of the object.
+| ext          | bool   | false  | Apply the command to the EXT list entry of the object.
+| abstr        | bool   | false  | Apply the command to the ABSTR list entry of the object.
+| import       | bool   | false  | Apply the command to the IMPORT list entry of the object.
+| export       | bool   | false  | Apply the command to the EXPORT list entry of the object.
+| prompt       | bool   | false  | For destructive commands, prompt before making changes.
+| settag       | string |        | Sets a tag on an undo or redo entry.
+| tag          | string |        | Selects the undo or redo entry with the given tag.
 
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
@@ -360,8 +362,11 @@ The undo command undoes the change(s) made to the database. The redo command red
 the change(s) that were undone. 
 If no number is given, then a single change is undone or redone.
 
-Relevant setting: `-list`. If given, no changes are made, instead the contents of the
-undo or redo stack is listed.
+Relevant settings:
+
+   * `-list`. If given, no changes are made, instead the contents of the undo or redo stack is listed.
+   * `-settag:tag`. The selected undo or redo entry has its tag set. If the tag is `-' then the tag is cleared.
+   * `-tag:tag`. The undo/redo entry with the given tag is selecte and performed. 
 
 Currently only the changes to CDL2 objects (i.e., algorithms, constants, variables, and lists)
 can be undone or redone. Note that 
