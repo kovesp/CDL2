@@ -339,31 +339,31 @@ namespace CDL2v1 {
       /// <param name="replacementGuid">The unique identifier of the replacement element. This is the now live guid.</param>
       public void RecordUndo(CDL2Object element,Guid replacementGuid) => UndoStack.Push(new UndoRecord(element,ChangeType.Replaced) { ReplacementGuid = replacementGuid });
 
-      /// <summary>
-      /// Add a tag to the top undo record for the given named element.
-      /// </summary>
-      /// <param name="guid"></param>
-      /// <param name="tag"></param>
-      /// <returns></returns>
-      public bool TagUndoRecord(Guid guid,string tag) {
-         UndoRecord? record = UndoStack.FirstOrDefault(ur => ur.CDL2Object?.GUID == guid);
-         if (record != null) {
-            record.Tag = tag;
-            return true;
-         }
-         return false;
-      }
-      public bool TagUndoRecord(CDL2Object element,string tag) => TagUndoRecord(element.GUID,tag);
-      public bool TryGetUndo(string tag,out CDL2Object? element) {
-         UndoRecord? record = UndoStack.FirstOrDefault(ur => ur.Tag == tag);
-         if (record != null) {
-            element = record.CDL2Object!;
-            return true;
-         } else {
-            element = null;
-            return false;
-         }
-      }
+      ///// <summary>
+      ///// Add a tag to the top undo record for the given named element.
+      ///// </summary>
+      ///// <param name="guid"></param>
+      ///// <param name="tag"></param>
+      ///// <returns></returns>
+      //public bool TagUndoRecord(Guid guid,string tag) {
+      //   UndoRecord? record = UndoStack.FirstOrDefault(ur => ur.CDL2Object?.GUID == guid);
+      //   if (record != null) {
+      //      record.Tag = tag;
+      //      return true;
+      //   }
+      //   return false;
+      //}
+      //public bool TagUndoRecord(CDL2Object element,string tag) => TagUndoRecord(element.GUID,tag);
+      //public bool TryGetUndo(string tag,out CDL2Object? element) {
+      //   UndoRecord? record = UndoStack.FirstOrDefault(ur => ur.Tag == tag);
+      //   if (record != null) {
+      //      element = record.CDL2Object!;
+      //      return true;
+      //   } else {
+      //      element = null;
+      //      return false;
+      //   }
+      //}
 
       /// <summary>
       /// When registration is suspended, named elements are still added to the NamedElements dictionary,

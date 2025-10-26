@@ -355,7 +355,71 @@ namespace CDL2v1 {
       
          return item;
       }
-   
+      /// <summary>
+      /// Moves the element at the specified index to the top of the stack.
+      /// </summary>
+      /// <remarks>This method reorders the stack such that the element at the specified index becomes the
+      /// topmost element. The relative order of other elements is preserved, with all elements above the specified
+      /// index shifted down by one position. 
+      /// If the specified index is out of bounds or is 0 (the top element), the method performs no operation.
+      /// </remarks>
+      /// <param name="index">The zero-based index of the element to move. Must be within the bounds of the stack.</param>
+      /// stack.</exception>
+      public void Surface(int index) {
+         if (index <= 0 || index >= _size) return; // Continue to use the current top element
+
+         // Get the element at the specified index
+         int targetIndex = (_head - 1 - index + _items.Length) % _items.Length;
+         T item = _items[targetIndex];
+
+         // Shift elements down to fill the gap
+         for (int i = index ; i > 0 ; i--) {
+            int currentIndex = (_head - 1 - i + _items.Length) % _items.Length;
+            int nextIndex = (_head - 1 - (i - 1) + _items.Length) % _items.Length;
+            _items[currentIndex] = _items[nextIndex];
+         }
+
+         // Place the surfaced item at the top
+         int topIndex = (_head - 1 + _items.Length) % _items.Length;
+         _items[topIndex] = item;
+      }
+      /// <summary>
+      /// Moves the first element matching the predicate to the top of the stack.
+      /// </summary>
+      /// <param name="predicate">The predicate to match elements against.</param>
+      /// <returns>True if an element was found and surfaced, otherwise false.</returns>
+      public void Surface(Func<T,bool> predicate) {
+         if (IsEmpty) return;
+
+         int matchIndex = -1;
+         int currentIndex = 0;
+
+         foreach (T item in this) {
+            if (predicate(item)) {
+               matchIndex = currentIndex;
+               break;
+            }
+            currentIndex++;
+         }
+
+         if (matchIndex == -1 || matchIndex == 0) return;
+
+         Surface(matchIndex);
+      } 
+      /// <summary>
+      /// Gets the element at the specified index from the top of the stack.
+      /// </summary>
+      /// <param name="index">The zero-based index from the top of the stack.</param>
+      /// <returns>The element at the specified index, or default(T) if the index is out of bounds.</returns>
+      public T? this[int index] {
+         get {
+            if (index < 0 || index >= _size) return default;
+
+            int actualIndex = (_head - 1 - index + _items.Length) % _items.Length;
+            return _items[actualIndex];
+         }
+      }  
+
       /// <summary>
       /// Removes all items from the stack.
       /// </summary>
@@ -425,6 +489,7 @@ namespace CDL2v1 {
       private static void DisposeIfDisposable(T item) {
          if (item is IDisposable disposable) disposable.Dispose();
       }
+
    }
 
    public static partial class Extensions {

@@ -438,6 +438,12 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Perform undo or redo. List the appropriate stack if requested.
+      /// If an argument is given the operation is performed on the element at that index in the stack.
+      /// </summary>
+      /// <param name="args"></param>
+      /// <param name="undo"></param>
       private void InterpretCommandUndoRedo(string args,bool undo) {
          BoundedStack<Database.UndoRecord> stack = undo ? Database.Instance.UndoStack : Database.Instance.RedoStack;
          BoundedStack<Database.UndoRecord> otherStack = undo ? Database.Instance.RedoStack : Database.Instance.UndoStack;
@@ -446,16 +452,24 @@ namespace CDL2v1 {
             foreach (Database.UndoRecord record in stack) {
                CDL2Object? obj = record.CDL2Object;
                if (obj is not null) {
-                  WriteLine($"{++n,3}: {record.ChangeType,8} {obj}");
+                  WriteLine($"{++n,3}:{(record.Tag != "" ? $" [{record.Tag}] " : "")}: {record.ChangeType,8} {obj}");
                } else {
-                  WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in Namedelements");
+                  WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in NamedElements");
                }
             }
          } else {
-            int count = 1;
-            if (int.TryParse(args,out int c)) count = c;
-            count = Math.Max(stack.Count,count);
-            for (int i = 0 ; i < count ; i++) {
+            int index = int.TryParse(args,out int i) ? i : 0;
+            string tag = Settings.SettingValue<string>("settag")!;
+            if (tag != "") {
+               stack[index]?.Tag = tag;
+            } else {
+               tag = Settings.SettingValue<string>("tag")!;
+               // Move the requested record to the top of the stack
+               if (tag != "") {
+                  stack.Surface(record => record.Tag == tag);
+               } else {
+                  stack.Surface(index);
+               }
                SingleUndoRedo(stack,otherStack);
             }
          }

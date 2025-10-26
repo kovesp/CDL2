@@ -152,6 +152,9 @@ namespace CDL2v1 {
          new Setting<bool>(    "abstr",               NoOption,             false,         "Modify the command to affect only the ABSTR list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "import",              NoOption,             false,         "Modify the command to affect only the IMPORT list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "export",              NoOption,             false,         "Modify the command to affect only the EXPORT list entry of the object if any. Applies to delete and add."),
+
+         new Setting<string>(  "setTag",              NoOption,             "",            "Sets a tag on a given item. Used with the undo/redo commands."),
+         new Setting<string>(  "tag",                 NoOption,             "",            "Selects the (first) tagged item. Used with the undo/redo commands to undo/redo the tagged item."),
          new Setting<bool>(    "DebugCommands",       NoOption,             false,         "Display the parsed command."),
       ];
 
