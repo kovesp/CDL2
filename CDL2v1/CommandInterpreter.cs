@@ -163,7 +163,7 @@ namespace CDL2v1 {
             Debug.WriteLine(message);
          }
       }
-      private void WriteError(string message) => WriteLine("Error:" + message,Severity.Error);
+      private void WriteError(string message) => WriteLine("Error: " + message,Severity.Error);
       private void WriteInfo(string message) => WriteLine("Info: " + message,Severity.Info);
       private void WriteWarning(string message) => WriteLine("Warning: " + message,Severity.Warning);
 
@@ -448,32 +448,40 @@ namespace CDL2v1 {
       private void InterpretCommandUndoRedo(string args,bool undo) {
          BoundedStack<Database.UndoRecord> stack = undo ? Database.Instance.UndoStack : Database.Instance.RedoStack;
          BoundedStack<Database.UndoRecord> otherStack = undo ? Database.Instance.RedoStack : Database.Instance.UndoStack;
+         string stackName = undo ? "undo" : "redo";
          if (Settings.SettingValue<bool>("list")) {
             int n = 0;
+            WriteLine($"{stackName} stack ({stack.Count}/{stack.Capacity})");
             foreach (Database.UndoRecord record in stack) {
                CDL2Object? obj = record.CDL2Object;
                if (obj is not null) {
-                  WriteLine($"{++n,3}:{(record.Tag != "" ? $" [{record.Tag}] " : "")}: {record.ChangeType,8} {obj}");
+                  WriteLine($"{++n,3}:{(record.Tag.IsNotEmptyOrWhitespace() ? $" [{record.Tag}]:" : "")} {record.ChangeType,8} :: {obj.FQDN(WithInterface: true)}");
                } else {
                   WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in NamedElements");
                }
             }
+         } else if (stack.Count == 0) {
+            WriteError($"{stackName} stack is empty.");
          } else {
-            int index = int.TryParse(args,out int i) ? i : 0;
-            string tag = Settings.SettingValue<string>("settag")!;
-            if (tag != "") {
-               stack[index]?.Tag = tag == "-" ? "" : tag;
+            int index = int.TryParse(args,out int i) ? i-1 : 0;
+            if (i < 0 || i >= stack.Count) {
+               WriteError($"argument {index + 1} for {stackName} stack out of range: must be {(stack.Count==1?"1 if given":$"between 1 and {stack.Count}")}.");
             } else {
-               tag = Settings.SettingValue<string>("tag")!;
-               // Move the requested record to the top of the stack
-               if (tag != "") {
-                  stack.Surface(record => record.Tag == tag);
+               string tag = Settings.SettingValue<string>("settag")!;
+               if (tag.IsNotEmptyOrWhitespace()) {
+                  stack[index]?.Tag = tag == "-" ? "" : tag;
                } else {
-                  stack.Surface(index);
+                  tag = Settings.SettingValue<string>("tag")!;
+                  // Move the requested record to the top of the stack
+                  if (tag.IsNotEmptyOrWhitespace()) {
+                     stack.Surface(record => record.Tag == tag);
+                  } else {
+                     stack.Surface(index);
+                  }
+                  SingleUndoRedo(stack,otherStack);
                }
-               SingleUndoRedo(stack,otherStack);
+               SetStatus();
             }
-            SetStatus();
          }
       }
 
