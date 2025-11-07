@@ -478,7 +478,7 @@ namespace CDL2v1 {
                   } else {
                      stack.Surface(index);
                   }
-                  SingleUndoRedo(stack,otherStack);
+                  SingleUndoRedo(undo,stack,otherStack);
                }
                SetStatus();
             }
@@ -492,19 +492,24 @@ namespace CDL2v1 {
       /// <param name="stack">undo stack for undo, redo stack for redo</param>
       /// <param name="otherStack">redo stack for undo, undo stack for redo</param>
       /// <exception cref="NotImplementedException"></exception>
-      private static void SingleUndoRedo(BoundedStack<Database.UndoRecord> stack,BoundedStack<Database.UndoRecord> otherStack) {
+      private static void SingleUndoRedo(bool undo,BoundedStack<Database.UndoRecord> stack,BoundedStack<Database.UndoRecord> otherStack) {
          Database.UndoRecord record = stack.Pop();
          switch (record.ChangeType) {
             case ChangeType.Added:
                break;
             case ChangeType.Removed:
                CDL2Object obj = record.CDL2Object!;
-               int objectPos = -1;
-               // If the focus is currently in the same section as the object being revived, insert the revived object after the current focus.
-               if (Focus.Current.Section == obj.Section) objectPos = Focus.Current.IndexFor();
-               obj.Revive(null,ChangeType.Removed,record.InterfaceStatus,objectPos);
-
-
+               if (undo) {
+                  // Revive the removed object
+                  int objectPos = -1;
+                  // If the focus is currently in the same section as the object being revived, insert the revived object after the current focus.
+                  if (Focus.Current.Section == obj.Section) objectPos = Focus.Current.IndexFor();
+                  obj.Revive(null,ChangeType.Removed,record.InterfaceStatus,objectPos);
+               } else {
+                  // Remove the object again
+                  Focus.MoveFocusFrom(obj);
+                  obj.Remove();
+               }
                break;
             case ChangeType.InterfaceChanged:
                InterfaceTypes currentInterfaceType = record.CDL2Object!.GetInterfaces();
