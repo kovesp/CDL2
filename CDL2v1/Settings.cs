@@ -155,6 +155,9 @@ namespace CDL2v1 {
 
          new Setting<string>(  "setTag",              NoOption,             "",            "Sets a tag on a given item. Used with the undo/redo commands."),
          new Setting<string>(  "tag",                 NoOption,             "",            "Selects the (first) tagged item. Used with the undo/redo commands to undo/redo the tagged item."),
+         new Setting<bool>(    "separate",            NoOption,             false,         "When generating code for programs (modules), do not inline objects from (other) modules."),
+         new Setting<bool>(    "prompt",              NoOption,             false,         "When removing an object prompt for confirmation."),
+
          new Setting<bool>(    "DebugCommands",       NoOption,             false,         "Display the parsed command."),
       ];
 

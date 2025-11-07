@@ -283,6 +283,7 @@ If no settings are given, all current settings are listed. The following is a li
 | prompt       | bool   | false  | For destructive commands, prompt before making changes.
 | settag       | string |        | Sets a tag on an undo or redo entry.
 | tag          | string |        | Selects the undo or redo entry with the given tag.
+| separate     | bool   | false  | For code generation, see the `generate` command.
 
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
@@ -310,16 +311,31 @@ If no settings are given, all current settings are listed. The following is a li
 
 #### Editing Commands
 
-##### Add
+##### Add/Insert/Append/Replace/Edit
 ```
 add command : add token, setting sequence option, selector option.
+insert command : insert token, setting sequence option, selector option.
+append command : append token, setting sequence option, selector option.
+replace command : replace token, setting sequence option, selector option.
+edit command : edit token, setting sequence option, selector option.
 ```
-If one or more of the `inv`, `ext`, `abstr`, `import`, or `export` settings are given,
-then the selected object(s) is (are) added to the respective interface lists of the section.
+For the `add` command, one or more of the `inv`, `ext`, `abstr`, `import`, or `export` settings may
+be given. In that case the selected object(s) is (are) added to the respective interface lists
+of the section and no other action happens.
 
-##### Insert
+Otherwise edit mode is entered. For the `edit` command the selected object is displayed in the
+input area and may be edited there. For the other commands the input area will be empty.
+when editing is compete, the action is as follows:
+   * `add`. The edited object is added to the current section at the end.
+   * `insert`. The edited object is inserted before the selected object.
+   * `append`. The edited object is appended after the selected object.
+   * `replace`. The selected object is replaced by the edited object.
 
-##### Append
+For the `add`, `insert`, and `append` commands, if the object being added exists the user is
+prompted to confirm overwriting it. For the `replace` command, there is no prompt.
+
+In all cases an apropriate undo record is created so that the action may be undone
+using the `undo` command.
 
 ##### Delete/Remove
 ```
@@ -346,11 +362,6 @@ would be removed are listed.
 If the `prompt` setting is given, then the user is prompted to confirm the deletion
 of each object. If the user tries to delete a container (i.e., a module, layer,
 or section) that contains anything or a program, then the user is prompted unless `-prompt-` is given.
-
-
-##### Edit
-
-##### Replace
 
 ##### Undo/Redo
 
@@ -380,6 +391,26 @@ Where it is restored by `undo` depends on the current focus.
 
 
 #### Code Generation
+```
+generate command : generate token, setting sequence option, selector option.
+```
+
+Generates code for the selected program or module (the selector or focus must select one or
+more programs or modules)
+
+The `-target` setting may be used to specify the target code generator.
+
+*The only `-target` setting currently implemented is `powershell` and is the default.*
+
+For programs, the `-separate` setting may be used to generate code only for the program, but
+not its modules. These then must be generated separately. The default is to generated a single
+target program for the entire program including all objects that are actually used from all its
+modules.
+
+For modules, the `-separate` setting may be used to generate code only for the module, without
+inlining objects from other modules.
+
+*The `-separate` setting is not yet implemented.*
 
 ####  General Commands
 
