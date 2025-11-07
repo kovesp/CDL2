@@ -937,23 +937,48 @@ namespace CDL2v1 {
       /// </remarks>
       public void RemoveOrReplace(CDL2Object? replacement,ChangeType changeType) {
          Database.Instance.ElementsWithNotes.Remove(GUID);
-         if (replacement is not null) {
+         if (changeType == ChangeType.Removed) {
+            Section?.Declarations.Remove(Id);
+            Siblings.Remove(GUID);
+            Database.Instance.RecordUndo(this, ChangeType.Removed); // Must be done before clearing interfaces so the current interface status is recorded.
+            ClearInterfaces();
+         } else {
             // Swap the GUID of this object with the GUID of the replacement object. Also swap them in NamedElements.
-            (GUID,replacement.GUID) = (replacement.GUID,GUID);
+            (GUID,replacement!.GUID) = (replacement.GUID,GUID);
             Database.Instance.NamedElements[GUID] = this;
             Database.Instance.NamedElements[replacement.GUID] = replacement;
 
             if (replacement.Notes is not null && replacement.Notes.Count > 0) Database.Instance.ElementsWithNotes.Add(replacement.GUID);
             Database.Instance.RecordUndo(this,replacement.GUID);
-         } else { // No replacement, just remove.
-            Section?.Declarations.Remove(Id);
-            Siblings.Remove(GUID);
-            ClearInterfaces();
-            Database.Instance.RecordUndo(this, ChangeType.Removed);
          }
       }
       public void Remove() => RemoveOrReplace(null,ChangeType.Removed);
       public void Replace(CDL2Object replacement) => RemoveOrReplace(replacement,ChangeType.Replaced);
+
+      /// <summary>
+      /// Reverses the action of RemoveOrReplace by adding this object back to the section declarations and siblings (if removed) or swaing with the current object (if replaced).
+      /// This method is called by the undo mechanism. The caller must handle the removal from the undo stack and placing on the redo stack
+      /// </summary>
+      /// <param name="current"></param>
+      /// <param name="changeType"></param>
+      /// <param name="objectPos">The position among siblings where the object should be placed when revived. 
+      ///                         -1 indicates place at end. Applies only to ChangeType.Removed.</param>
+      public void Revive(CDL2Object? current,ChangeType changeType,InterfaceTypes interfaceStatus, int objectPos=-1) {
+         if (changeType == ChangeType.Removed) {
+            Section?.Declarations.TryAdd(Id,this);
+            if (objectPos < 0) {
+               Siblings.Add(GUID);
+            } else {
+               Siblings.Insert(objectPos + 1,GUID);   // Place before objectPos ... shouldn't tis place it after?
+            }
+            if (Notes is not null && Notes.Count > 0) Database.Instance.ElementsWithNotes.Add(GUID);
+            SetInterfaces(interfaceStatus);
+         } else {
+            Debug.Assert(changeType == ChangeType.Replaced && current is not null,$"Cannot revive {this} with change type {changeType}");
+
+         }
+         Focus.SetFocus(this);
+      }
    }
 
    /// <summary>

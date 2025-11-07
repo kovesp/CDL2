@@ -498,6 +498,13 @@ namespace CDL2v1 {
             case ChangeType.Added:
                break;
             case ChangeType.Removed:
+               CDL2Object obj = record.CDL2Object!;
+               int objectPos = -1;
+               // If the focus is currently in the same section as the object being revived, insert the revived object after the current focus.
+               if (Focus.Current.Section == obj.Section) objectPos = Focus.Current.IndexFor();
+               obj.Revive(null,ChangeType.Removed,record.InterfaceStatus,objectPos);
+
+
                break;
             case ChangeType.InterfaceChanged:
                InterfaceTypes currentInterfaceType = record.CDL2Object!.GetInterfaces();

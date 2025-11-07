@@ -426,7 +426,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="objectType"></param>
       /// <returns></returns>
-      public int IndexFor(RW objectType) => Selection.Object?.GetType() == Parser.RW2Type[objectType] ? Selection.Object.Siblings.IndexOf(Selection.Object.GUID) : -1;
+      public int IndexFor(RW objectType) => Selection.Object?.GetType() == Parser.RW2Type[objectType] ? IndexFor() : -1;
+      public int IndexFor() => Selection.Object!.Siblings.IndexOf(Selection.Object.GUID);
       /// <summary>
       /// Similar to IndexFor, but returns the object itself from the list of candidates.
       /// </summary>
