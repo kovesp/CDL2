@@ -178,17 +178,48 @@ Examples:
   * Numeric: `-autoSaveCount:10`, `-autoSaveInterval=60`.
   * String:  `-target:C#`, `-file=C:\CDL2\Tests.cdl2`, `-title:"$"Importable$" Modules"`.
 
+## Non-Commands
+
+From the syntax it is clear that actuall commands start with a command token and that all command tokens
+are lower case. Anything that does not start with a command token is treated as a CDL2 code snipet.
+
+A code snipet always begins with one of the CDL2 reserved words that start a syntactic unit 
+(see the list under UNITs above). These *do **not*** include the ones added by the Lab: `ALGORITHM`, `ANY`,
+`CONTAINER`, `DATA`, `FACE`, `MACRO`, `OBJECT`, `PROCEDURE`.
+
+Code snipets behave more or less as if preceeded by the `add` command except as described here.
+
+If the code snipet specifies a module, layer, section, program then it is added
+
+  * The code snipet is considered to be a single line and edit mode is **not** entered.
+  * If the focus is on a unit of the same kind, then after the focused unit.
+  * Otherwise it is added at the end of the parent unit or at the end of the list of modules or programs.
+
+If the code snipet is a part, then the focus must be on a program.
+
+If the code snipet is an interface declaration, then the focus must be on or in a section.
+
+If the code snipet is a lude (i.e., prelude, root, postlude), then the focus must be
+
+  * On a program.
+  * On a module: the lude is added to the module.
+  * On or in a section: the lude is added to the section.
+
+Otherwise the snipet is a CDL2 object (i.e., algorithm, constant, variable, or list), in which case the behaviour
+is as if an `add` command were used. That is:
+  * Edit mode is entered with the code snipet in the input area.
+  * When editing is complete, the object is added either at the end of the current section or after the
+    focused object.
+  * This will fail if the focus is not in a section.
+
 ## Commands
 
-## Command Settings
+### Command Settings
 
 Settings may be set globally (see the `set` command) or locally
 (using the the `setting sequence option` in the commands below). When using the latter, the setting
 is changed for the duration of the command, in the former case it is changed globally.
 Any setting may be specified for commands, tough of course not all are relevant for all commands.
-
-
-
 
 For other settings the setting is followed by the value of the setting, for
 example `print -print-depth 3`.
@@ -283,6 +314,7 @@ If no settings are given, all current settings are listed. The following is a li
 | prompt       | bool   | false  | For destructive commands, prompt before making changes.
 | settag       | string |        | Sets a tag on an undo or redo entry.
 | tag          | string |        | Selects the undo or redo entry with the given tag.
+| separate     | bool   | false  | For code generation, see the `generate` command.
 
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
@@ -310,16 +342,31 @@ If no settings are given, all current settings are listed. The following is a li
 
 #### Editing Commands
 
-##### Add
+##### Add/Insert/Append/Replace/Edit
 ```
 add command : add token, setting sequence option, selector option.
+insert command : insert token, setting sequence option, selector option.
+append command : append token, setting sequence option, selector option.
+replace command : replace token, setting sequence option, selector option.
+edit command : edit token, setting sequence option, selector option.
 ```
-If one or more of the `inv`, `ext`, `abstr`, `import`, or `export` settings are given,
-then the selected object(s) is (are) added to the respective interface lists of the section.
+For the `add` command, one or more of the `inv`, `ext`, `abstr`, `import`, or `export` settings may
+be given. In that case the selected object(s) is (are) added to the respective interface lists
+of the section and no other action happens.
 
-##### Insert
+Otherwise edit mode is entered. For the `edit` command the selected object is displayed in the
+input area and may be edited there. For the other commands the input area will be empty.
+when editing is compete, the action is as follows:
+   * `add`. The edited object is added to the current section at the end.
+   * `insert`. The edited object is inserted before the selected object.
+   * `append`. The edited object is appended after the selected object.
+   * `replace`. The selected object is replaced by the edited object.
 
-##### Append
+For the `add`, `insert`, and `append` commands, if the object being added exists the user is
+prompted to confirm overwriting it. For the `replace` command, there is no prompt.
+
+In all cases an apropriate undo record is created so that the action may be undone
+using the `undo` command.
 
 ##### Delete/Remove
 ```
@@ -346,11 +393,6 @@ would be removed are listed.
 If the `prompt` setting is given, then the user is prompted to confirm the deletion
 of each object. If the user tries to delete a container (i.e., a module, layer,
 or section) that contains anything or a program, then the user is prompted unless `-prompt-` is given.
-
-
-##### Edit
-
-##### Replace
 
 ##### Undo/Redo
 
@@ -380,6 +422,26 @@ Where it is restored by `undo` depends on the current focus.
 
 
 #### Code Generation
+```
+generate command : generate token, setting sequence option, selector option.
+```
+
+Generates code for the selected program or module (the selector or focus must select one or
+more programs or modules)
+
+The `-target` setting may be used to specify the target code generator.
+
+*The only `-target` setting currently implemented is `powershell` and is the default.*
+
+For programs, the `-separate` setting may be used to generate code only for the program, but
+not its modules. These then must be generated separately. The default is to generated a single
+target program for the entire program including all objects that are actually used from all its
+modules.
+
+For modules, the `-separate` setting may be used to generate code only for the module, without
+inlining objects from other modules.
+
+*The `-separate` setting is not yet implemented.*
 
 ####  General Commands
 
