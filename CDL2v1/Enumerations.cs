@@ -179,7 +179,6 @@ namespace CDL2v1 {
    public enum CommandType {
       INVALID,
       abort,
-      append,
       add,
       bye,
       consult,
@@ -190,7 +189,6 @@ namespace CDL2v1 {
       focus,
       generate,
       help,
-      insert,
       last,
       list,
       next,
@@ -199,7 +197,6 @@ namespace CDL2v1 {
       remove,
       redo,
       rename,
-      replace,
       quit,
       save,
       set,

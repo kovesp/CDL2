@@ -363,18 +363,12 @@ namespace CDL2v1 {
                case CommandType.rename:
                   InterpretCommandRename(args); break;
                case CommandType.add:
-                  InterpretCommandAddAppendInsert(args,InsertLocation.After,add:true); break;
-               case CommandType.append:
-                  InterpretCommandAddAppendInsert(args,InsertLocation.After); break;
-               case CommandType.insert:
-                  InterpretCommandAddAppendInsert(args,InsertLocation.Before); break;
-               case CommandType.replace:
-                  InterpretCommandAddAppendInsert(args,InsertLocation.Replace); break;
+                  InterpretCommandAdd(args); break;
                case CommandType.delete:
-               case CommandType.remove:
-                  InterpretCommandDelete(args); break;
                case CommandType.edit:
                   InterpretCommandEdit(args); break;
+               case CommandType.remove:
+                  InterpretCommandDelete(args); break;
                case CommandType.undo:
                   InterpretCommandUndoRedo(args,undo: true); break;
                case CommandType.redo:
@@ -575,6 +569,11 @@ namespace CDL2v1 {
                   case CDL2Object obj:
                      InterfaceTypes interfaceTypes = InterfaceTypeFromSetting();
                      if (interfaceTypes != InterfaceTypes.None) { // Interface removal(s) were requested
+                        if (obj is not Algorithm && obj is not Const) {
+                           WriteError("Interfaces can only be removed from Algorithms or Constants");
+                           // All objects in the selection are of the same type, so this will happen on the first one rather than in a loop
+                           return;
+                        }
                         InterfaceTypes currentInterfaceTypes = obj.GetInterfaces();
                         if (currentInterfaceTypes != interfaceTypes) {
                            Database.Instance.RecordUndo(obj,ChangeType.InterfaceChanged);
@@ -596,7 +595,7 @@ namespace CDL2v1 {
 
       private void InterpretCommandEdit(string args) {
          if (commandWindow is null) return; // Ignore the command if there is no command window
-         SingleSelection context = GetContext(args);
+         SingleSelection? context = GetContext(args);
          if (context is null || context.Object is null || !context.IsFocusable) {
             WriteError("Can't edit.");
          } else if (context.Object is Container) {
@@ -625,35 +624,38 @@ namespace CDL2v1 {
       /// <param name="args"></param>
       /// <param name="after"></param>
       /// <param name="add"></param>
-      private void InterpretCommandAddAppendInsert(string args,InsertLocation after,bool add=false) {
+      private void InterpretCommandAdd(string args) {
          if (commandWindow is null) return; // Ignore the command if there is no command window
          Selection? context = GetMultiContext(args);
          if (context is null || context.Count == 0) return;
-         //Database.Instance.RecordUndo(obj,ChangeType.Added);
-         if (add) {
-            InterfaceTypes interfaceTypes = InterfaceTypeFromSetting();
-            if (interfaceTypes != InterfaceTypes.None) {
-               foreach (SingleSelection sel in context) {
-                  if (sel.Object is CDL2Object obj) {
-                     InterfaceTypes currentInterfaceTypes = obj.GetInterfaces();
-                     if (currentInterfaceTypes != interfaceTypes) {
-                        Database.Instance.RecordUndo(obj,ChangeType.InterfaceChanged);
-                        obj.AddInterfaces(interfaceTypes);
-                     }
-                  }
-               }
-               SetStatus();
+
+         InterfaceTypes interfaceTypes = InterfaceTypeFromSetting();
+         if (interfaceTypes != InterfaceTypes.None) {
+            if (context.First().Object is not Algorithm && context.First().Object is not Const) {
+               // It is enough to check the first because all must be of the same type.
+               WriteError("Interfaces can only be added to Algorithms or Constants");
                return;
             }
+            foreach (SingleSelection sel in context) {
+               if (sel.Object is CDL2Object obj) {
+                  InterfaceTypes currentInterfaceTypes = obj.GetInterfaces();
+                  if (currentInterfaceTypes != interfaceTypes) {
+                     Database.Instance.RecordUndo(obj,ChangeType.InterfaceChanged);
+                     obj.AddInterfaces(interfaceTypes);
+                  }
+               }
+            }
+            SetStatus();
+            return;
+         } else {
+            // Swich to edit mode in the input field with an amepty content.
+            IsEditing = false; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
+            insertionLocation = Settings.SettingValue<bool>("before") ? InsertLocation.Before : InsertLocation.After;
+            ppEdit.Emitter.Clear();
+            ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
+            commandWindow.EditText();
+            // Nothing else. When editing is done the command window will call EnterCode with the edited text. What to do with it is determined by the insertionLocation and IsEditing flags.
          }
-
-         // Display the object in the command window for editing.
-         IsEditing = false; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
-         insertionLocation = after;
-         ppEdit.Emitter.Clear();
-         ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
-         commandWindow.EditText();
-         // Nothing else. When editing is done the command window will call EnterCode with the edited text. What to do with it is determined by the insertionLocation and IsEditing flags.
       }
 
       private static readonly Dictionary<string,InterfaceTypes> interfaceTypeMap = new() {
