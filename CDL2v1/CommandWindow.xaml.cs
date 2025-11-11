@@ -356,7 +356,7 @@ F1    | Show this help message.
       }
 
       private bool IsEditing = false;
-      public void EditText(string text) => Application.Current.Dispatcher.Invoke(() => {
+      public void EditText(string text="") => Application.Current.Dispatcher.Invoke(() => {
          PromptTextBlock.Text = ": ";
          InputTextBox.Text = text.Trim();
          InputTextBox.Focus();

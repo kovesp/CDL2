@@ -147,6 +147,7 @@ namespace CDL2v1 {
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each
          new Setting<bool>(    "list",                NoOption,             false,         "Modify a command to list available objects. Used by Undo and redo."),
+         new Setting<bool>(    "before",              NoOption,             false,         "Used in the add command to make the addtion before the selection."),
          new Setting<bool>(    "inv",                 NoOption,             false,         "Modify the command to affect only the INV list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "ext",                 NoOption,             false,         "Modify the command to affect only the EXT list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "abstr",               NoOption,             false,         "Modify the command to affect only the ABSTR list entry of the object if any. Applies to delete and add."),

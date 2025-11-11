@@ -335,7 +335,8 @@ namespace CDL2v1 {
       General
    }
 
-   public enum InsertLocation {       
+   public enum InsertLocation {
+      Replace,
       Before,
       After,
       First,

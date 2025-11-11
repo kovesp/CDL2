@@ -37,6 +37,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Eventing.Reader;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -53,6 +54,7 @@ namespace CDL2v1 {
       private readonly PrettyPrinter ppEdit; // For use in the edit command
       private readonly Parser parser;
       private bool IsEditing = false; // Used to determine if we are currently in edit mode
+      private InsertLocation insertionLocation = InsertLocation.After; // Used to determine where to insert the object being added
 
       public CommandInterpreter(CommandPromptWindow? window = null) {
          commandWindow = window;
@@ -107,6 +109,16 @@ namespace CDL2v1 {
          return QueryBox("The current object will be replaced. Continue?");
       }
 
+      /// <summary>
+      /// Called whenever code is entered. It needs to take into consideretion
+      /// <list type="bullet">
+      /// <item>isEditing: if false, then no prompt is given when the object entered exists</item>
+      /// <item>parsingContext</item>
+      /// <item>insertionLocation: before, after and replace</item>
+      /// </list>
+      /// </summary>
+      /// <param name="input"></param>
+      /// <param name="setFocus"></param>
       public void EnterCode(string input,bool setFocus = true) {
          if (input.Contains('.')) {
             IEnumerable<string> lines = input.Split('.',StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
@@ -122,6 +134,8 @@ namespace CDL2v1 {
                if (parser.Tokenize(input,ParseMode.Full)) {
                   Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
 
+                  // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
+                  // Must also take care of adding an undo record if something is replaced.
                   if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input) & setFocus)
                      Focus.SetFocus(element!);
                }
@@ -354,13 +368,13 @@ namespace CDL2v1 {
                   InterpretCommandAddAppendInsert(args,InsertLocation.After); break;
                case CommandType.insert:
                   InterpretCommandAddAppendInsert(args,InsertLocation.Before); break;
+               case CommandType.replace:
+                  InterpretCommandAddAppendInsert(args,InsertLocation.Replace); break;
                case CommandType.delete:
                case CommandType.remove:
                   InterpretCommandDelete(args); break;
                case CommandType.edit:
                   InterpretCommandEdit(args); break;
-               case CommandType.replace:
-                  InterpretCommandReplace(args); break;
                case CommandType.undo:
                   InterpretCommandUndoRedo(args,undo: true); break;
                case CommandType.redo:
@@ -527,32 +541,6 @@ namespace CDL2v1 {
       }
 
 
-      private void InterpretCommandReplace(string args) => throw new NotImplementedException();
-
-      private void InterpretCommandEdit(string args) {
-         if (commandWindow is null) return; // Ignore the command if there is no command window
-         SingleSelection context = GetContext(args);
-         if (context is null || context.Object is null || !context.IsFocusable) {
-            WriteError("Can't edit.");
-         } else if (context.Object is Container) { 
-            // Container is a base class for Module, Layer, Section, Program, etc.
-            // The idea is
-            // 1. PrettyPrint the container into a file.
-            // 2. Launch an external editor (VS Code by default).
-            // 3. Detect the end of editing (like git does with an external edtor).
-            // 4. Read the file back and parse it.
-            WriteError("Editing of containers not yet implemented.");
-            return;
-         }
-
-         // Display the object in the command window for editing.
-         IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
-         ppEdit.Emitter.Clear();
-         ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
-         commandWindow.EditText(ppEdit.Print(context.Object));
-         // Nothing else. When editing is done the command window will call EnterCode with the edited text.
-      }
-
       private void InterpretCommandDelete(string args) {
          // Remove the NamedElement from NamedElements.
          // If it is a program or a module, remove it from the appropriate database list
@@ -606,7 +594,39 @@ namespace CDL2v1 {
          }
       }
 
+      private void InterpretCommandEdit(string args) {
+         if (commandWindow is null) return; // Ignore the command if there is no command window
+         SingleSelection context = GetContext(args);
+         if (context is null || context.Object is null || !context.IsFocusable) {
+            WriteError("Can't edit.");
+         } else if (context.Object is Container) {
+            // Container is a base class for Module, Layer, Section, Program, etc.
+            // The idea is
+            // 1. PrettyPrint the container into a file.
+            // 2. Launch an external editor (VS Code by default).
+            // 3. Detect the end of editing (like git does with an external edtor).
+            // 4. Read the file back and parse it.
+            WriteError("Editing of containers not yet implemented.");
+            return;
+         } else {
+            // Display the object in the command window for editing.
+            IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
+            ppEdit.Emitter.Clear();
+            ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
+            commandWindow.EditText(ppEdit.Print(context.Object));
+            insertionLocation = InsertLocation.Replace;
+            // Nothing else. When editing is done the command window will call EnterCode with the edited text.
+         }
+      }
+
+      /// <summary>
+      /// Implements the add, replace, append and insert commands.
+      /// </summary>
+      /// <param name="args"></param>
+      /// <param name="after"></param>
+      /// <param name="add"></param>
       private void InterpretCommandAddAppendInsert(string args,InsertLocation after,bool add=false) {
+         if (commandWindow is null) return; // Ignore the command if there is no command window
          Selection? context = GetMultiContext(args);
          if (context is null || context.Count == 0) return;
          //Database.Instance.RecordUndo(obj,ChangeType.Added);
@@ -626,8 +646,14 @@ namespace CDL2v1 {
                return;
             }
          }
-         // TODO: Perform the object add
-            
+
+         // Display the object in the command window for editing.
+         IsEditing = false; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
+         insertionLocation = after;
+         ppEdit.Emitter.Clear();
+         ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
+         commandWindow.EditText();
+         // Nothing else. When editing is done the command window will call EnterCode with the edited text. What to do with it is determined by the insertionLocation and IsEditing flags.
       }
 
       private static readonly Dictionary<string,InterfaceTypes> interfaceTypeMap = new() {

@@ -315,6 +315,7 @@ If no settings are given, all current settings are listed. The following is a li
 | settag       | string |        | Sets a tag on an undo or redo entry.
 | tag          | string |        | Selects the undo or redo entry with the given tag.
 | separate     | bool   | false  | For code generation, see the `generate` command.
+| before       | bool   | false  | Apply the command before the selected object(s).
 
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
@@ -342,31 +343,57 @@ If no settings are given, all current settings are listed. The following is a li
 
 #### Editing Commands
 
-##### Add/Insert/Append/Replace/Edit
+##### Add
+
 ```
 add command : add token, setting sequence option, selector option.
-insert command : insert token, setting sequence option, selector option.
-append command : append token, setting sequence option, selector option.
-replace command : replace token, setting sequence option, selector option.
+```
+
+The command has two forms. 
+
+  1. One or more of the `-inv`, `-ext`, `-abstr`, `-import`, or `-export` settings are
+     given. In that case the selected object(s) is (are) added to the respective interface lists
+     of the section and no other action happens.
+  2. Otherwise the command will add some kind of CDL2 object, if possible. The command may 
+     have the `-before` setting. Edit mode is entered in the input area which is
+     initially empty. When editing is complete, the object is parsed and furhter action is determined
+     by the result as follows:
+     * If there are syntax errors, an error message is displayed and no further action is taken.
+     * If the parsed object already exists (an object with the same name in the same scope),
+       then the user is prompted to confirm that the object is to be replaced. If the
+       `-prompt-` settings was given, the prompt is suppressed.  
+     * The parsed object is a container. The appropriate terminating keyword
+       (`ENDPROG`, `ENDMOD`, `ENDLAY`, `ENDSEC`) is supplied automatically. Then,
+       * If it is a Program or Module, it is added before or after the selected program/module,
+         or at the end of the list of programs/modules if no program/module is selected.
+       * If it is a Layer/Section then the selection must be on or inside a Module/Layer. The object
+         is added before or after the selected Layer/Section, or at the end of the Module/Layer if no
+         Layer/Section is selected.
+       * The parsed object is a lude. The selection must be on or inside a Program/Module/Section.
+         There are two cases.
+         * If the parsed lude is a single item, then it is added to the current lude at the end.
+         * If the parsed lude contains more than one item (i.e., it is a comma separated list,
+           then the items replace the current lude. This is the only way to change
+           the ordering of items in the lude or delete items from it.
+        * The parsed object is an intrface declaration. The selection must be on or inside a Section.
+          The undo stack is updated. The interface declaration is added to the respective
+          interface list. _Order is irrelevant here, since interface lists
+          are always alphabetically sorted. Hence the `-before` setting is ignored._
+        * The parsed object is a CDL2 object (i.e., algorithm, constant, variable, or list). The
+          selection must be on or inside a Section. The undo stack is updated. If
+          the object exists, the user is prompted as noted above.
+          The object replaces the existing object, is added before or after the selected object,
+          or at the end of the Section as appropriate.
+
+##### Edit
+
+```
 edit command : edit token, setting sequence option, selector option.
 ```
-For the `add` command, one or more of the `inv`, `ext`, `abstr`, `import`, or `export` settings may
-be given. In that case the selected object(s) is (are) added to the respective interface lists
-of the section and no other action happens.
 
-Otherwise edit mode is entered. For the `edit` command the selected object is displayed in the
-input area and may be edited there. For the other commands the input area will be empty.
-when editing is compete, the action is as follows:
-   * `add`. The edited object is added to the current section at the end.
-   * `insert`. The edited object is inserted before the selected object.
-   * `append`. The edited object is appended after the selected object.
-   * `replace`. The selected object is replaced by the edited object.
-
-For the `add`, `insert`, and `append` commands, if the object being added exists the user is
-prompted to confirm overwriting it. For the `replace` command, there is no prompt.
-
-In all cases an apropriate undo record is created so that the action may be undone
-using the `undo` command.
+The command enters edit mode with the selected object in the input area. When editing is complete,
+the object is parsed. If this succeeds, the object replaces the existing object. _Note: if an attempt is made to
+change the identity or type of the object, the command will fail._
 
 ##### Delete/Remove
 ```

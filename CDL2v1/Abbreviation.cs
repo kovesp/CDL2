@@ -77,7 +77,6 @@ namespace CDL2v1 {
       /// </summary>
       public readonly static SortedSet<Abbreviation<CommandType>> Commands = [
          new ("abort"   , 5,"abort:                       exit the Lab without saving the database"),
-         new ("append"  , 1,"append   [SELECTOR] object:  append the object (which must be of the correct type) after the SELECTOR (same as add)"),
          new ("add"     , 1,"add      [SELECTOR] object:  add the object (which must be of the correct type) after the SELECTOR (same as append)"),
          new ("bye"     , 3,"bye:                         exit the Lab after saving the database"),
          new ("consult" , 1,"consult  file-name:          read the file which must contain one or more CDL2 modules and/or programs"),
@@ -89,7 +88,6 @@ namespace CDL2v1 {
          new ("focus"   , 1,"focus    [SELECTOR]:         set the focus to the object described by the selector and display it"),
          new ("generate", 1,"generate [SELECTOR]:         generate code for the selected object which must be a PROGRAM or a MODULE"),
          new ("help"    , 1,"help     [command]:          display this list, or details for a command"),
-         new ("insert"  , 1,"insert   [SELECTOR] object:  insert the object (which must be of the correct type) before the SELECTOR"),
          new ("last"    , 4,"last:                        move the focus to the last object in a sequence"),
          new ("list"    , 1,"list     [SELECTOR]:         list objects that the selector matches"),
          new ("next"    , 1,"next     [n]:                move the focus to the nth next object in a sequence"),
@@ -98,7 +96,6 @@ namespace CDL2v1 {
          new ("redo"    , 4,"redo:                        redo the last undo"),
          new ("remove"  , 3,"remove   [SELECTOR]:         removes(deletes) the selected object (eventually this can be undone ... but not yet"),
          new ("rename"  , 3,"rename   [SELECTOR] name:    rename the selected object; may be used just to add/remove spaces"),
-         new ("replace" , 1,"replace  [SELECTOR] object:  replace the selection with the new object"),
          new ("quit"    , 4,"quit:                        exit the Lab after saving the database"),
          new ("save"    , 1,"save:                        save the database to disk now"),
          new ("set"     , 3,"set      option:             set an option; +/-option for boolean, option=value otherwise"),
