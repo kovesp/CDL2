@@ -218,7 +218,7 @@ namespace CDL2v1 {
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file Id.
       /// </summary>
       /// <param Id="fileName">If this is null, use the <see cref="EmitterDebug"/> instead.</param>
-      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName.IsValidFileName() ? new EmitterFile(fileName ?? "") : new EmitterWindow()) { }
+      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName!.IsValidFileName ? new EmitterFile(fileName ?? "") : new EmitterWindow()) { }
 
       private record struct UnitDelimiter(RW Start, RW End);
       private static readonly Dictionary<Type,UnitDelimiter> units = new() {
@@ -809,7 +809,7 @@ namespace CDL2v1 {
 
       private void PrintComment(string comments,Notes notes,bool nl = true,bool needsEnd = true) {
          if (IncludeComments) {
-            if (comments.IsNotEmptyOrWhitespace()) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
+            if (comments.IsNotEmptyOrWhitespace) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
             foreach (Note note in notes) {
                if (note.NoteType == Severity.Note) {
                   NlEmitnl(note.Text.TrimEnd().Decorate(Emitter, SE.Comment));

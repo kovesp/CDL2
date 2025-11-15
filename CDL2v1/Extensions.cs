@@ -493,7 +493,13 @@ namespace CDL2v1 {
    }
 
    public static partial class Extensions {
-      public static bool TRUE<T>(T _) => true;
+
+      //public static bool TRUE<T>(T _) => true;
+
+      extension<T>(Predicate<T> predicate) { 
+         public static bool TRUE => true;
+         public static bool FALSE => false;
+      }
 
       /// <summary>
       /// Equivalent to pred ?? _ => true, but that syntax doesn't work.
@@ -501,101 +507,174 @@ namespace CDL2v1 {
       /// <typeparam name="T"></typeparam>
       /// <param name="predicate"></param>
       /// <returns></returns>
-      public static Predicate<T> OrTrue<T>(this Predicate<T> predicate) => predicate ?? TRUE;
-      public static Func<T, bool> OrTrue<T>(this Func<T, bool> predicate) => predicate ?? TRUE;
+      //public static Predicate<T> OrTrue<T>(this Predicate<T> predicate) => predicate ?? TRUE;
+      //public static Func<T, bool> OrTrue<T>(this Func<T, bool> predicate) => predicate ?? TRUE;
 
-      public static IEnumerable<T> OptMap<T>(this IEnumerable<T> source,bool condition, Func<IEnumerable<T>, IEnumerable<T>> func) => condition ? func(source) : source;
-      public static IEnumerable<T> OptWhere<T>(this IEnumerable<T> source, Func<T,bool>? pred=null) => pred is not null ? source.Where(pred) : source;
+      extension<T>(IEnumerable<T> source) {
+         public IEnumerable<T> OptMap(bool condition,Func<IEnumerable<T>,IEnumerable<T>> func) => condition ? func(source) : source;
+         public IEnumerable<T> OptWhere(Func<T,bool>? pred = null) => pred is not null ? source.Where(pred) : source;
+      }
 
-      public static Type AsType(this string typeName) {
-         if (string.IsNullOrWhiteSpace(typeName)) {
-            throw new ArgumentException("Type name cannot be null or whitespace.", nameof(typeName));
+      extension(string s) {
+         /// <summary>
+         /// Gets the resolved <see cref="Type"/> represented by the stored type name.
+         /// </summary>
+         /// <remarks>If the stored type name does not include a namespace, the namespace of the <see
+         /// cref="Module"/> type is used as a fallback. This property attempts to resolve the type using <see
+         /// cref="Type.GetType(string)"/>. If the type cannot be found, an exception is thrown.</remarks>
+         public Type AsType {
+            get {
+               if (string.IsNullOrWhiteSpace(s)) {
+                  throw new ArgumentException("Type name cannot be null or whitespace.",nameof(s));
+               }
+               Type? type = Type.GetType(s);
+               type ??= Type.GetType($"{typeof(Module).Namespace}.{s}");
+               if (type == null) {
+                  throw new TypeLoadException($"Could not load type '{s}'.");
+               }
+               return type;
+            }
          }
-         Type? type = Type.GetType(typeName);
-         type ??= Type.GetType($"{typeof(Module).Namespace}.{typeName}");
-         if (type == null) {
-            throw new TypeLoadException($"Could not load type '{typeName}'.");
+         /// <summary>
+         /// Returns true if the current string is a valid file name on the current platform.
+         /// </summary>
+         /// <remarks>A valid file name is non-empty, contains no whitespace only, and does not include
+         /// any characters that are invalid for file names as defined by the operating system. This property does not
+         /// check for file path validity or reserved file names.</remarks>
+         public bool IsValidFileName => !string.IsNullOrWhiteSpace(s) && s.All(ch => !Path.GetInvalidFileNameChars().Contains(ch));
+         /// <summary>
+         /// Convert the string to the case of the first letter.
+         /// </summary>
+         /// <param name="str"></param>
+         /// <returns></returns>         
+         public string ToFirstLetterCase() => string.IsNullOrEmpty(s) ? s : char.IsUpper(s[0]) ? s.ToUpper() : s.ToLower();
+         /// <summary>
+         /// Return the index of the first non-blank character in the string.
+         /// </summary>
+         /// <param name="text"></param>
+         /// <returns></returns>
+         public int FindIndex(Func<char,bool> predicate) {
+            for (int i = 0 ; i < s.Length ; i++) if (predicate(s[i])) return i;
+            return -1;
          }
-         return type;
+         /// <summary>
+         /// Return true if the string is composed of alphanumeric characters only.
+         /// </summary>
+         /// <returns></returns>
+         public bool IsAlphanumeric {
+            get {
+               if (string.IsNullOrEmpty(s)) return false;
+               foreach (char c in s) if (!char.IsLetterOrDigit(c)) return false;
+               return true;
+            }
+         }
+         /// <summary>
+         /// Verify that the string is null, empty or whitespace.
+         /// </summary>
+         /// <returns></returns>
+         public bool IsEmptyOrWhitespace => s is null || s.All(char.IsWhiteSpace);
+         public bool IsNotEmptyOrWhitespace => !s.IsEmptyOrWhitespace;
+
+         /// <summary>
+         /// Return the string with whitespaces removed.
+         /// </summary>
+         /// <returns></returns>
+         public string WithNoWhitespace => string.IsNullOrEmpty(s) ? s : Regex.Replace(s, @"\s+", "", RegexOptions.Compiled);
+
+         public string IntensifyColor(double factor) => s.FromHex.IntensifyColor(factor).ToHex;
+         public string DimColor(double factor) => s.FromHex.DimColor(factor).ToHex;
+
+         /// <summary>
+         /// Convert a hex string to a Color object.
+         /// </summary>
+         /// <returns></returns>
+         /// <exception cref="ArgumentException"></exception>
+         public Color FromHex {
+            get {
+               if (string.IsNullOrWhiteSpace(s))
+                  throw new ArgumentException("Invalid hex color string",nameof(s));
+
+               // Ensure the hex string starts with '#'
+               if (s[0] != '#') s = "#" + s;
+
+               // Use ColorConverter to convert the hex string to a Color object
+               return (Color)ColorConverter.ConvertFromString(s);
+            }
+         }
+
+         /// <summary>
+         /// Returns the pluralized form of the string based on the specified count.
+         /// </summary>
+         /// <param name="count">The numeric value that determines whether the singular or plural form should be used.</param>
+         /// <param name="plural">The plural form to use. If null, a default pluralization rule is applied.</param>
+         /// <returns>The pluralized form of the string if the count does not equal 1; otherwise, the original string.</returns>
+         public string Plural(int count,string? plural = null) => count.Plural(s,plural);
       }
 
-      public static bool IsValidFileName(this string? fileName) {
-         if (string.IsNullOrWhiteSpace(fileName)) {
-            return false;
-         } else {
-            return fileName.All(ch => !Path.GetInvalidFileNameChars().Contains(ch));
+      extension(int i) {
+         /// <summary>
+         /// Return the plural of the word word for count.
+         /// Does NOT handle words that are not pluralizable, such as "fish" or "sheep".
+         /// </summary>
+         /// <param name="word">The item name.</param>
+         /// <param name="plural">If given the plural of word. Otherwise an s, es, or ies is added as ap appropriate.</param>
+         /// <param name="pad">If given, the plural is padded with spaces to the extent of what would be added after inserting the pad.</param>
+         /// <param name="countWidth">Width of the count in characters. Default is 3.</param>
+         /// <returns></returns>
+         public string Plural(string word,string? pad = null,string? plural = null,int countWidth = 3) {
+            string suffix;
+            if (plural is null) {
+               if (Regex.IsMatch(word,@"(s|sh|ch|x|z)$",RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
+                  suffix = "es";
+               } else if (Regex.IsMatch(word,@"[^aeiou]y$",RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
+                  suffix = "ies";
+               } else {
+                  suffix = "s";
+               }
+               if (i == 1) {
+                  plural = $"{word}{(pad is not null ? pad : "")}{new string(' ',suffix.Length)}";
+               } else {
+                  if (suffix == "ies") {
+                     plural = Regex.Replace(word,"y$","ies",RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                  } else {
+                     plural = word + suffix;
+                  }
+                  plural += pad is not null ? pad : "";
+               }
+            }
+            return $"{string.Format($"{{0,{countWidth}:N0}}",i)} {plural}";
          }
       }
 
-      /// <summary>
-      /// Convert the string to the case of the first letter.
-      /// </summary>
-      /// <param name="str"></param>
-      /// <returns></returns>
-      public static string ToFirstLetterCase(this string str) => string.IsNullOrEmpty(str) ? str : char.IsUpper(str[0]) ? str.ToUpper() : str.ToLower();
+      extension(long l) {
+         /// <summary>
+         /// Formats a byte count with appropriate unit suffix
+         /// </summary>
+         /// <param name="bytes">Number of bytes</param>
+         /// <param name="useDecimalUnits">If true, uses decimal units (KB, MB, GB), otherwise binary units (KiB, MiB, GiB)</param>
+         /// <returns>Formatted string representing size with appropriate unit</returns>
+         public string HumanReadableSize(bool useDecimalUnits = false) {
+            string[] binarySuffixes = ["bytes","KiB","MiB","GiB","TiB","PiB","EiB"];
+            string[] decimalSuffixes = ["bytes","KB","MB","GB","TB","PB","EB"];
 
-      /// <summary>
-      /// Return the index of the first non-blank character in the string.
-      /// </summary>
-      /// <param name="text"></param>
-      /// <returns></returns>
-      public static int FindIndex(this string text,Func<char,bool> predicate) {
-         for (int i = 0 ; i < text.Length ; i++) if (predicate(text[i])) return i;
-         return -1;
+            string[] suffixes = useDecimalUnits ? decimalSuffixes : binarySuffixes;
+            int factor = useDecimalUnits ? 1000 : 1024;
+
+            if (l == 0) return "0 bytes";
+
+            int place = Convert.ToInt32(Math.Floor(Math.Log(l,factor)));
+            double num = Math.Round(l / Math.Pow(factor,place),0);
+
+            // Don't use the "bytes" suffix for values larger than 1
+            if (place == 0 && num > 1) 
+               return $"{num} bytes";
+            else if (place == 0)
+               return $"{num} byte";
+            else
+               return $"{num} {suffixes[place]}";
+         }
       }
 
-      /// <summary>
-      /// Return true if the string is composed of alphanumeric characters only.
-      /// </summary>
-      /// <param name="input"></param>
-      /// <returns></returns>
-      public static bool IsAlphanumeric(this string input) {
-         if (string.IsNullOrEmpty(input)) return false;
-         foreach (char c in input) if (!char.IsLetterOrDigit(c)) return false;
-         return true;
-      }
-      /// <summary>
-      /// Verify that the string is null, empty or whitespace.
-      /// </summary>
-      /// <param name="input"></param>
-      /// <returns></returns>
-      public static bool IsEmptyOrWhitespace(this string? input) => input is null || input.All(char.IsWhiteSpace);
-      public static bool IsNotEmptyOrWhitespace(this string? input) => !input.IsEmptyOrWhitespace();
-
-      /// <summary>
-      /// Return the string with whitespaces removed.
-      /// </summary>
-      /// <param name="input"></param>
-      /// <returns></returns>
-      public static string RemoveWhitespace(this string input) => string.IsNullOrEmpty(input) ? input : Regex.Replace(input, @"\s+", "", RegexOptions.Compiled);
-
-      /// <summary>
-      /// Formats a byte count with appropriate unit suffix
-      /// </summary>
-      /// <param name="bytes">Number of bytes</param>
-      /// <param name="useDecimalUnits">If true, uses decimal units (KB, MB, GB), otherwise binary units (KiB, MiB, GiB)</param>
-      /// <returns>Formatted string representing size with appropriate unit</returns>
-      public static string FormatByteSize(this long bytes, bool useDecimalUnits = false) {
-         string[] binarySuffixes  = ["bytes", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
-         string[] decimalSuffixes = ["bytes", "KB", "MB", "GB", "TB", "PB", "EB"];
-
-         string[] suffixes = useDecimalUnits ? decimalSuffixes : binarySuffixes;
-         int factor = useDecimalUnits ? 1000 : 1024;
-
-         if (bytes == 0)
-            return "0 bytes";
-
-         int place = Convert.ToInt32(Math.Floor(Math.Log(bytes, factor)));
-         double num = Math.Round(bytes / Math.Pow(factor, place), 0);
-
-         // Don't use the "bytes" suffix for values larger than 1
-         if (place == 0 && num > 1)
-            return $"{num} bytes";
-         else if (place == 0)
-            return $"{num} byte";
-         else
-            return $"{num} {suffixes[place]}";
-      }
 
       /// <summary>
       /// Returns a new list containing the elements of the original list combined with the specified items,  ensuring
@@ -653,102 +732,50 @@ namespace CDL2v1 {
          }
       }
 
-      /// <summary>
-      /// Return the plural of the word word for count.
-      /// Does NOT handle words that are not pluralizable, such as "fish" or "sheep".
-      /// </summary>
-      /// <param name="count">Number of items.</param>
-      /// <param name="word">The item name.</param>
-      /// <param name="plural">If given the plural of word. Otherwise an s, es, or ies is added as ap appropriate.</param>
-      /// <param name="pad">If given, the plural is padded with spaces to the extent of what would be added after inserting the pad.</param>
-      /// <param name="countWidth">Width of the count in characters. Default is 3.</param>
-      /// <returns></returns>
-      public static string Plural(this int count, string word, string? pad = null, string ? plural = null,int countWidth=3) {
-         string suffix;
-         if (plural is null) {
-            if (Regex.IsMatch(word, @"(s|sh|ch|x|z)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
-               suffix = "es";
-            } else if (Regex.IsMatch(word, @"[^aeiou]y$", RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
-               suffix = "ies";
-            } else {
-               suffix = "s";
-            }
-            if (count == 1) {
-               plural = $"{word}{(pad is not null?pad:"")}{new string(' ',suffix.Length)}";
-            } else {
-               if (suffix == "ies") {
-                  plural = Regex.Replace(word, "y$", "ies", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-               } else {
-                  plural = word + suffix;
-               }
-               plural += pad is not null ? pad : "";
-            }  
+
+
+      extension(Color color) {
+         /// <summary>
+         /// Dim a color by a factor.
+         /// </summary>
+         /// <param name="factor">The 0 <= factor <= 1 to use.</param>
+         /// <returns></returns>
+         /// <exception cref="ArgumentOutOfRangeException"></exception>
+         public Color DimColor(double factor) {
+            if (factor < 0 || factor > 1)
+               throw new ArgumentOutOfRangeException(nameof(factor),"Factor must be between 0 and 1.");
+
+            return Color.FromArgb(
+                color.A,
+                (byte)(color.R * factor),
+                (byte)(color.G * factor),
+                (byte)(color.B * factor)
+            );
          }
-         return $"{string.Format($"{{0,{countWidth}:N0}}", count)} {plural}";
+         /// <summary>
+         /// Intensify a color by a factor.
+         /// </summary>
+         /// <param name="factor">The factor >= 1 to use.</param>
+         /// <returns></returns>
+         /// <exception cref="ArgumentOutOfRangeException"></exception>
+         public Color IntensifyColor(double factor) {
+            if (factor < 1)
+               throw new ArgumentOutOfRangeException(nameof(factor),"Factor must be greater than or equal to 1.");
+
+            return Color.FromArgb(
+                color.A,
+                (byte)Math.Min(255,color.R * factor),
+                (byte)Math.Min(255,color.G * factor),
+                (byte)Math.Min(255,color.B * factor)
+            );
+         }
+
+         /// <summary>
+         /// Convert a Color to a hex string.
+         /// </summary>
+         /// <returns></returns>
+         public string ToHex => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
       }
-      public static string Plural(this string word,int count,string? plural=null) => count.Plural(word, plural);
-      /// <summary>
-      /// Dim a color by a factor.
-      /// </summary>
-      /// <param name="color"></param>
-      /// <param name="factor">The 0 <= factor <= 1 to use.</param>
-      /// <returns></returns>
-      /// <exception cref="ArgumentOutOfRangeException"></exception>
-      public static Color DimColor(this Color color,double factor) {
-         if (factor < 0 || factor > 1)
-            throw new ArgumentOutOfRangeException(nameof(factor),"Factor must be between 0 and 1.");
-
-         return Color.FromArgb(
-             color.A,
-             (byte)(color.R * factor),
-             (byte)(color.G * factor),
-             (byte)(color.B * factor)
-         );
-      }
-      /// <summary>
-      /// Intensify a color by a factor.
-      /// </summary>
-      /// <param name="color"></param>
-      /// <param name="factor">The factor >= 1 to use.</param>
-      /// <returns></returns>
-      /// <exception cref="ArgumentOutOfRangeException"></exception>
-      public static Color IntensifyColor(this Color color,double factor) {
-         if (factor < 1)
-            throw new ArgumentOutOfRangeException(nameof(factor),"Factor must be greater than or equal to 1.");
-
-         return Color.FromArgb(
-             color.A,
-             (byte)Math.Min(255,color.R * factor),
-             (byte)Math.Min(255,color.G * factor),
-             (byte)Math.Min(255,color.B * factor)
-         );
-      }
-      public static string IntensifyColor(this string color,double factor) => FromHex(color).IntensifyColor(factor).ToHex();
-      public static Color DimColor(this string color,double factor) => FromHex(color).DimColor(factor);
-
-      /// <summary>
-      /// Convert a hex string to a Color object.
-      /// </summary>
-      /// <param name="hex"></param>
-      /// <returns></returns>
-      /// <exception cref="ArgumentException"></exception>
-      public static Color FromHex(this string hex) {
-         if (string.IsNullOrWhiteSpace(hex))
-            throw new ArgumentException("Invalid hex color string",nameof(hex));
-
-         // Ensure the hex string starts with '#'
-         if (hex[0] != '#')
-            hex = "#" + hex;
-
-         // Use ColorConverter to convert the hex string to a Color object
-         return (Color)ColorConverter.ConvertFromString(hex);
-      }
-      /// <summary>
-      /// Convert a Color to a hex string.
-      /// </summary>
-      /// <param name="color"></param>
-      /// <returns></returns>
-      public static string ToHex(this Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
       /// <summary>
       /// Convert an IEnumerable to a Set.

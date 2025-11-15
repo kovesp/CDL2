@@ -278,8 +278,8 @@ namespace CDL2v1 {
       /// <returns></returns>
       public bool MatchesNamePattern(string pattern) 
             =>    pattern == string.Empty
-               || (pattern.StartsWith('/') && Regex.IsMatch(Id.CanonicalName,pattern.Trim('/').RemoveWhitespace()))
-               || Id.CanonicalName.Contains(pattern.RemoveWhitespace());
+               || (pattern.StartsWith('/') && Regex.IsMatch(Id.CanonicalName,pattern.Trim('/').WithNoWhitespace))
+               || Id.CanonicalName.Contains(pattern.WithNoWhitespace);
 
       /// <summary>
       /// Return the ancestor of the required type which must be a container.
@@ -528,7 +528,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="ludeType"></param>
       /// <returns>A collection of modules that are in the lude of the given type.</returns>
-      public List<Module> Lude(RW ludeType) => [.. Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id))!];
+      public List<Module> Lude(RW ludeType) => [.. Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id)!)];
 
       [JsonInclude]
       [JsonPropertyOrder(20)]
@@ -537,7 +537,7 @@ namespace CDL2v1 {
       /// Gets the collection of modules associated with the current program.
       /// </summary>
       /// <remarks>Note that here and elsewhere the iteration must be fixed to avoid multiple calls interfering with each other.</remarks>
-      [JsonIgnore] public List<Module> Modules => [.. Database.Instance.NamedElements.Values.OfType<Module>().Where(mod => Parts.Contains(mod.Id))];
+      [JsonIgnore] public List<Module> Modules => [.. Database.Instance.NamedElements.Values.OfType<Module>().Where(mod => Parts.Contains(mod.Id)!)];
       public override IEnumerable<NamedElement> ChildElements() => Modules;
 
       /// <summary>
@@ -596,8 +596,8 @@ namespace CDL2v1 {
          return section != null;
       }
 
-      [JsonIgnore] public List<Layer> Layers => [.. Children.Select(GUID => Database.Instance.NamedElements[GUID] as Layer)!];
-      [JsonIgnore] public List<Section> Sections => [.. Layers.SelectMany(layer => layer.Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section))!];
+      [JsonIgnore] public List<Layer> Layers => [.. Children.Select(GUID => (Layer)Database.Instance.NamedElements[GUID])];
+      [JsonIgnore] public List<Section> Sections => [.. Layers.SelectMany(layer => layer.Children.Select(GUID => (Section)Database.Instance.NamedElements[GUID]))];
 
       public override List<Guid> Siblings => Database.Instance.Modules;
    }
@@ -634,7 +634,7 @@ namespace CDL2v1 {
       public IDDictionary<IProvidable> Visible { get; } = [];
 
       [JsonIgnore]
-      public List<Section> Sections => [.. Children.Select(GUID => Database.Instance.NamedElements[GUID] as Section)!];
+      public List<Section> Sections => [.. Children.Select(GUID => (Section)Database.Instance.NamedElements[GUID])];
    }
 
    /// <summary>
@@ -990,8 +990,8 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(12)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
       [JsonInclude][JsonPropertyOrder(13)] public Set<Guid> localGuids = [];   // The locals of this algorithm.
 
-      [JsonIgnore] public List<Affix> Affixes => [.. affixGuids.Select(guid => NamedElement.From<Affix>(guid))];
-      [JsonIgnore] public Set<Local> Locals => [.. localGuids.Select(guid => NamedElement.From<Local>(guid))];
+      [JsonIgnore] public List<Affix> Affixes => [.. affixGuids.Select(guid => NamedElement.From<Affix>(guid)!)];
+      [JsonIgnore] public Set<Local> Locals => [.. localGuids.Select(guid => NamedElement.From<Local>(guid)!)];
 
       public bool IsAlgorithmType(RW algorithmType) => AlgorithmType == algorithmType;
       public bool IsAction => IsAlgorithmType(RW.ACTION);

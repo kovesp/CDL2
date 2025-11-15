@@ -236,7 +236,7 @@ namespace CDL2v1 {
                      emitter = new EmitterDebug();
                   } else if (Regex.IsMatch(PrettyPrint, @"^w(?:indow)$", RegexOptions.IgnoreCase)) {
                      emitter = new EmitterWindow();
-                  } else if (PrettyPrint.IsValidFileName()) {  // Must be placed after check for window
+                  } else if (PrettyPrint.IsValidFileName) {  // Must be placed after check for window
                      emitter = new EmitterFile(PrettyPrint);
                   } else {
                      emitter = new EmitterDebug();

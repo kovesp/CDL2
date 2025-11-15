@@ -11,7 +11,7 @@
 // 
 // <summary>
 //   This is the laboratory command interpreter.
-//   It is used to interpret lab commands and display results in the CommandWindow.
+//   It is used to interpret lab commands and display results in the CommandWindow;
 // </summary>
 // <attribution>
 //   This file is part of the clean room reimplementation of the
@@ -46,6 +46,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Xml.Linq;
+
 
 namespace CDL2v1 {
    public class CommandInterpreter {
@@ -189,7 +190,7 @@ namespace CDL2v1 {
       private static string ReplaceSpacesInQuotedStrings(string input) {
          bool inQuotes = false;
          int length = input.Length;
-         StringBuilder result = new StringBuilder(length);
+         StringBuilder result = new(length);
          for (int i = 0 ; i < length ; i++) {
             char c = input[i];
             if (inQuotes) {
@@ -463,7 +464,7 @@ namespace CDL2v1 {
             foreach (Database.UndoRecord record in stack) {
                CDL2Object? obj = record.CDL2Object;
                if (obj is not null) {
-                  WriteLine($"{++n,3}:{(record.Tag.IsNotEmptyOrWhitespace() ? $" [{record.Tag}]:" : "")} {record.ChangeType,8} :: {obj.FQDN(WithInterface: true)}");
+                  WriteLine($"{++n,3}:{(record.Tag.IsNotEmptyOrWhitespace ? $" [{record.Tag}]:" : "")} {record.ChangeType,8} :: {obj.FQDN(WithInterface: true)}");
                } else {
                   WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in NamedElements");
                }
@@ -476,12 +477,12 @@ namespace CDL2v1 {
                WriteError($"argument {index + 1} for {stackName} stack out of range: must be {(stack.Count==1?"1 if given":$"between 1 and {stack.Count}")}.");
             } else {
                string tag = Settings.SettingValue<string>("settag")!;
-               if (tag.IsNotEmptyOrWhitespace()) {
+               if (tag.IsNotEmptyOrWhitespace) {
                   stack[index]?.Tag = tag == "-" ? "" : tag;
                } else {
                   tag = Settings.SettingValue<string>("tag")!;
                   // Move the requested record to the top of the stack
-                  if (tag.IsNotEmptyOrWhitespace()) {
+                  if (tag.IsNotEmptyOrWhitespace) {
                      stack.Surface(record => record.Tag == tag);
                   } else {
                      stack.Surface(index);
@@ -594,9 +595,9 @@ namespace CDL2v1 {
       }
 
       private void InterpretCommandEdit(string args) {
-         if (commandWindow is null) return; // Ignore the command if there is no command window
+         if (commandWindow == null) return; // Ignore the command if there is no command window
          SingleSelection? context = GetContext(args);
-         if (context is null || context.Object is null || !context.IsFocusable) {
+         if (context == null || context.Object == null || !context.IsFocusable) {
             WriteError("Can't edit.");
          } else if (context.Object is Container) {
             // Container is a base class for Module, Layer, Section, Program, etc.
@@ -625,9 +626,9 @@ namespace CDL2v1 {
       /// <param name="after"></param>
       /// <param name="add"></param>
       private void InterpretCommandAdd(string args) {
-         if (commandWindow is null) return; // Ignore the command if there is no command window
+         if (commandWindow == null) return; // Ignore the command if there is no command window
          Selection? context = GetMultiContext(args);
-         if (context is null || context.Count == 0) return;
+         if (context == null || context.Count == 0) return;
 
          InterfaceTypes interfaceTypes = InterfaceTypeFromSetting();
          if (interfaceTypes != InterfaceTypes.None) {
@@ -683,7 +684,7 @@ namespace CDL2v1 {
       }
 
       private void InterpretCommandPrint(string args) {
-         if (args.IsEmptyOrWhitespace()) {
+         if (args.IsEmptyOrWhitespace) {
             if (Focus.Current.Object is not null) {
                pp.PauseUpdate(() => pp.Print(Focus.Current.Object));
             }
@@ -702,7 +703,7 @@ namespace CDL2v1 {
       }
 
       private void InterpretCommandList(string args) {
-         if (args.IsEmptyOrWhitespace()) {
+         if (args.IsEmptyOrWhitespace) {
             if (Focus.Current.Object is not null) {
                WriteWithInterface(Focus.Current.Object);
             } else {

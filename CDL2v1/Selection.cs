@@ -165,7 +165,7 @@ namespace CDL2v1 {
 
       }
       private class OffsetSegment(string offset) : SelectionSegment {
-         public int Offset { get; private set; } = int.Parse(offset.RemoveWhitespace());
+         public int Offset { get; private set; } = int.Parse(offset.WithNoWhitespace);
          public override string ToString() => Offset.ToString("+#;-#;0");
       }
 
@@ -566,15 +566,15 @@ namespace CDL2v1 {
          int focusMoveCount = 1;
          switch (direction) {
             case FocusMoveDirection.First:
-               if (args.IsNotEmptyOrWhitespace()) return false;
+               if (args.IsNotEmptyOrWhitespace) return false;
                focusMoveCount = int.MinValue;
                break;
             case FocusMoveDirection.Last:
-               if (args.IsNotEmptyOrWhitespace()) return false;
+               if (args.IsNotEmptyOrWhitespace) return false;
                focusMoveCount = int.MaxValue;
                break;
             default:
-               if (args.IsNotEmptyOrWhitespace() && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
+               if (args.IsNotEmptyOrWhitespace && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
                if (direction == FocusMoveDirection.Backward) focusMoveCount = -focusMoveCount;
                break;
          }

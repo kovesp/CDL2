@@ -102,7 +102,7 @@ namespace CDL2v1 {
 
          CompressStringToFile(json,path);
 
-         pathWithSize = $"{path}, {new FileInfo(path).Length.FormatByteSize()}";
+         pathWithSize = $"{path}, {new FileInfo(path).Length.HumanReadableSize()}";
          Logger.logger.WriteLine(1,$"CDL2: Compressed database saved to {pathWithSize}");
          return pathWithSize;
       }

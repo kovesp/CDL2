@@ -484,7 +484,7 @@ F1    | Show this help message.
                if (trimmed.Length == 0 || char.IsAsciiLetterLower(trimmed[0])) {
                   string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
                   string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat: true);
-                  if (commandHelp.IsNotEmptyOrWhitespace()) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
+                  if (commandHelp.IsNotEmptyOrWhitespace) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
                }
             }
             ToastWindow.ShowToast(toastMessage);
@@ -544,7 +544,7 @@ F1    | Show this help message.
                WriteLine($"> {command}");
             }
 
-            if (command.IsNotEmptyOrWhitespace()) {
+            if (command.IsNotEmptyOrWhitespace) {
                // Raise event to handle the command
                CommandEntered?.Invoke(this,command);
             }
