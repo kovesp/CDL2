@@ -425,11 +425,11 @@ namespace CDL2v1 {
                   foreach (T value in values) set.Add(value);
                }
             }
-            reset(VarSet.readableAffixes    ,readableAffixes    ,proc.Affixes.Where(affix => affix.IsInput).ToSet());
+            reset(VarSet.readableAffixes    ,readableAffixes    ,proc.Affixes.Where(affix => affix.IsInput).ToSet);
             reset(VarSet.readableLocals     ,readableLocals     ,[]);
-            reset(VarSet.writableAffixes    ,writableAffixes    ,proc.Affixes.Where(affix => affix.IsOutput).ToSet());
+            reset(VarSet.writableAffixes    ,writableAffixes    ,proc.Affixes.Where(affix => affix.IsOutput).ToSet);
             reset(VarSet.writableLocals     ,writableLocals     ,[.. proc.Locals]);
-            reset(VarSet.neverWrittenAffixes,neverWrittenAffixes,proc.Affixes.Where(affix => affix.IsOutputOnly).ToSet());
+            reset(VarSet.neverWrittenAffixes,neverWrittenAffixes,proc.Affixes.Where(affix => affix.IsOutputOnly).ToSet);
             reset(VarSet.neverWrittenLocals ,neverWrittenLocals ,[.. proc.Locals]);
          }
 

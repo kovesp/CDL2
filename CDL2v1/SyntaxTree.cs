@@ -411,7 +411,7 @@ namespace CDL2v1 {
       /// Element display name, i.e. MOD mod LAY lay SEC sec declared.
       /// </summary>
       /// <returns></returns>
-      public virtual string FQDN(bool WithInterface=false) => $"{AncestorContainer<Module>().WithSpace()}{AncestorContainer<Layer>().WithSpace()}{AncestorContainer<Section>().WithSpace()}{ToString()}";
+      public virtual string FQDN(bool WithInterface=false) => $"{AncestorContainer<Module>().WithSpace}{AncestorContainer<Layer>().WithSpace}{AncestorContainer<Section>().WithSpace}{ToString()}";
 
       public static T? From<T>(Guid guid) where T : NamedElement => Database.Instance.NamedElements.TryGetValue(guid,out NamedElement? element) && element is T typedElement ? typedElement : null;
       public static bool From<T>(Guid guid,out T? element) where T : NamedElement => (element = NamedElement.From<T>(guid)) is not null;
@@ -1009,7 +1009,7 @@ namespace CDL2v1 {
                _ => SelectorType.INVALID
             }) {
          affixGuids = [.. affixes.Select(affix => affix.GUID)];
-         localGuids = (Set<Guid>)locals.Select(local => local.GUID).ToSet<Guid>();
+         localGuids = locals.Select(local => local.GUID).ToSet;
          this.AlgorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
          this.BodyType = bodyType;
          this.SE = SE.AlgorithmName;

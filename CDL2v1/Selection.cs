@@ -394,7 +394,7 @@ namespace CDL2v1 {
 
          if (segments.Index < 1) {
             // If the selectedObjects are all siblings, add them in sibling order, otherwise OrderedAsSiblings leaves the order unchanged.
-            AddRange(selectedObjects.OrderedAsSiblings().Select(obj => new SingleSelection(obj)));
+            AddRange(selectedObjects.OrderedAsSiblings.Select(obj => new SingleSelection(obj)));
          } else {
             Add(new SingleSelection(selectedObjects.ElementAt(Math.Min(segments.Index,segments.Count)-1)));
          }

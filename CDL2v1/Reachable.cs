@@ -68,7 +68,7 @@ namespace CDL2v1 {
       public Set<ITrackedVar> AmbigousVars { get; private set; } = [];
       
       public void CollectAllObjects() {
-         AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => ! elem.IsImported,Extensions.ToSet);
+         AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => ! elem.IsImported,e=>e.ToSet);
          LogObjectCount(AllObjects, $"in {Database.Instance.Modules.Count.Plural("module")}");
       }
 

@@ -51,6 +51,7 @@ using System.Text.Json.Serialization;
 using System.Collections;
 using System.Text.Json;
 using System.Security.Policy;
+using System.Windows.Automation.Text;
 
 namespace CDL2v1 {  
    public class Set<T> : HashSet<T> {
@@ -513,6 +514,7 @@ namespace CDL2v1 {
       extension<T>(IEnumerable<T> source) {
          public IEnumerable<T> OptMap(bool condition,Func<IEnumerable<T>,IEnumerable<T>> func) => condition ? func(source) : source;
          public IEnumerable<T> OptWhere(Func<T,bool>? pred = null) => pred is not null ? source.Where(pred) : source;
+         public Set<T> ToSet => [.. source];
       }
 
       extension(string s) {
@@ -609,6 +611,26 @@ namespace CDL2v1 {
          /// <param name="plural">The plural form to use. If null, a default pluralization rule is applied.</param>
          /// <returns>The pluralized form of the string if the count does not equal 1; otherwise, the original string.</returns>
          public string Plural(int count,string? plural = null) => count.Plural(s,plural);
+
+         /// <summary>
+         /// Normalize a string to a valid identifier.
+         /// </summary>
+         /// <param name="str"></param>
+         /// <param name="prefix"></param>
+         /// <param name="replacement"></param>
+         /// <param name="camelCase"></param>
+         /// <param name="literalObjectName"></param>
+         /// <returns></returns>
+         public string AsIdentifier(string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
+            if (literalObjectName) return s.Replace(" ","");
+            if (prefix != "") prefix += "_";
+            s = Regex.Replace(s,@"[^\p{L}\d\s]+","_",RegexOptions.Compiled).Trim();
+            if (camelCase) {
+               return prefix.ToLower() + s.Split(" ").Select((word,i) => i == 0 ? word.ToLower() : char.ToUpper(word[0]) + word[1..].ToLower()).Aggregate((a,b) => a + b);
+            } else {
+               return prefix.ToLower() + s.ToLower().Replace(" ",replacement);
+            }
+         }
       }
 
       extension(int i) {
@@ -675,17 +697,17 @@ namespace CDL2v1 {
          }
       }
 
-
-      /// <summary>
-      /// Returns a new list containing the elements of the original list combined with the specified items,  ensuring
-      /// no duplicate elements are added.
-      /// </summary>
-      /// <typeparam name="T">The type of elements in the list. Must be a non-nullable type.</typeparam>
-      /// <param name="list">The original list to which the items will be added.</param>
-      /// <param name="items">The collections of items to add to the list. Duplicate elements will not be added.</param>
-      /// <returns>A new list containing the elements of the original list and the specified items, without duplicates.</returns>
-      public static List<T> With<T>(this List<T> list, params IEnumerable<T> items) where T : notnull 
-         => items.All(item => list.Contains(item)) ? list : [.. list.Union(items)];
+      extension<T>(List<T> list) where T : notnull {
+         /// <summary>
+         /// Returns a new list containing the elements of the original list combined with the specified items,  ensuring
+         /// no duplicate elements are added.
+         /// </summary>
+         /// <typeparam name="T">The type of elements in the list. Must be a non-nullable type.</typeparam>
+         /// <param name="items">The collections of items to add to the list. Duplicate elements will not be added.</param>
+         /// <returns>A new list containing the elements of the original list and the specified items, without duplicates.</returns>
+         public List<T> With(params T[] items) => items.All(item => list.Contains(item)) ? list : [.. list.Union(items)];
+         public List<T> With(T item) => list.Contains(item) ? list : [.. list, item];
+      }
 
       /// <summary>
       /// Return the types that implement the given interface.
@@ -695,44 +717,24 @@ namespace CDL2v1 {
       public static IEnumerable<Type> GetImplementorsOfInterface<TInterface>() => Assembly.GetExecutingAssembly().GetTypes()
              .Where(type => typeof(TInterface).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract);
 
-      /// <summary>
-      /// If all elements of objects are siblings of this one, then return the objects in the order of their siblings.
-      /// </summary>
-      /// <param name="objects"></param>
-      /// <returns></returns>
-      public static IEnumerable<NamedElement> OrderedAsSiblings(this IEnumerable<NamedElement> objects) {
-         //Debug.Assert(objects.Any(),"The collection of objects must not be empty.");
-         if (!objects.Any()) return objects;
-         List<Guid> siblings = objects.First().Siblings;
-         if (objects.Skip(1).All(obj => siblings.Contains(obj.GUID))) {
-            return objects.OrderBy(obj => siblings.IndexOf(obj.GUID));
-         } else {
-            return objects;
+      extension(IEnumerable<NamedElement> objects) {
+         /// <summary>
+         /// If all elements of objects are siblings of this one, then return the objects in the order of their siblings.
+         /// </summary>
+         /// <returns></returns>
+         public IEnumerable<NamedElement> OrderedAsSiblings {
+            get {
+               //Debug.Assert(objects.Any(),"The collection of objects must not be empty.");
+               if (!objects.Any()) return objects;
+               List<Guid> siblings = objects.First().Siblings;
+               if (objects.Skip(1).All(obj => siblings.Contains(obj.GUID))) {
+                  return objects.OrderBy(obj => siblings.IndexOf(obj.GUID));
+               } else {
+                  return objects;
+               }
+            }
          }
       }
-
-
-      /// <summary>
-      /// Normalize a string to a valid identifier.
-      /// </summary>
-      /// <param name="str"></param>
-      /// <param name="prefix"></param>
-      /// <param name="replacement"></param>
-      /// <param name="camelCase"></param>
-      /// <param name="literalObjectName"></param>
-      /// <returns></returns>
-      public static string AsIdentifier(this string str,string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
-         if (literalObjectName) return str.Replace(" ","");
-         if (prefix != "") prefix += "_";
-         str = Regex.Replace(str,@"[^\p{L}\d\s]+","_",RegexOptions.Compiled).Trim();
-         if (camelCase) {
-            return prefix.ToLower() + str.Split(" ").Select((word,i) => i == 0 ? word.ToLower() : char.ToUpper(word[0]) + word[1..].ToLower()).Aggregate((a,b) => a + b);
-         } else {
-            return prefix.ToLower() + str.ToLower().Replace(" ",replacement);
-         }
-      }
-
-
 
       extension(Color color) {
          /// <summary>
@@ -777,15 +779,9 @@ namespace CDL2v1 {
          public string ToHex => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
       }
 
-      /// <summary>
-      /// Convert an IEnumerable to a Set.
-      /// </summary>
-      /// <typeparam name="T"></typeparam>
-      /// <param name="enumerable"></param>
-      /// <returns></returns>
-      public static Set<T> ToSet<T>(this IEnumerable<T> enumerable) => [.. enumerable];
-
-      public static string WithSpace<T>(this T? obj) => obj == null ? "" : obj.ToString() + " ";
+      extension<T>(T? obj) {
+         public string WithSpace => obj == null ? "" : obj.ToString() + " ";
+      }
 
       /// <summary>
       /// Decorate a string with the given decoration.
@@ -812,13 +808,14 @@ namespace CDL2v1 {
          }
       }
       internal static string Decorate(this RW rw,Emitter emitter,SE element) => rw.ToString().Decorate(emitter,element);
-      //internal static string Decorate(this string str,EmitterBase Emitter,SE element) =>str.Decorate(Emitter,element);
       internal static string Decorate(this Token token,Emitter emitter,SE element) => token.TokenString.Decorate(emitter,element);
       internal static string Decorate(this ID id,Emitter emitter,SE element) 
          => /*Id.Comments!.Decorate(Emitter,SE.Comment) +*/ id.Name.Decorate(emitter,element);
       internal static string Decorate(this long i,Emitter emitter) => i.ToString().Decorate(emitter,SE.Number);
       internal static string Decorate(this double d,Emitter emitter) => d.ToString().Decorate(emitter,SE.Number);
       internal static string Decorate(this ID algorithmId,Emitter emitter,PrettyPrinter.Decoration decoration) => algorithmId.ToString().Decorate(emitter,SE.AlgorithmName,decoration);
+
+
       [GeneratedRegex(@"\r\n|\r|\n",RegexOptions.Compiled)]
       private static partial Regex NewlineRegex();
    }
