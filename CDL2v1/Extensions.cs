@@ -32,26 +32,28 @@
 // </auto-gen>
 
 using System;
+using System.CodeDom;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.CommandLine.Parsing;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
+using System.Security.Policy;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.IO;
-using System.Diagnostics;
-using System.Windows.Media;
-using System.Reflection.Emit;
-using System.Diagnostics.Metrics;
-using System.Xml.Serialization;
 using System.Windows;
-using System.Text.Json.Serialization;
-using System.Collections;
-using System.Text.Json;
-using System.Security.Policy;
 using System.Windows.Automation.Text;
+using System.Windows.Media;
+using System.Xml.Linq;
+using System.Xml.Serialization;
 
 namespace CDL2v1 {  
    public class Set<T> : HashSet<T> {
@@ -631,7 +633,77 @@ namespace CDL2v1 {
                return prefix.ToLower() + s.ToLower().Replace(" ",replacement);
             }
          }
+
+         /// <summary>
+         /// Returns a new string consisting of the specified string repeated a given number of times.
+         /// </summary>
+         /// <param name="src">The string to be repeated. If null or empty, the result is an empty string.</param>
+         /// <param name="n">The number of times to repeat the string. Must be zero or greater.</param>
+         /// <returns>A new string that consists of the input string repeated the specified number of times. Returns an empty
+         /// string if the input is null, empty, or if the repeat count is zero.</returns>
+         /// 
+         /// <remarks>
+         /// It isn't possible to overload * for char and uint because char implicitly converts to uint.
+         /// </remarks>
+         public static string operator *(string src,uint n) {
+            if (string.IsNullOrEmpty(src) || n == 0) return "";
+            StringBuilder sb = new();
+            for (int i = 0 ; i < n ; i++) sb.Append(src);
+            return sb.ToString();
+         }
+
+         /// <summary>
+         /// Removes all occurrences of a specified substring from the source string.
+         /// </summary>
+         /// <remarks>This operator performs a case-sensitive removal of all non-overlapping occurrences
+         /// of the specified substring. If either parameter is null, an ArgumentNullException is thrown.</remarks>
+         /// <param name="src">The string from which to remove occurrences of the specified substring. If this is null, the empty string is returned.</param>
+         /// <param name="rem">The substring to remove from the source string. If this value is empty or null, the source string is returned
+         /// unchanged.</param>
+         /// <returns>A new string that is equivalent to the source string except for all instances of the specified substring,
+         /// which are removed. If the substring to remove is not found, the original string is returned.</returns>
+         public static string operator -(string src,string oldValue) => (oldValue??"").Length == 0 ? src??"" : (src??"").Replace(oldValue!,"");
+         public static string operator -(string src,char oldChar) => src - oldChar.ToString();
+
+         /// <summary>
+         /// Creates a compiled regular expression from the specified pattern using the bitwise complement operator (~).
+         /// </summary>
+         /// <remarks>This operator provides a concise syntax for creating compiled regular expressions.
+         /// The resulting <see cref="Regex"/> instance uses <see cref="RegexOptions.Compiled"/>. If <paramref
+         /// name="pattern"/> is invalid, a <see cref="ArgumentException"/> is thrown by the <see cref="Regex"/>
+         /// constructor.</remarks>
+         /// <param name="pattern">The regular expression pattern to compile. Cannot be null.</param>
+         /// <returns>A <see cref="Regex"/> object that represents the compiled regular expression defined by <paramref
+         /// name="pattern"/>.</returns>
+         /// <example>
+         /// "test string" - ~@"[st]+" --> "e ring"
+         /// </example>
+         public static Regex operator ~(string pattern) => (pattern??"").Length == 0 ? NeverMatches : new(pattern!,RegexOptions.Compiled);
+         public static string operator -(string src,Regex re) => re.Replace(src??"","");
+
+         /// <summary>
+         /// Replaces all occurrences of a specified regular expression pattern in the input string with a replacement
+         /// string.
+         /// </summary>
+         /// <remarks>This operator uses regular expression matching, which may affect performance for
+         /// large input strings or complex patterns. The replacement is performed using the rules of
+         /// System.Text.RegularExpressions.Regex.Replace. If the pattern is invalid, a RegexParseException may be
+         /// thrown.</remarks>
+         /// <param name="input">The string to search for matches of the regular expression pattern.</param>
+         /// <param name="repl">A tuple containing the regular expression pattern to match and the replacement string. The first element is
+         /// the pattern; the second element is the replacement.</param>
+         /// <returns>A new string that is equivalent to the input string, except that all substrings matching the regular
+         /// expression pattern are replaced with the replacement string.</returns>
+         /// <example>
+         /// "test string" >> (@"[st]+","X") --> "XeXX XXring"
+         /// Regex re = ~@"[st]+";
+         /// "test string" >> (re,"X") --> "XeXX XXring"
+         /// </example>
+         public static string operator >>(string input,(string re,string replacement) repl) => Regex.Replace(input,repl.re,repl.replacement);
+         public static string operator >>(string input,(Regex re, string replacement) repl) => repl.re.Replace(input,repl.replacement);
+
       }
+      private static readonly Regex NeverMatches = new(@"(?!.*)",RegexOptions.Compiled);
 
       extension(int i) {
          /// <summary>
