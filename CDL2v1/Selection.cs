@@ -32,21 +32,9 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.CommandLine;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Security.RightsManagement;
-using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows.Input;
-using System.Xml.Linq;
 
 namespace CDL2v1 {
 
@@ -560,9 +548,10 @@ namespace CDL2v1 {
       /// <param name="direction"></param>
       /// <returns></returns>
       /// <exception cref="NotImplementedException"></exception>
-      /// <param name="anomaly"></param>
-      internal bool Move(string args,FocusMoveDirection direction,out (string, Severity) anomaly) {
-         anomaly = ("Invalid command", Severity.Error);
+      /// <param name="msg"></param>
+      /// <param name="severity"></param>
+      internal bool Move(string args,FocusMoveDirection direction,out string msg,out Severity severity) {
+         (msg,severity) = ("Invalid command", Severity.Error);
          if (Object is null) return false; // Note that there is no need to check focusability here, as the focus is always on a focusable object.
          // TODO: Check if the object has siblings, if not, return false. Interface list do not have siblings.
          int newIndex;
@@ -583,7 +572,7 @@ namespace CDL2v1 {
                break;
          }
          if (newIndex == currentIndex) {
-            anomaly = ("Already there", Severity.Info);
+            (msg,severity) = ("Already there", Severity.Info);
             return false;
          } else {
             return Focus.SetFocus(Object.Siblings[newIndex]);

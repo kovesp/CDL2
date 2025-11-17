@@ -32,6 +32,7 @@
 //=======================================================================
 // </auto-gen>
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -284,6 +285,14 @@ namespace CDL2v1 {
          }
       }
 
+      private static readonly ImmutableDictionary<CommandType,FocusMoveDirection> commandAsFocusMoveDirection =
+          new Dictionary<CommandType,FocusMoveDirection> {
+             [CommandType.next]     = FocusMoveDirection.Forward,
+             [CommandType.previous] = FocusMoveDirection.Backward,
+             [CommandType.first]    = FocusMoveDirection.First,
+             [CommandType.last]     = FocusMoveDirection.Last,
+          }.ToImmutableDictionary();
+
       /// <summary>
       /// Interpret the command with the given verb, arguments and settings.
       /// </summary>
@@ -328,13 +337,10 @@ namespace CDL2v1 {
                case CommandType.focus:
                   if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
                case CommandType.next:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Forward,out (string msg,Severity severity) anomaly)) WriteLine(anomaly.msg,anomaly.severity); break;
                case CommandType.previous:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Backward,out anomaly)) WriteLine(anomaly.msg,anomaly.severity); break;
                case CommandType.first:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.First,out anomaly)) WriteLine(anomaly.msg,anomaly.severity); break;
                case CommandType.last:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Last,out anomaly)) WriteLine(anomaly.msg,anomaly.severity); break;
+                  if (!Focus.Current.Move(args,commandAsFocusMoveDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
                case CommandType.list:
                   InterpretCommandList(args); break;
                case CommandType.print:
