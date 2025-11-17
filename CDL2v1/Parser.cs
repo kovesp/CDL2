@@ -151,26 +151,26 @@ namespace CDL2v1 {
       /// <param Id="tokens"></param>
       /// <exception cref="Exception"></exception>
       internal void Parse(string filePath) => ParseString(File.ReadAllText(filePath));
-      private void ParseString(string input) {
-         if (Tokenize(input,ParseMode.Full)) ParseTokens();
-      }
+      public List<Container> ParseString(string input) => Tokenize(input,ParseMode.Full) ? ParseTokens() : [];
 
       public bool Tokenize(string input,ParseMode mode) {
          tokens = new TokenList(ReportInvalidToken);
          return (Lexer = new LexicalAnalyzer(Compiler,tokens)).Tokenize(input,mode);
       }
 
-      public void ParseTokens() {
+      public List<Container> ParseTokens() {
          Logger.logger.ErrorAction = SkipToNextEnd;
          Logger.logger.CurrentObject = currentObject;
+
+         List<Container> parsedContainers = [];
 
          while (tokens.IsNonEmpty()) {
             Notes notes = ParseNotes();
             ID unitId = ID.ErrorID;
             if (tokens.CanConsumeContainerDelimiter(RW.MODULE,ref unitId,out string? comments)) {
-               ParseModule(unitId,comments,notes);
+               parsedContainers.AddNonNullTo(ParseModule(unitId,comments,notes));
             } else if (tokens.CanConsumeContainerDelimiter(RW.PROGRAM,ref unitId,out comments)) {
-               ParseProgram(unitId,comments,notes);
+               parsedContainers.AddNonNullTo(ParseProgram(unitId,comments,notes));
             } else {
                //throw new Exception("Expected MODULE or PROGRAM");
                break;
@@ -179,6 +179,7 @@ namespace CDL2v1 {
 
          Logger.logger.CurrentObject = null;
          Logger.logger.ErrorAction = null;
+         return parsedContainers!;
       }
 
       /// <summary>
@@ -191,10 +192,10 @@ namespace CDL2v1 {
       /// ENDPROG program PhaseName.
       /// </summary>
       /// <param PhaseName="programId"></param>
-      private void ParseProgram(ID programId,string comments,Notes notes) {
+      private Program? ParseProgram(ID programId,string comments,Notes notes) {
          if (Database.Instance.IsNamedElement<Program>(programId)) {
             AddNote(Note.DuplicateContainer,programId.Name);
-            return;
+            return null;
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
             currentProgram = new Program(programId,comments,notes);
@@ -208,6 +209,7 @@ namespace CDL2v1 {
          ParseLudes(currentProgram);
          // Consume the ENDPROG token
          tokens.CanConsumeContainerDelimiter(RW.ENDPROG,ref programId,out _);
+         return currentProgram;
       }
       /// <summary>
       /// Parse (and skip) NOTEs.
@@ -235,10 +237,10 @@ namespace CDL2v1 {
       /// TODO: Semantic analysis to enforce CDL2 lab or Compiler convention.
       /// </summary>
       /// <param Id="moduleId">The ID (Id) of the module.</param>
-      private void ParseModule(ID moduleId,string comments,Notes notes) {
+      private Module? ParseModule(ID moduleId,string comments,Notes notes) {
          if (Database.Instance.IsNamedElement<Module>(moduleId)) {
             AddNote(Note.DuplicateContainer,moduleId.Name);
-            return;
+            return null;
          } else {
             currentObject.Object = (RW.MODULE, moduleId);
             currentModule = new Module(moduleId,comments,notes);
@@ -255,6 +257,7 @@ namespace CDL2v1 {
          // Consume the ENDMOD
          tokens.CanConsumeContainerDelimiter(RW.ENDMOD,ref moduleId,out _);
          ParseLudes(currentModule);
+         return currentModule;
       }
 
       private void ParseLayer(ID layerId,string comments,Notes notes) {
