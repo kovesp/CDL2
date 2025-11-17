@@ -32,20 +32,10 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Eventing.Reader;
-using System.Diagnostics.Metrics;
-using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Xml.Linq;
 
 
 namespace CDL2v1 {
@@ -338,13 +328,13 @@ namespace CDL2v1 {
                case CommandType.focus:
                   if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
                case CommandType.next:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Forward)) WriteWarning("Invalid command"); break;
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Forward,out (string msg,Severity severity) anomaly)) WriteLine(anomaly.msg,anomaly.severity); break;
                case CommandType.previous:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Backward)) WriteWarning("Invalid command"); break;
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Backward,out anomaly)) WriteLine(anomaly.msg,anomaly.severity); break;
                case CommandType.first:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.First)) WriteWarning("Invalid command"); break;
+                  if (!Focus.Current.Move(args,FocusMoveDirection.First,out anomaly)) WriteLine(anomaly.msg,anomaly.severity); break;
                case CommandType.last:
-                  if (!Focus.Current.Move(args,FocusMoveDirection.Last)) WriteWarning("Invalid command"); break;
+                  if (!Focus.Current.Move(args,FocusMoveDirection.Last,out anomaly)) WriteLine(anomaly.msg,anomaly.severity); break;
                case CommandType.list:
                   InterpretCommandList(args); break;
                case CommandType.print:
@@ -649,9 +639,9 @@ namespace CDL2v1 {
             SetStatus();
             return;
          } else {
-            // Swich to edit mode in the input field with an amepty content.
-            IsEditing = false; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
-            insertionLocation = Settings.SettingValue<bool>("before") ? InsertLocation.Before : InsertLocation.After;
+            // Swich to edit mode in the input field with empty content.
+            IsEditing = false; // Ensure a prompt is given if the object exists.
+            insertionLocation = Settings.SettingValue<bool>("before") ? InsertLocation.Before : InsertLocation.After; // This will ofcoruse be ignore if the object exists and is replaced.
             ppEdit.Emitter.Clear();
             ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
             commandWindow.EditText();

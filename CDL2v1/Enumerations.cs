@@ -292,7 +292,11 @@ namespace CDL2v1 {
       InterfaceChanged,
    }
 
-   public enum FocusMoveDirection { Forward, Backward, First, Last };
+   /// <summary>
+   /// Specifies the direction in which focus should move within an object list.
+   /// </summary>
+   /// <remarks>Use this enumeration to indicate how focus navigation should proceed: Forward, Backward,First,Last</remarks>
+   public enum FocusMoveDirection { Forward=1, Backward=-1, First=2, Last=3 };
 
    /// <summary>
    /// Formal parameter directions of procedures.

@@ -738,6 +738,15 @@ namespace CDL2v1 {
             }
             return $"{string.Format($"{{0,{countWidth}:N0}}",i)} {plural}";
          }
+
+         /// <summary>
+         /// Constrains the current value to be within the specified minimum and maximum bounds.
+         /// </summary>
+         /// <param name="min">The inclusive lower bound to which the value will be constrained.</param>
+         /// <param name="max">The inclusive upper bound to which the value will be constrained.</param>
+         /// <returns>The constrained value, which will be no less than <paramref name="min"/> and no greater than <paramref
+         /// name="max"/>.</returns>
+         public int ConstrainedTo(int min,int max) => Math.Min(Math.Max(i,min),max);
       }
 
       extension(long l) {

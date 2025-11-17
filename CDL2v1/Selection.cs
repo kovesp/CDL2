@@ -553,35 +553,41 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Move the focus n items in the Siblings list. Return false if this is not possible.
-      /// However, if the number can arbitrarily large (positive or negative), if limits are exceeded, the move is to the first or last sibling.
+      /// However, if limits are exceeded, the move is to the first or last sibling.
       /// If the focus is on an object that does not have siblings, return false.
       /// </summary>
       /// <param name="args">These are interpreted as an optionally signed integer.</param>
-      /// <param name="direction">Positive for forward, negative for bakward</param>
+      /// <param name="direction"></param>
       /// <returns></returns>
       /// <exception cref="NotImplementedException"></exception>
-      internal bool Move(string args,FocusMoveDirection direction) {
+      /// <param name="anomaly"></param>
+      internal bool Move(string args,FocusMoveDirection direction,out (string, Severity) anomaly) {
+         anomaly = ("Invalid command", Severity.Error);
          if (Object is null) return false; // Note that there is no need to check focusability here, as the focus is always on a focusable object.
          // TODO: Check if the object has siblings, if not, return false. Interface list do not have siblings.
-         int focusMoveCount = 1;
+         int newIndex;
+         int currentIndex = Object.Siblings.IndexOf(Object.GUID);
          switch (direction) {
             case FocusMoveDirection.First:
                if (args.IsNotEmptyOrWhitespace) return false;
-               focusMoveCount = int.MinValue;
+               newIndex = 0;
                break;
             case FocusMoveDirection.Last:
                if (args.IsNotEmptyOrWhitespace) return false;
-               focusMoveCount = int.MaxValue;
+               newIndex = Object.Siblings.Count - 1;
                break;
             default:
+               int focusMoveCount = 1;
                if (args.IsNotEmptyOrWhitespace && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
-               if (direction == FocusMoveDirection.Backward) focusMoveCount = -focusMoveCount;
+               newIndex = (currentIndex + focusMoveCount*(int)direction).ConstrainedTo(0,Object.Siblings.Count-1);
                break;
          }
-         int currentIndex = Object.Siblings.IndexOf(Object.GUID);
-         Debug.Assert(currentIndex >= 0, "Focus is on an object that is not among its siblings");
-         int newIndex = Math.Max(Math.Min(currentIndex + focusMoveCount, Object.Siblings.Count-1),0);
-         return Focus.SetFocus(Object.Siblings[newIndex]);
+         if (newIndex == currentIndex) {
+            anomaly = ("Already there", Severity.Info);
+            return false;
+         } else {
+            return Focus.SetFocus(Object.Siblings[newIndex]);
+         }
       }
    }
 }
