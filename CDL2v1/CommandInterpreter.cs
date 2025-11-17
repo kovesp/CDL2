@@ -34,6 +34,7 @@
 
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -258,7 +259,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="command"></param>
       public void InterpretCommand(string command) {
-         if ((command = command.Trim()) == "") return; // Ignore empty commands
+         if ((command = command.Trim()) == "" || command.StartsWith('!')) return; // Ignore empty commands and command comments
          ParseCommand(command,out string verb,out CommandType commandType,out string args,out ParsedSetting[] settings);
          InterpretCommand(verb,commandType,settings,args);
       }
@@ -334,6 +335,7 @@ namespace CDL2v1 {
                case CommandType.INVALID:
                   WriteError($"Invalid command: {verb}");
                   return;
+
                case CommandType.focus:
                   if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
                case CommandType.next:
@@ -341,11 +343,14 @@ namespace CDL2v1 {
                case CommandType.first:
                case CommandType.last:
                   if (!Focus.Current.Move(args,commandAsFocusMoveDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
+
                case CommandType.list:
                   InterpretCommandList(args); break;
+
                case CommandType.print:
                case CommandType.type:
                   InterpretCommandPrint(args); break;
+
                case CommandType.set:
                   // Modify settings so that the reset actually sets the new values
                   if (settings.Length == 0) {
@@ -357,19 +362,24 @@ namespace CDL2v1 {
                   break;
                case CommandType.status:
                   InterpretCommandStatus(); break;
+
                case CommandType.rename:
                   InterpretCommandRename(args); break;
                case CommandType.add:
                   InterpretCommandAdd(args); break;
-               case CommandType.delete:
                case CommandType.edit:
                   InterpretCommandEdit(args); break;
+               case CommandType.delete:
                case CommandType.remove:
                   InterpretCommandDelete(args); break;
+               case CommandType.consult:
+                  InterpretCommandConsult(args); break;
+
                case CommandType.undo:
                   InterpretCommandUndoRedo(args,undo: true); break;
                case CommandType.redo:
                   InterpretCommandUndoRedo(args,undo: false); break;
+
                case CommandType.save:
                   WriteInfo($"Saved: {Database.Save()}"); break;
                case CommandType.abort:
@@ -382,8 +392,10 @@ namespace CDL2v1 {
                   ToastWindow.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
                   commandWindow?.Close();
                   return;
+
                case CommandType.help:
                   InterpretCommandHelp(args); break;
+
                case CommandType.generate:
                   // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
                   Program? program = CDL2.GetMainProgram();
@@ -391,8 +403,6 @@ namespace CDL2v1 {
                      CDL2.GenerateCode(out string targetFileName,program);
                      WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
                   }
-                  break;
-               case CommandType.consult:
                   break;
                default:
                   // Handle other commands as needed
@@ -409,6 +419,36 @@ namespace CDL2v1 {
                   }
                }
             }
+         }
+      }
+
+      private static readonly Regex ModuleOrProgramStart = new(@"(?m)^\s*(?:#.*?(?:#|$)\s*)*\s*(?:MODULE|PROGRAM)(?=\s)",RegexOptions.Compiled);
+      /// <summary>
+      /// Read, parse and execute coomands from a file.
+      /// </summary>
+      /// <param name="fileName">The file name.</param>
+      /// <remarks>
+      /// Special case: if the file starts with a MODULE or PROGRAM reserved word, then the file is parsed as in non-Lab mode.
+      /// </remarks>
+      private void InterpretCommandConsult(string fileName) {
+         if (fileName.TryGetFile(out string fullFileName,["labc","cdl2"])) {
+            string fileContent = File.ReadAllText(fullFileName).TrimStart();
+            if (ModuleOrProgramStart.IsMatch(fileContent)) {
+               // Non-Lab mode parsing
+               List<Container> parsedContainers = parser.ParseString(fileContent);
+               WriteInfo($"Consulted => {string.Join(", ",parsedContainers.Select(c => c.FQDN()))}");
+               parsedContainers.LastOrDefault().SetFocus();  
+            } else {
+               // Lab mode: interpret each line as a command
+               string[] lines = fileContent.Split(new[] { "\r\n", "\r", "\n" },StringSplitOptions.RemoveEmptyEntries);
+               foreach (string line in lines) {
+                  WriteInfo("   " + line);
+                  InterpretCommand(line);
+               }
+               WriteInfo($"Consulted");
+            }
+         } else {
+            WriteError("File not found");
          }
       }
 

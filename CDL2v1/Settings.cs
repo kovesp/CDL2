@@ -36,6 +36,7 @@
 using System.CommandLine;
 using System.ComponentModel;
 using System.IO;
+using System.Text.Json;
 using System.Windows.Controls;
 using System.Windows.Navigation;
 
@@ -118,7 +119,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "AllowErrors",         "--allow-errors",     false,         "Continue even if there are errors. Mainly for debugging the Compiler."),
          new Setting<string?>( "PrettyPrint",         "--pretty-print",     "",            "Pretty print the parsed code. If a value is given, it is assumed to be\n"+
                                                                                            "a file-name, Otherwise output goes to the Debugger.",ArgumentArity.ZeroOrOne),
-         new Setting<bool>(    "GenerateDebugInfo",   "--gen-debug-info",   false,         "Generate debug information."),
+         new Setting<bool>(    "GenerateDebugInfo",   "--generate-debug-info",false,       "Generate debug information."),
          new Setting<string?>( "OutputDirectory",     "--output-dir",       null,          "Specify output directory for generated code."),
          new Setting<bool>(    "NoMacroInlining",     "--no-macro-inlining",false,         "Do not inline macros, generate them as procedures."),
          new Setting<bool>(    "NoProcInlining",      "--no-proc-inlining", false,         "Do not inline procedures."),
@@ -138,11 +139,13 @@ namespace CDL2v1 {
          new Setting<double>(  "WindowTop",           "--window-top",      -1.0,           "Last window top position.",saved:true),
          new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width.",saved:true),
          new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height.",saved:true),
-         new Setting<bool>(    "PPSorted",            "--pretty-print-sorted",false,       "When printing sections, print its objects collected by type.",saved:true),
+         new Setting<bool>(    "PrettyPrintSorted",   "--pretty-print-sorted",false,       "When printing sections, print its objects collected by type.",saved:true),
          new Setting<int>(     "PrintDepth",          "--print-depth",      -1,            "Depth of printing. -1 means full. Applicable to containers.",saved:true),
          new Setting<bool>(    "AutoPrint",           "--auto-print",      false,          "The focused object is printed after a coomand when set.",saved:true),
-         new Setting<int>(     "AutoSaveCount",       "--autosave-count",  10,             "The database is saved after this many commands that modify it.",saved:true),
-         new Setting<int>(     "AutoSaveInterval",    "--autosave-interval",300,           "The database is saved after this many seconds if modified.",saved:true),
+         new Setting<int>(     "AutosaveCount",       "--autosave-count",  10,             "The database is saved after this many commands that modify it.",saved:true),
+         new Setting<int>(     "AutosaveInterval",    "--autosave-interval",300,           "The database is saved after this many seconds if modified.",saved:true),
+         new Setting<int>(     "CommandHistorySize",  "--command-history-size",100,        "The number of inputs preserved across sessions.",saved:true),
+
 
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each
@@ -365,7 +368,7 @@ namespace CDL2v1 {
       private const string SettingsFileName = "cdl2settings.json";
 
       // Save settings to a file
-      public static void SaveSettings() {
+      public static void SaveSettings(CommandPromptWindow? commandWindow = null) {
          try {
             var settingsToSave = new Dictionary<string, object>();
             foreach (ISetting setting in Instance.SettingsDict.Values) {
@@ -387,6 +390,16 @@ namespace CDL2v1 {
                }
             }
 
+            // Save command history if CommandWindow is available
+            if (commandWindow?.CommandHistory != null) {
+               string[] history = commandWindow.CommandHistory.ToArray();
+               string lastCommand = history.Length > 0 ? history[^1] : "";
+               if (Abbreviation<CommandType>.ExitCommands.Contains(lastCommand)) {
+                  history[^1] = $"! {lastCommand} at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+               }
+               settingsToSave["CommandHistory"] = history;
+            }
+
             string json = System.Text.Json.JsonSerializer.Serialize(settingsToSave);
             string settingsPath = Path.Combine(OutputDirectory, SettingsFileName);
             File.WriteAllText(settingsPath, json);
@@ -396,8 +409,14 @@ namespace CDL2v1 {
          }
       }
 
-      // Load settings from a file
-      public static void LoadSettings() {
+      /// <summary>
+      /// Load setings form a file. This method will be called twice:
+      /// First from CDL2.main() without a CommandWindow to load general settings.
+      /// Second from the constructor of the commandwindow to load command history.
+      /// The settings file will be read twice, but no big deal.
+      /// </summary>
+      /// <param name="commandWindow"></param>
+      public static void LoadSettings(CommandPromptWindow? commandWindow = null) {
          try {
             string settingsPath = Path.Combine(OutputDirectory, SettingsFileName);
             if (File.Exists(settingsPath)) {
@@ -405,10 +424,19 @@ namespace CDL2v1 {
                Dictionary<string, object>? loadedSettings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
 
                if (loadedSettings != null) {
-                  foreach (KeyValuePair<string, object> kvp in loadedSettings) {
-                     if (Instance.SettingsDict.TryGetValue(kvp.Key, out ISetting? setting)) {
+                  if (commandWindow != null) {
+                     if (loadedSettings.TryGetValue("CommandHistory",out object? value)) {
+                        // Load command history
+                        JsonElement element = (JsonElement)value;
+                        string[]? history = element.Deserialize<string[]>();
+                        if (history != null) commandWindow.CommandHistory = history;
+                     }
+                  } else {
+                     foreach (KeyValuePair<string,object> kvp in loadedSettings) {
+                        if (kvp.Key == "CommandHistory") continue; // Skip command history when not loading into a command window
                         // Use JsonElement conversion because the Dictionary deserializes as JsonElement objects
-                        if (kvp.Value is System.Text.Json.JsonElement element) {
+                        JsonElement element = (JsonElement)kvp.Value;
+                        if (Instance.SettingsDict.TryGetValue(kvp.Key,out ISetting? setting)) {
                            switch (setting) {
                               case Setting<double> doubleSetting:
                                  if (element.TryGetDouble(out double doubleValue))

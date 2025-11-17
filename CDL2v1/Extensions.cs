@@ -702,6 +702,31 @@ namespace CDL2v1 {
          public static string operator >>(string input,(string re,string replacement) repl) => Regex.Replace(input,repl.re,repl.replacement);
          public static string operator >>(string input,(Regex re, string replacement) repl) => repl.re.Replace(input,repl.replacement);
 
+         /// <summary>
+         /// Attempts to locate a file by checking the specified path and, if not found, by appending each of the
+         /// provided extensions.
+         /// </summary>
+         /// <param name="fullPath">When this method returns, contains the full path to the located file if found; otherwise, an empty string.</param>
+         /// <param name="extensions">An array of file extensions to try if the file is not found at the original path. Each extension should
+         /// include the leading period (e.g., ".txt").</param>
+         /// <returns>true if a file is found at the original path or with one of the specified extensions; otherwise, false.</returns>
+         public bool TryGetFile(out string fullPath,string[] extensions) {
+            if (Path.Exists(s)) {
+               fullPath = s;
+               return true;
+            } else {
+               foreach (string ext in extensions) {
+                  string candidate = Path.ChangeExtension(s,ext);
+                  if (Path.Exists(candidate)) {
+                     fullPath = candidate;
+                     return true;
+                  }
+               }
+               fullPath = "";
+               return false;
+            }
+         }
+
       }
       private static readonly Regex NeverMatches = new(@"(?!.*)",RegexOptions.Compiled);
 
@@ -778,6 +803,10 @@ namespace CDL2v1 {
          }
       }
 
+      extension(NamedElement? element) {
+         public void SetFocus() { if (element is not null) Focus.SetFocus(element); }
+      }
+
       extension<T>(List<T> list) where T : notnull {
          /// <summary>
          /// Returns a new list containing the elements of the original list combined with the specified items,  ensuring
@@ -788,6 +817,14 @@ namespace CDL2v1 {
          /// <returns>A new list containing the elements of the original list and the specified items, without duplicates.</returns>
          public List<T> With(params T[] items) => items.All(item => list.Contains(item)) ? list : [.. list.Union(items)];
          public List<T> With(T item) => list.Contains(item) ? list : [.. list, item];
+
+         /// <summary>
+         /// Adds the specified item to the collection if it is not null.
+         /// </summary>
+         /// <param name="item">The item to add to the collection. The item is only added if it is not null.</param>
+         public void AddNonNullTo(T? item) {
+            if (item is not null) list.Add(item);
+         }
       }
 
       /// <summary>

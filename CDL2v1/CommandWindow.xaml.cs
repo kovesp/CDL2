@@ -60,6 +60,11 @@ namespace CDL2v1 {
       // Event raised when a command is entered
       public event EventHandler<string>? CommandEntered;
 
+      public IEnumerable<string> CommandHistory {
+         get => _commandHistory.Commands;
+         set => _commandHistory.Commands = value;
+      }
+
       private bool _multilineMode = false;
       private class UndoEntry(TextBox input) {
          public string Text = input.Text;
@@ -121,6 +126,9 @@ F1    | Show this help message.
       public Emitter? Emitter;   // Used to get the indent width
 
       public CommandPromptWindow() {
+
+         Settings.LoadSettings(this);
+
          InitializeComponent();
 
          // Set initial prompt
@@ -198,7 +206,7 @@ F1    | Show this help message.
             heightSetting?.Value = this.Height;
 
             // Save to persistent storage
-            Settings.SaveSettings();
+            Settings.SaveSettings(this);
          }
       }
 
@@ -831,6 +839,21 @@ F1    | Show this help message.
       private class History {
          private readonly List<string> _history = [];
          private int _currentIndex = -1;
+
+         /// <summary>
+         /// Gets or sets the collection of command strings maintained in the command history.
+         /// </summary>
+         /// <remarks>When setting this property, the existing command history is replaced with the
+         /// provided collection, and the current index is reset to the end of the new history. The number of commands
+         /// returned when getting this property is limited by the configured command history size.</remarks>
+         public IEnumerable<string> Commands {
+            get => _history.TakeLast(Settings.SettingValue<int>("CommandHistorySize"));
+            set {
+               _history.Clear();
+               _history.AddRange(value);
+               _currentIndex = _history.Count;
+            }
+         }
 
          public void Add(string command) {
             _history.Add(command);

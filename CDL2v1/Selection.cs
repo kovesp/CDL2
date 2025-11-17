@@ -50,8 +50,10 @@ namespace CDL2v1 {
    ///         <item>Module</item>
    ///         <item>Layer</item>
    ///         <item>Section</item>
-   ///         <item>Local</item>
-   ///         <item>LastCall</item>
+   ///         <item>Const</item>
+   ///         <item>Var</item>
+   ///         <item>List</item>
+   ///         <item>Algorithm</item>
    ///      </list>
    ///   </item>
    ///   <item>Complex objects.
@@ -131,8 +133,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents the objects selected by a selector. A valid selector will always select at least one object.
    /// </summary>
-   public class 
-      Selection : List<SingleSelection> {
+   public class Selection : List<SingleSelection> {
       #region SelectionSegments
       /// ================================================================================================================
       /// <summary>

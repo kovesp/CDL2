@@ -214,6 +214,14 @@ is as if an `add` command were used. That is:
 
 ## Commands
 
+Commands are typed into the input area of the CDL2 Lab. The lab maintains a command history acrsoss sessions. Entries in the
+history may be recalled using the up and down arrow keys and edited before re-submission.
+
+### Comments
+
+Lab input lines that start with `!` are comments and are ignored. Note that the CDL2 comment character `#` cannot be used
+for this purpose, since CDL2 code snipets may contain comments.
+
 ### Command Settings
 
 Settings may be set globally (see the `set` command) or locally
@@ -339,6 +347,18 @@ If no settings are given, all current settings are listed. The following is a li
 | print-depth  | int  | -1      | The depth of printing. If -1, then the entire object is printed. |
 | auto-save-count  | int | 10   | The database is saved after this many commands that modify it (the editing commands).
 | auto-save-interval | int | 300| The database is saved after this many seconds if there are any modifications. |
+| command-history-size | int | 100 | The number of commands to keep in the command history. |
+
+The names of the command line settings are in most cases the same as listed in thsi table, but with
+each word capbitalized abd dashes removed. For example, `--command-hisotry-Size` becomes `CommandHistorySize`.
+There are some exceptions:
+
+| Command Line Name | Setting Name |
+|-------------------|--------------|
+| --verbose         | VerbosityLevel |
+| --debug-log       | DebugVerbosityLevel |
+| --program         | ProgramName |
+| --output-dir      | OutputDirectory |
 
 
 #### Editing Commands

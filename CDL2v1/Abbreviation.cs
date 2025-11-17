@@ -106,6 +106,7 @@ namespace CDL2v1 {
          new ("vsdebug" , 7,"vsdebug:                     break into the VS debugger when running under Visual Studio"),
 #endif
       ];
+      public readonly static Set<string> ExitCommands = new (["exit","quit","bye","abort"]);
 
       private static readonly List<SelectorType> AlgorithmTypes = [
          SelectorType.ALGORITHM, SelectorType.PROCEDURE, SelectorType.ACTION, SelectorType.FUNCTION, SelectorType.PREDICATE, SelectorType.TEST
