@@ -191,7 +191,7 @@ namespace CDL2v1 {
                   if (char.IsAsciiLetterLower(input[0])) {
                      // Commands start with a lowercase letter
                      CLI.InterpretCommand(input);
-                  } else if (!input.StartsWith('!')) { // A caommand comment. Can't be the CDL2 comment delimiter # becasue that is valid in CDL2 source
+                  } else if (!input.StartsWith(CommandInterpreter.CommandComment)) { // A caommand comment. Can't be the CDL2 comment delimiter # becasue that is valid in CDL2 source
                      // Assume it is a cdl2 construct that must be parsed
                      CLI.EnterCode(input);
                   }

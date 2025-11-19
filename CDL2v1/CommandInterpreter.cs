@@ -49,6 +49,9 @@ namespace CDL2v1 {
       private bool IsEditing = false; // Used to determine if we are currently in edit mode
       private InsertLocation insertionLocation = InsertLocation.After; // Used to determine where to insert the object being added
 
+      public const char CommandComment = '!';
+      public const char CommandSeparator = ';'; // Not currently used. Difficult to split commands correctly when there are quoted strings.
+
       public CommandInterpreter(CommandPromptWindow? window = null) {
          commandWindow = window;
          // Create a CommandWindowEmitter that integrates with our window
@@ -259,7 +262,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="command"></param>
       public void InterpretCommand(string command) {
-         if ((command = command.Trim()) == "" || command.StartsWith('!')) return; // Ignore empty commands and command comments
+         if ((command = command.Trim()) == "" || command.StartsWith(CommandComment)) return; // Ignore empty commands and command comments
          ParseCommand(command,out string verb,out CommandType commandType,out string args,out ParsedSetting[] settings);
          InterpretCommand(verb,commandType,settings,args);
       }
