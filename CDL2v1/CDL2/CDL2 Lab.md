@@ -467,6 +467,24 @@ Where it is restored by `undo` depends on the current focus.
       the object is placed after the focused object.
     * Otherwise, the object is placed at the end of the section.
 
+#### Semantic Analysis
+```
+analyze command : analyze token, setting sequence option, selector option.
+```
+
+Performs semantic analysis on the selected program (the selector or focus must select
+a single program). If no selector is given, or the selection is not on a program, the
+default program specified by the `-program` setting is analyzed.
+
+Notes:
+
+   * Code generation automatically performs semantic analysis.
+   * As code is edited, added or removed, or when code is consulted fron a file
+     semantic analysis is **_not_** performed automatically. This means that
+     proper notes will not be attached to objects and the syntax highlighting when
+     pretty printed may be incorrect. The user must explicitly invoke the `analyze` command.
+     * The `autoAnalyze` setting may be used to have semantic analysis performed
+       after each change. This may slow down editing significantly, however. _Not implemented._
 
 #### Code Generation
 ```

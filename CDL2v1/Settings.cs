@@ -117,8 +117,14 @@ namespace CDL2v1 {
                                                                                            "semantically valid. Also, do not enter Lab mode."),
          new Setting<bool>(    "StopOnWarnings",      "--stop-on-warnings", false,         "Stop processing if any warnings are generated."),
          new Setting<bool>(    "AllowErrors",         "--allow-errors",     false,         "Continue even if there are errors. Mainly for debugging the Compiler."),
+
          new Setting<string?>( "PrettyPrint",         "--pretty-print",     "",            "Pretty print the parsed code. If a value is given, it is assumed to be\n"+
                                                                                            "a file-name, Otherwise output goes to the Debugger.",ArgumentArity.ZeroOrOne),
+         new Setting<bool>(    "PrettyPrintSorted",   "--pretty-print-sorted",false,       "When printing sections, print its objects collected by type.",saved:true),
+         new Setting<bool>(    "PrettyPrintDebug",    "--pretty-print-debug",false,        "When printing in lab mode, echo output to the debug output window.\n"+
+                                                                                           "Must be set from the invocation command line."),
+         new Setting<int>(     "PrintDepth",          "--print-depth",      -1,            "Depth of printing. -1 means full. Applicable to containers.",saved:true),
+
          new Setting<bool>(    "GenerateDebugInfo",   "--generate-debug-info",false,       "Generate debug information."),
          new Setting<string?>( "OutputDirectory",     "--output-dir",       null,          "Specify output directory for generated code."),
          new Setting<bool>(    "NoMacroInlining",     "--no-macro-inlining",false,         "Do not inline macros, generate them as procedures."),
@@ -139,8 +145,6 @@ namespace CDL2v1 {
          new Setting<double>(  "WindowTop",           "--window-top",      -1.0,           "Last window top position.",saved:true),
          new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width.",saved:true),
          new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height.",saved:true),
-         new Setting<bool>(    "PrettyPrintSorted",   "--pretty-print-sorted",false,       "When printing sections, print its objects collected by type.",saved:true),
-         new Setting<int>(     "PrintDepth",          "--print-depth",      -1,            "Depth of printing. -1 means full. Applicable to containers.",saved:true),
          new Setting<bool>(    "AutoPrint",           "--auto-print",      false,          "The focused object is printed after a coomand when set.",saved:true),
          new Setting<int>(     "AutosaveCount",       "--autosave-count",  10,             "The database is saved after this many commands that modify it.",saved:true),
          new Setting<int>(     "AutosaveInterval",    "--autosave-interval",300,           "The database is saved after this many seconds if modified.",saved:true),
@@ -204,8 +208,7 @@ namespace CDL2v1 {
             case SettingType.Boolean: SettingValue<bool>(name,value is null ? !SettingValue<bool>(name) : (bool)value); break;
             case SettingType.Integer: SettingValue<int>(name,(int)value!); break;
             case SettingType.String:  SettingValue<string>(name,(string)value!); break;
-            default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");
-         }
+            default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");         }
          SetCommandOverride(name,CommandOverride);
       }
 

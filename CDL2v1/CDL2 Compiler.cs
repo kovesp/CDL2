@@ -201,6 +201,7 @@ namespace CDL2v1 {
                commandWindow.CommandEntered += (sender, input) => ProcessInput(input);
                commandWindow.Closed += (s, e) => app.Shutdown();
                commandWindow.Title = $"CDL2 Laboratory - {Settings.LabDBName}";
+               CLI.SetStatus();
                app.Run(commandWindow);
             });
 
@@ -293,6 +294,7 @@ namespace CDL2v1 {
             }
          }
 
+         Settings.SettingValue<string>("ProgramName",program?.Id.Name??"");
          return program;
       }
 

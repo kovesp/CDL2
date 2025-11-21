@@ -35,6 +35,8 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -57,7 +59,9 @@ namespace CDL2v1 {
          // Create a CommandWindowEmitter that integrates with our window
          // Initialize the parser with the compiler and a callback for error messages
          if (commandWindow is not null) {
-            pp = new(commandWindow.Emitter = new EmitterCommandWindow(commandWindow),includeComments: true);
+            pp = new(commandWindow.Emitter = new EmitterCommandWindow(commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },includeComments: true);
+            // pp = new(commandWindow.Emitter = new EmitterMulticast(new EmitterDebug(),new EmitterCommandWindow(commandWindow)),includeComments: true);
+
             parser = new Parser(CDL2.Compiler,(severity,msg,_) => commandWindow.WriteLine($"{severity}: {msg}",severity));
          } else {
             pp = new(new EmitterDebug(),includeComments: true);
@@ -298,6 +302,18 @@ namespace CDL2v1 {
           }.ToImmutableDictionary();
 
       /// <summary>
+      /// When the given setting is encountered in a set command, or on another command this handler is called to process it.
+      /// The handler is called when the settings is to be set with first parameter true, and when it is to be reset with false.
+      /// The second parameter is the setting name. Specify in all lowercase.
+      /// The third parameter is the value to be set.
+      /// The return value is whether the set was successful.
+      /// </summary>
+      private static readonly ImmutableDictionary<string,Func<bool,string,object?,bool>> SetHandlers =
+          new Dictionary<string,Func<bool,string,object?,bool>> {
+             ["programname"]     = SetProgram,
+          }.ToImmutableDictionary();
+
+      /// <summary>
       /// Interpret the command with the given verb, arguments and settings.
       /// </summary>
       /// <param name="command"></param>
@@ -308,6 +324,7 @@ namespace CDL2v1 {
       public void InterpretCommand(string verb,CommandType commandType,ParsedSetting[] settings,string args) {
          IsEditing = false;
          // Use settings to change global settings. Save previous values so they can be restored later.
+         bool SettingsValid = true;
          foreach (ParsedSetting setting in settings) {
             if (Settings.IsValidSetting(setting.Name)) {
                setting.PreviousValue = setting.Type switch {
@@ -316,7 +333,13 @@ namespace CDL2v1 {
                   SettingType.String => Settings.SettingValue<string>(setting.Name),
                   _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
                };
-               Settings.SettingValue(setting.Name,setting.Type,setting.Value,CommandOverride:true);
+               if (SetHandlers.TryGetValue(setting.Name,out Func<bool,string,object?,bool>? handler) && ! handler(true,setting.Name,setting.Value)) SettingsValid = false;
+               if (SettingsValid) {
+                  Settings.SettingValue(setting.Name,setting.Type,setting.Value,CommandOverride: true);
+               } else {
+                  WriteError($"Invalid setting value: {setting.Name}={setting.Value}. Command aborted.");
+                  break;
+               }
             } else {
                WriteError($"Invalid setting: {setting.Name} ignored");
             }
@@ -329,7 +352,7 @@ namespace CDL2v1 {
          bool ResetSettings = true; // Whether to reset settings after the command. Some commands may want to keep the settings.
 
          try {
-            switch (commandType) {
+            if (SettingsValid) switch (commandType) { // skip command if settings are invalid. Must do the undo in that case
 #if DEBUG
                case CommandType.vsdebug:
                   Debugger.Break();
@@ -407,6 +430,9 @@ namespace CDL2v1 {
                      WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
                   }
                   break;
+               case CommandType.analyze:
+                  InterpretCommandAnalyze(args); break;
+
                default:
                   // Handle other commands as needed
                   break;
@@ -418,12 +444,30 @@ namespace CDL2v1 {
             if (ResetSettings) {
                foreach (ParsedSetting setting in settings) {
                   if (Settings.IsValidSetting(setting.Name)) {
+                     if (SetHandlers.TryGetValue(setting.Name,out Func<bool,string,object?,bool>? handler)) handler(false,setting.Name,setting.PreviousValue!);
                      Settings.SettingValue(setting.Name,setting.Type,setting.PreviousValue!,CommandOverride: false);
                   }
                }
             }
          }
+         SetStatus();
       }
+
+      /// <summary>
+      /// Verifies that the given program name existis in the database.
+      /// </summary>
+      /// <param name="_1">True when setting the value, false when reseting. Since the previous value is passed on reset, no need to check.</param>
+      /// <param name="_2">The name of the setting == "ProgramName"</param>
+      /// <param name="programName"></param>
+      /// <returns></returns>
+      private static bool SetProgram(bool _1,string _2,object? programName) {
+         Program? prog = Database.Instance.ProgramByName((programName as string) ?? "");
+         if (prog is null) return false;
+         //TODO Set the mainprogram variable here
+         return true;
+      }
+
+      private void InterpretCommandAnalyze(string args) => throw new NotImplementedException();
 
       private static readonly Regex ModuleOrProgramStart = new(@"(?m)^\s*(?:#.*?(?:#|$)\s*)*\s*(?:MODULE|PROGRAM)(?=\s)",RegexOptions.Compiled);
       /// <summary>
@@ -437,8 +481,18 @@ namespace CDL2v1 {
          if (fileName.TryGetFile(out string fullFileName,["labc","cdl2"])) {
             string fileContent = File.ReadAllText(fullFileName).TrimStart();
             if (ModuleOrProgramStart.IsMatch(fileContent)) {
-               // Non-Lab mode parsing
+               // Non-Lab mode parsing.
                List<Container> parsedContainers = parser.ParseString(fileContent);
+               Debug.Assert(parsedContainers.All(c => c is Program || c is Module),"Expected programs or modules in consulted file");
+               Debug.Assert(CDL2.Compiler.SemanticAnalyzer != null,"SemanticAnalyzer is null");
+               //foreach (Container c in parsedContainers) {
+               //   if (c is Program prog) {
+               //      CDL2.Compiler.SemanticAnalyzer.AnalyzeProgram(prog);
+               //   } else if (c is Module mod) {
+               //      CDL2.Compiler.SemanticAnalyzer.AnalyzeModule(mod);
+               //   }
+               //}
+
                WriteInfo($"Consulted => {string.Join(", ",parsedContainers.Select(c => c.FQDN()))}");
                parsedContainers.LastOrDefault().SetFocus();  
             } else {

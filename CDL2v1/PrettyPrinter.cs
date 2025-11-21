@@ -323,7 +323,7 @@ namespace CDL2v1 {
            PrintList(RW.INV,section.inv)
          );
 
-         if (Settings.SettingValue<bool>("PPSorted")) {
+         if (Settings.SettingValue<bool>("PrettyPrintSorted")) {
             // Sort the section contents by their type
             int EmitCount<T>(IEnumerable<T> list,string type) {
                int count = list.Count();

@@ -180,6 +180,7 @@ namespace CDL2v1 {
       INVALID,
       abort,
       add,
+      analyze,
       bye,
       consult,
       delete,

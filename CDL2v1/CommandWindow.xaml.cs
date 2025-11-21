@@ -165,7 +165,8 @@ F1    | Show this help message.
 
          // Get the Info color from PrettyPrinter.Decorators
          var infoColorHex = PrettyPrinter.Decorators[SE.NoteInfo].FG;
-         StatusBarTextBox.Foreground = (Brush)new BrushConverter().ConvertFromString(infoColorHex)!;
+         StatusBarLeftTextBlock.Foreground = (Brush)new BrushConverter().ConvertFromString(infoColorHex)!;
+         StatusBarRightTextBlock.Foreground = (Brush)new BrushConverter().ConvertFromString(infoColorHex)!;
       }
 
       #region Window Settings
@@ -876,7 +877,22 @@ F1    | Show this help message.
       }
       #endregion
 
-      public void SetStatus(string message) => StatusBarTextBox.Text = message;
+      public void SetStatus(string message) {
+         StatusBarLeftTextBlock.Text = message;
+         StatusBarRightTextBlock.Text = $"Prog {Settings.SettingValue<string>("ProgramName")}";
+      }
+
+      private double MeasureTextWidth(string text, FontFamily fontFamily, double fontSize) {
+         FormattedText formattedText = new(
+            text,
+            System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            new Typeface(fontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+            fontSize,
+            Brushes.Black,
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
+         return formattedText.Width;
+      }
 
       // Call this method to flash the InputTextBox as an error
       private void FlashInputError() {

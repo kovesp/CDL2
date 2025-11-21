@@ -56,22 +56,38 @@
         </Grid.RowDefinitions>
 
         <!-- Status Bar -->
-        <TextBox x:Name="StatusBarTextBox"
-                 Grid.Row="0"
-                 IsReadOnly="True"
-                 Background="DarkSlateGray"
-                 BorderThickness="0"
-                 FontFamily="Cascadia Mono"
-                 FontSize="14"
-                 Padding="8,2,8,2"
-                 Height="28"
-                 VerticalContentAlignment="Center"
-                 Text="Nothing" />
+        <Grid x:Name="StatusBarGrid"
+              Grid.Row="0"
+              Background="DarkSlateGray"
+              Height="28">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            
+            <TextBlock x:Name="StatusBarLeftTextBlock"
+                       Grid.Column="0"
+                       FontFamily="Cascadia Mono"
+                       FontSize="14"
+                       Padding="8,2,8,2"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left"
+                       Text="Nothing" />
+            
+            <TextBlock x:Name="StatusBarRightTextBlock"
+                       Grid.Column="1"
+                       FontFamily="Cascadia Mono"
+                       FontSize="14"
+                       Padding="8,2,8,2"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Right"
+                       Text="" />
+        </Grid>
 
         <!-- Rule/Line under the status bar -->
         <Border Grid.Row="1"
                 Height="2"
-                Background="#444"
+                Background="#FFFFFF"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Bottom" />
 

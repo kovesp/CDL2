@@ -77,7 +77,8 @@ namespace CDL2v1 {
       /// </summary>
       public readonly static SortedSet<Abbreviation<CommandType>> Commands = [
          new ("abort"   , 5,"abort:                       exit the Lab without saving the database"),
-         new ("add"     , 1,"add      [SELECTOR] object:  add the object (which must be of the correct type) after the SELECTOR (same as append)"),
+         new ("add"     , 1,"add      [SELECTOR]:         edit mode is entereed in the input area and the resulting object is added"),
+         new ("analyze" , 4,"analyze  [SELECTOR]:         perform semantic analysis on the selected program"),
          new ("bye"     , 3,"bye:                         exit the Lab after saving the database"),
          new ("consult" , 1,"consult  file-name:          read the file which must contain one or more CDL2 modules and/or programs"),
          new ("delete"  , 3,"delete   [SELECTOR]:         deletes (removes) the selected object (eventually this can be undone ... but not yet"),

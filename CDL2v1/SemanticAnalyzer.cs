@@ -123,33 +123,39 @@ namespace CDL2v1 {
          }
          // Now verify that each import has a corresponding export and that the specs match.
          foreach (Module module in mainProgram.Modules) {
-            // First collect all the imports in the sections into the imports table of the module.
-            // While doing this check for consistency in case an object is imported ínto multiple sections.
-            foreach (Section section in module.Sections) {
-               foreach (ID elemid in section.import) {
-                  if (section.Declarations.TryGetValue(elemid, out CDL2Object? obj)) {
-                     if (obj is IImportable imported) {
-                        if (module.imports.TryGetValue(elemid, out IImportable? importedObj)) {
-                           CheckImportConsistency(obj, obj, (CDL2Object)importedObj);
-                        } else {
-                           module.imports[elemid] = imported;
-                        }
+            AnalyzeModule(mainProgram,module);
+         }
+      }
+
+      public void AnalyzeModule(Program? mainProgram,Module module) {
+         // First collect all the imports in the sections into the imports table of the module.
+         // While doing this check for consistency in case an object is imported ínto multiple sections.
+         foreach (Section section in module.Sections) {
+            foreach (ID elemid in section.import) {
+               if (section.Declarations.TryGetValue(elemid,out CDL2Object? obj)) {
+                  if (obj is IImportable imported) {
+                     if (module.imports.TryGetValue(elemid,out IImportable? importedObj)) {
+                        CheckImportConsistency(obj,obj,(CDL2Object)importedObj);
                      } else {
-                        AddNote(section, Note.InterfaceElementNotProvidable, obj!.Id, RW.IMPORT,obj.TypeShortName);
+                        module.imports[elemid] = imported;
                      }
                   } else {
-                     AddNote(section, Note.InterfaceElementMissing, elemid, RW.IMPORT);
+                     AddNote(section,Note.InterfaceElementNotProvidable,obj!.Id,RW.IMPORT,obj.TypeShortName);
                   }
+               } else {
+                  AddNote(section,Note.InterfaceElementMissing,elemid,RW.IMPORT);
                }
             }
+         }
+         if (mainProgram != null) {
             // Now check that all the imports are in the exports table of the program and are consistent with those exports.
             // Also insert the target of the import into the resolvedImports table of the module
             foreach (CDL2Object imported in module.imports.Values.Cast<CDL2Object>()) {
-               if (mainProgram.Exports.TryGetValue(imported.Id, out IExportable? exported)) {
-                  CheckImportConsistency(imported,imported, (CDL2Object)exported);
+               if (mainProgram.Exports.TryGetValue(imported.Id,out IExportable? exported)) {
+                  CheckImportConsistency(imported,imported,(CDL2Object)exported);
                   module.resolvedImports[imported.Id] = (IImportable)exported;
                } else {
-                  AddNote(mainProgram, Note.MissingImport, imported);
+                  AddNote(mainProgram,Note.MissingImport,imported);
                }
             }
          }
@@ -212,7 +218,7 @@ namespace CDL2v1 {
          if (Settings.AnyVerbosity(4)) foreach (CDL2Object obj in unusedObjects.Values) Log(1, $"  {obj}");
       }
 
-      private void AnalyzeProgram(Program program) {
+      public void AnalyzeProgram(Program program) {
          IDDictionary<Module> validModules = [];
          Log(3, $"Analyzing module presence of {program.ContainerName}");
          foreach (ID modId in program.Parts) {
@@ -253,7 +259,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="prog"></param>
       /// <param name="module"></param>
-      private void AnalyzeModule(Program prog,Module module) {
+      public void AnalyzeModule(Module module) {
          Log(1,$"Analyzing {module.ContainerName}");
          foreach (Layer layer in module.Layers) {
             AnalyzeLayer(layer);
@@ -681,7 +687,7 @@ namespace CDL2v1 {
       /// <summary>
       /// A call has an effect if the algorithm it invokes has an effect.
       /// </summary>
-      static bool CallhasEffect(Call call) => !call.IsBuiltin && (call.Called?.HasEffect ?? false);      
+      static bool CallhasEffect(Call call) => !call.IsBuiltin && (call.Called?.HasEffect ?? false);
    }
 }
 

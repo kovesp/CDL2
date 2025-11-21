@@ -1353,14 +1353,14 @@ namespace CDL2v1 {
       [JsonIgnore]
       public List<IActualArg> Args {
          get {
-            Procedure containingProc = ContainingProc;
+            Procedure proc = ContainingProc;
             return [.. argRefs.Select<IElement,IActualArg>(argRef => {
                if (argRef is ID id) {
-                  if (containingProc.TryGetLocal(id, out Local? local)) return local;
-                  if (containingProc.TryGetAffix(id, out Affix? affix)) return affix;
-                  CDL2Object? resolved = containingProc.Section?.GetResolvedObject(id);
+                  if (proc.TryGetLocal(id, out Local? local)) return local;
+                  if (proc.TryGetAffix(id, out Affix? affix)) return affix;
+                  CDL2Object? resolved = proc.Section?.GetResolvedObject(id);
                   if (resolved is IActualArg actual) return actual;
-                  throw new ArgumentException($"Call {this} has an argument with ID {id} that is not an affix, local , var or const in {containingProc}.");
+                  return id;
                } else if (argRef is STRING str) {
                   return str;
                } else {
@@ -1403,7 +1403,8 @@ namespace CDL2v1 {
          }
       }
 
-      override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}{id.Name}{(Args.Count != 0 ? "+" : "")}{string.Join("+",Args.Select(arg => arg.Id))}";
+      override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}{id.Name}{(argRefs.Count != 0 ? "+" : "")}{string.Join("+",argRefs.Select(arg => arg.ToString()))}";
+      // override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}{id.Name}/{argRefs.Count}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
       [JsonIgnore]

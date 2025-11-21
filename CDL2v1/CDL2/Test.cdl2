@@ -81,6 +81,9 @@ MODULE mod.
 
          TEST fac test option 1: -.
 
+         ACTION test set: 
+            set+fac input+fac input 1.
+
          ACTION test factorials -fac:
             fac test option 1, set+fac input+fac input1, print+"factorial 1+", print+fac input, print+"+", printnl+fac,
                factorial 1+fac input+fac, print+"factorial 1+", print+fac input, print+"+", printnl+fac,

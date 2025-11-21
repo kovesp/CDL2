@@ -12,7 +12,7 @@
     },
     "LAB": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v3 -d3 --allow-errors\r\n--messages Warning --lab",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5 --allow-errors\r\n--messages Warning --lab --pretty-print-debug",
       "workingDirectory": "$(ProjectDir)\\CDL2"
     },
     "Parse & Save": {
