@@ -70,21 +70,13 @@ namespace CDL2v1 {
          ppEdit = new(new EmitterString(),includeComments: true);
       }
 
-      public void SetStatus(string? status = null) {
-         if (commandWindow is not null) {
-            if (status is null) {
-               commandWindow!.SetStatus("Nothing");
-            } else {
-               commandWindow.SetStatus(status);
-            }
-         }
-      }
       public void SetStatus(NamedElement? element=null) {
          if (commandWindow is not null) {
             if (element is null) {
                commandWindow.SetStatus("Nothing");
             } else {
-               commandWindow.SetStatus(element.FQDN(WithInterface:true));
+               string marker = element.Module?.Modified == true ? "*" : "";
+               commandWindow.SetStatus(marker+element.FQDN(WithInterface:true));
             }
          }
       }

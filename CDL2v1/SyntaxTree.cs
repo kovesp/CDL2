@@ -72,6 +72,21 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CDL2v1 {
    // Marker interfaces to allow lists to be composed of permissible elements.
+
+   /// <summary>
+   /// Represents a top-level container that can track modification state.
+   /// When a top-level container is modified, it indicates that changes have been made that may require semantic analysis.
+   /// The default is set to false. It is then set to true when
+   /// <list type="bullet">
+   /// <item>Any child element is added, removed, or modified.</item>
+   /// <item>The container itself is modified or created via the consult command.</item>
+   /// <item>When a module is modified all programs that have it as a part is also modified.</item>
+   /// </list>
+   /// </summary>
+   public interface ITopLevelContainer {
+      bool Modified { get; set; }
+   }
+
    public interface IElement { }
 
    public interface IDataElement { }
@@ -520,7 +535,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a program in the syntax tree.
    /// </summary>
-   public class Program : Container {
+   public class Program : Container, ITopLevelContainer {
       [JsonIgnore]
       override public string TypeShortName => "PROG";
       /// <summary>
@@ -533,7 +548,9 @@ namespace CDL2v1 {
       [JsonInclude]
       [JsonPropertyOrder(20)]
       public IDSet Parts = [];
-      /// <summary>
+
+      [JsonInclude][JsonPropertyOrder(21)] public bool Modified { get; set; } = false;
+
       /// Gets the collection of modules associated with the current program.
       /// </summary>
       /// <remarks>Note that here and elsewhere the iteration must be fixed to avoid multiple calls interfering with each other.</remarks>
@@ -561,7 +578,7 @@ namespace CDL2v1 {
    /// Represents a module in the syntax tree.
    /// </summary>
    /// <param Id="Id"></param>
-   public class Module : Container {
+   public class Module : Container,ITopLevelContainer {
       [JsonIgnore]
       public readonly IDDictionary<IImportable> imports = [];        // Imports are specified in sections, but are propagated up the module level.
       [JsonIgnore]
@@ -572,6 +589,24 @@ namespace CDL2v1 {
       /// </summary>
       [JsonIgnore]
       public readonly IDDictionary<IImportable> resolvedImports = [];
+
+      [JsonInclude][JsonPropertyOrder(21)]
+      public bool _modified = false;
+      [JsonIgnore]
+      public bool Modified { 
+         get => _modified;
+         set { 
+            if (value && ! _modified) {
+               // When a module is modified, all programs that have it as a part are also modified.
+               foreach (Program? program in Database.Instance.Programs.Select(guid => Database.Instance.NamedElements[guid] as Program)
+                           .Where(program => program != null && program.Parts.Contains(this.Id))) {
+                  program?.Modified = true;
+               }
+            }
+            _modified = value;
+         }
+      }
+
 
       /// <summary>
       /// Module Ludes are a list of container IDs.

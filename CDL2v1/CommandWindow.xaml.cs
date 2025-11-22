@@ -879,7 +879,9 @@ F1    | Show this help message.
 
       public void SetStatus(string message) {
          StatusBarLeftTextBlock.Text = message;
-         StatusBarRightTextBlock.Text = $"Prog {Settings.SettingValue<string>("ProgramName")}";
+         string programName = Settings.SettingValue<string>("ProgramName")!;
+         string marker = programName.IsNotEmptyOrWhitespace && Database.Instance.ProgramByName(programName)!.Modified ? "*" : "";
+         StatusBarRightTextBlock.Text = $"{marker}Prog {programName}";
       }
 
       private double MeasureTextWidth(string text, FontFamily fontFamily, double fontSize) {
