@@ -668,6 +668,7 @@ namespace CDL2v1 {
                         Focus.MoveFocusFrom(obj);
                         obj.Remove();
                      }
+                     obj.Module?.Modified = true;
                      break;
                   default:
                      WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
@@ -727,6 +728,7 @@ namespace CDL2v1 {
                   if (currentInterfaceTypes != interfaceTypes) {
                      Database.Instance.RecordUndo(obj,ChangeType.InterfaceChanged);
                      obj.AddInterfaces(interfaceTypes);
+                     obj.Module!.Modified = true;
                   }
                }
             }
