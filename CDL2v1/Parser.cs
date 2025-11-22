@@ -151,18 +151,18 @@ namespace CDL2v1 {
       /// <param Id="tokens"></param>
       /// <exception cref="Exception"></exception>
       internal void Parse(string filePath) => ParseString(File.ReadAllText(filePath));
-      public List<Container> ParseString(string input) => Tokenize(input,ParseMode.Full) ? ParseTokens() : [];
+      public List<ITopLevelContainer> ParseString(string input) => Tokenize(input,ParseMode.Full) ? ParseTokens() : [];
 
       public bool Tokenize(string input,ParseMode mode) {
          tokens = new TokenList(ReportInvalidToken);
          return (Lexer = new LexicalAnalyzer(Compiler,tokens)).Tokenize(input,mode);
       }
 
-      public List<Container> ParseTokens() {
+      public List<ITopLevelContainer> ParseTokens() {
          Logger.logger.ErrorAction = SkipToNextEnd;
          Logger.logger.CurrentObject = currentObject;
 
-         List<Container> parsedContainers = [];
+         List<ITopLevelContainer> parsedContainers = [];
 
          while (tokens.IsNonEmpty()) {
             Notes notes = ParseNotes();

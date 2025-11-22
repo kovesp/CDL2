@@ -75,7 +75,7 @@ namespace CDL2v1 {
             if (element is null) {
                commandWindow.SetStatus("Nothing");
             } else {
-               string marker = element.Module?.Modified == true ? "*" : "";
+               string marker = (element is ITopLevelContainer t ? t : element.Module)?.Modified == true ? "*" : "";
                commandWindow.SetStatus(marker+element.FQDN(WithInterface:true));
             }
          }
@@ -478,9 +478,12 @@ namespace CDL2v1 {
             string fileContent = File.ReadAllText(fullFileName).TrimStart();
             if (ModuleOrProgramStart.IsMatch(fileContent)) {
                // Non-Lab mode parsing.
-               List<Container> parsedContainers = parser.ParseString(fileContent);
+               List<ITopLevelContainer> parsedContainers = parser.ParseString(fileContent);
                Debug.Assert(parsedContainers.All(c => c is Program || c is Module),"Expected programs or modules in consulted file");
                Debug.Assert(CDL2.Compiler.SemanticAnalyzer != null,"SemanticAnalyzer is null");
+               foreach (ITopLevelContainer container in parsedContainers) {
+                  container.Modified = true;
+               }
                WriteInfo($"Consulted => {string.Join(", ",parsedContainers.Select(c => c.FQDN()))}");
                parsedContainers.LastOrDefault().SetFocus();  
             } else {

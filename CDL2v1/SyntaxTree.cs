@@ -85,6 +85,7 @@ namespace CDL2v1 {
    /// </summary>
    public interface ITopLevelContainer {
       bool Modified { get; set; }
+      string FQDN(bool WithInterface=false);
    }
 
    public interface IElement { }

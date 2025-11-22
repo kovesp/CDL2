@@ -807,6 +807,10 @@ namespace CDL2v1 {
          public void SetFocus() { if (element is not null) Focus.SetFocus(element); }
       }
 
+      extension(ITopLevelContainer element) {
+         public void SetFocus() { if (element is not null) Focus.SetFocus((NamedElement)element); }
+      }
+
       extension<T>(List<T> list) where T : notnull {
          /// <summary>
          /// Returns a new list containing the elements of the original list combined with the specified items,  ensuring
