@@ -67,8 +67,6 @@ namespace CDL2v1 {
    /// Token types for the CDL2 language.
    /// The aliases are meant to be used in the parser to make the code more readable.
    /// </summary>
-
-
 #pragma warning disable IDE0079 // Remove unnecessary suppression
 #pragma warning disable CA1069 // Enums values should not be duplicated
    public enum TokenType {

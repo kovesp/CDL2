@@ -350,6 +350,7 @@ namespace CDL2v1 {
          }
 
          bool ResetSettings = true; // Whether to reset settings after the command. Some commands may want to keep the settings.
+         bool RequiresSemanticAnalysis = false; // Whether the command requires semantic analysis after execution.
 
          try {
             if (SettingsValid) switch (commandType) { // skip command if settings are invalid. Must do the undo in that case
@@ -390,21 +391,21 @@ namespace CDL2v1 {
                   InterpretCommandStatus(); break;
 
                case CommandType.rename:
-                  InterpretCommandRename(args); break;
+                  InterpretCommandRename(args); RequiresSemanticAnalysis = true; break;
                case CommandType.add:
-                  InterpretCommandAdd(args); break;
+                  InterpretCommandAdd(args); RequiresSemanticAnalysis = true; break;
                case CommandType.edit:
-                  InterpretCommandEdit(args); break;
+                  InterpretCommandEdit(args); RequiresSemanticAnalysis = true; break;
                case CommandType.delete:
                case CommandType.remove:
-                  InterpretCommandDelete(args); break;
+                  InterpretCommandDelete(args); RequiresSemanticAnalysis = true; break;
                case CommandType.consult:
-                  InterpretCommandConsult(args); break;
+                  InterpretCommandConsult(args); RequiresSemanticAnalysis = true; break;
 
                case CommandType.undo:
-                  InterpretCommandUndoRedo(args,undo: true); break;
+                  InterpretCommandUndoRedo(args,undo: true); RequiresSemanticAnalysis = true; break;
                case CommandType.redo:
-                  InterpretCommandUndoRedo(args,undo: false); break;
+                  InterpretCommandUndoRedo(args,undo: false); RequiresSemanticAnalysis = true; break;
 
                case CommandType.save:
                   WriteInfo($"Saved: {Database.Save()}"); break;
@@ -422,6 +423,8 @@ namespace CDL2v1 {
                case CommandType.help:
                   InterpretCommandHelp(args); break;
 
+               case CommandType.analyze:
+                  InterpretCommandAnalyze(args); break;
                case CommandType.generate:
                   // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
                   Program? program = CDL2.GetMainProgram();
@@ -430,12 +433,13 @@ namespace CDL2v1 {
                      WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
                   }
                   break;
-               case CommandType.analyze:
-                  InterpretCommandAnalyze(args); break;
 
                default:
                   // Handle other commands as needed
                   break;
+            }
+            if (RequiresSemanticAnalysis && Settings.SettingValue<bool>("AutoAnalyze")) {
+               // TODO: Perform semantic analysis after commands that could have made a change if AutoAnalyze is set.
             }
          } catch (Exception ex) {
             WriteError($"Exception in command: {ex.Message}");
@@ -485,14 +489,6 @@ namespace CDL2v1 {
                List<Container> parsedContainers = parser.ParseString(fileContent);
                Debug.Assert(parsedContainers.All(c => c is Program || c is Module),"Expected programs or modules in consulted file");
                Debug.Assert(CDL2.Compiler.SemanticAnalyzer != null,"SemanticAnalyzer is null");
-               //foreach (Container c in parsedContainers) {
-               //   if (c is Program prog) {
-               //      CDL2.Compiler.SemanticAnalyzer.AnalyzeProgram(prog);
-               //   } else if (c is Module mod) {
-               //      CDL2.Compiler.SemanticAnalyzer.AnalyzeModule(mod);
-               //   }
-               //}
-
                WriteInfo($"Consulted => {string.Join(", ",parsedContainers.Select(c => c.FQDN()))}");
                parsedContainers.LastOrDefault().SetFocus();  
             } else {
