@@ -125,7 +125,7 @@ namespace CDL2v1 {
          set {
             if (value) {
                ModificationCount++;
-               if (Settings.SettingValue<int>("AutoSaveCount") > 0 && Settings.SettingValue<int>("AutoSaveCount") <= ModificationCount) Autosave();
+               if (Settings.SettingValue<int>("AutosaveCount") > 0 && Settings.SettingValue<int>("AutosaveCount") <= ModificationCount) Autosave();
             } else {
                ModificationCount = 0;
             }
