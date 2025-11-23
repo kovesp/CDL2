@@ -147,8 +147,9 @@ namespace CDL2v1 {
          new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width.",saved:true),
          new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height.",saved:true),
          new Setting<bool>(    "AutoPrint",           "--auto-print",       false,         "The focused object is printed after a coomand when set.",saved:true),
-         new Setting<int>(     "AutosaveInterval",    "--autosave-interval",300,           "The database is saved after this many seconds when modified.",saved:true),
-         new Setting<int>(     "AutosaveCount",       "--autosave-count",   10,            "The database is saved after this many commands that modify it.",saved:true),
+         new Setting<int>(     "AutosaveInterval",    "--autosave-interval",0,             "The database is saved after this many seconds when modified. Setting to <= 0 turns this off.",saved:true),
+         new Setting<int>(     "AutosaveCount",       "--autosave-count",   20,            "The database is saved after this many commands that modify it.",saved:true),
+         new Setting<int>(     "AutosaveNumber",      "--autosave-number",  3,             "The number of autosaves kept. Minimum 1. Older ones are removed.",saved:true),
          new Setting<bool>(    "AutoAnalyze",         "--auto-Analyze",     false,         "Run the semantic analyzer after each change.",saved:true),
          new Setting<int>(     "CommandHistorySize",  "--command-history-size",100,        "The number of inputs preserved across sessions.",saved:true),
 

@@ -550,7 +550,18 @@ namespace CDL2v1 {
       [JsonPropertyOrder(20)]
       public IDSet Parts = [];
 
-      [JsonInclude][JsonPropertyOrder(21)] public bool Modified { get; set; } = false;
+      [JsonIgnore] public bool Modified { 
+         get => _modified;
+         set {
+            _modified = value;
+            if (value) Database.Instance.Modified = true; // Also increment the global modification flag for each program modification.
+         } 
+      }
+      [JsonInclude][JsonPropertyOrder(21)] public bool _modified = false;
+      /// <summary>
+      /// Used by modules to set the program modified without incrementing the global modification counter.
+      /// </summary>
+      public void SetModifiedByModule() => _modified = true;
 
       /// Gets the collection of modules associated with the current program.
       /// </summary>
@@ -598,13 +609,14 @@ namespace CDL2v1 {
          get => _modified;
          set { 
             if (value && ! _modified) {
-               // When a module is modified, all programs that have it as a part are also modified.
+               // When a module is modified, all programs that have it as a part are also modified. But do not increment the global modification count.
                foreach (Program? program in Database.Instance.Programs.Select(guid => Database.Instance.NamedElements[guid] as Program)
                            .Where(program => program != null && program.Parts.Contains(this.Id))) {
-                  program?.Modified = true;
+                  program?.SetModifiedByModule();
                }
             }
             _modified = value;
+            if (value) Database.Instance.Modified = true; // Also set the global modification flag for each module modification.
          }
       }
 

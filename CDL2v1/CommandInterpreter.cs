@@ -302,8 +302,23 @@ namespace CDL2v1 {
       /// </summary>
       private static readonly ImmutableDictionary<string,Func<bool,string,object?,bool>> SetHandlers =
           new Dictionary<string,Func<bool,string,object?,bool>> {
-             ["programname"]     = SetProgram,
+             ["programname"]      = SetProgram,
+             ["autosaveinterval"] = SetAutoSaveInterval,
           }.ToImmutableDictionary();
+
+      /// <summary>
+      /// Handles changes to the AutosaveInterval setting by configuring the database auto-save timer.
+      /// </summary>
+      /// <param name="isSet">True when setting the value, false when resetting.</param>
+      /// <param name="_">The name of the setting (not used).</param>
+      /// <param name="intervalSeconds">The auto-save interval in seconds.</param>
+      /// <returns>Always true as any integer value is valid.</returns>
+      private static bool SetAutoSaveInterval(bool isSet,string _,object? intervalSeconds) {
+         if (intervalSeconds is int interval) {
+            Database.Instance.ConfigureAutoSave(interval);
+         }
+         return true;
+      }
 
       /// <summary>
       /// Interpret the command with the given verb, arguments and settings.

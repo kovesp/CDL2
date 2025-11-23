@@ -50,6 +50,7 @@ using System.Diagnostics;
 using System.Xml.Linq;
 using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
+using System.Windows.Threading;
 
 namespace CDL2v1 {
    /// <summary>
@@ -108,6 +109,69 @@ namespace CDL2v1 {
       }
 
       public string Name = "Database";
+
+      /// <summary>
+      /// Timer for auto-save functionality
+      /// </summary>
+      [JsonIgnore]
+      private DispatcherTimer? _autoSaveTimer = null;
+
+      /// <summary>
+      /// Used by autosave when implemented.
+      /// Set by Program.Modified and Module.Modified
+      /// </summary>
+      public bool Modified { 
+         get => ModificationCount > 0;
+         set {
+            if (value) {
+               ModificationCount++;
+               if (Settings.SettingValue<int>("AutoSaveCount") > 0 && Settings.SettingValue<int>("AutoSaveCount") <= ModificationCount) Autosave();
+            } else {
+               ModificationCount = 0;
+            }
+         }
+      }
+
+      /// <summary>
+      /// Configures the auto-save timer based on the AutoSaveInterval setting.
+      /// If interval is 0 or negative, auto-save is disabled.
+      /// </summary>
+      /// <param name="intervalSeconds">Auto-save interval in seconds. If 0, auto-save is disabled.</param>
+      public void ConfigureAutoSave(int intervalSeconds) {
+         StopAutoSave();
+         
+         if (intervalSeconds > 0) {
+            _autoSaveTimer = new DispatcherTimer {
+               Interval = TimeSpan.FromSeconds(intervalSeconds)
+            };
+            _autoSaveTimer.Tick += (s, e) => Autosave();
+            _autoSaveTimer.Start();
+         }
+      }
+
+      /// <summary>
+      /// Stops the auto-save timer if it is running.
+      /// </summary>
+      public void StopAutoSave() {
+         if (_autoSaveTimer is not null) {
+            _autoSaveTimer.Stop();
+            _autoSaveTimer = null;
+         }
+      }
+
+      /// <summary>
+      /// Performs an automatic save of the current state. Intended to persist changes without explicit user action.
+      /// 
+      /// TODO AUTOSAVE NOT CURRENTLY IMPLEMENTED
+      /// </summary>
+      private void Autosave() {
+         if (ModificationCount > 0) {
+
+         }
+      }
+
+      private int ModificationCount = 0;
+      public int GetModificationCount() => ModificationCount;
 
       /// <summary>
       /// Maps the canonical form of identifiers (i.e., with whitespace removed) to the original form.
@@ -512,7 +576,10 @@ namespace CDL2v1 {
 
 
       public static string Save(string? filePath = null) => Serializer.SaveDB(filePath);
-      public static void Load(string? filePath = null) => Serializer.LoadDB(filePath);
+      public static void Load(string? filePath = null) {
+         Serializer.LoadDB(filePath);
+         Instance.ConfigureAutoSave(Settings.SettingValue<int>("AutosaveInterval"));
+      }
       public static void InitializeForTests() {
          Directory.SetCurrentDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,@"..\..\..\..\CDL2v1\CDL2"));
          Load();

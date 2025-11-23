@@ -345,13 +345,14 @@ If no settings are given, all current settings are listed. The following is a li
 | report-all | bool | false | If true, then all messages are reported, otherwise only those that pertain to reachable objects. |
 | auto-print   | bool | false   | If true, then the focused object is printed after the command. |
 | print-depth  | int  | -1      | The depth of printing. If -1, then the entire object is printed. |
-| auto-save-count  | int | 10   | The database is saved after this many commands that modify it (the editing commands).
-| auto-save-interval | int | 300| The database is saved after this many seconds if there are any modifications. |
+| auto-save-number  | int | 3   | The number of autosaves kept. Treated as 1 if <= 1. Older ones are removed.|
+| auto-save-count  | int | 20   | The database is saved after this many commands that modify it (the editing commands). Set to 0 to disable. |
+| auto-save-interval | int | 0| The database is saved after this many seconds if there are any modifications. Set to 0 to disable. |
 | auto-analyze | bool | false| Run the semantic analyzer after each change. |
 | command-history-size | int | 100 | The number of commands to keep in the command history. |
 
 The names of the command line settings are in most cases the same as listed in thsi table, but with
-each word capbitalized abd dashes removed. For example, `--command-hisotry-Size` becomes `CommandHistorySize`.
+each word capitalized and dashes removed. For example, `--command-hisotry-Size` becomes `CommandHistorySize`.
 There are some exceptions:
 
 | Command Line Name | Setting Name |
