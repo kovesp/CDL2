@@ -480,6 +480,12 @@ namespace CDL2v1 {
          }
          throw new InvalidOperationException($"No ancestor of type {typeof(T)} found for {this}.");
       }
+
+      /// <summary>
+      /// Rename the NamedElement to the new name.
+      /// </summary>
+      /// <param name="newName"></param>
+      internal void Rename(string newName) => Id.Rename(newName);
    }
 
    /// <summary>

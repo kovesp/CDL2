@@ -417,6 +417,19 @@ The command enters edit mode with the selected object in the input area. When ed
 the object is parsed. If this succeeds, the object replaces the existing object. _Note: if an attempt is made to
 change the identity or type of the object, the command will fail._
 
+##### Rename
+```
+rename command : rename token, setting sequence option, selector option, new name.
+new name : equals token, ALPHA token sequence.
+```
+
+Renames the selected object to the new name. 
+
+   * The new name may be the same as the current name with different distribution of white spaces.
+     Example: `rename ALG myAlg = my Alg`.
+   * The new name must be a valid CDL2 identifier which is not currently in use in the same scope.     
+   * All references to the renamed object are updated automatically.
+
 ##### Delete/Remove
 ```
 delete command : delete token, setting sequence option, selector option.

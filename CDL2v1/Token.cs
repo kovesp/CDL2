@@ -83,7 +83,7 @@ namespace CDL2v1 {
       [GeneratedRegex(@"\s+",                                   RegexOptions.Compiled)]private static partial Regex ReduceWhitespaceRE();
       private static Regex GlyphRE() => GlyphRE_; // Lazy initialization of the regex to avoid static constructor issues.
       private static Regex ReservedWordRE() => ReservedWordRE_; // Lazy initialization of the regex to avoid static constructor issues.
-      private static Regex IdRE() => IdRE_; // Lazy initialization of the regex to avoid static constructor issues.
+      public static Regex IdRE() => IdRE_; // Lazy initialization of the regex to avoid static constructor issues.
       private static Regex StringEscapeRE() => StringEscapeRE_; // Lazy initialization of the regex to avoid static constructor issues.
 
       static Token() {

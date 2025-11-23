@@ -777,8 +777,85 @@ namespace CDL2v1 {
          return interfaceType;
       }
 
-      private void InterpretCommandRename(string args) => throw new NotImplementedException();
+      private void InterpretCommandRename(string args) {
+         if (string.IsNullOrEmpty(args)) return;
+         string[] parts = Regex.Split(args,@"\s*=\s*",RegexOptions.Compiled);
+         if (parts.Length != 2) {
+            WriteError("Usage: rename [selector] = <newName>.");
+            return;
+         }
+         string sel = parts[0].Trim();
+         string newName = parts[1].Trim();
+         if (string.IsNullOrEmpty(newName) || !Token.IdRE().IsMatch(newName)) {
+            WriteError($"'{newName}' is not a valid CDL2 identifier.");
+            return;
+         }
+         string newCannonicalName = newName.Replace(" ","");
 
+         // Perform the rename operation
+         SingleSelection? context = GetContext(sel);
+         if (context is not null) {
+            NamedElement? obj = context.Object;
+            if (obj is null) {
+               WriteError("No object to rename");
+               return;
+            }
+            ITopLevelContainer modifiedContainer;
+            switch (obj) {
+               case Program prog:
+                  if (Database.Instance.ProgramByName(newName) is not null) {
+                     WriteError($"A program named {newName} already exists.");
+                     return;
+                  }
+                  modifiedContainer = prog;
+                  break;
+               case Module mod:
+                  if (Database.Instance.ModuleByName(newName) is not null) {
+                     WriteError($"A module named {newName} already exists.");
+                     return;
+                  }
+                  modifiedContainer = mod;
+                  break;
+               case Layer layer:
+                  if (!layer.Module!.Layers.All(layer => layer.Id.CanonicalName != newCannonicalName)) {
+                     WriteError($"A layer named {newName} already exists in the module.");
+                     return;
+                  }
+                  modifiedContainer = layer.Module!;
+                  break;
+               case Section sec:
+                  if (!sec.Layer!.Sections.All(section => section.Id.CanonicalName != newCannonicalName)) {
+                     WriteError($"A section named {newName} already exists in the layer.");
+                     return;
+                  }
+                  modifiedContainer = sec.Module!;
+                  break;
+               case CDL2Object cDL2Object:
+                  Section section = cDL2Object.Section!;
+                  if (! section!.Declarations.Keys.All(id => id.CanonicalName != newCannonicalName)) {
+                     WriteError($"An object named {newName} already exists in the section.");
+                     return;
+                  }
+                  if (! section.inv.All(id => id.CanonicalName != newCannonicalName)) {
+                     WriteError($"{newName} is in the INV list of this section.");
+                     return;
+                  }
+                  if (!section.import.All(id => id.CanonicalName != newCannonicalName)) {
+                     WriteError($"{newName} is in the IMPORT list of this section.");
+                     return;
+                  }
+                  modifiedContainer = cDL2Object.Module!;
+                  break;
+               default:
+                  WriteError($"Cannot rename {obj.FQDN()}");
+                  return;
+            }
+
+            modifiedContainer.Modified = true;
+            Database.Instance.RecordUndo(obj.Id,Database.Instance.DisplayName(obj.Id.CanonicalName),newName);
+            obj.Rename(newName);
+         }
+      }
       private void InterpretCommandStatus() {
          WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
          Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);

@@ -338,13 +338,15 @@ namespace CDL2v1 {
          // For rename operations
          [JsonInclude][JsonPropertyOrder(6)] public string OriginalName { get; set; } = "";
          [JsonInclude][JsonPropertyOrder(7)] public string NewName { get; set; } = "";
-         [JsonInclude][JsonPropertyOrder(8)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
+         [JsonInclude][JsonPropertyOrder(8)] public ID Id { get; set; } = ID.AnonID;
+
+         [JsonInclude][JsonPropertyOrder(9)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
 
          [JsonIgnore]public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
 
-         public UndoRecord(CDL2Object element, ChangeType changeType) {
-            ObjectGuid = element.GUID;
-            InterfaceStatus = element.GetInterfaces();
+         public UndoRecord(CDL2Object? element, ChangeType changeType) {
+            ObjectGuid = element?.GUID ?? Guid.Empty;
+            InterfaceStatus = element?.GetInterfaces() ?? InterfaceTypes.None;
             ChangeType = changeType;
          }
 
@@ -355,7 +357,8 @@ namespace CDL2v1 {
          /// <param name="element"></param>
          /// <param name="originalName"></param>
          /// <param name="newName"></param>
-         public UndoRecord(CDL2Object element,string originalName,string newName) : this (element,ChangeType.Renamed) {
+         public UndoRecord(ID id,string originalName,string newName) : this (null,ChangeType.Renamed) {
+            Id = id;
             OriginalName = originalName;
             NewName = newName;
          }
@@ -387,12 +390,12 @@ namespace CDL2v1 {
       /// <param name="element"></param>
       public void RecordUndo(CDL2Object element,ChangeType changeType) => UndoStack.Push(new UndoRecord(element,changeType));
       /// <summary>
-      /// Create an undo record for a rename operation.
+      /// Create an undo record for a rename operation. Renames are performed on IDs so have to be recorded like that.
       /// </summary>
-      /// <param name="element"></param>
+      /// <param name="id"></param>
       /// <param name="originalName"></param>
       /// <param name="newName"></param>
-      public void RecordUndo(CDL2Object element,string originalName,string newName) => UndoStack.Push(new UndoRecord(element,originalName,newName));
+      public void RecordUndo(ID id,string originalName,string newName) => UndoStack.Push(new UndoRecord(id,originalName,newName));
 
       /// <summary>
       /// Records an undo operation for the specified element, indicating it has been replaced.

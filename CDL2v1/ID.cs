@@ -83,6 +83,7 @@ namespace CDL2v1 {
       public override int GetHashCode() => HashCode.Combine(CanonicalName);
       public override string ToString() => Name;
       public int CompareTo(object? obj) => obj is ID id ? CanonicalName.CompareTo(id.CanonicalName) : 1;
+      internal void Rename(string newName) => CanonicalName = Database.Instance.RenameCanonicalName(CanonicalName,newName);
 
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator ==(ID left, string right) => left is null ? right is null : left.Equals(right);
