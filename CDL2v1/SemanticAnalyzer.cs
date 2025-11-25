@@ -98,6 +98,7 @@ namespace CDL2v1 {
          // Phase 2
          AnalyzeInterfaces(MainProgram);
 
+         // Phase 3
          AnalyzeProgram(MainProgram);
 
          // TODO: have an option to analyze all modules in the database. Default is to analyze only parts.
@@ -221,14 +222,19 @@ namespace CDL2v1 {
       public void AnalyzeProgram(Program program) {
          IDDictionary<Module> validModules = [];
          Log(3, $"Analyzing module presence of {program.ContainerName}");
+         // First verify that all modules in the parts list are present in the database.
+         // Modules are found by name, and added to valid modules by their ID. Note that the ID object in Parts may not be the same as in the module itself
          foreach (ID modId in program.Parts) {
             Module? mod;
             if ((mod = Database.Instance.ModuleByName(modId)) is not null) {
-               validModules[modId] = mod;
+               validModules[mod.Id] = mod;
             } else {
                AddNote(program, Note.ModuleNotFound, modId);
             }
          }
+         // Now ensure that the parts list contains the actual module IDs.
+         program.Parts.Clear();
+         foreach (ID modId in validModules.Keys) program.Parts.Add(modId);
 
          // Verify that all lude references are correct.
          foreach (RW ludeType in Container.LudeTypes) {
@@ -316,8 +322,7 @@ namespace CDL2v1 {
       /// <param name="extra">Extra information to add to the note.</param>
       private void CheckReferenceType<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null) where S : CDL2Object where T : CDL2Object {
          CDL2Object? resolvedObject = section.GetResolvedObject(id);
-         switch (resolvedObject) {
-            case null:
+         switch (resolvedObject) {            case null:
                if (extra != null) {
                   AddNote(subject, unresolved, extra, id);
                } else {

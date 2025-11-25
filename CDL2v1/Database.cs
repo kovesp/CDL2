@@ -338,9 +338,10 @@ namespace CDL2v1 {
          // For rename operations
          [JsonInclude][JsonPropertyOrder(6)] public string OriginalName { get; set; } = "";
          [JsonInclude][JsonPropertyOrder(7)] public string NewName { get; set; } = "";
-         [JsonInclude][JsonPropertyOrder(8)] public ID Id { get; set; } = ID.AnonID;
+         [JsonInclude][JsonPropertyOrder(8)] public bool UpdateReferences { get; private set; }
+         [JsonInclude][JsonPropertyOrder(9)] public ID Id { get; set; } = ID.AnonID;
 
-         [JsonInclude][JsonPropertyOrder(9)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
+         [JsonInclude][JsonPropertyOrder(10)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
 
          [JsonIgnore]public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
 
@@ -357,10 +358,11 @@ namespace CDL2v1 {
          /// <param name="element"></param>
          /// <param name="originalName"></param>
          /// <param name="newName"></param>
-         public UndoRecord(ID id,string originalName,string newName) : this (null,ChangeType.Renamed) {
+         public UndoRecord(ID id,string originalName,string newName,bool updateReferences) : this (null,ChangeType.Renamed) {
             Id = id;
             OriginalName = originalName;
             NewName = newName;
+            UpdateReferences = updateReferences;
          }
 
          public UndoRecord(CDL2Object element,InterfaceTypes interfaceType) : this(element,ChangeType.InterfaceChanged) {
@@ -395,7 +397,7 @@ namespace CDL2v1 {
       /// <param name="id"></param>
       /// <param name="originalName"></param>
       /// <param name="newName"></param>
-      public void RecordUndo(ID id,string originalName,string newName) => UndoStack.Push(new UndoRecord(id,originalName,newName));
+      public void RecordUndo(ID id,string originalName,string newName,bool updateReferences) => UndoStack.Push(new UndoRecord(id,originalName,newName,updateReferences: updateReferences));
 
       /// <summary>
       /// Records an undo operation for the specified element, indicating it has been replaced.

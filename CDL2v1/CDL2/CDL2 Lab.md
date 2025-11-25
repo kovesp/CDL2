@@ -324,6 +324,7 @@ If no settings are given, all current settings are listed. The following is a li
 | tag          | string |        | Selects the undo or redo entry with the given tag.
 | separate     | bool   | false  | For code generation, see the `generate` command.
 | before       | bool   | false  | Apply the command before the selected object(s).
+| refs         | bool   | true   | For the `rename` command, rename all referrences to this object.
 
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
@@ -428,7 +429,9 @@ Renames the selected object to the new name.
    * The new name may be the same as the current name with different distribution of white spaces.
      Example: `rename ALG myAlg = my Alg`.
    * The new name must be a valid CDL2 identifier which is not currently in use in the same scope.     
-   * All references to the renamed object are updated automatically.
+   * If `refs` is true (the default) all references to the renamed object are updated automatically.
+     An example of when you might use the `-refs-` setting is when you want to rename an object and
+     then supply a different object with the original name.
 
 ##### Delete/Remove
 ```

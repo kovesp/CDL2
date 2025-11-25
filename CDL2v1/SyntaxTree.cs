@@ -483,9 +483,21 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Rename the NamedElement to the new name.
+      /// If references are to be updates, then change the name in the ID table.
+      /// Otherwise generate a new ID with the new name and leave the old ID alone. All references will then refer to the old name (tough of course they will be to an undeclared object).
+      /// If now a new object with that name is declared it had better be of the same type (algorithm, const, var or list, or container) else there will be type conflicts.
+      ///
+      /// Note that subclasses may need to override to perform additional actions on rename.
       /// </summary>
       /// <param name="newName"></param>
-      internal void Rename(string newName) => Id.Rename(newName);
+      /// <param name="updateReferences"></param>
+      internal virtual void Rename(string newName,bool updateReferences) {
+         if (updateReferences) {
+            Id.Rename(newName);
+         } else {
+            Id = new ID(newName);
+         }
+      }
    }
 
    /// <summary>

@@ -561,11 +561,15 @@ namespace CDL2v1 {
             int n = 0;
             WriteLine($"{stackName} stack ({stack.Count}/{stack.Capacity})");
             foreach (Database.UndoRecord record in stack) {
-               CDL2Object? obj = record.CDL2Object;
-               if (obj is not null) {
-                  WriteLine($"{++n,3}:{(record.Tag.IsNotEmptyOrWhitespace ? $" [{record.Tag}]:" : "")} {record.ChangeType,8} :: {obj.FQDN(WithInterface: true)}");
+               if (record.ChangeType == ChangeType.Renamed) {
+                  WriteLine($"{++n,3}:{(record.Tag.IsNotEmptyOrWhitespace ? $" [{record.Tag}]:" : "")} {record.ChangeType,8} :: {record.OriginalName} -> {record.NewName}");
                } else {
-                  WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in NamedElements");
+                  CDL2Object? obj = record.CDL2Object;
+                  if (obj is not null) {
+                     WriteLine($"{++n,3}:{(record.Tag.IsNotEmptyOrWhitespace ? $" [{record.Tag}]:" : "")} {record.ChangeType,8} :: {obj.FQDN(WithInterface: true)}");
+                  } else {
+                     WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in NamedElements");
+                  }
                }
             }
          } else if (stack.Count == 0) {
@@ -800,31 +804,35 @@ namespace CDL2v1 {
                WriteError("No object to rename");
                return;
             }
+            bool differentNameName = newCannonicalName != obj.Id.CanonicalName;
             ITopLevelContainer modifiedContainer;
+            bool mainProgramBeingRenamed = false;
+            bool refs = Settings.SettingValue<bool>("refs");
             switch (obj) {
                case Program prog:
-                  if (Database.Instance.ProgramByName(newName) is not null) {
+                  if (differentNameName && Database.Instance.ProgramByName(newName) is not null) {
                      WriteError($"A program named {newName} already exists.");
                      return;
                   }
                   modifiedContainer = prog;
+                  mainProgramBeingRenamed = Settings.SettingValue<string>("ProgramName")!.Replace(" ","") == prog.Id.CanonicalName;
                   break;
                case Module mod:
-                  if (Database.Instance.ModuleByName(newName) is not null) {
+                  if (differentNameName && Database.Instance.ModuleByName(newName) is not null) {
                      WriteError($"A module named {newName} already exists.");
                      return;
                   }
                   modifiedContainer = mod;
                   break;
                case Layer layer:
-                  if (!layer.Module!.Layers.All(layer => layer.Id.CanonicalName != newCannonicalName)) {
+                  if (differentNameName && !layer.Module!.Layers.All(layer => layer.Id.CanonicalName != newCannonicalName)) {
                      WriteError($"A layer named {newName} already exists in the module.");
                      return;
                   }
                   modifiedContainer = layer.Module!;
                   break;
                case Section sec:
-                  if (!sec.Layer!.Sections.All(section => section.Id.CanonicalName != newCannonicalName)) {
+                  if (differentNameName && !sec.Layer!.Sections.All(section => section.Id.CanonicalName != newCannonicalName)) {
                      WriteError($"A section named {newName} already exists in the layer.");
                      return;
                   }
@@ -832,7 +840,7 @@ namespace CDL2v1 {
                   break;
                case CDL2Object cDL2Object:
                   Section section = cDL2Object.Section!;
-                  if (! section!.Declarations.Keys.All(id => id.CanonicalName != newCannonicalName)) {
+                  if (differentNameName && !section!.Declarations.Keys.All(id => id.CanonicalName != newCannonicalName)) {
                      WriteError($"An object named {newName} already exists in the section.");
                      return;
                   }
@@ -852,8 +860,9 @@ namespace CDL2v1 {
             }
 
             modifiedContainer.Modified = true;
-            Database.Instance.RecordUndo(obj.Id,Database.Instance.DisplayName(obj.Id.CanonicalName),newName);
-            obj.Rename(newName);
+            Database.Instance.RecordUndo(obj.Id,Database.Instance.DisplayName(obj.Id.CanonicalName),newName,updateReferences: refs);
+            obj.Rename(newName,updateReferences: refs);
+            if (mainProgramBeingRenamed) Settings.SettingValue<string>("ProgramName",newName);
          }
       }
       private void InterpretCommandStatus() {
