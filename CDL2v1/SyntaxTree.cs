@@ -48,6 +48,7 @@ using System.CommandLine.Parsing;
 using System.ComponentModel;
 using System.ComponentModel.Design;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Numerics;
@@ -657,7 +658,7 @@ namespace CDL2v1 {
          foreach (Section section in Sections) if (section.Id == id) return section;
          return null;
       }
-      public bool TryGetSectionById(ID id,out Section? section) {
+      public bool TryGetSectionById(ID id,[NotNullWhen(true)] out Section? section) {
          section = SectionById(id);
          return section != null;
       }

@@ -393,6 +393,7 @@ namespace CDL2v1 {
                EmitReservedwordForObject(ludeType);
                // SectionById Ludes are stored as ids of a generated Procedure item.
                if (section.TryGetLocalDeclaration(section.Ludes[ludeType].First(),out Procedure? proc)) { // This should always be the case
+                  Emit(" ");
                   Print(proc!.group.Alternatives.First(),section);
                   EmitSeparatorWithNL(TT.END);
                } else {

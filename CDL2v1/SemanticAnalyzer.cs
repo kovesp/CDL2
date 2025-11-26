@@ -239,20 +239,28 @@ namespace CDL2v1 {
          // Verify that all lude references are correct and replace the IDs in the lude with the actual ones.
          foreach (RW ludeType in Container.LudeTypes) {
             Log(3, $"Analyzing program {ludeType}");
-            List<ID> ludeEntries = [.. program.Ludes[ludeType]];
+            List<ID> progLudeEntries = [.. program.Ludes[ludeType]];
             program.Ludes[ludeType].Clear();
-            foreach (ID modId in ludeEntries) {
+            foreach (ID modId in progLudeEntries) {
                if (validModules.TryGetValue(modId,out Module? mod)) {
                   if (mod.Ludes[ludeType].Count == 0) {
                      AddNote(program, Note.LudeNotFound, RW.MODULE, modId, ludeType);
                   } else {
-                     foreach (ID lude in mod.Ludes[ludeType]) { 
+                     List<ID> modLudeEntries = [.. mod.Ludes[ludeType]];
+                     mod.Ludes[ludeType].Clear();
+                     foreach (ID lude in modLudeEntries) {
                         // lude should be the name of a section in the module. If the section has a lude of the required type then it
                         // must contain the generated name of a lude procedure.
-                        if (mod.TryGetSectionById(lude, out Section? section) && section!.Ludes[ludeType].Count == 0) {
-                           AddNote(mod, Note.LudeNotFound,RW.SECTION, lude, ludeType);
+                        if (mod.TryGetSectionById(lude,out Section? section)) {
+                           if (section.Ludes[ludeType].Count == 0) {
+                              AddNote(mod,Note.LudeNotFound,RW.SECTION,lude,ludeType);
+                           } else {
+                              mod.Ludes[ludeType].Add(section.Id);
+                           }
+                        } else {
+                           AddNote(mod,Note.LudeNotFound,RW.SECTION,lude,ludeType);
                         }
-                     }    
+                     }
                   }
                   program.Ludes[ludeType].Add(mod.Id);
                } else {
