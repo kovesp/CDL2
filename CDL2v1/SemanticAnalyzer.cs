@@ -236,10 +236,12 @@ namespace CDL2v1 {
          program.Parts.Clear();
          foreach (ID modId in validModules.Keys) program.Parts.Add(modId);
 
-         // Verify that all lude references are correct.
+         // Verify that all lude references are correct and replace the IDs in the lude with the actual ones.
          foreach (RW ludeType in Container.LudeTypes) {
             Log(3, $"Analyzing program {ludeType}");
-            foreach (ID modId in program.Ludes[ludeType]) {
+            List<ID> ludeEntries = [.. program.Ludes[ludeType]];
+            program.Ludes[ludeType].Clear();
+            foreach (ID modId in ludeEntries) {
                if (validModules.TryGetValue(modId,out Module? mod)) {
                   if (mod.Ludes[ludeType].Count == 0) {
                      AddNote(program, Note.LudeNotFound, RW.MODULE, modId, ludeType);
@@ -252,9 +254,11 @@ namespace CDL2v1 {
                         }
                      }    
                   }
+                  program.Ludes[ludeType].Add(mod.Id);
                } else {
                   AddNote(program, Note.LudeNotFound,RW.MODULE, modId, ludeType);
                }
+               // Valid ludes are added to the program's lude table.
             }
          }
       }
