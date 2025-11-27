@@ -44,6 +44,7 @@ using System.Reflection.Metadata;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Documents;
 
 using static CDL2v1.Logger;
 
@@ -299,16 +300,20 @@ namespace CDL2v1 {
          Log(4, $"Analyzing constants");
          foreach (Const c in section.Constants) {
             // Ensure that each CONST element in the constant is declared
-            foreach (ID elemId in c.elements.OfType<ID>()) {
-               CheckReferenceType<Const,Const>(section,c, elemId,Note.UnresolvedConstElement, Note.InvalidConstElement);
-            }
+            Set<ID> resolvedIDs = [];
+            foreach (ID elemId in c.elements.OfType<ID>()) resolvedIDs.AddNonNull(CheckReferenceType<Const,Const>(section,c,elemId,Note.UnresolvedConstElement,Note.InvalidConstElement));
+            List<IElement> originalelements = [.. c.elements];
+            c.elements.Clear();
+            foreach (IElement elem in originalelements) c.elements.Add(elem is ID elemId ? resolvedIDs.GetActualValue(elemId) : elem);       
          }
 
          // Analyze Lists
          Log(4, $"Analyzing Lists");
          foreach (LIST list in section.Lists) {
-            CheckReferenceType<LIST,Const>(section, list, list.lwb, Note.UnresolvedListBound, Note.InvalidListBound, "lower bound");
-            CheckReferenceType<LIST,Const>(section, list, list.upb, Note.UnresolvedListBound, Note.InvalidListBound, "upper bound");
+            ID? lwb = CheckReferenceType<LIST,Const>(section, list, list.lwb, Note.UnresolvedListBound, Note.InvalidListBound, "lower bound");
+            ID? upb = CheckReferenceType<LIST,Const>(section, list, list.upb, Note.UnresolvedListBound, Note.InvalidListBound, "upper bound");
+            if (lwb is not null) list.lwb = lwb;
+            if (upb is not null) list.upb = upb;
          }
 
          // Analyze procedures and macros.
@@ -324,7 +329,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Check the type of the object with the given ID.
+      /// Check the type of the object with the given ID. Return the declaring ID object if found and of the correct type.
       /// </summary>
       /// <typeparam name="S">The type of subject.</typeparam>
       /// <typeparam name="T">The type of the object that id must resolve to</typeparam>
@@ -332,24 +337,26 @@ namespace CDL2v1 {
       /// <param name="subject"></param>
       /// <param name="id"></param>
       /// <param name="extra">Extra information to add to the note.</param>
-      private void CheckReferenceType<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null) where S : CDL2Object where T : CDL2Object {
+      /// <returns></returns>
+      private ID? CheckReferenceType<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null) where S : CDL2Object where T : CDL2Object {
          CDL2Object? resolvedObject = section.GetResolvedObject(id);
-         switch (resolvedObject) {            case null:
+         switch (resolvedObject) {            
+            case null:
                if (extra != null) {
                   AddNote(subject, unresolved, extra, id);
                } else {
                   AddNote(subject, unresolved, id);
                }
-               return;
+               return null;
             case T:
-               return;
+               return resolvedObject.Id;
             default:
                if (extra != null) {
                   AddNote(subject, wrongType, extra, resolvedObject);
                } else {
                   AddNote(subject, wrongType, resolvedObject);
                }
-               return;
+               return null;
          }
       }
 
@@ -418,7 +425,29 @@ namespace CDL2v1 {
       private static void ReportError(Container unit,string message) => Logger.ReportError($"{unit.ContainerName}: {message}");
 
       private void AnalyzeMacro(Macro macro) {
+         List<IElement> originalelements = [.. macro.elements];
+         macro.elements.Clear();
+         foreach (IElement elem in originalelements) {
+            if (elem is ID id) {
+               if (macro.Affixes.TryGetValueWithId(id,out Affix? affix)) {
+                  macro.elements.Add(affix!.Id);
+               } else if (macro.Locals.TryGetValueWithId(id,out Local? local)) {
+                  macro.elements.Add(local!.Id);
+               } else {
+                  CDL2Object? resolvedObject = macro.Section!.GetResolvedObject(id);
+                  if (resolvedObject is not null && (resolvedObject is Var || resolvedObject is Const || resolvedObject is LIST)) {
+                     macro.elements.Add(resolvedObject.Id);
+                  } else {
+                     AddNote(macro,Note.UnresolvedMacroElement,id);
+                     macro.elements.Add(id);
+                  }
+               }
+            } else {
+               macro.elements.Add(elem);
+            }
+         }
       }
+
       private class DataFlowInfo {
          private readonly Procedure proc;
          private readonly Set<Affix> readableAffixes     = [];

@@ -168,9 +168,9 @@ namespace CDL2v1 {
             Notes notes = ParseNotes();
             ID unitId = ID.ErrorID;
             if (tokens.CanConsumeContainerDelimiter(RW.MODULE,ref unitId,out string? comments)) {
-               parsedContainers.AddNonNullTo(ParseModule(unitId,comments,notes));
+               parsedContainers.AddNonNull(ParseModule(unitId,comments,notes));
             } else if (tokens.CanConsumeContainerDelimiter(RW.PROGRAM,ref unitId,out comments)) {
-               parsedContainers.AddNonNullTo(ParseProgram(unitId,comments,notes));
+               parsedContainers.AddNonNull(ParseProgram(unitId,comments,notes));
             } else {
                //throw new Exception("Expected MODULE or PROGRAM");
                break;

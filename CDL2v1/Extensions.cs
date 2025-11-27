@@ -38,6 +38,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.CommandLine.Parsing;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.IO;
 using System.Linq;
@@ -51,6 +52,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation.Text;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Xml.Linq;
 using System.Xml.Serialization;
@@ -62,6 +64,8 @@ namespace CDL2v1 {
       public Set(IEnumerable<T> enumerable) {
          foreach (T item in enumerable) Add(item);
       }
+      public bool TryGetActualValue(T searchValue,[MaybeNullWhen(false)] out T actualValue) => TryGetValue(searchValue,out actualValue);
+      public T GetActualValue(T searchValue) => TryGetActualValue(searchValue,out T? actualValue) ? actualValue : throw new KeyNotFoundException();
    }
 
    public class GuidList<T> : ICollection<T> where T : NamedElement {
@@ -826,8 +830,38 @@ namespace CDL2v1 {
          /// Adds the specified item to the collection if it is not null.
          /// </summary>
          /// <param name="item">The item to add to the collection. The item is only added if it is not null.</param>
-         public void AddNonNullTo(T? item) {
+         public void AddNonNull(T? item) {
             if (item is not null) list.Add(item);
+         }
+      }
+      extension<T>(List<T> list) where T : NamedElement {
+         public bool TryGetValueWithId(ID id,[MaybeNullWhen(false)] out T? value) {
+            value = list.FirstOrDefault(item => item.Id == id);
+            return value is not null;
+         }
+      }
+      extension<T>(Set<T> set) where T : notnull {
+         /// <summary>
+         /// Returns a new set containing the elements of the original set combined with the specified items,  ensuring
+         /// no duplicate elements are added.
+         /// </summary>
+         /// <typeparam name="T">The type of elements in the set. Must be a non-nullable type.</typeparam>
+         /// <param name="items">The collections of items to add to the set. Duplicate elements will not be added.</param>
+         /// <returns>A new set containing the elements of the original set and the specified items, without duplicates.</returns>
+         public Set<T> With(params T[] items) => items.All(item => set.Contains(item)) ? set : [.. set.Union(items)];
+         public Set<T> With(T item) => set.Contains(item) ? set : [.. set, item];
+         /// <summary>
+         /// Adds the specified item to the collection if it is not null.
+         /// </summary>
+         /// <param name="item">The item to add to the collection. The item is only added if it is not null.</param>
+         public void AddNonNull(T? item) {
+            if (item is not null) set.Add(item);
+         }
+      }
+      extension<T>(Set<T> set) where T : NamedElement {
+         public bool TryGetValueWithId(ID id,[MaybeNullWhen(false)] out T? value) {
+            value = set.FirstOrDefault(item => item.Id == id);
+            return value is not null;
          }
       }
 
