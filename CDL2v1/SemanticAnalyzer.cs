@@ -161,6 +161,7 @@ namespace CDL2v1 {
                }
             }
          }
+         AnalyzeModule(module);
       }
 
       /// <summary>
