@@ -94,7 +94,7 @@ namespace CDL2v1 {
       internal void Analyze(Program MainProgram) {
          Log(0, $"Analyzing {MainProgram}");
          // Phase 1
-         AnalyzeImportsAndExports(MainProgram);
+         AnalyzeProgramImportsAndExports(MainProgram);
 
          // Phase 2
          AnalyzeInterfaces(MainProgram);
@@ -104,7 +104,7 @@ namespace CDL2v1 {
 
          // TODO: have an option to analyze all modules in the database. Default is to analyze only parts.
          foreach (Module module in MainProgram.Modules) {
-            AnalyzeModule(MainProgram, module);
+            AnalyzeModuleImportsAndExports(MainProgram, module);
          }
       }
 
@@ -113,23 +113,23 @@ namespace CDL2v1 {
       /// Ensure that all imports used in the modules are found and are consistent with the exports.
       /// </summary>
       /// <param name="mainProgram"></param>
-      internal void AnalyzeImportsAndExports(Program mainProgram) {
-         Log(3,$"Analyzing imports and exports");
+      internal void AnalyzeProgramImportsAndExports(Program mainProgram) {
+         Log(1,$"Analyzing program imports and exports");
          // Collect all the exports from the modules in the program.
          mainProgram.Exports.Clear();
          foreach (Module module in mainProgram.Modules) {
-            AnalyzeExports(module);
+            AnalyzeModuleExports(module);
             foreach (IExportable export in module.exports.Values.Cast<IExportable>()) {
                mainProgram.Exports[export.Id] = export;
             }
          }
          // Now verify that each import has a corresponding export and that the specs match.
          foreach (Module module in mainProgram.Modules) {
-            AnalyzeModule(mainProgram,module);
+            AnalyzeModuleImportsAndExports(mainProgram,module);
          }
       }
 
-      public void AnalyzeModule(Program? mainProgram,Module module) {
+      public void AnalyzeModuleImportsAndExports(Program? mainProgram,Module module) {
          // First collect all the imports in the sections into the imports table of the module.
          // While doing this check for consistency in case an object is imported ínto multiple sections.
          foreach (Section section in module.Sections) {
@@ -161,14 +161,15 @@ namespace CDL2v1 {
                }
             }
          }
-         AnalyzeModule(module);
+         //AnalyzeModule(module);
       }
 
       /// <summary>
       /// Construct the exports table for the given module and verify that each object is exported only once.
       /// </summary>
       /// <param name="module"></param>
-      private void AnalyzeExports(Module module) {
+      private void AnalyzeModuleExports(Module module) {
+         Log(2,$"Analyzing module {module} exports");
          foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, module.exports);
       }
       /// <summary>
@@ -405,6 +406,7 @@ namespace CDL2v1 {
       /// <param name="interfaceElements"></param>
       /// <param name="providables"></param>
       private void AnalyzeProvidedInterfaces(Section section, RW kind, SortedSet<ID> interfaceElements, IDDictionary<IProvidable>? providables) {
+         Log(3,$"Analyzing section {section} provided interfaces");
          if (providables == null && interfaceElements.Count > 0) AddNote(section, Note.AbstractionsInTopLayer);
          foreach (ID elemId in interfaceElements) {
             if (section.Declarations.TryGetValue(elemId,out CDL2Object? decl)) {
@@ -412,7 +414,7 @@ namespace CDL2v1 {
                   if (providables.TryGetValue(elemId, out IProvidable? prov)) {
                      AddNote(section, Note.DuplicateInterfaceElement, elemId, kind, section,prov.Section!);
                   } else if (decl is IProvidable providable) {
-                     providables[elemId] = providable;
+                     providables[providable.Id] = providable;
                   } else {
                      AddNote(section, Note.InterfaceElementNotProvidable, elemId, kind, decl!.TypeShortName);
                   }
