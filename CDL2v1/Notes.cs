@@ -121,6 +121,7 @@ namespace CDL2v1 {
       public static readonly Note DuplicateContainer                = new(Severity.Error  , 038, "{0} already exists.");
       public static readonly Note EmptyLude                         = new(Severity.Error  , 039, "{0} is empty.");
       public static readonly Note UnresolvedMacroElement            = new(Severity.Error  , 040, "References undefined id {0}.");
+      public static readonly Note ImportIsExported                  = new(Severity.Error  , 041, "An imported object cannot be exported: {0}.");
 
       public static readonly Note NoEffect                          = new(Severity.Warning, 101, "Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten            = new(Severity.Warning, 102, "Output affix {0} whose action has not been read passed to output in {1}");

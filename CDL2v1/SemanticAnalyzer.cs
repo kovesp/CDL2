@@ -90,46 +90,54 @@ namespace CDL2v1 {
       /// <summary>
       /// Analyze the given program.
       /// </summary>
-      /// <param name="MainProgram"></param>
-      internal void Analyze(Program MainProgram) {
-         Log(0, $"Analyzing {MainProgram}");
-         // Phase 1
-         AnalyzeProgramImportsAndExports(MainProgram);
-
+      /// <param name="program"></param>
+      internal void Analyze(Program program) {
+         Log(0, $"Analyzing {program}");
+         //phase 1
+         AnalyzeProgram(program);
          // Phase 2
-         AnalyzeInterfaces(MainProgram);
-
+         AnalyzeProgramInterfaces(program);
          // Phase 3
-         AnalyzeProgram(MainProgram);
+         AnalyzeProgramImportsAndExports(program);
+         // Phase 4
+         AnalyzeProgram(program);
 
          // TODO: have an option to analyze all modules in the database. Default is to analyze only parts.
-         foreach (Module module in MainProgram.Modules) {
-            AnalyzeModuleImportsAndExports(MainProgram, module);
+         foreach (Module module in program.Modules) {
+            AnalyzeModuleImportsAndExports(program, module);
          }
+
+         // AnalyzeUnused(program,reachable);
       }
+
+ 
 
       /// <summary>
       /// Analyze the imports of the given program.
       /// Ensure that all imports used in the modules are found and are consistent with the exports.
       /// </summary>
-      /// <param name="mainProgram"></param>
-      internal void AnalyzeProgramImportsAndExports(Program mainProgram) {
+      /// <param name="program"></param>
+      internal void AnalyzeProgramImportsAndExports(Program program) {
          Log(1,$"Analyzing program imports and exports");
          // Collect all the exports from the modules in the program.
-         mainProgram.Exports.Clear();
-         foreach (Module module in mainProgram.Modules) {
+         program.Exports.Clear();
+         foreach (Module module in program.Modules) {
             AnalyzeModuleExports(module);
             foreach (IExportable export in module.exports.Values.Cast<IExportable>()) {
-               mainProgram.Exports[export.Id] = export;
+               if (export.IsImported) {
+                  AddNote(program,Note.ImportIsExported,export);
+               } else {
+                  program.Exports[export.Id] = export;
+               }
             }
          }
          // Now verify that each import has a corresponding export and that the specs match.
-         foreach (Module module in mainProgram.Modules) {
-            AnalyzeModuleImportsAndExports(mainProgram,module);
+         foreach (Module module in program.Modules) {
+            AnalyzeModuleImportsAndExports(program,module);
          }
       }
 
-      public void AnalyzeModuleImportsAndExports(Program? mainProgram,Module module) {
+      public void AnalyzeModuleImportsAndExports(Program? program,Module module) {
          // First collect all the imports in the sections into the imports table of the module.
          // While doing this check for consistency in case an object is imported ínto multiple sections.
          foreach (Section section in module.Sections) {
@@ -139,7 +147,7 @@ namespace CDL2v1 {
                      if (module.imports.TryGetValue(elemid,out IImportable? importedObj)) {
                         CheckImportConsistency(obj,obj,(CDL2Object)importedObj);
                      } else {
-                        module.imports[elemid] = imported;
+                        module.imports[imported.Id] = imported;
                      }
                   } else {
                      AddNote(section,Note.InterfaceElementNotProvidable,obj!.Id,RW.IMPORT,obj.TypeShortName);
@@ -149,15 +157,15 @@ namespace CDL2v1 {
                }
             }
          }
-         if (mainProgram != null) {
+         if (program != null) {
             // Now check that all the imports are in the exports table of the program and are consistent with those exports.
             // Also insert the target of the import into the resolvedImports table of the module
             foreach (CDL2Object imported in module.imports.Values.Cast<CDL2Object>()) {
-               if (mainProgram.Exports.TryGetValue(imported.Id,out IExportable? exported)) {
+               if (program.Exports.TryGetValue(imported.Id,out IExportable? exported)) {
                   CheckImportConsistency(imported,imported,(CDL2Object)exported);
                   module.resolvedImports[imported.Id] = (IImportable)exported;
                } else {
-                  AddNote(mainProgram,Note.MissingImport,imported);
+                  AddNote(program,Note.MissingImport,imported);
                }
             }
          }
@@ -175,9 +183,9 @@ namespace CDL2v1 {
       /// <summary>
       /// Verify the consistency of interface declarations.
       /// </summary>
-      /// <param name="mainProgram"></param>
-      private void AnalyzeInterfaces(Program mainProgram) {
-         foreach (Module module in mainProgram.Modules) {
+      /// <param name="program"></param>
+      private void AnalyzeProgramInterfaces(Program program) {
+         foreach (Module module in program.Modules) {
             Log(3, $"Analyzing internal interfaces of {module}");
             // Construct the Visible table of each layer in the module
             foreach (Section section in module.Sections) {
@@ -188,10 +196,15 @@ namespace CDL2v1 {
             // or abstracted from below.
             // We can now check to see if everything invoked in this layer is in the Visible dictionary. Note that there may be imported objects. Those will be linked up with
             // exports prior to code generation.
+            // Also ensures that the actual element IDs are in the inv list. (Should not stritly be necessary, but just in case.)
             foreach (Layer layer in module.Layers) {
                foreach (Section section in layer.Sections) {
-                  foreach (ID elemid in section.inv) {
-                     if (!layer.Visible.ContainsKey(elemid)) {
+                  Set<ID> invs = [.. section.inv];
+                  section.inv.Clear();
+                  foreach (ID elemid in invs) {
+                     if (layer.Visible.TryGetValue(elemid,out IProvidable? elem)) {
+                        section.inv.Add(elem.Id);
+                     } else {
                         AddNote(section, Note.MissingInvoke, elemid, layer);
                      }
                   }
@@ -224,7 +237,7 @@ namespace CDL2v1 {
 
       public void AnalyzeProgram(Program program) {
          IDDictionary<Module> validModules = [];
-         Log(3, $"Analyzing module presence of {program.ContainerName}");
+         Log(3, $"Analyzing module presence of {program}");
          // First verify that all modules in the parts list are present in the database.
          // Modules are found by name, and added to valid modules by their ID. Note that the ID object in Parts may not be the same as in the module itself
          foreach (ID modId in program.Parts) {
@@ -393,12 +406,13 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Verify that the provided interfaces are valid within the section.
-      ///  -- No duplications: uniqueness is already guaranteed by the collection being a interfaceElements.
-      ///  -- Each item in the list is declared in the same section and is a subject or an Algorithm
+      ///  -- No duplications: uniqueness is already guaranteed by the collection being of interfaceElements.
+      ///  -- Each item in the list is declared in the same section and is a Const or an Algorithm
       ///  -- Does not already occur in the providable-s, which will be
-      ///     -- The current layer's Visible dictionary for kind = EXT
+      ///     -- The current layer's Visible dictionary for kind = EXT. Note that in this case the items abstracted from the previous
+      ///        layer may already be in there. This is done by sections, but order is not relevant, either way duplicates are detected. 
       ///     -- The successor layer's Visible dictionary for kind = ABSTR. In this case it may be null if the layer is the last one.
-      ///        if null generate a warning.
+      ///        In this case there should be no abstractions in the section, a warning is generated if there are.
       ///     -- The module's exports dictionary for kind = EXPORT
       /// </summary>
       /// <param name="section"></param>
@@ -407,20 +421,23 @@ namespace CDL2v1 {
       /// <param name="providables"></param>
       private void AnalyzeProvidedInterfaces(Section section, RW kind, SortedSet<ID> interfaceElements, IDDictionary<IProvidable>? providables) {
          Log(3,$"Analyzing section {section} provided interfaces");
-         if (providables == null && interfaceElements.Count > 0) AddNote(section, Note.AbstractionsInTopLayer);
-         foreach (ID elemId in interfaceElements) {
-            if (section.Declarations.TryGetValue(elemId,out CDL2Object? decl)) {
-               if (providables is not null) {
-                  if (providables.TryGetValue(elemId, out IProvidable? prov)) {
-                     AddNote(section, Note.DuplicateInterfaceElement, elemId, kind, section,prov.Section!);
+         // Providables will be null in the top layer, hence there should be no abstractions in this section ... add a warning.
+         if (providables == null) {
+            if (interfaceElements.Count > 0) AddNote(section,Note.AbstractionsInTopLayer);
+         } else {
+            // No need to normalize IDs in the ext/abstr sets, only in the providables
+            foreach (ID elemId in interfaceElements) {
+               if (section.Declarations.TryGetValue(elemId,out CDL2Object? decl)) {
+                  if (providables.TryGetValue(elemId,out IProvidable? prov)) {
+                     AddNote(section,Note.DuplicateInterfaceElement,elemId,kind,section,prov.Section!);
                   } else if (decl is IProvidable providable) {
                      providables[providable.Id] = providable;
                   } else {
-                     AddNote(section, Note.InterfaceElementNotProvidable, elemId, kind, decl!.TypeShortName);
+                     AddNote(section,Note.InterfaceElementNotProvidable,elemId,kind,decl!.TypeShortName);
                   }
+               } else {
+                  AddNote(section,Note.InterfaceElementMissing,elemId,kind);
                }
-            } else {
-               AddNote(section, Note.InterfaceElementMissing, elemId, kind);
             }
          }
       }
