@@ -41,10 +41,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Security.Policy;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Documents;
+using System.Windows.Input;
 
 using static CDL2v1.Logger;
 
@@ -99,18 +101,13 @@ namespace CDL2v1 {
          AnalyzeProgramInterfaces(program);
          // Phase 3
          AnalyzeProgramImportsAndExports(program);
-         // Phase 4
-         AnalyzeProgram(program);
-
-         // TODO: have an option to analyze all modules in the database. Default is to analyze only parts.
+         // Pahse 4
          foreach (Module module in program.Modules) {
-            AnalyzeModuleImportsAndExports(program, module);
+            AnalyzeModule(module);
          }
 
          // AnalyzeUnused(program,reachable);
-      }
-
- 
+      } 
 
       /// <summary>
       /// Analyze the imports of the given program.
@@ -118,7 +115,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="program"></param>
       internal void AnalyzeProgramImportsAndExports(Program program) {
-         Log(1,$"Analyzing program imports and exports");
+         Log(1,$"Analyzing {program} imports and exports");
          // Collect all the exports from the modules in the program.
          program.Exports.Clear();
          foreach (Module module in program.Modules) {
@@ -138,6 +135,7 @@ namespace CDL2v1 {
       }
 
       public void AnalyzeModuleImportsAndExports(Program? program,Module module) {
+         Log(2,$"Analyzing {module} import and export resolution");
          // First collect all the imports in the sections into the imports table of the module.
          // While doing this check for consistency in case an object is imported ínto multiple sections.
          foreach (Section section in module.Sections) {
@@ -178,7 +176,7 @@ namespace CDL2v1 {
       /// <param name="module"></param>
       private void AnalyzeModuleExports(Module module) {
          Log(2,$"Analyzing module {module} exports");
-         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, module.exports);
+         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, module.exports,logDepth:3);
       }
       /// <summary>
       /// Verify the consistency of interface declarations.
@@ -186,11 +184,11 @@ namespace CDL2v1 {
       /// <param name="program"></param>
       private void AnalyzeProgramInterfaces(Program program) {
          foreach (Module module in program.Modules) {
-            Log(3, $"Analyzing internal interfaces of {module}");
+            Log(1, $"Analyzing internal interfaces of {module}");
             // Construct the Visible table of each layer in the module
             foreach (Section section in module.Sections) {
-               AnalyzeProvidedInterfaces(section, RW.EXT, section.ext, section.Layer!.Visible);
-               AnalyzeProvidedInterfaces(section, RW.ABSTR, section.abstr, section.Layer?.Successor?.Visible);
+               AnalyzeProvidedInterfaces(section, RW.EXT, section.ext, section.Layer!.Visible,logDepth:2);
+               AnalyzeProvidedInterfaces(section, RW.ABSTR, section.abstr, section.Layer?.Successor?.Visible,logDepth:2);
             }
             // At this point Visible of each layer contains all the objects that are visible in the layer, i.e., that have been extended in this layer's sections
             // or abstracted from below.
@@ -199,6 +197,7 @@ namespace CDL2v1 {
             // Also ensures that the actual element IDs are in the inv list. (Should not stritly be necessary, but just in case.)
             foreach (Layer layer in module.Layers) {
                foreach (Section section in layer.Sections) {
+                  Log(2,$"Analyzing section {section} {RW.INV}");
                   Set<ID> invs = [.. section.inv];
                   section.inv.Clear();
                   foreach (ID elemid in invs) {
@@ -237,7 +236,7 @@ namespace CDL2v1 {
 
       public void AnalyzeProgram(Program program) {
          IDDictionary<Module> validModules = [];
-         Log(3, $"Analyzing module presence of {program}");
+         Log(1, $"Analyzing module presence of {program}");
          // First verify that all modules in the parts list are present in the database.
          // Modules are found by name, and added to valid modules by their ID. Note that the ID object in Parts may not be the same as in the module itself
          foreach (ID modId in program.Parts) {
@@ -254,7 +253,7 @@ namespace CDL2v1 {
 
          // Verify that all lude references are correct and replace the IDs in the lude with the actual ones.
          foreach (RW ludeType in Container.LudeTypes) {
-            Log(3, $"Analyzing program {ludeType}");
+            Log(1, $"Analyzing program {ludeType}");
             List<ID> progLudeEntries = [.. program.Ludes[ludeType]];
             program.Ludes[ludeType].Clear();
             foreach (ID modId in progLudeEntries) {
@@ -309,14 +308,16 @@ namespace CDL2v1 {
 
       private void AnalyzeSection(Section section) {
          Log(3,$"Analyzing {section.ContainerName}");
-         Log(4,$"Analyzing interfaces");
 
          // Analyze Constants
          Log(4, $"Analyzing constants");
          foreach (Const c in section.Constants) {
+            if (c.IsImported) continue; // Imported constants are not analyzed.
             // Ensure that each CONST element in the constant is declared
             Set<ID> resolvedIDs = [];
-            foreach (ID elemId in c.elements.OfType<ID>()) resolvedIDs.AddNonNull(CheckReferenceType<Const,Const>(section,c,elemId,Note.UnresolvedConstElement,Note.InvalidConstElement));
+            foreach (ID elemId in c.elements.OfType<ID>()) {
+               resolvedIDs.Add(ResolveIdToActualId<Const,Const>(section,c,elemId,Note.UnresolvedConstElement,Note.InvalidConstElement));
+            }
             List<IElement> originalelements = [.. c.elements];
             c.elements.Clear();
             foreach (IElement elem in originalelements) c.elements.Add(elem is ID elemId ? resolvedIDs.GetActualValue(elemId) : elem);       
@@ -325,15 +326,14 @@ namespace CDL2v1 {
          // Analyze Lists
          Log(4, $"Analyzing Lists");
          foreach (LIST list in section.Lists) {
-            ID? lwb = CheckReferenceType<LIST,Const>(section, list, list.lwb, Note.UnresolvedListBound, Note.InvalidListBound, "lower bound");
-            ID? upb = CheckReferenceType<LIST,Const>(section, list, list.upb, Note.UnresolvedListBound, Note.InvalidListBound, "upper bound");
-            if (lwb is not null) list.lwb = lwb;
-            if (upb is not null) list.upb = upb;
+            list.lwb = ResolveIdToActualId<LIST,Const>(section, list, list.lwb, Note.UnresolvedListBound, Note.InvalidListBound, "lower bound");
+            list.upb = ResolveIdToActualId<LIST,Const>(section, list, list.upb, Note.UnresolvedListBound, Note.InvalidListBound, "upper bound");
          }
 
          // Analyze procedures and macros.
          Log(4, $"Analyzing Algorithms");
          foreach (Algorithm algorithm in section.NonSyntheticAlgorithms) {
+            if (algorithm.IsImported) continue; // Imported algorithms are not analyzed.
             Log(5,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
             if (algorithm is Procedure procedure) {
                AnalyzeProcedure(procedure,section);
@@ -345,6 +345,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Check the type of the object with the given ID. Return the declaring ID object if found and of the correct type.
+      /// Otherwise just return the id and add an appropriate note to the subject.
       /// </summary>
       /// <typeparam name="S">The type of subject.</typeparam>
       /// <typeparam name="T">The type of the object that id must resolve to</typeparam>
@@ -352,8 +353,12 @@ namespace CDL2v1 {
       /// <param name="subject"></param>
       /// <param name="id"></param>
       /// <param name="extra">Extra information to add to the note.</param>
-      /// <returns></returns>
-      private ID? CheckReferenceType<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null) where S : CDL2Object where T : CDL2Object {
+      /// <returns>
+      ///   If the id is unresolved or does not resolve to the required type, return it. 
+      ///   Otherwise return the id of the resolved object.
+      /// </returns>
+      private ID ResolveIdToActualId<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null,
+            Predicate<CDL2Object>? ensure=null) where S : CDL2Object where T : CDL2Object {
          CDL2Object? resolvedObject = section.GetResolvedObject(id);
          switch (resolvedObject) {            
             case null:
@@ -362,8 +367,16 @@ namespace CDL2v1 {
                } else {
                   AddNote(subject, unresolved, id);
                }
-               return null;
+               return id;
             case T:
+               if (ensure != null && !ensure(resolvedObject)) {
+                  if (extra != null) {
+                     AddNote(subject, wrongType, extra, resolvedObject);
+                  } else {
+                     AddNote(subject, wrongType, resolvedObject);
+                  }
+                  return id;
+               }
                return resolvedObject.Id;
             default:
                if (extra != null) {
@@ -371,7 +384,7 @@ namespace CDL2v1 {
                } else {
                   AddNote(subject, wrongType, resolvedObject);
                }
-               return null;
+               return id;
          }
       }
 
@@ -419,8 +432,8 @@ namespace CDL2v1 {
       /// <param name="kind"></param>
       /// <param name="interfaceElements"></param>
       /// <param name="providables"></param>
-      private void AnalyzeProvidedInterfaces(Section section, RW kind, SortedSet<ID> interfaceElements, IDDictionary<IProvidable>? providables) {
-         Log(3,$"Analyzing section {section} provided interfaces");
+      private void AnalyzeProvidedInterfaces(Section section, RW kind, SortedSet<ID> interfaceElements, IDDictionary<IProvidable>? providables, int logDepth) {
+         Log(logDepth,$"Analyzing section {section} {kind}");
          // Providables will be null in the top layer, hence there should be no abstractions in this section ... add a warning.
          if (providables == null) {
             if (interfaceElements.Count > 0) AddNote(section,Note.AbstractionsInTopLayer);
@@ -454,13 +467,8 @@ namespace CDL2v1 {
                } else if (macro.Locals.TryGetValueWithId(id,out Local? local)) {
                   macro.elements.Add(local!.Id);
                } else {
-                  CDL2Object? resolvedObject = macro.Section!.GetResolvedObject(id);
-                  if (resolvedObject is not null && (resolvedObject is Var || resolvedObject is Const || resolvedObject is LIST)) {
-                     macro.elements.Add(resolvedObject.Id);
-                  } else {
-                     AddNote(macro,Note.UnresolvedMacroElement,id);
-                     macro.elements.Add(id);
-                  }
+                  macro.elements.Add(ResolveIdToActualId<Macro,CDL2Object>(macro.Section!,macro,id,
+                     Note.UnresolvedMacroElement,Note.InvalidMacroElement,ensure:x=>x is IDataElement));
                }
             } else {
                macro.elements.Add(elem);
