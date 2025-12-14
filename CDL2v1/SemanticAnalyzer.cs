@@ -105,8 +105,6 @@ namespace CDL2v1 {
          foreach (Module module in program.Modules) {
             AnalyzeModule(module);
          }
-
-         // AnalyzeUnused(program,reachable);
       } 
 
       /// <summary>
@@ -316,7 +314,7 @@ namespace CDL2v1 {
             // Ensure that each CONST element in the constant is declared
             Set<ID> resolvedIDs = [];
             foreach (ID elemId in c.elements.OfType<ID>()) {
-               resolvedIDs.Add(ResolveIdToActualId<Const,Const>(section,c,elemId,Note.UnresolvedConstElement,Note.InvalidConstElement));
+               resolvedIDs.Add(ResolveIdToDeclaringId<Const,Const>(section,c,elemId,Note.UnresolvedConstElement,Note.InvalidConstElement));
             }
             List<IElement> originalelements = [.. c.elements];
             c.elements.Clear();
@@ -326,8 +324,8 @@ namespace CDL2v1 {
          // Analyze Lists
          Log(4, $"Analyzing Lists");
          foreach (LIST list in section.Lists) {
-            list.lwb = ResolveIdToActualId<LIST,Const>(section, list, list.lwb, Note.UnresolvedListBound, Note.InvalidListBound, "lower bound");
-            list.upb = ResolveIdToActualId<LIST,Const>(section, list, list.upb, Note.UnresolvedListBound, Note.InvalidListBound, "upper bound");
+            list.lwb = ResolveIdToDeclaringId<LIST,Const>(section, list, list.lwb, Note.UnresolvedListBound, Note.InvalidListBound, "lower bound");
+            list.upb = ResolveIdToDeclaringId<LIST,Const>(section, list, list.upb, Note.UnresolvedListBound, Note.InvalidListBound, "upper bound");
          }
 
          // Analyze procedures and macros.
@@ -357,7 +355,7 @@ namespace CDL2v1 {
       ///   If the id is unresolved or does not resolve to the required type, return it. 
       ///   Otherwise return the id of the resolved object.
       /// </returns>
-      private ID ResolveIdToActualId<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null,
+      private ID ResolveIdToDeclaringId<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null,
             Predicate<CDL2Object>? ensure=null) where S : CDL2Object where T : CDL2Object {
          CDL2Object? resolvedObject = section.GetResolvedObject(id);
          switch (resolvedObject) {            
@@ -438,12 +436,14 @@ namespace CDL2v1 {
          if (providables == null) {
             if (interfaceElements.Count > 0) AddNote(section,Note.AbstractionsInTopLayer);
          } else {
-            // No need to normalize IDs in the ext/abstr sets, only in the providables
-            foreach (ID elemId in interfaceElements) {
+            Set<ID> elems = [.. interfaceElements];
+            interfaceElements.Clear();
+            foreach (ID elemId in elems) {
                if (section.Declarations.TryGetValue(elemId,out CDL2Object? decl)) {
                   if (providables.TryGetValue(elemId,out IProvidable? prov)) {
                      AddNote(section,Note.DuplicateInterfaceElement,elemId,kind,section,prov.Section!);
                   } else if (decl is IProvidable providable) {
+                     interfaceElements.Add(providable.Id);
                      providables[providable.Id] = providable;
                   } else {
                      AddNote(section,Note.InterfaceElementNotProvidable,elemId,kind,decl!.TypeShortName);
@@ -467,7 +467,7 @@ namespace CDL2v1 {
                } else if (macro.Locals.TryGetValueWithId(id,out Local? local)) {
                   macro.elements.Add(local!.Id);
                } else {
-                  macro.elements.Add(ResolveIdToActualId<Macro,CDL2Object>(macro.Section!,macro,id,
+                  macro.elements.Add(ResolveIdToDeclaringId<Macro,CDL2Object>(macro.Section!,macro,id,
                      Note.UnresolvedMacroElement,Note.InvalidMacroElement,ensure:x=>x is IDataElement));
                }
             } else {
@@ -602,18 +602,21 @@ namespace CDL2v1 {
       /// <returns>true if there call is undefined</returns>
       private bool AnalyzeCall(Call call, Procedure proc, DataFlowInfo info) {
          if (!call.IsBuiltin) {
-            if (call.Called is null) {
-               proc.AddNote(PhaseName, Note.UndeclaredAlgorithmCall, call.id);
+            Algorithm? calledAlg = call.Called;
+            if (calledAlg is null) {
+               proc.AddNote(PhaseName,Note.UndeclaredAlgorithmCall,call.id);
                return true;
-            } else if (call.Called.Affixes.Count != call.Args.Count()) {
-               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id, call.Args.Count(), call.Called.Affixes.Count);
+            }
+            call.Id = calledAlg.Id; // Normalize the id of the call to the declared algorithm's id.
+            if (calledAlg.Affixes.Count != call.Args.Count) {
+               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id,call.Args.Count, calledAlg.Affixes.Count);
                return true;
-            } else if (!call.Args.Any()) {
+            } else if (call.Args.Count == 0) {
                return false;
             } else {
-               List<Affix> affix = call.Called.Affixes;
+               List<Affix> affix = calledAlg.Affixes;
                List<IActualArg> args = [.. call.Args];
-               for (int i = 0; i < args.Count; i++) {
+               for (int i = 0; i < args.Count; i++) { 
                   if (args[i] is ID id) {
                      // ID that was not resolved during parsing
                      if (proc.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {                           

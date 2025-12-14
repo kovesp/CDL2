@@ -14,7 +14,9 @@ MODULE powershell kernel.
          EXPORT gt, lt, ge, le, eq, ne.
          EXPORT less or equal.
 
-         #CONST x = 1.
+         EXT const x.
+         CONST const x = 1.
+
          #VAR y.
          #LIST z(x:x).
          #FUNCTION test macro +>a -l = a ; l ; x ; y ; z ; 10 ; 3.14159 "string".
@@ -68,6 +70,8 @@ MODULE powershell kernel.
       SECTION data.
          INV make, subtract, incr, le, random, show msg no newline, show msg.
 
+         INV const x.
+
          EXPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
          EXPORT sort data, initialize data.
          IMPORT lwb, upb, max size of list to show, min random, max random.
@@ -114,7 +118,8 @@ MODULE powershell kernel.
          FUNCTION get data size +size>: make+size+data size.
 
          # Fill the array with random integers. #
-         ACTION initialize data -i -r:
+         ACTION initialize data -i -r -z:
+            add+const x+const x+z,
             subtract+upb+lwb+data size, incr+data size,
             make+i+lwb,
             (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;

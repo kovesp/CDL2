@@ -220,8 +220,7 @@ namespace CDL2v1 {
 
             if (Parser.AbortCompilation()) return;
 
-            Program? MainProgram = null;
-            MainProgram = GetMainProgram();
+            Program? MainProgram = GetMainProgram();
             if (MainProgram != null) {
                // Perform semantic checks
                SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
