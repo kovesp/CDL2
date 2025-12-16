@@ -150,13 +150,14 @@ namespace CDL2v1 {
       public CompilationPhase? CompilationPhase;
       [STAThread]
       private static void Main(string[] args) {
-         Log(0, $"CDL2 Compiler v{Version}");
 
          // Load saved settings first
          Settings.LoadSettings();
          
          // Then process command line args (they'll override saved settings)
          Settings.ProcessCommandLine(args);
+
+         Log(0, $"\nCDL2 {(Settings.LabMode?"Laboratory":"Compiler")} v{Version}");
 
          Compiler.CompileSources(Settings.SettingValue<string[]>("Sources")!);
       }
@@ -175,8 +176,8 @@ namespace CDL2v1 {
 
          if (Settings.LabMode) {
             Database.Load();
-            SemanticAnalyzer = SemanticAnalysis(GetMainProgram()!, Reachable);
-            if (SemanticAnalyzer.AbortCompilation()) return;
+            // SemanticAnalyzer = SemanticAnalysis(GetMainProgram()!, Reachable);
+            // if (SemanticAnalyzer.AbortCompilation()) return;
 
             Thread CLIThread = new(() => {
                Application app = new();
