@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="CDL2\**\*.cs" />
+    <None Include="CDL2\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
      <Reference Include="PresentationCore, Version=10.0.0.0,Culture=neutral, PublicKeyToken=31bf3856ad364e35" />
      <Reference Include="PresentationFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" />

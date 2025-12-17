@@ -176,8 +176,8 @@ namespace CDL2v1 {
 
          if (Settings.LabMode) {
             Database.Load();
-            // SemanticAnalyzer = SemanticAnalysis(GetMainProgram()!, Reachable);
-            // if (SemanticAnalyzer.AbortCompilation()) return;
+            SemanticAnalyzer = SemanticAnalysis(GetMainProgram()!,Reachable);
+            if (SemanticAnalyzer.AbortCompilation()) return;
 
             Thread CLIThread = new(() => {
                Application app = new();
