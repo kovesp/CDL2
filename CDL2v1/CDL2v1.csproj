@@ -15,6 +15,11 @@
     <DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
   </PropertyGroup>
 
+  <!-- Exclude this project from DebugGenerated and ReleaseGenerated configurations -->
+  <PropertyGroup Condition="'$(Configuration)'=='DebugGenerated' Or '$(Configuration)'=='ReleaseGenerated'">
+    <ExcludeFromBuild>true</ExcludeFromBuild>
+  </PropertyGroup>
+
   <ItemGroup>
     <Content Include="CDL-V1.ico" />
   </ItemGroup>

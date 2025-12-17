@@ -45,7 +45,7 @@ MODULE powershell kernel.
 
          TEST less or equal+>a+>b: le+a+b.
 
-         FUNCTION random+>min+>max+r> = r " = Get-Random -Minimum " min " -Maximum (" max " + 1)".
+         FUNCTION random+>min+>max+r> = r " = System.Random.Shared.Next(" min ", " max " + 1)".
       ENDSEC arithmetic.
 
       SECTION timer.
@@ -128,6 +128,134 @@ MODULE powershell kernel.
       PRELUDE initialize data.
    ENDLAY kernel.
 ENDMOD powershell kernel.
+PRELUDE data.
+
+MODULE csharp kernel.
+   LAYER kernel.
+      SECTION arithmetic.
+         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, random.
+         EXT gt, lt, ge, le, eq, ne.
+
+         EXPORT incr, decr, incr with, decr with.
+         EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
+         EXPORT make, random.
+         EXPORT gt, lt, ge, le, eq, ne.
+         EXPORT less or equal.
+
+         EXT const x.
+         CONST const x = 1.
+
+         #VAR y.
+         #LIST z(x:x).
+         #FUNCTION test macro +>a -l = a ; l ; x ; y ; z ; 10 ; 3.14159 "string".
+
+         FUNCTION incr+>a> = a "++;".
+         FUNCTION decr+>a> = a "--;".
+         FUNCTION incr with +>a>+>b = a " += " b ";".
+         FUNCTION decr with +>a>+>b = a " -= " b ";".
+
+         FUNCTION add +>a+>b+c> = c " = " a " + " b ";".
+         FUNCTION subtract +>a+>b+c> = c " = " a " - " b ";".
+         FUNCTION multiply +>a+>b+c> = c " = " a " * " b ";".
+         FUNCTION divide +>a+>b+c> = c " = " a " / " b ";".
+         FUNCTION remainder +>a+>b+c> = c " = " a " - " a " / " b " * " b ";".
+         FUNCTION modulo +>a+>b+c> = c " = " a " % " b ";".
+
+         FUNCTION halve +>a> = a " /= 2;".
+         FUNCTION make +a>+>b = a " = " b ";".
+
+         TEST eq+>a+>b = a " == " b.
+         TEST ne+>a+>b = a " != " b.
+         TEST gt+>a+>b = a " > " b.
+         TEST ge+>a+>b = a " >= " b.
+         TEST lt+>a+>b = a " < " b.
+         TEST le+>a+>b = a " <= " b.
+
+         TEST less or equal+>a+>b: le+a+b.
+
+         FUNCTION random+>min+>max+r> = r " = System.Random.Shared.Next(" min ", " max " + 1);".
+      ENDSEC arithmetic.
+
+      SECTION timer.
+         EXPORT start timer, stop timer, show elapsed time.
+
+         VAR start, stop.
+
+         ACTION start timer = start " = System.DateTime.Now.Ticks;".
+         ACTION stop timer  = stop " = System.DateTime.Now.Ticks;".
+         ACTION show elapsed time = 
+            "System.Console.WriteLine($$$"Elapsed time: {((" stop " - " start ") / 10000.0):N0} milliseconds$");".
+      ENDSEC timer.
+
+      SECTION messages.
+         EXPORT show msg, show msg no newline, show number.
+         EXT show msg, show msg no newline, show number.
+
+         ACTION show msg*string = "System.Console.WriteLine(" string ");".
+         ACTION show number +>number = "System.Console.Write($$$"{" number ":N0}$");".
+         ACTION show msg no newline*string = "System.Console.Write(" string ");".
+      ENDSEC messages.
+
+      SECTION data.
+         INV make, subtract, incr, le, random, show msg no newline, show msg.
+
+         INV const x.
+
+         EXPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
+         EXPORT sort data, initialize data.
+         IMPORT lwb, upb, max size of list to show, min random, max random.
+
+         CONST lwb, upb, max size of list to show, min random, max random.
+
+         # The array to be sorted. #
+         LIST data(lwb:upb).
+
+         TEST smaller element +>p+>q = 
+            data "[" p "] < " data "[" q "]".
+         ACTION swap element +>i+>j =
+            data ".Swap(" i ", " j ");".
+         FUNCTION get element +>i+v> = 
+            v " = " data "[" i "];".
+         ACTION set element +>i+>v = 
+            data "[" i "] = " v ";".
+         ACTION set element to+>p+>q =
+            data "[" p "] = " data "[" q "];".
+
+         ACTION dump list = 
+            "for (int i = " lwb "; i <= " upb "; i++) System.Console.Write($$" string "{" data "[i]:N0} $");".
+
+         ACTION dump data*msg:
+            show msg no newline+msg,
+               (le+data size+max size of list to show, dump list;
+                show msg+"too many elements to show.").
+
+         TEST is data sorted macro -i -r =
+            r " = true;"
+            "for (" i " = " lwb "; " i " < " upb "; " i "++) {"
+            "   if (" data "[" i "] > " data "[" i " + 1]) { " r " = false; break; }"
+            "}"
+            r ".".
+         
+         # Sort the array using the built-in sort method. For execution time comparison. #
+         ACTION sort data = "System.Array.Sort(" data ");".  
+
+         # The size of the list to be sorted as a variable. Just to exercise VARs.
+         VAR data size.
+
+         # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
+         FUNCTION get data size +size>: make+size+data size.
+
+         # Fill the array with random integers. #
+         ACTION initialize data -i -r -z:
+            add+const x+const x+z,
+            subtract+upb+lwb+data size, incr+data size,
+            make+i+lwb,
+            (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
+            +).
+      ENDSEC data.
+      PRELUDE initialize data.
+   ENDLAY kernel.
+ENDMOD csharp kernel.
 PRELUDE data.
 
 #=================================================================================
@@ -315,8 +443,15 @@ MODULE quicksort.
 ENDMOD quicksort.
 PRELUDE data.
 ROOT sorter.
+
 PROGRAM sort.
    PART powershell kernel, quicksort.
    PRELUDE powershell kernel.
    ROOT quicksort.
 ENDPROG sort.
+
+PROGRAM csharp sort.
+   PART csharp kernel, quicksort.
+   PRELUDE csharp kernel.
+   ROOT quicksort.
+ENDPROG csharp sort.
