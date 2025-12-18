@@ -222,7 +222,7 @@ MODULE csharp kernel.
             data "[" p "] = " data "[" q "];".
 
          ACTION dump list = 
-            "for (int i = " lwb "; i <= " upb "; i++) System.Console.Write($$" string "{" data "[i]:N0} $");".
+            "for (int i = " lwb " ; i <= " upb " ; i++) System.Console.Write(" data "[i]);".
 
          ACTION dump data*msg:
             show msg no newline+msg,
@@ -231,10 +231,13 @@ MODULE csharp kernel.
 
          TEST is data sorted macro -i -r =
             r " = true;"
-            "for (" i " = " lwb "; " i " < " upb "; " i "++) {"
-            "   if (" data "[" i "] > " data "[" i " + 1]) { " r " = false; break; }"
-            "}"
-            r ".".
+            "$Lfor (" i " = " lwb "; " i " < " upb "; " i "++) {"
+            "$L   if (" data "[" i "] > " data "[" i " + 1]) {"
+            "$L      " r " = false;"
+            "$L      break;"
+            "$L   }"
+            "$L}"
+            "$L" r.
          
          # Sort the array using the built-in sort method. For execution time comparison. #
          ACTION sort data = "System.Array.Sort(" data ");".  

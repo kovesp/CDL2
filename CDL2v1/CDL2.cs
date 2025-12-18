@@ -265,13 +265,19 @@ namespace CDL2v1 {
          targetFileName = "";
 
          if (cg != null) {
-            targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name, cg.FileExtension));
-            Emitter emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true, SuppressDebug = true };
-            Log(0, $"\nGenerating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
-            CodeGenerator codeGenerator = new(cg, Compiler);
-            codeGenerator.GenerateCode(MainProgram, emitter);
-            emitter.Close();
-            Log(0, $"Code generation complete. Output written to {targetFileName}");
+            Emitter? emitter = null;
+            try {
+               targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name,cg.FileExtension));
+               emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = true };
+               Log(0,$"\nGenerating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
+               CodeGenerator codeGenerator = new(cg,Compiler);
+               codeGenerator.GenerateCode(MainProgram,emitter);
+               Log(0, $"Code generation complete. Output written to {targetFileName}");
+            } catch (Exception ex) {
+               ReportError($"Error during code generation: {ex.Message} {ex.StackTrace}");
+            } finally {
+               emitter?.Close();
+            }
          } else {
             ReportError("No target code generator");
          }

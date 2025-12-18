@@ -39,6 +39,10 @@ using System.Linq;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorCSharp : TargetCodeGenerator, ICodeGenerator {
+      public bool TargetRequiresMacroSpliting => true;
+
+      public string StatementSeparator => ";";
+
       #region Instance and Static Variables, Constructors
       private readonly string DataType;
 
@@ -309,6 +313,13 @@ namespace CDL2Generated {
 
       void ICodeGenerator.GenerateMacroBodyEnd(Macro macro) {
          if (macro.NeedsFinalization) DecrementIndent();
+      }
+
+      void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) {
+         if (macro.CanFail) emitter.Emit("return "); }
+
+      void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro) {
+         if (macro.CanFail) emitter.Emitnl(";");
       }
 
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) { }

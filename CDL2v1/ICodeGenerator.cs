@@ -408,6 +408,11 @@ namespace CDL2v1 {
 
       #region Macros
       /// <summary>
+      /// Gets a value indicating whether the target requires macro splitting during processing.
+      /// </summary>
+      bool TargetRequiresMacroSpliting { get; }
+      string StatementSeparator { get; }
+      /// <summary>
       /// This is called at the start of a macro.
       /// </summary>
       /// <param name="macro"></param>
@@ -427,6 +432,17 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="macro"></param>
       void GenerateMacroBodyEnd(Macro macro);
+      /// <summary>
+      /// Begins generation of a return expression for the specified macro.
+      /// </summary>
+      /// <param name="macro">The macro for which to start generating the return expression. Cannot be null.</param>
+      void GenerateReturnExpressionStart(Macro macro);
+      /// <summary>
+      /// Generates the end of a return expression for the specified macro.
+      /// </summary>
+      /// <param name="macro">The macro for which to generate the return expression end. Cannot be null.</param>
+      void GenerateReturnExpressionEnd(Macro macro);
+
       /// <summary>
       /// This is called for each element of a macro that is an integer.
       /// </summary>

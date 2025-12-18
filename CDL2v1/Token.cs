@@ -76,7 +76,7 @@ namespace CDL2v1 {
       private static readonly Regex IdRE_;
       private static readonly Regex StringEscapeRE_;
 
-      [GeneratedRegex(@"^"".*?(?:$"".*?)*""",                   RegexOptions.Compiled)]private static partial Regex StringRE();
+      [GeneratedRegex(@"^"".*?(?:\$"".*?)*""",                  RegexOptions.Compiled)]private static partial Regex StringRE();
       [GeneratedRegex(@"^(?m:#((?:##)?.*?)?(?:#|$))",           RegexOptions.Compiled)]private static partial Regex CommentRE();
       [GeneratedRegex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",        RegexOptions.Compiled)]private static partial Regex IntRE();
       [GeneratedRegex(@"^[+-]?\d+\.\d(?:\d*(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled)]private static partial Regex FloatRE();

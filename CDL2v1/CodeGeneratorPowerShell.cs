@@ -51,6 +51,9 @@ using System.Xml.Linq;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorPowerShell : TargetCodeGenerator, ICodeGenerator {
+      public bool TargetRequiresMacroSpliting => false;
+      public string StatementSeparator => ";";
+
       #region Instance and Static Variables, Constructors
       private readonly string DataType;
       private readonly string DT;
@@ -354,6 +357,10 @@ function Remove-Const([string[]]$names) {
          }
          if (macro.NeedsFinalization) DecrementIndent();
       }
+
+      void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) { }
+      void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro) { }
+
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
       void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) {
          ConditionalWrapperEnd(macro);

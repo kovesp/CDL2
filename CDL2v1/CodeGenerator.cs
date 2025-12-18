@@ -290,13 +290,34 @@ namespace CDL2v1 {
       /// <param name="callingProc"></param>
       /// <param name="args"></param>
       /// <param name="parameters"></param>
+      /// <remarks>
+      /// Note that GenerateReturnExpression start and end must either do nothing (as e.g., for PowerShell)
+      /// or generate code that returns the value of the expression. In that case it must itself check that whether
+      /// the macro can fail.
+      /// </remarks>
       private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null,Parameters? parameters = null) {
          parameters = new(parameters,macro.Affixes, args ?? []);
          cg.GenerateMacroBodyStart(macro);
          bool first = true;
-         foreach (IElement elem in macro.elements) {
-            GenerateMacroElement(macro, macro.Section!,callingProc, parameters, first, elem);
-            first = false;
+         if (cg.TargetRequiresMacroSpliting && macro.CanFail) { // Target spliting is only needed for macros that can fail.
+            (List<IElement> beforeLast, List<IElement> lastExpression) parts = TargetCodeGenerator.SplitMacroBody(macro,cg.StatementSeparator);
+            foreach (IElement elem in parts.beforeLast) {
+               GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
+               first = false;
+            }
+            cg.GenerateReturnExpressionStart(macro);
+            foreach (IElement elem in parts.lastExpression) {
+               GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
+               first = false;
+            }
+            cg.GenerateReturnExpressionEnd(macro);
+         } else {
+            cg.GenerateReturnExpressionStart(macro);
+            foreach (IElement elem in macro.elements) {
+               GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
+               first = false;
+            }
+            cg.GenerateReturnExpressionEnd(macro);
          }
          cg.GenerateMacroBodyEnd(macro);
       }
@@ -324,14 +345,17 @@ namespace CDL2v1 {
          /// Construct a parameter list from a list of affixes and actual arguments.
          /// If an actual argument is an Affix, then it is replaced with the corresponding argument from the parameters list.
          /// This implements actual args cascaded through multiple procedure inlinings.
+         /// When generating standalone macros, args may be empty while affixes exist - in this case, affixes without args
+         /// will be treated as formal parameters by GenerateMacroElement.
          /// </summary>
          /// <param name="parameters"></param>
          /// <param name="affixes"></param>
          /// <param name="args"></param>
          public Parameters(Parameters? parameters,List<Affix> affixes, List<IActualArg> args) : base() {
             parameters ??= [];
-            for (int i = 0 ; i < affixes.Count ; i++) {               
-               Add(new Parameter(i, affixes[i], args![i] is Affix aff && parameters.TryGetValue(aff,out IActualArg? arg) ? arg! : args![i]));
+            int argCount = Math.Min(affixes.Count, args.Count);
+            for (int i = 0 ; i < argCount ; i++) {               
+               Add(new Parameter(i, affixes[i], args[i] is Affix aff && parameters.TryGetValue(aff,out IActualArg? arg) ? arg! : args[i]));
             }
          }
          /// <summary>
@@ -585,26 +609,23 @@ namespace CDL2v1 {
             if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
                cg.GenerateComment($"Inlining macro call -> {call}");
                cg.GenerateMacroInlineStart(macro);
-               GenerateMacroBody(macro, proc, [.. call.Args],parameters);
+               GenerateMacroBody(macro,proc,[.. call.Args],parameters);
                cg.GenerateMacroInlineEnd(macro);
+            } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Compiler.Reachable)) {
+               cg.GenerateComment($"Inlining procedure call -> {call}");
+               GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new Parameters(parameters,calledProc.Affixes,[.. call.Args]));
             } else {
-               Procedure calledProc = called as Procedure ?? throw new NotImplementedException($"GenerateCall: Called algorithm {called} is not a procedure");
-               if (calledProc.IsInlinable(Compiler.Reachable)) {
-                  cg.GenerateComment($"Inlining procedure call -> {call}");
-                  GenerateAlternative(proc, calledProc.group, calledProc.group.Alternatives[0],isLast: false, new Parameters(parameters,calledProc.Affixes, [.. call.Args]));
-               } else {
-                  cg.GenerateCallStart(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
-                  parameters = new Parameters(parameters, calledProc.Affixes, call.Args);
-                  if (parameters.Count > 0) {
-                     int i = 0;
-                     GenerateActualArg(proc, call, calledProc.Affixes[i++], call.Args.First());
-                     foreach (IActualArg arg in call.Args.Skip(1)) {
-                        cg.GenerateActualArgSeparator();
-                        GenerateActualArg(proc, call, calledProc.Affixes[i++], arg);
-                     }
+               cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);
+               parameters = new Parameters(parameters,called.Affixes,call.Args);
+               if (parameters.Count > 0) {
+                  int i = 0;
+                  GenerateActualArg(proc,call,called.Affixes[i++],call.Args.First());
+                  foreach (IActualArg arg in call.Args.Skip(1)) {
+                     cg.GenerateActualArgSeparator();
+                     GenerateActualArg(proc,call,called.Affixes[i++],arg);
                   }
-                  cg.GenerateCallEnd(calledProc, proc, canFail, onlyCallInAlternative, lastAlternative);
                }
+               cg.GenerateCallEnd(called,proc,canFail,onlyCallInAlternative,lastAlternative);
             }
          } else {
             cg.GenerateComment($"Call to undefined algorithm {call} skipped.");
