@@ -173,7 +173,7 @@ MODULE csharp kernel.
 
          TEST less or equal+>a+>b: le+a+b.
 
-         FUNCTION random+>min+>max+r> = r " = System.Random.Shared.Next(" min ", " max " + 1);".
+         FUNCTION random+>min+>max+r> = r " = System.Random.Shared.Next((int)" min ", (int)" max " + 1);".
       ENDSEC arithmetic.
 
       SECTION timer.
@@ -222,7 +222,7 @@ MODULE csharp kernel.
             data "[" p "] = " data "[" q "];".
 
          ACTION dump list = 
-            "for (int i = " lwb " ; i <= " upb " ; i++) System.Console.Write(" data "[i]);".
+            "for (int i = (int)" lwb " ; i <= (int)" upb " ; i++) System.Console.Write(" data "[i]);".
 
          ACTION dump data*msg:
             show msg no newline+msg,
@@ -230,17 +230,17 @@ MODULE csharp kernel.
                 show msg+"too many elements to show.").
 
          TEST is data sorted macro -i -r =
-            r " = true;"
+            r " = 1;"
             "$Lfor (" i " = " lwb "; " i " < " upb "; " i "++) {"
             "$L   if (" data "[" i "] > " data "[" i " + 1]) {"
-            "$L      " r " = false;"
+            "$L      " r " = 0;"
             "$L      break;"
             "$L   }"
             "$L}"
-            "$L" r.
+            "$L" r "== 1" .
          
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data = "System.Array.Sort(" data ");".  
+         ACTION sort data = "System.Array.Sort(" data ".array);".  
 
          # The size of the list to be sorted as a variable. Just to exercise VARs.
          VAR data size.

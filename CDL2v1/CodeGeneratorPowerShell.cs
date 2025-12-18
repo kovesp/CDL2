@@ -164,6 +164,8 @@ function Remove-Const([string[]]$names) {
       #endregion Programs, Modules, Layers, Sections
 
       #region Predlude, Postlude, Root
+      void ICodeGenerator.GenerateProgramLudesStart() { }
+      void ICodeGenerator.GenerateProgramLudesEnd() { }
       /// <summary>
       /// Generates the start of the program lude.
       /// Notice the extra _ added befure the ludeType. this ensures that there is no name clash with algorithm names.

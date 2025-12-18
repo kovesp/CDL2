@@ -202,6 +202,16 @@ namespace CDL2v1 {
 
       #region Prelude, Root, Postlude
       /// <summary>
+      /// Begins the generation of the program's lude section.
+      /// </summary>
+      void GenerateProgramLudesStart();
+
+      /// <summary>
+      /// Ends the generation of the program's lude section.
+      /// </summary>
+      void GenerateProgramLudesEnd();
+
+      /// <summary>
       /// This is called at the start generation of program and module ludes
       /// </summary>
       /// <param name="ludeType"></param>

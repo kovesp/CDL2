@@ -100,8 +100,10 @@ namespace CDL2v1 {
 
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
+            cg.GenerateProgramLudesStart();
             cg.GenerateComment("Program Ludes");
             foreach (RW ludeType in Container.LudeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
+            cg.GenerateProgramLudesEnd();
             cg.GenerateProgramEnd(program);
          } else {
             // TODO: Needs work to handle generating modules as separate units.

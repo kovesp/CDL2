@@ -63,11 +63,11 @@ using System;
 
 namespace CDL2Generated {
    public class BoundedArray<T> {
-      public int LowerBound { get; }
-      public int UpperBound { get; }
-      private readonly T[] array;
+      public Int64 LowerBound { get; }
+      public Int64 UpperBound { get; }
+      public readonly T[] array;
 
-      public BoundedArray(int lowerBound, int upperBound) {
+      public BoundedArray(Int64 lowerBound, Int64 upperBound) {
          if (upperBound - lowerBound < 0)
             throw new ArgumentException($""Upper bound {upperBound} must be greater than or equal to lower bound {lowerBound}."");
          LowerBound = lowerBound;
@@ -75,19 +75,19 @@ namespace CDL2Generated {
          array = new T[upperBound - lowerBound + 1];
       }
 
-      private void CheckIndex(params int[] indices) {
+      private void CheckIndex(params Int64[] indices) {
          foreach (int index in indices) {
             if (index < LowerBound || index > UpperBound)
                throw new IndexOutOfRangeException($""Index: {index}, LowerBound: {LowerBound}, UpperBound: {UpperBound}"");
          }
       }
 
-      public T this[int index] {
+      public T this[Int64 index] {
          get { CheckIndex(index); return array[index - LowerBound]; }
          set { CheckIndex(index); array[index - LowerBound] = value; }
       }
 
-      public void Swap(int i, int j) {
+      public void Swap(Int64 i, Int64 j) {
          CheckIndex(i, j);
          (array[i - LowerBound], array[j - LowerBound]) = (array[j - LowerBound], array[i - LowerBound]);
       }
@@ -114,10 +114,6 @@ namespace CDL2Generated {
          emitter.Emitnl(string.Format(ProgramHeader,CDL2.Version,program.Id.Name,DateTime.Now));
          if (program != null) {
             EmitUnitStartComment(program);
-            emitter.Emitnl("public static void Main(string[] args) {");
-            IncrementIndent();
-            emitter.Emitnl("try {");
-            IncrementIndent();
          }
       }
 
@@ -125,15 +121,6 @@ namespace CDL2Generated {
 
       void ICodeGenerator.GenerateProgramEnd(Program program,bool isSeparate) {
          if (program != null) {
-            DecrementIndent();
-            emitter.Emitnl("} catch (Exception ex) {");
-            IncrementIndent();
-            emitter.Emitnl("Console.WriteLine($\"Error: {ex.Message}\");");
-            emitter.Emitnl("Console.WriteLine($\"Stack Trace:\\n{ex.StackTrace}\");");
-            DecrementIndent();
-            emitter.Emitnl("}");
-            DecrementIndent();
-            emitter.Emitnl("}");
             EmitUnitEndComment(program);
             emitter.Emitnl("   }");
             emitter.Emitnl("}");
@@ -155,6 +142,24 @@ namespace CDL2Generated {
       #endregion Programs, Modules, Layers, Sections
 
       #region Prelude, Postlude, Root
+      void ICodeGenerator.GenerateProgramLudesStart() {
+         emitter.Emitnl("public static void Main(string[] args) {");
+         IncrementIndent();
+         emitter.Emitnl("try {");
+         IncrementIndent();
+      }
+      void ICodeGenerator.GenerateProgramLudesEnd() {
+         DecrementIndent();
+         emitter.Emitnl("} catch (Exception ex) {");
+         IncrementIndent();
+         emitter.Emitnl("Console.WriteLine($\"Error: {ex.Message}\");");
+         emitter.Emitnl("Console.WriteLine($\"Stack Trace:\\n{ex.StackTrace}\");");
+         DecrementIndent();
+         emitter.Emitnl("}");
+         DecrementIndent();
+         emitter.Emitnl("}");
+      }
+
       void ICodeGenerator.GenerateProgramLudeStart(RW ludetype,Program program) {
          GenerateComment($"{program.TypeShortName}_{program.Id.Name.AsIdentifier(camelCase: false)}__{ludetype}");
          IncrementIndent();
@@ -447,9 +452,9 @@ namespace CDL2Generated {
 
       #region Helpers
       private static string CSName(CDL2Object obj,string suffix = "") => obj.FQN(camelCase: false,literalObjectName: obj.IsSynthetic) + suffix;
-      private static string CSName(Affix affix,string suffix = "") => affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
-      private static string CSName(Local local,string suffix = "") => local.Id.Name.AsIdentifier(camelCase: false) + suffix;
-      private static string CSName(Var var,string suffix = "") => var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
+      private static string CSName(Affix affix,string suffix = "") => "a_"+affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
+      private static string CSName(Local local,string suffix = "") => "l_"+local.Id.Name.AsIdentifier(camelCase: false) + suffix;
+      private static string CSName(Var var,string suffix = "") => "v_"+var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
       #endregion Helpers
    }
 }
