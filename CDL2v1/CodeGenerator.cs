@@ -278,7 +278,6 @@ namespace CDL2v1 {
             IEnumerable<Var> variables = macro.GetReferencedVariables();
             cg.GenerateMacroStart(macro);
             GenerateAlgorithmHeader(macro, variables);
-
             GenerateMacroBody(macro);
             FinalizeAffixesAndVariables(macro, variables);
             cg.GenerateMacroEnd(macro);
@@ -297,9 +296,11 @@ namespace CDL2v1 {
       /// or generate code that returns the value of the expression. In that case it must itself check that whether
       /// the macro can fail.
       /// </remarks>
-      private void GenerateMacroBody(Macro macro, Procedure? callingProc = null, List<IActualArg>? args = null,Parameters? parameters = null) {
+      /// <param name="inlining"></param>
+      private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,List<IActualArg>? args = null,Parameters? parameters = null,bool inlining = false) {
          parameters = new(parameters,macro.Affixes, args ?? []);
          cg.GenerateMacroBodyStart(macro);
+         if (inlining) GenerateLocalInitializers(macro);
          bool first = true;
          if (cg.TargetRequiresMacroSpliting && macro.CanFail) { // Target spliting is only needed for macros that can fail.
             (List<IElement> beforeLast, List<IElement> lastExpression) parts = TargetCodeGenerator.SplitMacroBody(macro,cg.StatementSeparator);
@@ -307,19 +308,19 @@ namespace CDL2v1 {
                GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
                first = false;
             }
-            cg.GenerateReturnExpressionStart(macro);
+            if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
             foreach (IElement elem in parts.lastExpression) {
                GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
                first = false;
             }
-            cg.GenerateReturnExpressionEnd(macro);
+            if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
          } else {
-            cg.GenerateReturnExpressionStart(macro);
+            if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
             foreach (IElement elem in macro.elements) {
                GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
                first = false;
             }
-            cg.GenerateReturnExpressionEnd(macro);
+            if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
          }
          cg.GenerateMacroBodyEnd(macro);
       }
@@ -460,21 +461,31 @@ namespace CDL2v1 {
          GenerateAlgorithmComment(alg);
          cg.GenerateAlgorithmHeaderStart(alg);
          if (alg.Affixes.Count > 0) {
-            cg.GenerateAffix(alg.Affixes[0], alg.Affixes[0].affixDir, alg.CanFail);
+            cg.GenerateAffix(alg.Affixes[0],alg.Affixes[0].affixDir,alg.CanFail);
             foreach (Affix affix in alg.Affixes.Skip(1)) {
                cg.GenerateAffixSeparator();
-               cg.GenerateAffix(affix, affix.affixDir, alg.CanFail);
+               cg.GenerateAffix(affix,affix.affixDir,alg.CanFail);
             }
-         }         cg.GenerateAlgorithmHeaderEnd(alg);
+         }
+         cg.GenerateAlgorithmHeaderEnd(alg);
 
          cg.GenerateAffixAndVariableInitializationStart(alg);
          if (alg.NeedsFinalization) {
-            foreach (Affix affix in alg.Affixes) cg.GenerateAffixAndVariableInitializer(alg, affix);
-            foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg, var, isVar: true);
+            foreach (Affix affix in alg.Affixes) cg.GenerateAffixAndVariableInitializer(alg,affix);
+            foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg,var,isVar: true);
          }
-         foreach (Local local in alg.Locals) cg.GenerateLocal(local);
+         GenerateLocalInitializers(alg);
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
+
+      /// <summary>
+      /// Generates initializers for all local variables defined in the specified algorithm.
+      /// </summary>
+      /// <param name="alg">The algorithm containing the local variables for which initializers will be generated. Cannot be null.</param>
+      private void GenerateLocalInitializers(Algorithm alg) {
+         foreach (Local local in alg.Locals) cg.GenerateLocal(local);
+      }
+
       /// <summary>
       /// Generate the comment for an algorithm. This is adds the pretty printed text of the algorithm as a comment.
       /// </summary>
@@ -610,11 +621,10 @@ namespace CDL2v1 {
          if (called is not null) {
             if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
                cg.GenerateComment($"Inlining macro call -> {call}");
-               cg.GenerateMacroInlineStart(macro);
-               GenerateMacroBody(macro,proc,[.. call.Args],parameters);
-               cg.GenerateMacroInlineEnd(macro);
+               GenerateMacroBody(macro,proc,[.. call.Args],parameters,inlining: true);
             } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Compiler.Reachable)) {
                cg.GenerateComment($"Inlining procedure call -> {call}");
+               GenerateLocalInitializers(calledProc);
                GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new Parameters(parameters,calledProc.Affixes,[.. call.Args]));
             } else {
                cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);

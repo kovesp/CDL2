@@ -61,6 +61,9 @@ namespace CDL2v1 {
 
 using System;
 
+#pragma warning disable CS0162 // Unreachable code detected
+#pragma warning disable CS0219 // Variable is assigned but its value is never used
+
 namespace CDL2Generated {
    public class BoundedArray<T> {
       public Int64 LowerBound { get; }
@@ -327,8 +330,11 @@ namespace CDL2Generated {
          if (macro.CanFail) emitter.Emitnl(";");
       }
 
-      void ICodeGenerator.GenerateMacroInlineStart(Macro macro) { }
-      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) => Newline(optional: true);
+      void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
+      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) {
+         ConditionalWrapperEnd(macro);
+         Newline(optional: true);
+      }
       #endregion Macros
 
       #region Procedures
@@ -451,6 +457,20 @@ namespace CDL2Generated {
       #endregion Support
 
       #region Helpers
+
+      private void ConditionalWrapperStart(Algorithm called) {
+         if (called.CanFail) {
+            emitter.Emit("if (");
+            ifDepth++;
+            IncrementIndent();
+         }
+      }
+      private void ConditionalWrapperEnd(Algorithm called) {
+         if (called.CanFail) {
+            emitter.Emit(") {");
+         }
+      }
+
       private static string CSName(CDL2Object obj,string suffix = "") => obj.FQN(camelCase: false,literalObjectName: obj.IsSynthetic) + suffix;
       private static string CSName(Affix affix,string suffix = "") => "a_"+affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CSName(Local local,string suffix = "") => "l_"+local.Id.Name.AsIdentifier(camelCase: false) + suffix;

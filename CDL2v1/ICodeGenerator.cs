@@ -436,6 +436,7 @@ namespace CDL2v1 {
       /// This is called at the start of the body of a macro.
       /// </summary>
       /// <param name="macro"></param>
+      /// 
       void GenerateMacroBodyStart(Macro macro);
       /// <summary>
       /// This is called at the end of the body of a macro.

@@ -237,7 +237,7 @@ MODULE csharp kernel.
             "$L      break;"
             "$L   }"
             "$L}"
-            "$L" r "== 1" .
+            "$L" r " == 1" .
          
          # Sort the array using the built-in sort method. For execution time comparison. #
          ACTION sort data = "System.Array.Sort(" data ".array);".  
@@ -270,7 +270,7 @@ MODULE quicksort.
          EXPORT lwb, upb, max size of list to show, min random, max random.
 
          # The lower and upper bounds of the data array. #
-         CONST lwb=1, upb=1_000.
+         CONST lwb=1, upb=10_000.
          CONST max size of list to show=100.
 
          # The range of random numbers. #
