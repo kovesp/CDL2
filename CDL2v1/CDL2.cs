@@ -314,7 +314,7 @@ namespace CDL2v1 {
          return semanticAnalyzer;
       }
 
-      private static ICodeGenerator? CreateCodeGenerator(string target, string dataType = "Int64") {
+      private static ICodeGenerator? CreateCodeGenerator(string target, string dataType = "long") {
          try {
             string className = $"CDL2v1.CodeGenerator{target}";
             Type? type = Type.GetType(className);

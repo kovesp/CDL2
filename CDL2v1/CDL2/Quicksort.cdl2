@@ -130,6 +130,8 @@ MODULE powershell kernel.
 ENDMOD powershell kernel.
 PRELUDE data.
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 MODULE csharp kernel.
    LAYER kernel.
       SECTION arithmetic.
@@ -259,6 +261,143 @@ MODULE csharp kernel.
       PRELUDE initialize data.
    ENDLAY kernel.
 ENDMOD csharp kernel.
+PRELUDE data.
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+MODULE c kernel.
+   LAYER kernel.
+      SECTION arithmetic.
+         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, random.
+         EXT gt, lt, ge, le, eq, ne.
+
+         EXPORT incr, decr, incr with, decr with.
+         EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
+         EXPORT make, random.
+         EXPORT gt, lt, ge, le, eq, ne.
+         EXPORT less or equal.
+
+         EXT const x.
+         CONST const x = 1.
+
+         #VAR y.
+         #LIST z(x:x).
+         #FUNCTION test macro +>a -l = a ; l ; x ; y ; z ; 10 ; 3.14159 "string".
+
+         FUNCTION incr+>a> = a "++;".
+         FUNCTION decr+>a> = a "--;".
+         FUNCTION incr with +>a>+>b = a " += " b ";".
+         FUNCTION decr with +>a>+>b = a " -= " b ";".
+
+         FUNCTION add +>a+>b+c> = c " = " a " + " b ";".
+         FUNCTION subtract +>a+>b+c> = c " = " a " - " b ";".
+         FUNCTION multiply +>a+>b+c> = c " = " a " * " b ";".
+         FUNCTION divide +>a+>b+c> = c " = " a " / " b ";".
+         FUNCTION remainder +>a+>b+c> = c " = " a " - " a " / " b " * " b ";".
+         FUNCTION modulo +>a+>b+c> = c " = " a " % " b ";".
+
+         FUNCTION halve +>a> = a " /= 2;".
+         FUNCTION make +a>+>b = a " = " b ";".
+
+         TEST eq+>a+>b = a " == " b.
+         TEST ne+>a+>b = a " != " b.
+         TEST gt+>a+>b = a " > " b.
+         TEST ge+>a+>b = a " >= " b.
+         TEST lt+>a+>b = a " < " b.
+         TEST le+>a+>b = a " <= " b.
+
+         TEST less or equal+>a+>b: le+a+b.
+
+         FUNCTION random+>min+>max+r> = r " = " min " + rand() % ((" max ") - (" min ") + 1);".
+      ENDSEC arithmetic.
+
+      SECTION timer.
+         EXPORT start timer, stop timer, show elapsed time.
+
+         VAR start, stop.
+
+         ACTION start timer = start " = clock();".
+         ACTION stop timer  = stop " = clock();".
+         ACTION show elapsed time = 
+            "printf($"Elapsed time: %.0f milliseconds\n$", (double)(" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC);".
+      ENDSEC timer.
+
+      SECTION messages.
+         EXPORT show msg, show msg no newline, show number.
+         EXT show msg, show msg no newline, show number.
+
+         ACTION show msg*string = "printf($"%s\n$", " string ");".
+         ACTION show number +>number = "printf($"%ld$", " number ");".
+         ACTION show msg no newline*string = "printf($"%s$", " string ");".
+      ENDSEC messages.
+
+      SECTION data.
+         INV make, subtract, incr, le, random, show msg no newline, show msg.
+
+         INV const x.
+
+         EXPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
+         EXPORT sort data, initialize data.
+         IMPORT lwb, upb, max size of list to show, min random, max random.
+
+         CONST lwb, upb, max size of list to show, min random, max random.
+
+         # The array to be sorted. #
+         LIST data(lwb:upb).
+
+         TEST smaller element +>p+>q = 
+            "CDL2_LIST_GET(" data ", " p ") < CDL2_LIST_GET(" data ", " q ")".
+         ACTION swap element +>i+>j =
+            "CDL2_LIST_SWAP(" data ", " i ", " j ");".
+         FUNCTION get element +>i+v> = 
+            v " = CDL2_LIST_GET(" data ", " i ");".
+         ACTION set element +>i+>v = 
+            "CDL2_LIST_SET(" data ", " i ", " v ");".
+         ACTION set element to+>p+>q =
+            "CDL2_LIST_SET(" data ", " p ", CDL2_LIST_GET(" data ", " q "));".
+
+         ACTION dump list = 
+            "$Lfor (long i = " lwb "; i <= " upb "; i++)"
+            "$L   printf($"%ld $", CDL2_LIST_GET(" data ", i));".
+
+         ACTION dump data*msg:
+            show msg no newline+msg,
+               (le+data size+max size of list to show, dump list;
+                show msg+"too many elements to show.").
+
+         TEST is data sorted macro -i -r =
+            r " = 1;"
+            "$Lfor (" i " = " lwb "; " i " < " upb "; " i "++) {"
+            "$L   if (CDL2_LIST_GET(" data ", " i ") > CDL2_LIST_GET(" data ", " i " + 1)) {"
+            "$L      " r " = 0;"
+            "$L      break;"
+            "$L   }"
+            "$L}"
+            "$L" r " == 1" .
+         
+         
+         # Sort the array using qsort. For execution time comparison. #
+         ACTION sort data = 
+            "$Lint cmp(const void *a, const void *b) { return (*(long*)a - *(long*)b); }"
+            "$Lqsort(" data "_array, " upb " - " lwb " + 1, sizeof(long), cmp);".  
+
+         # The size of the list to be sorted as a variable. Just to exercise VARs.
+         VAR data size.
+
+         # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
+         FUNCTION get data size +size>: make+size+data size.
+
+         # Fill the array with random integers. #
+         ACTION initialize data -i -r -z:
+            add+const x+const x+z,
+            subtract+upb+lwb+data size, incr+data size,
+            make+i+lwb,
+            (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
+            +).
+      ENDSEC data.
+      PRELUDE initialize data.
+   ENDLAY kernel.
+ENDMOD c kernel.
 PRELUDE data.
 
 #=================================================================================
@@ -458,3 +597,9 @@ PROGRAM csharp sort.
    PRELUDE csharp kernel.
    ROOT quicksort.
 ENDPROG csharp sort.
+
+PROGRAM c sort.
+   PART c kernel, quicksort.
+   PRELUDE c kernel.
+   ROOT quicksort.
+ENDPROG c sort.

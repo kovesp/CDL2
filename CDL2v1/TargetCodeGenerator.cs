@@ -53,6 +53,8 @@ namespace CDL2v1 {
          foreach (string line in comment.Split('\n')) emitter.Emitnl("# ", line);
       }
 
+      protected (string Start, string End) NestedComment = ("/*", "*/");
+
       public void IncrementIndent() => emitter.IndentLevel++;
       public void DecrementIndent() => emitter.IndentLevel--;
 
@@ -114,7 +116,8 @@ namespace CDL2v1 {
       }
 
       protected static readonly Random Random =  new();
-      protected static string RandomInitialValue => Random.Next(0, int.MaxValue).ToString() + "  <# Random value to catch uninitialized VARs, LOCALs, and output AFFIXes #>";
+      protected string RandomInitialValue => Random.Next(0, int.MaxValue).ToString() 
+         + $"  {NestedComment.Start} Random value to catch uninitialized VARs, LOCALs, and output AFFIXes {NestedComment.End}";
       #endregion Helpers
 
    }

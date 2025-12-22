@@ -66,6 +66,7 @@ namespace CDL2v1 {
       public CodeGeneratorPowerShell(string dataType) : base() {
          DataType = dataType;
          DT       = $"[{DataType}]";
+         NestedComment = ("<#", "#>");
       }
 
       private static readonly string ProgramHeaderPattern = @"
