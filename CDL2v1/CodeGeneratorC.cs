@@ -188,7 +188,7 @@ namespace CDL2v1 {
       }
 
       public void GenerateProcedureEnd(Procedure proc) {
-         emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "return 1;" : "return 0;" : "return;");
+         if (proc.CanFail) emitter.Emitnl($"   return {(proc.NeedsFinalization ? 1 : 0)}");
          emitter.NlEmitnl("}");
       }
 
@@ -291,7 +291,13 @@ namespace CDL2v1 {
       }
 
       public void GenerateFail(Procedure proc, Group group) => emitter.Emitnl("return 0;");
-      public void GenerateSucceed(Procedure proc, Group group) => emitter.Emitnl("return 1;");
+      public void GenerateSucceed(Procedure proc,Group group) {
+         if (proc.CanFail) {
+            emitter.Emitnl("return 1;");
+         } else {
+            emitter.Emitnl("return;");
+         }
+      }
       public void GenerateAbort(Procedure proc, Group group) => emitter.Emitnl("exit(1);");
       public void GenerateRepeat(Procedure proc, Group group, ID label, bool canFail) => emitter.Emitnl("continue;");
 
@@ -301,8 +307,15 @@ namespace CDL2v1 {
       }
 
       public void GenerateCallEnd(Algorithm called, Procedure calling, bool canFail, bool onlyCallInAlternative, bool lastAlternative) {
-         if (called.CanFail) emitter.Emitnl(")) return 0;");
-         else emitter.Emitnl(");");
+         if (called.CanFail) {
+            if (calling.CanFail) {
+               emitter.Emitnl(")) return 0;");
+            } else {
+               emitter.Emitnl(")) return;");
+            }
+         } else {
+            emitter.Emitnl(");");
+         }
       }
 
       public void GenerateActualArgSeparator() => emitter.Emit(", ");

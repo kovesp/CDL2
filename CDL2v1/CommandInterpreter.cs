@@ -304,6 +304,7 @@ namespace CDL2v1 {
           new Dictionary<string,Func<bool,string,object?,bool>> {
              ["programname"]      = SetProgram,
              ["autosaveinterval"] = SetAutoSaveInterval,
+             ["target"]           = SetTarget,   
           }.ToImmutableDictionary();
 
       /// <summary>
@@ -319,6 +320,17 @@ namespace CDL2v1 {
          }
          return true;
       }
+
+      /// <summary>
+      /// Determines whether the specified target represents a valid code generator name.
+      /// </summary>
+      /// <remarks>This method checks whether the provided target corresponds to a registered code
+      /// generator. The isSet and _ parameters do not influence the outcome.</remarks>
+      /// <param name="isSet">Indicates whether the target is intended to be set. This parameter does not affect the result.</param>
+      /// <param name="_">Reserved for future use. This parameter is ignored.</param>
+      /// <param name="target">An object expected to be a string representing the code generator name to validate. Can be null.</param>
+      /// <returns>true if the target is a string and matches a known code generator name; otherwise, false.</returns>
+      private static bool SetTarget(bool isSet,string _,object? target) => target is string cg && CDL2.AvailableCodeGenerators.ContainsKey(cg);
 
       /// <summary>
       /// Interpret the command with the given verb, arguments and settings.
@@ -433,8 +445,9 @@ namespace CDL2v1 {
                case CommandType.analyze:
                   InterpretCommandAnalyze(args); break;
                case CommandType.generate:
-                  // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
-                  Program? program = CDL2.GetMainProgram();
+                     // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
+                     SingleSelection? context = GetContext(args);
+                     Program? program = context?.Object is not null && context?.Object is Program prog ? prog : CDL2.GetMainProgram();
                   if (program is not null) {
                      CDL2.GenerateCode(out string targetFileName,program);
                      WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
@@ -868,6 +881,7 @@ namespace CDL2v1 {
       private void InterpretCommandStatus() {
          WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
          Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
+         WriteInfo($" Available code generators: {string.Join(", ",CDL2.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}");
       }
 
       private void InterpretCommandPrint(string args) {

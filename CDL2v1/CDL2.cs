@@ -41,6 +41,7 @@ using System.CommandLine.Invocation;
 using System.Data;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -142,10 +143,22 @@ namespace CDL2v1 {
    /// </summary>
    public partial class CDL2 {
       public static readonly string Version = "1.0.0";
+      public static readonly Dictionary<string,Type> AvailableCodeGenerators = [];
 
-      static CDL2() => Compiler = new CDL2();
+      /// <summary>
+      /// Static constructor
+      /// </summary>
+      static CDL2() {
+         Compiler = new CDL2();
+         foreach (Type cg in GetAvailableCodeGenerators()) {
+            AvailableCodeGenerators[cg.Name.Replace("CodeGenerator","")] = cg;
+         }
+      }
+
       private CDL2() { }
       public static readonly CDL2 Compiler;
+
+
 
       public CompilationPhase? CompilationPhase;
       [STAThread]
@@ -258,9 +271,9 @@ namespace CDL2v1 {
          }
       }
 
-      public static void GenerateCode(out string targetFileName,Program? MainProgram = null,string? Target=null) {
+      public static void GenerateCode(out string targetFileName,Program? MainProgram = null) {
          MainProgram ??= CDL2.GetMainProgram();
-         ICodeGenerator? cg = CreateCodeGenerator(Target ?? Settings.SettingValue<string>("Target")!);
+         ICodeGenerator? cg = CreateCodeGenerator(Settings.SettingValue<string>("Target")!);
 
          targetFileName = "";
 
@@ -268,7 +281,7 @@ namespace CDL2v1 {
             Emitter? emitter = null;
             try {
                targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name,cg.FileExtension));
-               emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = true };
+               emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = ! Settings.SettingValue<bool>("CGDebug") };
                Log(0,$"\nGenerating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
                CodeGenerator codeGenerator = new(cg,Compiler);
                codeGenerator.GenerateCode(MainProgram,emitter);
@@ -314,17 +327,27 @@ namespace CDL2v1 {
          return semanticAnalyzer;
       }
 
+      private static readonly Dictionary<string,ICodeGenerator?> CodeGeneratorCache = [];
       private static ICodeGenerator? CreateCodeGenerator(string target, string dataType = "long") {
+         if (CodeGeneratorCache.TryGetValue(target,out ICodeGenerator? cached)) return cached;
          try {
-            string className = $"CDL2v1.CodeGenerator{target}";
-            Type? type = Type.GetType(className);
-            if (type != null && typeof(ICodeGenerator).IsAssignableFrom(type)) {
-               return Activator.CreateInstance(type, dataType) as ICodeGenerator;
+            if (AvailableCodeGenerators.TryGetValue(target,out Type? type)) {
+               return CodeGeneratorCache[target]=Activator.CreateInstance(type, dataType) as ICodeGenerator;
             }
          } catch (Exception ex) {
             ReportError($"Error creating code generator for target {target} with Data type {dataType}: {ex.Message}");
          }
-         return null;
+         return CodeGeneratorCache[target]=null;
+      }
+
+      private static IEnumerable<Type> GetAvailableCodeGenerators() {
+         Assembly currentAssembly = Assembly.GetExecutingAssembly();
+         return currentAssembly.GetTypes()
+            .Where(t => 
+               t.IsClass && 
+               !t.IsAbstract &&
+               typeof(ICodeGenerator).IsAssignableFrom(t) &&
+               t.Name.StartsWith("CodeGenerator"));
       }
 
       /// <summary>
