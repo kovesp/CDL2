@@ -442,7 +442,7 @@ namespace CDL2v1 {
                break;
             case LastCallType.Repeat:
                EmitWithExtraSpace(extraSpace, TT.REPEAT);
-               if (lastCall.label! != ID.AnonID) {
+               if (lastCall.label?.IsAnonymous??true) {
                   Emit(lastCall.label!.Name.Decorate(Emitter, SE.Label));
                }
                break;

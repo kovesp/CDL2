@@ -282,7 +282,7 @@ namespace CDL2v1 {
             try {
                targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name,cg.FileExtension));
                emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = ! Settings.SettingValue<bool>("CGDebug") };
-               Log(0,$"\nGenerating code for {Settings.SettingValue<string>("Target")!} into {emitter.Target}");
+               Log(0,$"\nGenerating {Settings.SettingValue<string>("Target")!} doed for {MainProgram}");
                CodeGenerator codeGenerator = new(cg,Compiler);
                codeGenerator.GenerateCode(MainProgram,emitter);
                Log(0, $"Code generation complete. Output written to {targetFileName}");
@@ -317,7 +317,7 @@ namespace CDL2v1 {
          return program;
       }
 
-      private SemanticAnalyzer SemanticAnalysis(Program MainProgram,Reachable reachable) {
+      public SemanticAnalyzer SemanticAnalysis(Program MainProgram,Reachable reachable) {
          SemanticAnalyzer semanticAnalyzer = new (this);
          semanticAnalyzer.Analyze(MainProgram);
          // The following two calls always clear any previously collected objects, so we can report unused objects.

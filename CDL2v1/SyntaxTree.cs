@@ -1549,7 +1549,7 @@ namespace CDL2v1 {
          LCT.Succeed => "+",
          LCT.Fail => "-",
          LCT.Abort => "?",
-         LCT.Repeat => $"*{(label is null || label == ID.AnonID ? "" : label.Name)}",
+         LCT.Repeat => $"*{(label?.IsAnonymous ?? true ? "" : label.Name)}",
          LCT.Group => group?.ToString() ?? "",
          _ => "ERROR",
       };

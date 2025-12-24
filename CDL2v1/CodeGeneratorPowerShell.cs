@@ -463,7 +463,7 @@ function Remove-Const([string[]]$names) {
          => emitter.Emit(PSVar(v, needFinalization ? "_" : "", isRef: calledAffix.IsOutput));
 
       void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label, bool canFail)
-         => emitter.Emitnl("continue ",label != ID.AnonID? label.CanonicalName : "");
+         => emitter.Emitnl("continue ",label.IsAnonymous ? label.CanonicalName : "");
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (!proc.IsVerySimple) {
             emitter.Emitnl(proc.CanFail ? "return $false" : "return");

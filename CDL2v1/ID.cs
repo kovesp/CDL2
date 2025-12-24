@@ -54,6 +54,8 @@ namespace CDL2v1 {
       [JsonIgnore]
       public ID Id => this;
 
+      public bool IsAnonymous => this == AnonID;
+
       /// <summary>
       /// Returns the ID for the given token. If the ID does not exist, it is created.
       /// </summary>

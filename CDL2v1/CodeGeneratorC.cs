@@ -181,20 +181,110 @@ namespace CDL2v1 {
       public void GenerateMacroElementLocal(Local local) => emitter.Emit(CName(local));
       public void GenerateMacroElementAffix(Affix affix, bool canFail) => emitter.Emit((affix.IsOutput ? "*" : "") + CName(affix, canFail && affix.IsOutput ? "_" : ""));
 
+      #region Procedures
+      private ModifiableStack ifDepth = [];
+
       public void GenerateProcedureStart(Procedure proc) {
          emitter.Emitnl();
-         //string returnType = proc.CanFail ? "BOOL" : "void";
-         //emitter.Emit(returnType, " ", CName(proc), "(");
+         ifDepth.Push(0);
       }
 
       public void GenerateProcedureEnd(Procedure proc) {
-         if (proc.CanFail) emitter.Emitnl($"   return {(proc.NeedsFinalization ? 1 : 0)}");
+         ifDepth.Pop();
+         emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "return 1;" : "return 0;" : "return;");
          emitter.NlEmitnl("}");
       }
 
-      public void GenerateProcedureBodyStart(Procedure proc, ProcedureBodyType bodyType) { }
+      public void GenerateProcedureBodyStart(Procedure proc, ProcedureBodyType bodyType) {
+         if (proc.NeedsWrapper) {
+            emitter.Emitnl("while (1) {");
+            IncrementIndent();
+         }
+         IncrementIndent();
+      }
 
-      public void GenerateProcedureBodyEnd(Procedure proc, ProcedureBodyType bodyType) => DecrementIndent();
+      public void GenerateProcedureBodyEnd(Procedure proc, ProcedureBodyType bodyType) {
+         DecrementIndent();
+         if (proc.NeedsWrapper) {
+            emitter.Emitnl(proc.CanFail ? "return 0;" : "return;");
+            DecrementIndent();
+            emitter.Emitnl("}");
+         }
+      }
+
+      public void GenerateAlternativeStart(Procedure proc, Group group, int alternativeNumber) => GenerateComment($"Alternative {alternativeNumber}");
+      
+      public void GenerateAlternativeEnd(Procedure proc, Group group, int alternativeNumber, Alternative alternative, bool removed) {
+         if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
+            emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? "break;" : "return 1;") : "return;");
+         while (ifDepth > 0) {
+            DecrementIndent();
+            ifDepth--;
+            emitter.Emitnl("}");
+         }
+         GenerateComment($"End Alternative {alternativeNumber}");
+      }
+
+      public void GenerateGroupStart(Procedure proc, Group group) {
+         GenerateComment("Group");
+         if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("while (1) {");
+         ifDepth.Push(0);
+         IncrementIndent();
+      }
+
+      public void GenerateGroupEnd(Procedure proc, Group group) {
+         bool hasDo = group.HasAnonymousRepeat || !group.IsSynthetic;
+         if (hasDo) emitter.Emitnl("break;");
+         DecrementIndent();
+         ifDepth.Pop();
+         if (hasDo) emitter.Emitnl("}");
+         GenerateComment("End Group");
+      }
+
+      public void GenerateCallStart(Algorithm called, Procedure calling, bool canFail, bool onlyCallInAlternative, bool lastAlternative) {
+         if (called.CanFail) {
+            emitter.Emit("if (!", CName(called), "(");
+            ifDepth++;
+            IncrementIndent();
+         } else {
+            emitter.Emit(CName(called), "(");
+         }
+      }
+
+      public void GenerateCallEnd(Algorithm called, Procedure calling, bool canFail, bool onlyCallInAlternative, bool lastAlternative) {
+         if (called.CanFail) {
+            emitter.Emit(")) {");
+         } else {
+            emitter.Emit(";");
+         }
+         Newline();
+      }
+
+      public void GenerateFail(Procedure proc, Group group) => emitter.Emitnl("return 0;");
+      public void GenerateSucceed(Procedure proc, Group group) => emitter.Emitnl("return 1;");
+      public void GenerateAbort(Procedure proc, Group group) => emitter.Emitnl("exit(1);");
+      public void GenerateRepeat(Procedure proc, Group group, ID label, bool canFail) => emitter.Emitnl("continue;");
+
+      public void GenerateActualArgSeparator() => emitter.Emit(", ");
+      public void GenerateCallArgString(string value) => emitter.Emit("\"", value.Replace("\"", "\\\""), "\"");
+      public void GenerateCallArgReferenceConst(Affix affix, Const c) => emitter.Emit(CName(c));
+      
+      public void GenerateCallArgReferenceVar(Affix affix, Var v, bool needFinalization) {
+         if (affix.IsOutput) emitter.Emit("&", CName(v, needFinalization ? "_" : ""));
+         else emitter.Emit(CName(v, needFinalization ? "_" : ""));
+      }
+
+      public void GenerateCallArgReferenceAffix(Affix calledAffix, Affix callingAffix, bool needFinalization) {
+         if (calledAffix.IsOutput) {
+            if (callingAffix.IsOutput) emitter.Emit("&", CName(callingAffix, needFinalization ? "_" : ""));
+            else emitter.Emit(CName(callingAffix));
+         } else {
+            emitter.Emit(callingAffix.IsOutput ? "*" : "", CName(callingAffix, needFinalization && callingAffix.IsOutput ? "_" : ""));
+         }
+      }
+
+      public void GenerateCallArgReferenceLocal(Affix affix, Local local) => emitter.Emit(affix.IsOutput ? "&" : "", CName(local));
+      #endregion Procedures
 
       public void GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"{(alg.CanFail ? "BOOL" : "void")} {CName(alg)}(");
       public void GenerateAlgorithmHeaderEnd(Algorithm alg) {
@@ -272,71 +362,6 @@ namespace CDL2v1 {
                break;
          }
       }
-
-      public void GenerateAlternativeStart(Procedure proc, Group group, int alternativeNumber) => GenerateComment($"Alternative {alternativeNumber}");
-      
-      public void GenerateAlternativeEnd(Procedure proc, Group group, int alternativeNumber, Alternative alternative, bool removed) => GenerateComment($"End Alternative {alternativeNumber}");
-
-      public void GenerateGroupStart(Procedure proc, Group group) {
-         GenerateComment("Group");
-         emitter.Emitnl("while (1) {");
-         IncrementIndent();
-      }
-
-      public void GenerateGroupEnd(Procedure proc, Group group) {
-         emitter.Emitnl("break;");
-         DecrementIndent();
-         emitter.Emitnl("}");
-         GenerateComment("End Group");
-      }
-
-      public void GenerateFail(Procedure proc, Group group) => emitter.Emitnl("return 0;");
-      public void GenerateSucceed(Procedure proc,Group group) {
-         if (proc.CanFail) {
-            emitter.Emitnl("return 1;");
-         } else {
-            emitter.Emitnl("return;");
-         }
-      }
-      public void GenerateAbort(Procedure proc, Group group) => emitter.Emitnl("exit(1);");
-      public void GenerateRepeat(Procedure proc, Group group, ID label, bool canFail) => emitter.Emitnl("continue;");
-
-      public void GenerateCallStart(Algorithm called, Procedure calling, bool canFail, bool onlyCallInAlternative, bool lastAlternative) {
-         if (called.CanFail) emitter.Emit("if (!", CName(called), "(");
-         else emitter.Emit(CName(called), "(");
-      }
-
-      public void GenerateCallEnd(Algorithm called, Procedure calling, bool canFail, bool onlyCallInAlternative, bool lastAlternative) {
-         if (called.CanFail) {
-            if (calling.CanFail) {
-               emitter.Emitnl(")) return 0;");
-            } else {
-               emitter.Emitnl(")) return;");
-            }
-         } else {
-            emitter.Emitnl(");");
-         }
-      }
-
-      public void GenerateActualArgSeparator() => emitter.Emit(", ");
-      public void GenerateCallArgString(string value) => emitter.Emit("\"", value.Replace("\"", "\\\""), "\"");
-      public void GenerateCallArgReferenceConst(Affix affix, Const c) => emitter.Emit(CName(c));
-      
-      public void GenerateCallArgReferenceVar(Affix affix, Var v, bool needFinalization) {
-         if (affix.IsOutput) emitter.Emit("&", CName(v, needFinalization ? "_" : ""));
-         else emitter.Emit(CName(v, needFinalization ? "_" : ""));
-      }
-
-      public void GenerateCallArgReferenceAffix(Affix calledAffix, Affix callingAffix, bool needFinalization) {
-         if (calledAffix.IsOutput) {
-            if (callingAffix.IsOutput) emitter.Emit("&", CName(callingAffix, needFinalization ? "_" : ""));
-            else emitter.Emit(CName(callingAffix));
-         } else {
-            emitter.Emit(callingAffix.IsOutput ? "*" : "", CName(callingAffix, needFinalization && callingAffix.IsOutput ? "_" : ""));
-         }
-      }
-
-      public void GenerateCallArgReferenceLocal(Affix affix, Local local) => emitter.Emit(affix.IsOutput ? "&" : "", CName(local));
 
       public void GenerateProgramPart(Program program, ID moduleId, bool isSeparate) { }
 

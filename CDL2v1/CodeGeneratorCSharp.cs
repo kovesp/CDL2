@@ -382,17 +382,18 @@ namespace CDL2Generated {
       #region Groups
       void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
          GenerateComment("Group");
+         if (!group.IsSynthetic) emitter.Emit(group.Id.CanonicalName,": ");
          if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("while (true) {");
          ifDepth.Push(0);
          IncrementIndent();
       }
 
       void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
-         bool hasDo = group.HasAnonymousRepeat || !group.IsSynthetic;
-         if (hasDo) emitter.Emitnl("break;");
+         bool hasWhile = group.HasAnonymousRepeat || !group.IsSynthetic;
+         if (hasWhile) emitter.Emitnl("break;");
          DecrementIndent();
          ifDepth.Pop();
-         if (hasDo) emitter.Emitnl("}");
+         if (hasWhile) emitter.Emitnl("}");
          GenerateComment("End Group");
       }
       #endregion Groups
@@ -435,7 +436,13 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateCallArgReferenceVar(Affix calledAffix,Var v,bool needFinalization)
          => emitter.Emit(calledAffix.IsOutput ? "ref " : "",CSName(v,needFinalization ? "_" : ""));
 
-      void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label,bool canFail) => emitter.Emitnl("continue;");
+      void ICodeGenerator.GenerateRepeat(Procedure proc, Group group, ID label, bool canFail) {
+         if (label.IsAnonymous) {
+            emitter.Emitnl("continue;");
+         } else {
+            emitter.Emitnl("goto ", label.CanonicalName, ";");
+         }
+      }
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (!proc.IsVerySimple) emitter.Emitnl(proc.CanFail ? "return false;" : "return;");
       }
