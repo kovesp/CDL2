@@ -72,8 +72,8 @@ namespace CDL2v1 {
       /// <param Id="Emitter"></param>
       /// <param Id="isSeparate"></param>
       public void GenerateCode(Program program, Emitter emitter, bool isSeparate = false) {
-         CDL2.Compiler.SemanticAnalysis(program, Compiler.Reachable); // Ensure semantic analysis has been done.
-         Compiler.Reachable.CollectReachableObjects(program);
+         // CDL2.Compiler.SemanticAnalysis(program, Compiler.Reachable); // Ensure semantic analysis has been done.
+         // Compiler.Reachable.CollectReachableObjects(program);
          foreach (Var var in Compiler.Reachable.Objects.OfType<Var>()) {
             if (Compiler.Reachable.AmbigousVars.Contains(var)) {
                // We know the variable was written to, but we can't tell whether it was read (because it was only referenced in an ACTION/PREDICATE macro).

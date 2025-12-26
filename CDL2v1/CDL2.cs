@@ -182,10 +182,11 @@ namespace CDL2v1 {
       
 
       public void CompileSources(string[] args) {
-         Log(0, $"Options: --sources {string.Join(',', args)} {Settings.IntOption("VerbosityLevel")}{Settings.IntOption("DebugVerbosityLevel")}" +
-                                    $"{Settings.StringOption("Target")}{Settings.StringOption("ProgramName")}{Settings.BoolOption("Lab")}{Settings.StringOption("DB")}" +
-                                    $"{Settings.BoolOption("ParseOnly")}{Settings.BoolOption("StopOnWarnings")}{Settings.BoolOption("AllowErrors")}{Settings.IntOption("Backups")}" +
-                                    $"{Settings.StringOption("PrettyPrint")}");
+         Log(Settings.AllSettings.First().ToTabularString(title: true, compact: true)!);
+         foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.LongOption)) {
+            string? settingString = setting.ToTabularString(compact: true);
+            if (settingString != null) Log(1, settingString);
+         }
 
          if (Settings.LabMode) {
             Database.Load();

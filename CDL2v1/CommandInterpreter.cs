@@ -445,16 +445,10 @@ namespace CDL2v1 {
                case CommandType.analyze:
                   InterpretCommandAnalyze(args); break;
                case CommandType.generate:
-                     // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
-                     SingleSelection? context = GetContext(args);
-                     Program? program = context?.Object is not null && context?.Object is Program prog ? prog : CDL2.GetMainProgram();
-                  if (program is not null) {
-                     CDL2.GenerateCode(out string targetFileName,program);
-                     WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
-                  }
+                  InterpretCommandGenerate(args);
                   break;
 
-               default:
+                  default:
                   // Handle other commands as needed
                   break;
             }
@@ -475,6 +469,16 @@ namespace CDL2v1 {
             }
          }
          SetStatus();
+      }
+
+      private void InterpretCommandGenerate(string args) {
+         // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
+         SingleSelection? context = GetContext(args);
+         Program? program = context?.Object is not null && context?.Object is Program prog ? prog : CDL2.GetMainProgram();
+         if (program is not null) {
+            CDL2.GenerateCode(out string targetFileName,program);
+            WriteInfo($"{Settings.SettingValue<string>("Target")} code generated for {program.FQDN()} into {targetFileName}");
+         }
       }
 
       /// <summary>
@@ -529,9 +533,9 @@ namespace CDL2v1 {
       }
 
       private void DisplaySettings() {
-         WriteLine(Settings.AllSettings.First().ToTabularString(title: true));
+         WriteLine(Settings.AllSettings.First().ToTabularString(title: true)!);
          foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
-            WriteLine(setting.ToTabularString());
+            WriteLine(setting.ToTabularString()!);
          }
       }
 

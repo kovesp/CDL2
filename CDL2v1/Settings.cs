@@ -36,6 +36,7 @@
 using System.Collections.Immutable;
 using System.CommandLine;
 using System.ComponentModel;
+using System.Data;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Controls;
@@ -49,7 +50,7 @@ namespace CDL2v1 {
       Option Option { get; set; }
       string LongOption { get; }
       bool CommandOverride { get; set; }
-      string ToTabularString(bool title=false);
+      string? ToTabularString(bool title=false,bool compact=false);
    }
 
    public class Setting<T> : ISetting {
@@ -90,10 +91,19 @@ namespace CDL2v1 {
       public override string ToString() =>
          $"{Name}: {LongOption} => {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
       private const char HorizontalBar = '\u2501'; // BOX DRAWINGS HEAVY HORIZONTAL
-      public string ToTabularString(bool title = false) {
+      public string? ToTabularString(bool title = false,bool optionOnly=false) {
+         if (optionOnly && LongOption.StartsWith("--NA")) return null;
          if (title) {
-            string titleString = $"{"Name".PadRight(Settings.Instance.MaxNameLength)} {"Type",-8} {"Command Line Option".PadRight(Settings.Instance.MaxOptionLength)} Value";
-            return $"{titleString}\n{new string(HorizontalBar, titleString.Length)}";
+            string titleString;
+            if (optionOnly) {
+               titleString = $"{"Command Line Option".PadRight(Settings.Instance.MaxOptionLength)} Value";
+            } else {
+               titleString = $"{"Name".PadRight(Settings.Instance.MaxNameLength)} {"Type",-8} {"Command Line Option".PadRight(Settings.Instance.MaxOptionLength)} Value";
+            }
+            return $"{titleString}\n{new string(HorizontalBar,titleString.Length)}";
+         } else if (optionOnly) {
+            string longOption = LongOption.PadRight(Settings.Instance.MaxOptionLength);
+            return $"{longOption} {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
          } else {
             string longOption = (LongOption.StartsWith("--NA") ? "" : LongOption).PadRight(Settings.Instance.MaxOptionLength);
             string type = Type.Name switch { "Int32" => "int", /*"Severity" => "string",*/ _ => Type.Name.ToLower() };
@@ -304,13 +314,13 @@ namespace CDL2v1 {
          }
          
          // Debug output
-         if (AnyVerbosity(2)) {
-            System.Diagnostics.Debug.WriteLine("Command line: " + string.Join(" ", commandLine));
-            System.Diagnostics.Debug.WriteLine("Explicitly provided options:");
-            foreach (var opt in explicitlyProvidedOptions) {
-               System.Diagnostics.Debug.WriteLine($"  {opt}");
-            }
-         }
+         //if (AnyVerbosity(2)) {
+         //   System.Diagnostics.Debug.WriteLine("Command line: " + string.Join(" ", commandLine));
+         //   System.Diagnostics.Debug.WriteLine("Explicitly provided options:");
+         //   foreach (var opt in explicitlyProvidedOptions) {
+         //      System.Diagnostics.Debug.WriteLine($"  {opt}");
+         //   }
+         //}
          
          // Now process using regular System.CommandLine but only override settings for explicitly provided options
          RootCommand rootCommand = new() { Description = "CDL2 Compiler" };
