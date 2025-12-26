@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -114,12 +115,13 @@ namespace CDL2v1 {
          Focus(); // Ensure window can receive key events
       }
 
-      public static void ShowToast(string message,int timeoutMs = 0) {
+      public static void ShowToast(string message,int timeoutMs = 0,bool delay=false) {
          ToastWindow toast = new(message,timeoutMs) {
             Owner = Application.Current.MainWindow,
             WindowStartupLocation = WindowStartupLocation.CenterOwner
          };
          toast.Show();
+         if (delay) Thread.Sleep(timeoutMs);
       }
 
       /// <summary>

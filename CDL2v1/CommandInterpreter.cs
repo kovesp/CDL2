@@ -429,7 +429,7 @@ namespace CDL2v1 {
                case CommandType.save:
                   WriteInfo($"Saved: {Database.Save()}"); break;
                case CommandType.abort:
-                  ToastWindow.ShowToast("abort command used, not saving the database.",2000);
+                  ToastWindow.ShowToast("abort command used, not saving the database.",2000,delay:true);
                   commandWindow?.Close();
                   return;
                case CommandType.bye:
