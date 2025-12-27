@@ -382,6 +382,18 @@ namespace CDL2v1 {
                   WriteError($"Invalid command: {verb}");
                   return;
 
+               case CommandType.set:
+                  // Modify settings so that the reset actually sets the new values
+                  if (settings.Length == 0) {
+                     // List the current settings
+                     DisplaySettings();
+                  } else {
+                     ResetSettings = false;
+                  }
+                  break;
+               case CommandType.status:
+                  InterpretCommandStatus(); break;
+
                case CommandType.focus:
                   if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
                case CommandType.next:
@@ -396,18 +408,6 @@ namespace CDL2v1 {
                case CommandType.print:
                case CommandType.type:
                   InterpretCommandPrint(args); break;
-
-               case CommandType.set:
-                  // Modify settings so that the reset actually sets the new values
-                  if (settings.Length == 0) {
-                     // List the current settings
-                     DisplaySettings();
-                  } else {
-                     ResetSettings = false;
-                  }
-                  break;
-               case CommandType.status:
-                  InterpretCommandStatus(); break;
 
                case CommandType.rename:
                   InterpretCommandRename(args); RequiresSemanticAnalysis = true; break;
@@ -471,6 +471,12 @@ namespace CDL2v1 {
          SetStatus();
       }
 
+      /// <summary>
+      /// Generates code for the program specified by the current context or settings.
+      /// </summary>
+      /// <remarks>If no program is specified in the current context, the main program is used as the target
+      /// for code generation. The generated code is written to a file determined by the current settings.</remarks>
+      /// <param name="args">A string containing command arguments used to determine the target program for code generation.</param>
       private void InterpretCommandGenerate(string args) {
          // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
          SingleSelection? context = GetContext(args);
@@ -495,6 +501,12 @@ namespace CDL2v1 {
          return true;
       }
 
+      /// <summary>
+      /// Analyzes the specified command arguments and performs the corresponding analysis operation.
+      /// </summary>
+      /// <param name="args">A string containing the arguments to be analyzed. The format and content of the arguments determine the
+      /// analysis performed.</param>
+      /// <exception cref="NotImplementedException">The method is not implemented.</exception>
       private void InterpretCommandAnalyze(string args) => throw new NotImplementedException();
 
       private static readonly Regex ModuleOrProgramStart = new(@"(?m)^\s*(?:#.*?(?:#|$)\s*)*\s*(?:MODULE|PROGRAM)(?=\s)",RegexOptions.Compiled);
@@ -532,6 +544,11 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Displays all available settings in a tabular format to the output.
+      /// </summary>
+      /// <remarks>The method writes a header row followed by each setting's details. Intended for use in
+      /// diagnostic or informational scenarios where a formatted overview of settings is needed.</remarks>
       private void DisplaySettings() {
          WriteLine(Settings.AllSettings.First().ToTabularString(title: true)!);
          foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
@@ -539,6 +556,14 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Displays help information for commands, selectors, or settings based on the specified argument.
+      /// </summary>
+      /// <remarks>When called with an empty string, this method lists all available commands and their
+      /// abbreviations. Specifying "selector" lists valid selectors, and specifying "setting" lists all configurable
+      /// settings with their descriptions.</remarks>
+      /// <param name="args">A string specifying the help topic to display. Use an empty string to show general command help, "selector"
+      /// for selector help, or "setting" for settings help.</param>
       private void InterpretCommandHelp(string args) {
          if (args == "") {
             WriteInfo("Capital letters denote the minimum abbreviation of the command.");
@@ -655,7 +680,18 @@ namespace CDL2v1 {
          otherStack.Push(record);
       }
 
-
+      /// <summary>
+      /// Deletes the specified element or elements from the database, updating related containers and references as
+      /// necessary.
+      /// </summary>
+      /// <remarks>Depending on the type of element specified (such as Program, Module, Layer, Section, or
+      /// other supported types), this method removes the element from its parent container and updates related lists
+      /// and references, including ABSTR, EXT, EXPORTS, and IMPORTS. For certain types, such as Section, all child
+      /// declarations and generated procedures are also removed. After deletion, semantic analysis is rerun to ensure
+      /// the database remains consistent. If interface removal is requested, only supported types (Algorithm or
+      /// Constant) are affected; otherwise, an error is reported.</remarks>
+      /// <param name="args">A string containing the arguments that specify which element or elements to delete. The format and
+      /// interpretation of this string determine the selection context.</param>
       private void InterpretCommandDelete(string args) {
          // Remove the NamedElement from NamedElements.
          // If it is a program or a module, remove it from the appropriate database list
@@ -715,6 +751,15 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Initiates editing of the specified object in the command window, if the object is focusable and supported.
+      /// </summary>
+      /// <remarks>If the specified object is a container (such as a module, layer, section, or program),
+      /// editing is not currently supported and an error message is displayed. For other focusable objects, the method
+      /// prepares the command window for editing and sets the appropriate context. Editing is only possible if a
+      /// command window is available and the object is focusable.</remarks>
+      /// <param name="args">A string containing the arguments that identify the object to edit. The format and content depend on the
+      /// expected context for editing.</param>
       private void InterpretCommandEdit(string args) {
          if (commandWindow == null) return; // Ignore the command if there is no command window
          SingleSelection? context = GetContext(args);
@@ -781,6 +826,12 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Provides a mapping between string identifiers and their corresponding interface types.
+      /// </summary>
+      /// <remarks>The dictionary associates specific string keys with values of the InterfaceTypes
+      /// enumeration. This mapping is used to resolve interface type names to their enum representations within the
+      /// application.</remarks>
       private static readonly Dictionary<string,InterfaceTypes> interfaceTypeMap = new() {
          ["abstr"]  = InterfaceTypes.Abstr,
          ["ext"]    = InterfaceTypes.Ext,
@@ -798,6 +849,16 @@ namespace CDL2v1 {
          return interfaceType;
       }
 
+      /// <summary>
+      /// Parses and executes a rename command, updating the name of the selected object if the new name is valid and
+      /// not already in use.
+      /// </summary>
+      /// <remarks>The method validates the new name to ensure it is a valid identifier and not already used
+      /// within the relevant scope. If the rename is successful, references may be updated depending on settings. If
+      /// the main program is renamed, the program name setting is also updated. Errors are reported if the input is
+      /// invalid or if the rename cannot be performed.</remarks>
+      /// <param name="args">The arguments for the rename command, expected in the format "[selector] = <newName>". The selector identifies
+      /// the object to rename, and <newName> specifies the new identifier.</param>
       private void InterpretCommandRename(string args) {
          if (string.IsNullOrEmpty(args)) return;
          string[] parts = Regex.Split(args,@"\s*=\s*",RegexOptions.Compiled);
@@ -882,12 +943,28 @@ namespace CDL2v1 {
             if (mainProgramBeingRenamed) Settings.SettingValue<string>("ProgramName",newName);
          }
       }
+
+      /// <summary>
+      /// Logs information about the current CDL2 Lab version, database, object count, and available code generators to
+      /// the information output.
+      /// </summary>
+      /// <remarks>This method is intended for diagnostic or informational purposes and does not return a
+      /// value or modify application state beyond logging. The output includes details about the lab version, database
+      /// path, the number of reachable objects, and the configured code generators.</remarks>
       private void InterpretCommandStatus() {
          WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
          Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
          WriteInfo($" Available code generators: {string.Join(", ",CDL2.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}");
       }
 
+      /// <summary>
+      /// Processes a print command by printing the currently focused object or the objects specified by the provided
+      /// arguments.
+      /// </summary>
+      /// <remarks>If the arguments specify an invalid selection, an error message is written and no objects
+      /// are printed.</remarks>
+      /// <param name="args">A string containing selection arguments that specify which objects to print. If empty or whitespace, the
+      /// currently focused object is printed.</param>
       private void InterpretCommandPrint(string args) {
          if (args.IsEmptyOrWhitespace) {
             if (Focus.Current.Object is not null) {
@@ -907,6 +984,15 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Parses and interprets a command list from the specified argument string, displaying information about the
+      /// selected elements or the current focus.
+      /// </summary>
+      /// <remarks>If the argument string is empty or contains only whitespace, the method displays
+      /// information about the current focus. If the argument string specifies a valid selection, information about
+      /// each selected element is displayed. If the selection is invalid or empty, an error message is shown.</remarks>
+      /// <param name="args">A string containing the command arguments to interpret. If empty or whitespace, the method displays
+      /// information about the currently focused object.</param>
       private void InterpretCommandList(string args) {
          if (args.IsEmptyOrWhitespace) {
             if (Focus.Current.Object is not null) {
@@ -955,6 +1041,13 @@ namespace CDL2v1 {
             return Focus.Current.Selection;
          }
       }
+
+      /// <summary>
+      /// Creates a new selection context based on the specified arguments or the current focus if no arguments are
+      /// provided.
+      /// </summary>
+      /// <param name="args">A string containing selection arguments. If empty, the current focus selection is used.</param>
+      /// <returns>A Selection object representing the parsed context, or null if the arguments are invalid.</returns>
       private Selection? GetMultiContext(string args) {
          if (args != "") {
             Selection selection = new(args);

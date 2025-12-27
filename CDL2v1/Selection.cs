@@ -286,6 +286,7 @@ namespace CDL2v1 {
             // Narrow the selection using the type and name from the current segment
             void NarrowSelection<T>(Func<T, bool>? pred = null) where T : NamedElement {
                if (Database.TryGetNamedElements<T>(candidateObjects,segments[segNo + 1].SegmentName,out IEnumerable<T>? elements) && elements is not null) {
+                  elements = elements.Where(e => ! e.IsSynthetic);
                   if (pred is not null) elements = elements.Where(e => pred((T)e));
                   elements = elements.Where(e => importedSeen == e.IsImported);
                   selectedObjects = elements;
