@@ -558,6 +558,7 @@ namespace CDL2v1 {
          // TODO: Check if the object has siblings, if not, return false. Interface list do not have siblings.
          int newIndex;
          int currentIndex = Object.Siblings.IndexOf(Object.GUID);
+         int ludeCount = Object.Siblings.ToSyntheticCDL2Objects().Count();
          switch (direction) {
             case FocusMoveDirection.First:
                if (args.IsNotEmptyOrWhitespace) return false;
@@ -565,12 +566,12 @@ namespace CDL2v1 {
                break;
             case FocusMoveDirection.Last:
                if (args.IsNotEmptyOrWhitespace) return false;
-               newIndex = Object.Siblings.Count - 1;
+               newIndex = Object.Siblings.Count -ludeCount - 1;
                break;
             default:
                int focusMoveCount = 1;
                if (args.IsNotEmptyOrWhitespace && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
-               newIndex = (currentIndex + focusMoveCount*(int)direction).ConstrainedTo(0,Object.Siblings.Count-1);
+               newIndex = (currentIndex + focusMoveCount*(int)direction).ConstrainedTo(0,Object.Siblings.Count-ludeCount-1);
                break;
          }
          if (newIndex == currentIndex) {

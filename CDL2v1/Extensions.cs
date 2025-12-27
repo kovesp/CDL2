@@ -815,6 +815,20 @@ namespace CDL2v1 {
          public void SetFocus() { if (element is not null) Focus.SetFocus((NamedElement)element); }
       }
 
+      extension(List<Guid> guids) {
+         /// <summary>
+         /// Returns a list of CDL2Object instances corresponding to the stored GUIDs.
+         /// </summary>
+         /// <returns>A list of CDL2Object objects that match the stored GUIDs. The list will be empty if no matching objects are
+         /// found.</returns>
+         public List<CDL2Object> ToCDL2Objects() 
+            => [.. guids.Select(guid => Database.Instance.NamedElements.GetValueOrDefault(guid)).OfType<CDL2Object>()];
+         public List<CDL2Object> ToNonSynthetiCDL2Objectsc() 
+            => [.. guids.ToCDL2Objects().Where(obj => obj is not Algorithm alg || ! obj.IsSynthetic)];
+         public List<CDL2Object> ToSyntheticCDL2Objects()
+            => [.. guids.ToCDL2Objects().Where(obj => obj is not Algorithm alg && obj.IsSynthetic)];
+      }
+
       extension<T>(List<T> list) where T : notnull {
          /// <summary>
          /// Returns a new list containing the elements of the original list combined with the specified items,  ensuring
