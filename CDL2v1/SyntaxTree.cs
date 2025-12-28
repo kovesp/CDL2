@@ -43,30 +43,15 @@ using Microsoft.Windows.Themes;
 
 using System;
 using System.Collections.Generic;
-using System.CommandLine;
-using System.CommandLine.Parsing;
-using System.ComponentModel;
-using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Metrics;
-using System.Linq;
-using System.Numerics;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Reflection.Metadata;
+
 using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
-using System.Security;
-using System.Security.Cryptography;
+
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
-using System.Windows;
-using System.Windows.Navigation;
-using System.Xml.Linq;
+
 
 using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -745,10 +730,12 @@ namespace CDL2v1 {
          /// <returns></returns>
          public bool TryAdd(ID id,CDL2Object obj,uint before = uint.MaxValue) {
             if (base.TryAdd(id,obj.GUID)) {
-               if (before >= obj.Siblings.Count) {
-                  obj.Siblings.Add(obj.GUID); // If before is >= to the count, add it at the end.
-               } else {
-                  obj.Siblings.Insert((int)before,obj.GUID); // Otherwise, insert it at the specified position.
+               if (!obj.IsSynthetic) { // Synthetic objects are not added to the sibling list.
+                  if (before >= obj.Siblings.Count) {
+                     obj.Siblings.Add(obj.GUID); // If before is >= to the count, add it at the end.
+                  } else {
+                     obj.Siblings.Insert((int)before,obj.GUID); // Otherwise, insert it at the specified position.
+                  }
                }
                return true;
             }
@@ -920,7 +907,7 @@ namespace CDL2v1 {
          return $"{base.FQDN()}{interfacePart}";
       }
 
-      public override List<Guid> Siblings => Section?.Children ?? [];
+      public override List<Guid> Siblings => Section?.Children.Where(guid=>guid.IsNonSyntheticCDL2Object()).ToList() ?? [];
 
       /// <summary>
       /// Checks whether this object is in the given interface type.

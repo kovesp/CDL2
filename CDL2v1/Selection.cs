@@ -335,13 +335,13 @@ namespace CDL2v1 {
                case SelectorType.SECTION:      NarrowSelection<Section>      (); break;
 
                // Specific OBJECTS
-               case SelectorType.ALGORITHM:    NarrowSelection<Algorithm>    (); break;
-               case SelectorType.PROCEDURE:    NarrowSelection<Procedure>    (); break;
+               case SelectorType.ALGORITHM:    NarrowSelection<Algorithm>    (alg=>!alg.IsSynthetic); break;
+               case SelectorType.PROCEDURE:    NarrowSelection<Procedure>    (alg => !alg.IsSynthetic); break;
                case SelectorType.MACRO:        NarrowSelection<Macro>        (); break;
-               case SelectorType.FUNCTION:     NarrowSelection<Algorithm>    (alg => alg.IsFunction); break;
-               case SelectorType.ACTION:       NarrowSelection<Algorithm>    (alg => alg.IsAction); break;
-               case SelectorType.TEST:         NarrowSelection<Algorithm>    (alg => alg.IsTest); break;
-               case SelectorType.PREDICATE:    NarrowSelection<Algorithm>    (alg => alg.IsPredicate); break;
+               case SelectorType.FUNCTION:     NarrowSelection<Algorithm>    (alg => alg.IsFunction && !alg.IsSynthetic); break;
+               case SelectorType.ACTION:       NarrowSelection<Algorithm>    (alg => alg.IsAction && !alg.IsSynthetic); break;
+               case SelectorType.TEST:         NarrowSelection<Algorithm>    (alg => alg.IsTest && !alg.IsSynthetic); break;
+               case SelectorType.PREDICATE:    NarrowSelection<Algorithm>    (alg => alg.IsPredicate && !alg.IsSynthetic); break;
                case SelectorType.CONST:        NarrowSelection<Const>        (); break;
                case SelectorType.VAR:          NarrowSelection<Var>          (); break;
                case SelectorType.LIST:         NarrowSelection<LIST>         (); break;

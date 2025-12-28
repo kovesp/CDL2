@@ -897,6 +897,8 @@ namespace CDL2v1 {
             Selection selection = new(args);
             if (selection.IsInvalid) {
                WriteError(selection.ErrorMessage);
+            } else if (selection.Count == 0) {
+               WriteInfo("No matches for selector");
             } else {
                pp.PauseUpdate(() => {
                   foreach (SingleSelection sel in selection) {
@@ -919,7 +921,7 @@ namespace CDL2v1 {
             if (selection.IsInvalid) {
                WriteError(selection.ErrorMessage);
             } else if (selection.Count == 0) {
-               WriteError(selection.ErrorMessage);
+               WriteInfo("No matches for selector");
             } else {
                foreach (SingleSelection sel in selection) {
                   WriteWithInterface(sel.Object!);
