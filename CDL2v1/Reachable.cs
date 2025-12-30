@@ -111,7 +111,7 @@ namespace CDL2v1 {
          // So we need to collect all the objects in the section that are reachable from this lude.
          List<ID> ds = section.Ludes[ludeType];
          if (ds.Count == 1) {
-            if (section.Declarations.TryGetValue(ds[0], out CDL2Object? obj) && obj is Procedure proc) {
+            if (section.LudeProcs.TryGetValue(ludeType, out Procedure? proc) && proc is not null) {
                if (Objects.Add(proc!)) CollectReachableObjects(proc.group);
             } else {
                throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludeType][0]} in {section}");

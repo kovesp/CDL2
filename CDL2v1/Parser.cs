@@ -741,8 +741,9 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse a SectionById lude. This is an alternative (i.e., a sequence of calls, without the other serializationOptions for the last call) terminated by a period.
-      /// It will be stored as a Procedure. The ID will be SectionName_LudeType. 
+      /// Parse a Section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
+      /// It will be stored as a Procedure. The ID will be the LudeType.
+      /// The ID is added to the Container Ludes as a single element list while Procedure itself to the Section LudeProcs.
       /// </summary>
       /// <param Id="parser"></param>
       /// <param Id="LudeType"></param>
@@ -775,7 +776,8 @@ namespace CDL2v1 {
             lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
             lude.group.Alternatives.Add(alternative);
             section.Ludes[ludeType].Add(lude.Id);
-            section.Declarations[lude.Id] = lude.GUID;
+            // section.Declarations[lude.Id] = lude.GUID;
+            section.LudeProcs[ludeType] = lude;
          }
       }
 

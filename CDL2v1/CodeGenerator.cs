@@ -45,6 +45,8 @@ using System.Security.Principal;
 using System.Text;
 using System.Windows.Documents;
 
+using static System.Collections.Specialized.BitVector32;
+
 
 
 namespace CDL2v1 {
@@ -99,6 +101,7 @@ namespace CDL2v1 {
             GenerateObjects<Macro>(Compiler.Reachable.Objects.OfType<Macro>(),                                        GenerateMacro);
             GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic), GenerateProcedure);
             GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc=> proc.IsSynthetic), GenerateProcedure, "Synthetic Procedure");
+            //GenerateObjects<Procedure>(section.LudeProcedures,          GenerateProcedure,"Lude Procedure"); // The above already generates these
 
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
@@ -198,6 +201,7 @@ namespace CDL2v1 {
          GenerateObjects<Macro>(section.Macros,                      GenerateMacro);
          GenerateObjects<Procedure>(section.NonSyntheticProcedures,  GenerateProcedure);
          GenerateObjects<Procedure>(section.SyntheticProcedures,     GenerateProcedure, "Synthetic Procedure");
+         //GenerateObjects<Procedure>(section.LudeProcedures,          GenerateProcedure,"Lude Procedure"); // The above already generates these
 
          cg.GenerateSectionEnd(section);
       }

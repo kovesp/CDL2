@@ -755,14 +755,29 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Holds the Declarations of the SectionById. The key is the ID of the declaration.
+      /// Holds the Declarations of the Section by ID. The key is the ID of the declaration.
       /// </summary>
       [JsonInclude][JsonPropertyOrder(45)] public DeclarationDictionary Declarations = [];
 
       /// <summary>
+      /// Holds the references to the synthetic Procedures genrAted for section ludes.
+      /// </summary>
+      /// <remarks>These procs are not in Declarations.</remarks>
+      [JsonInclude][JsonPropertyOrder(46)]public Dictionary<RW,Procedure?> LudeProcs { get; set; } = new() {
+         { RW.PRELUDE,null },
+         { RW.ROOT,null },
+         { RW.POSTLUDE,null }
+      };
+
+      /// <summary>
+      /// Return the lude procedures that are not null.
+      /// </summary>
+      public IEnumerable<Procedure> LudeProcedures => LudeProcs.Values.Where(proc => proc != null)!;
+
+      /// <summary>
       /// For sections the Children are the GUIDs of the declarations in the section.
       /// </summary>
-      [JsonIgnore][JsonPropertyOrder(46)] public override List<Guid> Children => Declarations.AsChildren();
+      [JsonIgnore] public override List<Guid> Children => Declarations.AsChildren();
 
       [JsonIgnore] public List<Const> Constants => [.. Declarations.AsCDL2Objects<Const>()];
       [JsonIgnore] public List<Const> ImportedConstants => [.. Declarations.AsCDL2Objects<ImportedConst>()];

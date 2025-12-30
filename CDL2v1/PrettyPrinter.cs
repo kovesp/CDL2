@@ -380,35 +380,50 @@ namespace CDL2v1 {
          EmitSeparatorWithNL(TT.END);
       }
 
-
+      /// <summary>
+      /// Print all 3 ludes of the caintainer if any are present.
+      /// </summary>
+      /// <param name="container"></param>
       private void PrintLudes(Container container) {
          PrintLude(RW.PRELUDE,container);
          PrintLude(RW.ROOT,container);
          PrintLude(RW.POSTLUDE,container);
       }
 
+      /// <summary>
+      /// Print the specified lude type for the given container.
+      /// </summary>
+      /// <param name="ludeType"></param>
+      /// <param name="container"></param>
       private void PrintLude(RW ludeType,Container container) {
          if (container is Section section) {
             if (section.Ludes[ludeType].Count != 0) {
-               EmitReservedwordForObject(ludeType);
-               // SectionById Ludes are stored as ids of a generated Procedure item.
-               if (section.TryGetLocalDeclaration(section.Ludes[ludeType].First(),out Procedure? proc)) { // This should always be the case
+               // Section Ludes are stored as ids of a generated Procedure item and this is used as a indicator that the lude Procedure is present.
+               if (section.LudeProcs.TryGetValue(ludeType,out Procedure? proc) && proc is not null) { // This should always be the case
+                  EmitReservedwordForObject(ludeType);
                   Emit(" ");
                   Print(proc!.group.Alternatives.First(),section);
                   EmitSeparatorWithNL(TT.END);
                } else {
-                  ReportError($"Internal error: {ludeType} lude is not a Procedure item.");
+                  ReportError($"Internal error: {ludeType} lude Procedure is missing.");
                }
             }
-         } else { 
+         } else {
+            // The Program and Module ludes are lists of module respectively section Ids.
             PrintList(ludeType,container.Ludes[ludeType],decorate:false);
          }
       }
-      private class Boxed<T> {
-         public T? Value { get; set; }
-         public Boxed() => Value = default;
-      }
+      //private class Boxed<T> {
+      //   public T? Value { get; set; }
+      //   public Boxed() => Value = default;
+      //}
 
+      /// <summary>
+      /// Print an alternative: all calls and the last call.
+      /// </summary>
+      /// <param name="alternative"></param>
+      /// <param name="section"></param>
+      /// <param name="extraSpace"></param>
       private void Print(Alternative alternative, Section section,bool extraSpace=false) {
          Emitter.ExtraIndent = 0;
          if (alternative.calls.Count > 0) {
@@ -424,6 +439,12 @@ namespace CDL2v1 {
          if (alternative.lastCall.type != LCT.None) Print(alternative.lastCall, section, extraSpace: extraSpace);
       }
 
+      /// <summary>
+      /// Print the last call of an alternative.
+      /// </summary>
+      /// <param name="lastCall"></param>
+      /// <param name="section"></param>
+      /// <param name="extraSpace"></param>
       private void Print(LastCall lastCall, Section section, bool extraSpace = false) {
          Debug.Assert(lastCall.type != LCT.None,"lastCall.type is None in call of Print(LastCall,...)");
          switch (lastCall.type) {
@@ -453,6 +474,12 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Emits the formatted representation of the specified group and its alternatives to the output, using
+      /// indentation to reflect structure.
+      /// </summary>
+      /// <param name="group">The group to be printed. Must not be null.</param>
+      /// <param name="section">The section context in which the group is being printed. Determines formatting and emission rules.</param>
       private void Print(Group group,Section section) => Indented(() => {
          NlEmit(TT.GRPOPEN);
          if (! group.IsSynthetic) Emit(group.Id.Name.Decorate(Emitter,SE.Label),TT.LABELSEP);
@@ -460,6 +487,12 @@ namespace CDL2v1 {
          Emit(TT.GRPCLOSE);
       });
 
+      /// <summary>
+      /// Prints a list of alternatives to the output, separating each alternative appropriately within the specified
+      /// section.
+      /// </summary>
+      /// <param name="alternatives">The list of alternatives to print. Must contain at least one element.</param>
+      /// <param name="section">The section in which the alternatives are to be printed.</param>
       private void Print(List<Alternative> alternatives,Section section) {
          Debug.Assert(alternatives.Count != 0,"alternatives list is empty");
          Print(alternatives.First(),section);
@@ -469,6 +502,13 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Print a call within an alternative. Decortions are applied based on type.
+      /// </summary>
+      /// <param name="call"></param>
+      /// <param name="section"></param>
+      /// <param name="extraSpace"></param>
+      /// <param name="firstInAlternative"></param>
       public void Print(Call call, Section section, bool extraSpace = false, bool firstInAlternative = false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
          Algorithm? called = null;
@@ -573,6 +613,17 @@ namespace CDL2v1 {
          //}
       });
 
+      /// <summary>
+      /// Emits a formatted list of identifiers to the specified writer, optionally applying decoration and section
+      /// context.
+      /// </summary>
+      /// <param name="rw">The writer to which the formatted list will be emitted.</param>
+      /// <param name="ids">The collection of identifiers to include in the output list. If the collection is empty, no output is
+      /// produced.</param>
+      /// <param name="section">An optional section context used to influence the formatting or decoration of each identifier. If null,
+      /// default formatting is applied.</param>
+      /// <param name="decorate">true to apply decoration to each identifier; otherwise, false.</param>
+      /// <returns>true if the list was emitted; otherwise, false if the collection of identifiers was empty.</returns>
       private bool PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true) {
          if (ids.Any()) {
             EmitReservedwordForObject(rw);
@@ -700,6 +751,10 @@ namespace CDL2v1 {
          return elem is ID || elem is Affix || elem is Local; // Return true if the element printed was an ID.
       }
 
+      /// <summary>
+      /// Print the algorithm header: type, name, affixes, locals, body type.
+      /// </summary>
+      /// <param name="algorithm"></param>
       private void PrintAlgorithmHeader(Algorithm algorithm) {
          EmitReservedwordForObject(algorithm.AlgorithmType,algorithm);
          Emit(" ",algorithm.Id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
@@ -721,10 +776,22 @@ namespace CDL2v1 {
             Emitnl(" ", algorithm.BodyType);
          }
       }
+      /// <summary>
+      /// Supply hte correct decorator for the algorithm name based on its conditional compilation status.
+      /// </summary>
+      /// <param name="alg"></param>
+      /// <returns></returns>
       private static Decoration AlgorithmNameDecorator(Algorithm alg) 
          => alg.IsConditionalCompilationOn ? Decorators[SE.ConditionalCompilationOn] : 
             alg.IsConditionalCompilationOff ? Decorators[SE.ConditionalCompilationOff] : 
             AlgorithmNameDecorators[alg.NameType];
+      /// <summary>
+      /// Emits the representation of the specified constant, including its identifier and value, to the output stream.
+      /// </summary>
+      /// <remarks>If the constant is marked as imported, only its identifier is emitted and its value is
+      /// not printed. Elements within the constant that are not recognized types will result in an exception.</remarks>
+      /// <param name="constant">The constant to be printed. Must not be null.</param>
+      /// <exception cref="NotImplementedException">Thrown if the constant contains an element of an unsupported type.</exception>
       public void Print(Const constant) {
          Emit(constant.Id.Decorate(Emitter, SE.Const));
          if (constant.IsImported) return;
@@ -756,6 +823,10 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Print a variable.
+      /// </summary>
+      /// <param name="var"></param>
       public void Print(Var var) => Emit(var.Id.Decorate(Emitter, SE.Var));
 
       private void PrintIDComment(CDL2Object obj,SE type) {
@@ -772,6 +843,11 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Print a List.
+      /// </summary>
+      /// <param name="list"></param>
+      /// <param name="section"></param>
       public void Print(LIST list,Section section) {
          Emit(list.Id.Decorate(Emitter, SE.List));
          Emit(TT.LISTBOUNDSTART,DecoratedID(list.lwb,section),TT.LISTBOUNDSEP,DecoratedID(list.upb,section),TT.LISTBOUNDEND);
@@ -799,15 +875,39 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="element"></param>
       private void PrintComment(NamedElement element,bool nl = true) => PrintComment(element.Comments,element.Notes,nl);
+      /// <summary>
+      /// Print an alternative comment.
+      /// </summary>
+      /// <param name="element"></param>
+      /// <param name="needsEnd"></param>
       private void PrintComment(Alternative element,bool needsEnd = true) => PrintComment(string.Empty,element.Notes,needsEnd:false);
 
+      /// <summary>
+      /// Print an inline comment, i.e., # comment #
+      /// </summary>
+      /// <param name="comment"></param>
       private void PrintInlineComment(string comment) {
          if (IncludeComments) {
             Emit($"{Token.TokenType2Glyph[TT.COMMENT]}{comment}{Token.TokenType2Glyph[TT.COMMENT]} ".Decorate(Emitter, SE.Comment));
          }
       }
+      /// <summary>
+      /// Adds # Imported # if the object is imported.
+      /// </summary>
+      /// <param name="obj"></param>
+      /// <returns></returns>
       private bool PrintImportedComment(CDL2Object obj) { if (obj.IsImported) PrintInlineComment("Imported"); return obj.IsImported; }
 
+      /// <summary>
+      /// Emits the specified comment text and associated notes to the output, applying formatting and optional line
+      /// breaks as specified.
+      /// </summary>
+      /// <remarks>Comments and notes are only emitted if the IncludeComments property is set to true. Notes
+      /// with different severities are formatted distinctly to indicate their type.</remarks>
+      /// <param name="comments">The comment text to emit. If null, empty, or whitespace, no comment is emitted.</param>
+      /// <param name="notes">A collection of notes to emit after the comment. Each note is formatted according to its severity.</param>
+      /// <param name="nl">true to insert a new line before emitting the comment; otherwise, false. The default is true.</param>
+      /// <param name="needsEnd">true to append an end marker after notes of type Note; otherwise, false. The default is true.</param>
       private void PrintComment(string comments,Notes notes,bool nl = true,bool needsEnd = true) {
          if (IncludeComments) {
             if (comments.IsNotEmptyOrWhitespace) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
@@ -832,6 +932,14 @@ namespace CDL2v1 {
             }
          }
       }
+      /// <summary>
+      /// Normalizes divider lines in the specified comment text to a consistent format.
+      /// </summary>
+      /// <remarks>This method is intended to ensure that divider lines within comment blocks use a uniform
+      /// style and length. The normalization may affect the appearance of comments in generated documentation or code
+      /// output.</remarks>
+      /// <param name="comments">The comment text in which divider lines will be normalized. Cannot be null.</param>
+      /// <returns>A string containing the comment text with all divider lines replaced by a standardized divider format.</returns>
       private string NormalizeDividers(string comments) 
          => string.Join("\n", comments.Split("\r\n").Select(l 
             => DividerLineRegex().Replace(l,m => $"\n#{new string(m.Groups[1].Value[0], Emitter.LineLength-4)}#"))).Trim();
