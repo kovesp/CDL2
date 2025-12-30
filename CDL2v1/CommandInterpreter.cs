@@ -517,7 +517,7 @@ namespace CDL2v1 {
                   container.Modified = true;
                }
                WriteInfo($"Consulted => {string.Join(", ",parsedContainers.Select(c => c.FQDN()))}");
-               parsedContainers.LastOrDefault().SetFocus();  
+               parsedContainers.LastOrDefault()!.SetFocus();  
             } else {
                // Lab mode: interpret each line as a command
                string[] lines = fileContent.Split(new[] { "\r\n", "\r", "\n" },StringSplitOptions.RemoveEmptyEntries);

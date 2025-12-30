@@ -828,18 +828,18 @@ namespace CDL2v1 {
          public List<CDL2Object> ToSyntheticCDL2Objects()
             => [.. guids.ToCDL2Objects().Where(obj => obj is not Algorithm alg && obj.IsSynthetic)];
       }
-      extension(Guid guid) {          /// <summary>
+      extension(Guid guid) {
          /// Returns the CDL2Object instance corresponding to the stored GUID.
          /// </summary>
          /// <returns>The CDL2Object object that matches the stored GUID, or null if no matching object is found.</returns>
-         public CDL2Object? ToCDL2Object() 
-            => Database.Instance.NamedElements.GetValueOrDefault(guid) as CDL2Object;
+         public T? ToCDL2Object<T>() where T : CDL2Object
+            => Database.Instance.NamedElements.GetValueOrDefault(guid) as T;
          /// <summary>
          /// Returns true if the GUID corresponds to a non-synthetic CDL2Object.
          /// </summary>
          /// <returns></returns>
          public bool IsNonSyntheticCDL2Object() {
-            CDL2Object? obj = guid.ToCDL2Object();
+            CDL2Object? obj = guid.ToCDL2Object<CDL2Object>();
             return obj is not null && !obj.IsSynthetic;
          }
       }

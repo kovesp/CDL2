@@ -777,7 +777,7 @@ namespace CDL2v1 {
             lude.group.Alternatives.Add(alternative);
             section.Ludes[ludeType].Add(lude.Id);
             // section.Declarations[lude.Id] = lude.GUID;
-            section.LudeProcs[ludeType] = lude;
+            section.LudeProcs[ludeType] = lude.GUID;
          }
       }
 

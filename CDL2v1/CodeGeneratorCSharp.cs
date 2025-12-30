@@ -184,7 +184,7 @@ namespace CDL2Generated {
       }
 
       void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section)
-         => emitter.Emitnl(section.LudeProcs[ludeType]?.FQN(camelCase: false,literalObjectName: true)!,"();");
+         => emitter.Emitnl(section.LudeProcs[ludeType]?.ToCDL2Object<Procedure>()?.FQN(camelCase: false,literalObjectName: true)!,"();");
 
       void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType,Module module,bool wrapped) {
          DecrementIndent();

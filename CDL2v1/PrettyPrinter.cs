@@ -399,10 +399,10 @@ namespace CDL2v1 {
          if (container is Section section) {
             if (section.Ludes[ludeType].Count != 0) {
                // Section Ludes are stored as ids of a generated Procedure item and this is used as a indicator that the lude Procedure is present.
-               if (section.LudeProcs.TryGetValue(ludeType,out Procedure? proc) && proc is not null) { // This should always be the case
+               if (section.LudeProcs[ludeType] is Guid guid) { // This should always be the case
                   EmitReservedwordForObject(ludeType);
                   Emit(" ");
-                  Print(proc!.group.Alternatives.First(),section);
+                  Print(guid.ToCDL2Object<Procedure>()!.group.Alternatives.First(),section);
                   EmitSeparatorWithNL(TT.END);
                } else {
                   ReportError($"Internal error: {ludeType} lude Procedure is missing.");

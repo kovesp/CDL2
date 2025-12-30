@@ -763,7 +763,7 @@ namespace CDL2v1 {
       /// Holds the references to the synthetic Procedures genrAted for section ludes.
       /// </summary>
       /// <remarks>These procs are not in Declarations.</remarks>
-      [JsonInclude][JsonPropertyOrder(46)]public Dictionary<RW,Procedure?> LudeProcs { get; set; } = new() {
+      [JsonInclude][JsonPropertyOrder(46)]public Dictionary<RW,Guid?> LudeProcs { get; set; } = new() {
          { RW.PRELUDE,null },
          { RW.ROOT,null },
          { RW.POSTLUDE,null }
@@ -772,7 +772,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Return the lude procedures that are not null.
       /// </summary>
-      public IEnumerable<Procedure> LudeProcedures => LudeProcs.Values.Where(proc => proc != null)!;
+      public IEnumerable<Procedure> LudeProcedures => LudeProcs.Values.OfType<Guid>().Select(guid => guid.ToCDL2Object<Procedure>()!);
 
       /// <summary>
       /// For sections the Children are the GUIDs of the declarations in the section.
