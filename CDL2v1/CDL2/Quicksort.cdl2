@@ -49,10 +49,13 @@ MODULE powershell kernel.
       ENDSEC arithmetic.
 
       SECTION timer.
-         EXPORT start timer, stop timer, show elapsed time.
+         EXPORT start timer, stop timer, show elapsed time, get elapsed time.
 
          ACTION start timer = "$l $$script:start = Get-Date".
          ACTION stop timer  = "$l $$script:stop = Get-Date".
+
+         FUNCTION get elapsed time+elapsed> = "$l " elapsed " = [int](($$script:stop-$$script:start).TotalMicroseconds/1000))".
+         
          ACTION show elapsed time = 
             "$l Write-Host -ForegroundColor Blue ('Elapsed time: {0:N0} milliseconds' -f " 
             "[int](($$script:stop-$$script:start).TotalMicroseconds/1000))".
@@ -179,12 +182,16 @@ MODULE csharp kernel.
       ENDSEC arithmetic.
 
       SECTION timer.
-         EXPORT start timer, stop timer, show elapsed time.
+         EXPORT start timer, stop timer, show elapsed time, get elapsed time.
 
          VAR start, stop.
 
          ACTION start timer = start " = System.DateTime.Now.Ticks;".
          ACTION stop timer  = stop " = System.DateTime.Now.Ticks;".
+
+         CONST tick = 10_000;
+         FUNCTION get elapsed time+elapsed>: subtract+stop+start+elapsed, divide+elapsed+tick+elapsed.
+
          ACTION show elapsed time = 
             "System.Console.WriteLine($$$"Elapsed time: {((" stop " - " start ") / 10000.0):N0} milliseconds$");".
       ENDSEC timer.
@@ -312,12 +319,15 @@ MODULE c kernel.
       ENDSEC arithmetic.
 
       SECTION timer.
-         EXPORT start timer, stop timer, show elapsed time.
+         EXPORT start timer, stop timer, show elapsed time, get elapsed time.
 
          VAR start, stop.
 
          ACTION start timer = start " = clock();".
          ACTION stop timer  = stop " = clock();".
+         
+         FUNCTION get elapsed time+elapsed> = "$l " elapsed " = [long](" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC)".
+
          ACTION show elapsed time = 
             "printf($"Elapsed time: %.0f milliseconds\n$", (double)(" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC);".
       ENDSEC timer.
@@ -409,7 +419,7 @@ MODULE quicksort.
          EXPORT lwb, upb, max size of list to show, min random, max random.
 
          # The lower and upper bounds of the data array. #
-         CONST lwb=1, upb=10_000.
+         CONST lwb=1, upb=1_000_000.
          CONST max size of list to show=100.
 
          # The range of random numbers. #
@@ -493,12 +503,13 @@ MODULE quicksort.
       ENDSEC data.
 
       SECTION timer.
-         ABSTR start timer, stop timer, show elapsed time.
-         IMPORT start timer, stop timer, show elapsed time.
+         ABSTR start timer, stop timer, show elapsed time, get elapsed time.
+         IMPORT start timer, stop timer, show elapsed time, get elapsed time.
 
          ACTION start timer.
          ACTION stop timer.
          ACTION show elapsed time.
+         FUNCTION get elapsed time+elapsed>.
       ENDSEC timer.
 
       SECTION messages.
@@ -567,17 +578,18 @@ MODULE quicksort.
             is data sorted, show msg no newline+which, show msg+" data is sorted.";
             show msg no newline+which, show msg+" data is not sorted.".
 
-         ACTION run demo -data size:
+         ACTION run demo -data size -cdl2 elapsed -builtin elapsed -ratio:
             initialize data,
             dump data+"Data before sorting: ", verify data sorted+"Random",
             get data size+data size,
             show msg no new line+"Running quicksort on list of ", show number+data size, show msg+" elements.",
-            start timer, quicksort+lwb+upb, stop timer, show elapsed time,
+            start timer, quicksort+lwb+upb, stop timer, get elapsed time+cdl2 elapsed, show elapsed time,
             dump data+"Data after sorting: ", verify data sorted+"Quicksort-ed",
 
             initialize data,
             show msg+"Running .NET sort on list.",
-            start timer, sort data, stop timer, show elapsed time.
+            start timer, sort data, stop timer, get elapsed time+builtin elapsed, show elapsed time,
+            divide+cdl2 elapsed+builtin elapsed+ratio, show msg no newline+"Ratio: ", show number+ratio, show msg+".".
 
       ENDSEC sorter.
       ROOT run demo.

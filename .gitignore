@@ -369,3 +369,4 @@ FodyWeavers.xsd
 testlog.txt
 testlog.*.txt
 /CDL2v1/CDL2/cdl2settings.json
+/CDL2v1/CDL2/csharp sort.cs
