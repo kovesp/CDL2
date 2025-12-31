@@ -415,7 +415,7 @@ namespace CDL2v1 {
                      Debug.Assert(callingProc is not null, $"GenerateMacro: Calling procedure is null for inlined macro {macro}");
                      switch (arg) {
                         case Var vv: cg.GenerateMacroElementVar(vv, callingProc.CanFail, inlined: true); break;
-                        case Const cc: cg.GenerateMacroElementConst(callingProc.Section!.GetResolvedConstant(cc)!); break;
+                        case Const cc: cg.GenerateMacroElementConst(cc!); break;
                         case Local ll: cg.GenerateMacroElementLocal(ll); break;
                         case Affix aa: cg.GenerateMacroElementAffix(aa, callingProc.CanFail); break;
                         case STRING s: cg.GenerateMacroElementString(s.value, firstElement: false, quoted: true); break;
