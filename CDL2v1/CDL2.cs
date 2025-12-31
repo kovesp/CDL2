@@ -261,7 +261,7 @@ namespace CDL2v1 {
                }
 
                if (!Settings.SettingValue<bool>("ParseOnly")) {
-                  GenerateCode(out _,MainProgram);
+                  GenerateCode(out _,PrettyPrint,MainProgram);
                }
 
                Log(0, "");
@@ -272,9 +272,10 @@ namespace CDL2v1 {
          }
       }
 
-      public static void GenerateCode(out string targetFileName,Program? MainProgram = null) {
+      public static void GenerateCode(out string targetFileName,string? target=null,Program? MainProgram = null) {
          MainProgram ??= CDL2.GetMainProgram();
-         ICodeGenerator? cg = CreateCodeGenerator(Settings.SettingValue<string>("Target")!);
+         if (target == null) target = Settings.SettingValue<string>("Target");
+         ICodeGenerator? cg = CreateCodeGenerator(target!);
 
          targetFileName = "";
 
@@ -283,7 +284,7 @@ namespace CDL2v1 {
             try {
                targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name,cg.FileExtension));
                emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = ! Settings.SettingValue<bool>("CGDebug") };
-               Log(0,$"\nGenerating {Settings.SettingValue<string>("Target")!} doed for {MainProgram}");
+               Log(0,$"\nGenerating {Settings.SettingValue<string>("Target")!} code for {MainProgram}");
                CodeGenerator codeGenerator = new(cg,Compiler);
                codeGenerator.GenerateCode(MainProgram,emitter);
                Log(0, $"Code generation complete. Output written to {targetFileName}");
