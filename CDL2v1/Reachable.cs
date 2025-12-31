@@ -67,9 +67,17 @@ namespace CDL2v1 {
       public Set<ITrackedVar> ReadVars { get;  private set; } = [];
       public Set<ITrackedVar> AmbigousVars { get; private set; } = [];
       
-      public void CollectAllObjects() {
+      public void CollectAllObjects(Program? program) {
+         // Collect all objects in DB
          AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => ! elem.IsImported,e=>e.ToSet);
-         LogObjectCount(AllObjects, $"in {Database.Instance.Modules.Count.Plural("module")}");
+         int moduleCount = Database.Instance.Modules.Count;
+         if (program is not null) {
+            // Keep only objects that are defined in one of the modules of the program
+            IEnumerable<Module> programModules = program.Modules;
+            moduleCount = program.Parts.Count;
+            AllObjects = AllObjects.Where(obj => !obj.IsImported && programModules.Contains(obj.Module)).ToSet;
+         }
+         LogObjectCount(AllObjects, $"in {moduleCount.Plural("module")}");
       }
 
       public void CollectReachableObjects(Program prog) {

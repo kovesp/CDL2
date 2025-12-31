@@ -322,7 +322,7 @@ namespace CDL2v1 {
          SemanticAnalyzer semanticAnalyzer = new (this);
          semanticAnalyzer.Analyze(MainProgram);
          // The following two calls always clear any previously collected objects, so we can report unused objects.
-         reachable.CollectAllObjects();       // Collect all the objects in the modules comprising the program, so we can report unused objects.
+         reachable.CollectAllObjects(MainProgram);       // Collect all the objects in the modules comprising the program, so we can report unused objects.
          reachable.CollectReachableObjects(MainProgram); // Collect all the objects reachable from the program's ludes.
          semanticAnalyzer.AnalyzeUnused(MainProgram, reachable);
          return semanticAnalyzer;
