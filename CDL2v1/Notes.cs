@@ -125,7 +125,7 @@ namespace CDL2v1 {
       public static readonly Note InvalidMacroElement               = new(Severity.Error  , 042, "IDs in macros must refer to a Const, Var, List, Affix, or Local: {0}.");
 
       public static readonly Note NoEffect                          = new(Severity.Warning, 101, "Procedure has no effect tough is declared as {0}");
-      public static readonly Note OutputAffixOverwritten            = new(Severity.Warning, 102, "Output affix {0} whose action has not been read passed to output in {1}");
+      public static readonly Note OutputAffixOverwritten            = new(Severity.Warning, 102, "Output affix {0} whose value has not been read passed to output in {1}");
       public static readonly Note TransputAffixOverwritten          = new(Severity.Warning, 103, "Transput affix (0} whose action has not been read passed to output in {1}");
       public static readonly Note VariableNotRead                   = new(Severity.Warning, 104, "Variable {0} was assigned a action which was never read");
       public static readonly Note VariableNotWritten                = new(Severity.Warning, 105, "Variable {0} was read, but never assigned a action");

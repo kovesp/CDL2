@@ -183,13 +183,14 @@ MODULE csharp kernel.
 
       SECTION timer.
          EXPORT start timer, stop timer, show elapsed time, get elapsed time.
+         INV subtract,divide.
 
          VAR start, stop.
 
          ACTION start timer = start " = System.DateTime.Now.Ticks;".
          ACTION stop timer  = stop " = System.DateTime.Now.Ticks;".
 
-         CONST tick = 10_000;
+         CONST tick = 10_000.
          FUNCTION get elapsed time+elapsed>: subtract+stop+start+elapsed, divide+elapsed+tick+elapsed.
 
          ACTION show elapsed time = 
@@ -427,7 +428,7 @@ MODULE quicksort.
       ENDSEC parametrization.
 
       SECTION arithmetic.
-         ABSTR incr, decr, greater, less, less or equal, add, halve, make, random.
+         ABSTR incr, decr, greater, less, less or equal, add, halve, make, random, divide.
          EXT make, random, incr, less or equal, subtract.
 
          IMPORT incr, decr, incr with, decr with.
@@ -526,8 +527,11 @@ MODULE quicksort.
    NOTE.
    LAYER sort.
       SECTION sorter.
-         INV lwb, upb, less, make, add, halve, incr, decr, swap element, get element, smaller element, dump data, get data size,
-            show msg, show msg no newline, show number, is data sorted macro, less or equal, start timer, stop timer, show elapsed time,
+         INV lwb, upb.
+         INV less, make, add, halve, incr, decr, divide.
+         INV swap element, get element, smaller element, dump data, get data size.
+         INV show msg, show msg no newline, show number, is data sorted macro, less or equal.
+         INV start timer, stop timer, show elapsed time, get elapsed time.
          INV touch in, touch out.
          INV initialize data, sort data.
 
