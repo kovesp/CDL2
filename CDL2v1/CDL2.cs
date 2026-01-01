@@ -80,8 +80,12 @@ namespace CDL2v1 {
       /// <param name="subject"></param>
       /// <param name="note"></param>
       /// <param name="insertions"></param>
-      protected void AddNote(NamedElement subject, Note note, params object[] insertions) => subject.AddNote(PhaseName, note, insertions);
-      protected void AddNote(Note note, params object[] insertions) => notes.Add(new Note(note, PhaseName, null, insertions));
+      protected Note AddNote(NamedElement subject, Note note, params object[] insertions) => subject.AddNote(PhaseName, note, insertions);
+      protected Note AddNote(Note note,params object[] insertions) {
+         Note newNote = new Note(note,PhaseName,null,insertions);
+         notes.Add(newNote);
+         return newNote;
+      }
 
       /// <summary>
       /// Report errors and warnings for this phase.

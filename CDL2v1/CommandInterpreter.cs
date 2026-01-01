@@ -123,14 +123,22 @@ namespace CDL2v1 {
             SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
             if (type != SelectorType.INVALID) {
                input = type + input[firstWord.Length..];
-               if (parser.Tokenize(input,ParseMode.Full)) {
-                  Debug.Assert(parser.tokens.Count > 0,"Lexical Analysis found no usable tokens in input.");
-
+               if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
                   // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
                   // Must also take care of adding an undo record if something is replaced.
-                  if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input) & setFocus)
-                     Focus.SetFocus(element!);
+                  if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input)) {
+                     if (setFocus) Focus.SetFocus(element!);
+                  } else {
+                     foreach (Note note in parser.ParsingErrors) {
+                        WriteError(note.ToString());
+                     }
+                     parser.ParsingErrors.Clear();
+                  }
+               } else {
+                  WriteError("Lexical Analysis found no usable tokens in input.");
                }
+            } else {
+               WriteError($"Unknown object type: {firstWord}");
             }
             ParsingContext = null; // Reset the parsing context after a parse
          }

@@ -123,6 +123,16 @@ namespace CDL2v1 {
       public static readonly Note UnresolvedMacroElement            = new(Severity.Error  , 040, "References undefined id {0}.");
       public static readonly Note ImportIsExported                  = new(Severity.Error  , 041, "An imported object cannot be exported: {0}.");
       public static readonly Note InvalidMacroElement               = new(Severity.Error  , 042, "IDs in macros must refer to a Const, Var, List, Affix, or Local: {0}.");
+      public static readonly Note ParseArgStringWithDirection       = new(Severity.Error  , 043, "String formal parameters cannot have a direction: {0}.");
+      public static readonly Note ParseArgStdArgHasNoDirection      = new(Severity.Error  , 044, "Standard formal parameters must have a direction: {0}.");
+      public static readonly Note ParseArgDuplicateArg              = new(Severity.Error  , 045, "Duplicate formal parameter: {0}.");
+      public static readonly Note ParseArgMissingId                 = new(Severity.Error  , 046, "Expected formal parameter id.");
+      public static readonly Note PareseDuplicateLocal              = new(Severity.Error  , 047, "Duplicate local: {0}.");
+      public static readonly Note ParseExpectedProcBody             = new(Severity.Error  , 048, "Expected procedure body.");
+      public static readonly Note ParseExpectedMacroBody            = new(Severity.Error  , 049, "Expected macro body.");
+      public static readonly Note ExpectedId                        = new(Severity.Error  , 050, "Expected identifier.");
+      public static readonly Note NoSectionForAlgorithm             = new(Severity.Error  , 0510,"Unable to determine section for algorithm. Context is {0}.");
+
 
       public static readonly Note NoEffect                          = new(Severity.Warning, 101, "Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten            = new(Severity.Warning, 102, "Output affix {0} whose value has not been read passed to output in {1}");

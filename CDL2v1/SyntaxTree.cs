@@ -390,9 +390,11 @@ namespace CDL2v1 {
 
       [JsonIgnore]
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
-      public void AddNote(string phase,Note note,params object[] insertions) {
-         Notes.Add(new Note(note,phase,this,insertions));
+      public Note AddNote(string phase,Note note,params object[] insertions) {
+         Note newNote = new Note(note,phase,this,insertions);
+         Notes.Add(newNote);
          Database.Instance.ElementsWithNotes.Add(GUID);
+         return newNote;
       }
       public void AddNotes(string phase,Notes? notes) => notes?.ForEach(note => AddNote(phase,note));
 
