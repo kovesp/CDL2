@@ -52,6 +52,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Controls;
+using System.Windows.Markup;
 
 using static CDL2v1.Logger;
 
@@ -904,7 +905,7 @@ namespace CDL2v1 {
       /// <param>The original input string. Used only as debug aid dureing development.</param>
       /// <returns></returns>
       /// <param name="replace"></param>
-      internal bool Parse(Focus context,out NamedElement? element,Func<bool> canReplace,string input,ParseMode mode = ParseMode.Full) {
+      internal bool Parse(ParsingContext parsingContext,out NamedElement? element,Func<bool> canReplace,string input,ParseMode mode = ParseMode.Full) {
          element = null;
          if (tokens.Peek().type != TokenType.RESWORD) { 
             if (mode == ParseMode.Full) ReportError($"Expected a reserved word at the start of input, not \"{tokens.Peek()}\".");
@@ -915,7 +916,8 @@ namespace CDL2v1 {
          RW objectType = initialToken.reservedWordValue ?? RW.NONE;
          string comments = initialToken.Comments ?? string.Empty;
          ID id;
-         int after;
+         int after; ;
+         Focus context = parsingContext.Focus;
          switch (objectType) {
             case RW.PROGRAM:
                tokens.Skip(); // Consume the reserved word
@@ -986,11 +988,13 @@ namespace CDL2v1 {
                if (section is not null) {
                   currentSection = section;
                   if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode)) element = alg;
-               } else {
+                  // alg was added to the current section at the end
+                  MoveObjectToPosition(parsingContext,context,alg);
+               } else { 
                   if (mode == ParseMode.Full) {
-                     ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
-                     AddParsingError(Note.NoSectionForAlgorithm,context.ToString());
-                  }
+                  ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
+                  AddParsingError(Note.NoSectionForAlgorithm,context.ToString());
+               }
                   element = null;
                }
                break;
@@ -1041,6 +1045,33 @@ namespace CDL2v1 {
          }
 
          return element != null;
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="parsingContext"></param>
+      /// <param name="context"></param>
+      /// <param name="obj"></param>
+      private static void MoveObjectToPosition(ParsingContext parsingContext,Focus context,CDL2Object? obj) {
+         if (context.FocusType != SelectorType.SECTION) {
+            // The context is either the section (in which case the postion is correct) or an object inside it.
+            int pos = context.IndexFor();
+            switch (parsingContext.Location) {
+               case InsertLocation.Before:
+                  (obj as ISibling)?.MoveSiblingTo(pos);
+                  break;
+               case InsertLocation.After:
+                  (obj as ISibling)?.MoveSiblingTo(pos + 1);
+                  break;
+               case InsertLocation.First:
+                  (obj as ISibling)?.MoveSiblingTo(0);
+                  break;
+               default:
+                  // In the right positon at the end of the section.
+                  break;
+            }
+         }
       }
    }
 }

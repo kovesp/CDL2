@@ -32,6 +32,7 @@
 //=======================================================================
 // </auto-gen>
 
+using System.Configuration;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -416,6 +417,12 @@ namespace CDL2v1 {
       /// <param name="objectType"></param>
       /// <returns></returns>
       public int IndexFor(RW objectType) => Selection.Object?.GetType() == Parser.RW2Type[objectType] ? IndexFor() : -1;
+      /// <summary>
+      /// Gets the zero-based index of the currently selected object's GUID within its siblings collection.
+      /// </summary>
+      /// <remarks>The siblings collection is assumed to contain the GUIDs of objects related to the current
+      /// selection. This method requires that the selected object and its siblings collection are not null.</remarks>
+      /// <returns>The zero-based index of the selected object's GUID in the siblings collection, or -1 if the GUID is not found.</returns>
       public int IndexFor() => Selection.Object!.Siblings.IndexOf(Selection.Object.GUID);
       /// <summary>
       /// Similar to IndexFor, but returns the object itself from the list of candidates.
@@ -580,6 +587,15 @@ namespace CDL2v1 {
             return Focus.SetFocus(Object.Siblings[newIndex]);
          }
       }
+   }
+
+   /// <summary>
+   /// Used to let the parser know where to insert newly created objects.
+   /// </summary>
+   public class ParsingContext(Focus? focus = null,InsertLocation location = InsertLocation.Last) {
+      public readonly InsertLocation Location = location;
+      public readonly Focus Focus = focus ?? Focus.Current;
+      public override string ToString() => $"{Location} {Focus}";
    }
 }
 

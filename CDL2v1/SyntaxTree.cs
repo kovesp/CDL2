@@ -720,7 +720,9 @@ namespace CDL2v1 {
       public class DeclarationDictionary : IDDictionary<Guid> {
          public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => [.. Values.Select(From<T>).OfType<T>()];
          public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => [.. Values.Select(From<T>).OfType<T>().Where(pred)];
-         public List<Guid> AsChildren() => [.. Values ];
+
+         [JsonInclude][JsonPropertyOrder(1)]
+         public List<Guid> Ordering = [];
 
          /// <summary>
          /// Try add a declaration. If successful, the object is added to the Siblings of the object.
@@ -733,12 +735,26 @@ namespace CDL2v1 {
          public bool TryAdd(ID id,CDL2Object obj,uint before = uint.MaxValue) {
             if (base.TryAdd(id,obj.GUID)) {
                if (!obj.IsSynthetic) { // Synthetic objects are not added to the sibling list.
-                  if (before >= obj.Siblings.Count) {
-                     obj.Siblings.Add(obj.GUID); // If before is >= to the count, add it at the end.
+                  //if (before >= obj.Siblings.Count) {
+                  //   obj.Siblings.Add(obj.GUID); // If before is >= to the count, add it at the end.
+                  //} else {
+                  //   obj.Siblings.Insert((int)before,obj.GUID); // Otherwise, insert it at the specified position.
+                  //}
+                  if (before == uint.MaxValue || before >= Ordering.Count) {
+                     Ordering.Add(obj.GUID); // If before is >= to the count, add it at the end.
                   } else {
-                     obj.Siblings.Insert((int)before,obj.GUID); // Otherwise, insert it at the specified position.
+                     Ordering.Insert((int)before,obj.GUID); // Otherwise, insert it at the specified position.
                   }
                }
+               return true;
+            }
+            return false;
+         }
+
+         public new bool Remove(ID id) {
+            if (base.TryGetValue(id,out Guid guid)) {
+               base.Remove(id);
+               Ordering.Remove(guid);
                return true;
             }
             return false;
@@ -751,6 +767,61 @@ namespace CDL2v1 {
             }
             value = null;
             return false;
+         }
+
+         /// <summary>
+         /// Indexer to get or set CDL2Objects by ID.
+         /// Setting via indexer maintains both the dictionary and the Ordering list.
+         /// </summary>
+         /// <param name="id">The ID of the object to get or set.</param>
+         /// <returns>The GUID of the CDL2Object with the specified ID.</returns>
+         /// <exception cref="KeyNotFoundException">Thrown when getting a value for an ID that doesn't exist.</exception>
+         public new Guid this[ID id] {
+            get {
+               if (base.TryGetValue(id,out Guid guid)) {
+                  return guid;
+               }
+               throw new KeyNotFoundException($"Declaration with ID '{id}' not found.");
+            }
+            set {
+               bool isNewEntry = !base.ContainsKey(id);
+               bool isNewGuid = !Ordering.Contains(value);
+
+               // Update or add to the base dictionary
+               base[id] = value;
+
+               // If this is a new GUID, add it to ordering
+               if (isNewEntry && isNewGuid) {
+                  Ordering.Add(value);
+               } else if (!isNewEntry && isNewGuid) {
+                  // Replacing an existing ID with a new GUID
+                  // Remove old GUID from ordering if it exists
+                  if (base.TryGetValue(id,out Guid oldGuid) && oldGuid != value) {
+                     Ordering.Remove(oldGuid);
+                  }
+                  Ordering.Add(value);
+               }
+               // If GUID already exists in Ordering, don't duplicate it
+            }
+         }
+
+         /// <summary>
+         /// Adds a new declaration to the dictionary and maintains the ordering list.
+         /// </summary>
+         /// <param name="id">The ID of the object to add.</param>
+         /// <param name="guid">The GUID of the CDL2Object.</param>
+         /// <exception cref="ArgumentException">Thrown when the ID already exists in the dictionary.</exception>
+         public new void Add(ID id,Guid guid) {
+            if (base.ContainsKey(id)) {
+               throw new ArgumentException($"An element with ID '{id}' already exists in the dictionary.",nameof(id));
+            }
+
+            base.Add(id,guid);
+
+            // Add to ordering if not already present (shouldn't be, but defensive)
+            if (!Ordering.Contains(guid)) {
+               Ordering.Add(guid);
+            }
          }
 
          public override string ToString() => $"Declarations: {Count}";
@@ -779,7 +850,7 @@ namespace CDL2v1 {
       /// <summary>
       /// For sections the Children are the GUIDs of the declarations in the section.
       /// </summary>
-      [JsonIgnore] public override List<Guid> Children => Declarations.AsChildren();
+      [JsonIgnore] public override List<Guid> Children => Declarations.Ordering;
 
       [JsonIgnore] public List<Const> Constants => [.. Declarations.AsCDL2Objects<Const>()];
       [JsonIgnore] public List<Const> ImportedConstants => [.. Declarations.AsCDL2Objects<ImportedConst>()];
@@ -924,7 +995,8 @@ namespace CDL2v1 {
          return $"{base.FQDN()}{interfacePart}";
       }
 
-      public override List<Guid> Siblings => Section?.Children.Where(guid=>guid.IsNonSyntheticCDL2Object()).ToList() ?? [];
+      //public override List<Guid> Siblings => Section?.Children.Where(guid=>guid.IsNonSyntheticCDL2Object()).ToList() ?? [];
+      public override List<Guid> Siblings => Section!.Children;
 
       /// <summary>
       /// Checks whether this object is in the given interface type.

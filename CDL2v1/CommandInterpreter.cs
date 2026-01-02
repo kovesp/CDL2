@@ -126,7 +126,7 @@ namespace CDL2v1 {
                if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
                   // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
                   // Must also take care of adding an undo record if something is replaced.
-                  if (parser.Parse(ParsingContext ?? Focus.Current,out NamedElement? element,CanReplace,input)) {
+                  if (parser.Parse(ParsingContext!,out NamedElement? element,CanReplace,input)) {
                      if (setFocus) Focus.SetFocus(element!);
                   } else {
                      foreach (Note note in parser.ParsingErrors) {
@@ -154,7 +154,7 @@ namespace CDL2v1 {
          if (input.Length > 0 && input[^1] != '.') input += '.';
          if (parser.Tokenize(input,ParseMode.Check)) {
             return Database.WithSuspendedNamedElementRegistration(true,
-               () => parser.Parse(ParsingContext ?? Focus.Current,out _,() => false,input,ParseMode.Check));
+               () => parser.Parse(ParsingContext.AsParsingContext,out _,() => false,input,ParseMode.Check));
          }
          return false;
       }
@@ -168,7 +168,7 @@ namespace CDL2v1 {
          return false;
       }
 
-      Focus? ParsingContext = null;
+      ParsingContext? ParsingContext = null;
 
       private void WriteLine(string message,Severity severity = Severity.NONE) {
          if (commandWindow is not null) {
@@ -747,9 +747,8 @@ namespace CDL2v1 {
             // Display the object in the command window for editing.
             IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
             ppEdit.Emitter.Clear();
-            ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
+            ParsingContext = new (new Focus(context),InsertLocation.Replace); // Set the parsing context to the current focus, so that the parser can use it.
             commandWindow.EditText(ppEdit.Print(context.Object));
-            insertionLocation = InsertLocation.Replace;
             // Nothing else. When editing is done the command window will call EnterCode with the edited text.
          }
       }
@@ -787,9 +786,9 @@ namespace CDL2v1 {
          } else {
             // Swich to edit mode in the input field with empty content.
             IsEditing = false; // Ensure a prompt is given if the object exists.
-            insertionLocation = Settings.SettingValue<bool>("before") ? InsertLocation.Before : InsertLocation.After; // This will ofcoruse be ignore if the object exists and is replaced.
+            InsertLocation insertLocation = Settings.SettingValue<bool>("before") ? InsertLocation.Before : InsertLocation.After; // This will of coruse be ignored if the object exists and is replaced.
             ppEdit.Emitter.Clear();
-            ParsingContext = new Focus(context); // Set the parsing context to the current focus, so that the parser can use it.
+            ParsingContext = new(new Focus(context),insertLocation);
             commandWindow.EditText();
             // Nothing else. When editing is done the command window will call EnterCode with the edited text. What to do with it is determined by the insertionLocation and IsEditing flags.
          }

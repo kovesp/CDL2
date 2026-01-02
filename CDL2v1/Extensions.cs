@@ -844,6 +844,10 @@ namespace CDL2v1 {
          }
       }
 
+      extension(ParsingContext? context) {
+         public ParsingContext AsParsingContext => context ?? new ParsingContext();
+      }
+
       extension<T>(List<T> list) where T : notnull {
          /// <summary>
          /// Returns a new list containing the elements of the original list combined with the specified items,  ensuring
