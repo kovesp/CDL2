@@ -1085,7 +1085,7 @@ namespace CDL2v1 {
             Siblings.Remove(GUID);
             Database.Instance.RecordUndo(this, ChangeType.Removed); // Must be done before clearing interfaces so the current interface status is recorded.
             ClearInterfaces();
-         } else {
+         } else if (changeType == ChangeType.Replaced) {
             // Swap the GUID of this object with the GUID of the replacement object. Also swap them in NamedElements.
             (GUID,replacement!.GUID) = (replacement.GUID,GUID);
             Database.Instance.NamedElements[GUID] = this;
@@ -1099,7 +1099,8 @@ namespace CDL2v1 {
       public void Replace(CDL2Object replacement) => RemoveOrReplace(replacement,ChangeType.Replaced);
 
       /// <summary>
-      /// Reverses the action of RemoveOrReplace by adding this object back to the section declarations and siblings (if removed) or swaing with the current object (if replaced).
+      /// Reverses the action of RemoveOrReplace by adding this object back to the section declarations and siblings (if removed) or swaping
+      /// with the current object (if replaced).
       /// This method is called by the undo mechanism. The caller must handle the removal from the undo stack and placing on the redo stack
       /// </summary>
       /// <param name="current"></param>

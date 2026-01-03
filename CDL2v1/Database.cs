@@ -342,6 +342,7 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(9)] public ID Id { get; set; } = ID.AnonID;
 
          [JsonInclude][JsonPropertyOrder(10)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
+         [JsonInclude][JsonPropertyOrder(11)] public int Position { get; private set; } = -1;
 
          [JsonIgnore]public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
 
@@ -349,6 +350,7 @@ namespace CDL2v1 {
             ObjectGuid = element?.GUID ?? Guid.Empty;
             InterfaceStatus = element?.GetInterfaces() ?? InterfaceTypes.None;
             ChangeType = changeType;
+            Position = element?.Siblings.IndexOf(element.GUID) ?? -1;
          }
 
 

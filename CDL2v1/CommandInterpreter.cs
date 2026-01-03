@@ -126,7 +126,7 @@ namespace CDL2v1 {
                if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
                   // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
                   // Must also take care of adding an undo record if something is replaced.
-                  if (parser.Parse(ParsingContext!,out NamedElement? element,CanReplace,input)) {
+                  if (parser.Parse(ParsingContext.AsParsingContext,out NamedElement? element,CanReplace,input)) {
                      if (setFocus) Focus.SetFocus(element!);
                   } else {
                      foreach (Note note in parser.ParsingErrors) {
@@ -159,6 +159,11 @@ namespace CDL2v1 {
          return false;
       }
 
+      /// <summary>
+      /// A version of EnterCode for use by unit tests.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
       public bool EnterRawCode(string input) {
          string trimmed = input.Trim();
          if (char.IsAsciiLetterUpper(trimmed[0])) {
@@ -607,7 +612,7 @@ namespace CDL2v1 {
             WriteError($"{stackName} stack is empty.");
          } else {
             int index = int.TryParse(args,out int i) ? i-1 : 0;
-            if (i < 0 || i >= stack.Count) {
+            if (i < 0 || i > stack.Count) {
                WriteError($"argument {index + 1} for {stackName} stack out of range: must be {(stack.Count==1?"1 if given":$"between 1 and {stack.Count}")}.");
             } else {
                string tag = Settings.SettingValue<string>("settag")!;
@@ -637,11 +642,19 @@ namespace CDL2v1 {
       /// <exception cref="NotImplementedException"></exception>
       private static void SingleUndoRedo(bool undo,BoundedStack<Database.UndoRecord> stack,BoundedStack<Database.UndoRecord> otherStack) {
          Database.UndoRecord record = stack.Pop();
+         CDL2Object obj = record.CDL2Object!;
          switch (record.ChangeType) {
             case ChangeType.Added:
+               if (undo) {
+                  Focus.MoveFocusFrom(obj);
+                  obj.Section!.Declarations.Remove(obj.Id);
+               } else {
+                  obj.Section!.Declarations.Add(obj.Id,obj.GUID);
+                  (obj as ISibling)?.MoveSiblingTo(record.Position);
+                  Focus.SetFocus(obj);
+               }
                break;
             case ChangeType.Removed:
-               CDL2Object obj = record.CDL2Object!;
                if (undo) {
                   // Revive the removed object
                   int objectPos = -1;

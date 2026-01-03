@@ -277,7 +277,7 @@ same as the focus command with no selector, except the auto-print setting is ign
 #### Print
 
 ```
-print command : print token, setting sequence option, selector option.
+print command : print token or type token, setting sequence option, selector option.
 ```
 
 The command prints all the objects that match the selector. The print command with no selector
@@ -298,6 +298,25 @@ If the depth is such that printing of structures is suppressed, then the ENDMOD,
 is omitted as in the above example.
 Here is another example: `print -print-depth 3 ALG`. This will print the above structure, but also
 add all the algorithm headers without the locals if any.
+
+The `-file` setting may be used to print to a file instead of the output area.
+
+#### Consult
+```
+consult command : consult token, setting sequence option, filename.
+```
+The command operates in two modes depending on the content of the file selected by the argument (this
+is a character sequence that is valid as a file name on the host operating system). The file extension
+may be omitted; if so, `.labc` (i.e, lab commands) and `.cdl2` are tried in that order. However the
+extension may be any valid file extension and in no case determines the mode of operation.
+  * If the file contains (starts with) one or more CDL2 containers (currently only `MODULE` and `PROGRAM`
+    are supported) then the code is parsed and added to the database as if
+    the code were read via `--sources` on the command line in compiler mode. Note that this means that
+    the containers must have their terminating keywords.
+  * Otherwise the file is treated as a sequence of lab commands, oen per line. These are executed in
+    order. Blank lines and lines starting with `!` are ignored. Note that it makes no sense to
+    have `edit` commands in such a file as that would switch to input mode and hang. As wll, nested `consult`s
+    are not supported.
 
 ### Settings
 
@@ -325,6 +344,7 @@ If no settings are given, all current settings are listed. The following is a li
 | separate     | bool   | false  | For code generation, see the `generate` command.
 | before       | bool   | false  | Apply the command before the selected object(s).
 | refs         | bool   | true   | For the `rename` command, rename all referrences to this object.
+| file         | string | ""     | The file to use. Used by commands that read or write files.
 
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
@@ -418,6 +438,18 @@ The command enters edit mode with the selected object in the input area. When ed
 the object is parsed. If this succeeds, the object replaces the existing object. _Note: if an attempt is made to
 change the identity or type of the object, the command will fail._
 
+The edit command supports the editing of:
+  * algorithms, and constants.
+  * Section ludes (treated as algorithms).
+
+Not supported:
+  * Containers ... too big. Support is planned for containers later by invoking an external editor
+    on the container via a temprary file. As a stop-gap solution, one may use the `print` command to
+    print the container to a file (not yet implemented), edit it externally, and then use the `consult`
+    command to reload (not yet implemented for replacing an existing container).
+  * Variables, lists, module and program ludes ... these are just lists of ids, delete or add items. 
+  * Interface declarations ... used the add and delete command with the appropriate settings.
+
 ##### Rename
 ```
 rename command : rename token, setting sequence option, selector option, new name.
@@ -462,8 +494,9 @@ or section) that contains anything or a program, then the user is prompted unles
 ##### Undo/Redo
 
 ```
-undo command : undo token, setting sequence option, number option.
-redo command : redo token, setting sequence option, number option.
+undo command : undo token, setting sequence option, undo redo select option.
+redo command : redo token, setting sequence option, undo redo select option.
+undo redo select: colon token option, number.
 ```
 The undo command undoes the change(s) made to the database. The redo command redoes
 the change(s) that were undone. 
@@ -473,17 +506,27 @@ Relevant settings:
 
    * `-list`. If given, no changes are made, instead the contents of the undo or redo stack is listed.
    * `-settag:tag`. The selected undo or redo entry has its tag set. If the tag is `-' then the tag is cleared.
-   * `-tag:tag`. The undo/redo entry with the given tag is selecte and performed. 
+   * `-tag:tag`. The undo/redo entry with the given tag is selected and performed. In other words, this
+     form may be used to undo or redo a specific change by its tag as with the `:n` argument. 
 
-Currently only the changes to CDL2 objects (i.e., algorithms, constants, variables, and lists)
-can be undone or redone. Note that 
+Currently the changes to the folowing can be undone/redone:
+
+* CDL2 objects (i.e., algorithms, constants, variables, and lists).
+* Interface list entries.
+
+No supported (yet?):
+
+  * Containers (i.e., programs, modules, layers, sections).
+  * Ludes.
+  * Program parts.
+
+The arugment of these commands takes two forms:
+   * A number `n` is given. In this case the last `n` changes are undone or redone.
+   * A number prefixed by a colon is given. In this case the undo/redo item with the given
+     number (as listed by the `-list` setting) is undone or redone.
 
 When an object is removed, its position among its siblings is **not** retained.
-Where it is restored by `undo` depends on the current focus.
-
-    * If the focus is on an object within the section of the object being restored, then
-      the object is placed after the focused object.
-    * Otherwise, the object is placed at the end of the section.
+When the object is restored using `undo`, it is added at the end of the list of siblings. 
 
 #### Semantic Analysis
 ```

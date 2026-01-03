@@ -53,6 +53,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Controls;
 using System.Windows.Markup;
+using System.Windows.Media;
 
 using static CDL2v1.Logger;
 
@@ -321,7 +322,7 @@ namespace CDL2v1 {
       }
 
       private static readonly List<TT> bodyTypes = [TT.INLINEPROCBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
-      private bool ParseAlgorithm(Notes notes,out Algorithm? algorithm,ParseMode mode = ParseMode.Full,bool replace = false) {
+      private bool ParseAlgorithm(Notes notes,[NotNullWhen(true)] out Algorithm? algorithm,ParseMode mode = ParseMode.Full,bool replace = false) {
          Debug.Assert(currentSection != null);
          algorithm = null;
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
@@ -991,9 +992,12 @@ namespace CDL2v1 {
                Section? section = context.Section;
                if (section is not null) {
                   currentSection = section;
-                  if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode)) element = alg;
-                  // alg was added to the current section at the end
-                  MoveObjectToPosition(parsingContext,context,alg);
+                  if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode)) {
+                     element = alg;
+                     // alg was added to the current section at the end
+                     MoveObjectToPosition(parsingContext,context,alg);
+                     Database.Instance.RecordUndo(alg,ChangeType.Added);
+                  }
                } else {
                   if (mode == ParseMode.Full) {
                      ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
@@ -1009,6 +1013,7 @@ namespace CDL2v1 {
                   if (ParseConstants(Notes.Empty,mode,out List<Const> consts)) {
                      MoveObjectToPosition(parsingContext,context,consts);
                      element = consts.LastOrDefault();
+                     foreach (Const c in consts) Database.Instance.RecordUndo(c,ChangeType.Added);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1025,6 +1030,7 @@ namespace CDL2v1 {
                   if (ParseVar(Notes.Empty,mode,out List<Var> vars)) {
                      MoveObjectToPosition(parsingContext,context,vars);
                      element = vars.LastOrDefault();
+                     foreach (Var v in vars) Database.Instance.RecordUndo(v,ChangeType.Added);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1041,6 +1047,7 @@ namespace CDL2v1 {
                   if (ParseList(Notes.Empty,out List<LIST> lists,mode)) {
                      MoveObjectToPosition(parsingContext,context,lists);
                      element = lists.LastOrDefault();
+                     foreach (LIST l in lists) Database.Instance.RecordUndo(l,ChangeType.Added);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1091,13 +1098,16 @@ namespace CDL2v1 {
          return element != null;
       }
 
+
+      //public static void MoveObjectToPosition(ParsingContext parsingContext,Focus context,CDL2Object? obj) { }
+
       /// <summary>
       /// 
       /// </summary>
       /// <param name="parsingContext"></param>
       /// <param name="context"></param>
       /// <param name="obj"></param>
-      private static void MoveObjectToPosition(ParsingContext parsingContext,Focus context,CDL2Object? obj) {
+      public static void MoveObjectToPosition(ParsingContext parsingContext,Focus context,CDL2Object? obj) {
          if (context.FocusType != SelectorType.SECTION) {
             // The context is either the section (in which case the postion is correct) or an object inside it.
             int pos = context.IndexFor();
@@ -1124,7 +1134,7 @@ namespace CDL2v1 {
       /// <param name="parsingContext">The parsing context in which the objects are to be moved.</param>
       /// <param name="context">The focus or target position to which each object will be moved.</param>
       /// <param name="objList">The list of objects to move. Cannot be null.</param>
-      private static void MoveObjectToPosition<T>(ParsingContext parsingContext, Focus context, List<T> objList) where T: CDL2Object {
+      public static void MoveObjectToPosition<T>(ParsingContext parsingContext, Focus context, List<T> objList) where T: CDL2Object {
          foreach (T obj in objList.Reverse<T>()) MoveObjectToPosition(parsingContext, context, obj);
       }
    }
