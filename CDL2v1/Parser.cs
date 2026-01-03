@@ -109,17 +109,17 @@ namespace CDL2v1 {
       private LexicalAnalyzer? Lexer = null;       // The lexical analyzer used to parse the input file.
 
       public static readonly Dictionary<RW,Type> RW2Type = new() {
-         [RW.PROGRAM]   = typeof(Program),
-         [RW.MODULE]    = typeof(Module),
-         [RW.LAYER]     = typeof(Layer),
-         [RW.SECTION]   = typeof(Section),
-         [RW.CONST]     = typeof(Const),
-         [RW.LIST]      = typeof(LIST),
-         [RW.VAR]       = typeof(Var),
-         [RW.TEST]      = typeof(Algorithm),
+         [RW.PROGRAM] = typeof(Program),
+         [RW.MODULE] = typeof(Module),
+         [RW.LAYER] = typeof(Layer),
+         [RW.SECTION] = typeof(Section),
+         [RW.CONST] = typeof(Const),
+         [RW.LIST] = typeof(LIST),
+         [RW.VAR] = typeof(Var),
+         [RW.TEST] = typeof(Algorithm),
          [RW.PREDICATE] = typeof(Algorithm),
-         [RW.FUNCTION]  = typeof(Algorithm),
-         [RW.ACTION]    = typeof(Algorithm),
+         [RW.FUNCTION] = typeof(Algorithm),
+         [RW.ACTION] = typeof(Algorithm),
       };
 
       private readonly Action<Severity,string,bool> ErrorReporter;
@@ -221,7 +221,7 @@ namespace CDL2v1 {
       /// </summary>
       private Notes ParseNotes(bool needsEnd = true) {
          Notes notes = [];
-         while (tokens.CanConsumeNote(out Note? note,needsEnd:needsEnd)) {
+         while (tokens.CanConsumeNote(out Note? note,needsEnd: needsEnd)) {
             notes.Add(note!);
          }
          return notes;
@@ -284,7 +284,7 @@ namespace CDL2v1 {
       }
 
       private static readonly List<RW> AlgTypes = [RW.FUNCTION,RW.ACTION,RW.TEST,RW.PREDICATE];
-      private void ParseSection(ID sectionId,string comments,Notes notes,ParseMode mode=ParseMode.Full) {
+      private void ParseSection(ID sectionId,string comments,Notes notes,ParseMode mode = ParseMode.Full) {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
          currentSection = new Section(sectionId,currentLayer,comments,notes);
@@ -302,11 +302,11 @@ namespace CDL2v1 {
             if (tokens.IsNext(AlgTypes)) {
                cont = ParseAlgorithm(internalNotes,out _,mode);
             } else if (tokens.IsNext(RW.LIST)) {
-               cont = ParseList(internalNotes,mode);
+               cont = ParseList(internalNotes,out _,mode);
             } else if (tokens.IsNext(RW.VAR)) {
-              cont = ParseVar(internalNotes,mode);
+               cont = ParseVar(internalNotes,mode,out _);
             } else if (tokens.IsNext(RW.CONST)) {
-               cont = ParseConstants(internalNotes,mode);
+               cont = ParseConstants(internalNotes,mode,out _);
             } else {
                if (mode == ParseMode.Full) ReportError($"Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST. Seeing {tokens.Peek()}");
                cont = false;
@@ -374,7 +374,7 @@ namespace CDL2v1 {
             }
             if (mode == ParseMode.Full) currentSection.Declarations[id] = algorithm.GUID;
          } else {
-            if (mode==ParseMode.Full) ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
+            if (mode == ParseMode.Full) ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
 
          return algorithm != null;
@@ -383,7 +383,7 @@ namespace CDL2v1 {
       private bool DuplicateDeclaration(ID id,RW type) {
          if (currentSection!.Declarations.TryGetValue(id,out CDL2Object? value)) {
             AddNote(currentSection,Note.DuplicateDeclaration,$"{type} {id}",value!);
-            AddParsingError(Note.DuplicateDeclaration,$"{type} {id}",value?.ToString()??"");
+            AddParsingError(Note.DuplicateDeclaration,$"{type} {id}",value?.ToString() ?? "");
             return true;
          }
          return false;
@@ -417,7 +417,7 @@ namespace CDL2v1 {
             if (ParseAlternative(proc,group,notes,mode,out Alternative alternative)) {
                alternatives.Add(alternative);
             } else {
-               if (mode==ParseMode.Full) ReportError("Expected alternative");
+               if (mode == ParseMode.Full) ReportError("Expected alternative");
                return false;
             }
          } while (tokens.Optional(TT.ALTSEP));
@@ -429,7 +429,7 @@ namespace CDL2v1 {
          do {
             if (alternative.lastCall.type != LCT.None) {
                // If we have a last call, then we should NOT have seen a separator
-               if (mode==ParseMode.Full) ReportError("Unexpected ,");
+               if (mode == ParseMode.Full) ReportError("Unexpected ,");
                return false;
             } else if (tokens.Optional(RW.BUILTIN) && tokens.Optional(out ID id)) {
                if (ParseCall(id,proc,alternative,mode,out Call? call,builtin: true)) {
@@ -621,11 +621,12 @@ namespace CDL2v1 {
          return true;
       }
 
-      private bool ParseList(Notes notes,ParseMode mode = ParseMode.Full) {
+      private bool ParseList(Notes notes,out List<LIST> lists,ParseMode mode = ParseMode.Full) {
          if (tokens.CanConsume(RW.LIST,out string? comments)) {
             Debug.Assert(currentSection != null);
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,id=>ParseListBody(id,mode),notes,mode);
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,id => ParseListBody(id,mode),notes,mode,out lists);
          }
+         lists = [];
          return true;
       }
 
@@ -656,14 +657,15 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a var declaration.
       /// </summary>
-      private bool ParseVar(Notes notes,ParseMode mode) {
+      private bool ParseVar(Notes notes,ParseMode mode,out List<Var> vars) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.VAR,out string? comments)) {
             return ParseIDDeclarationList(currentSection.Declarations,comments!,
                id => mode == ParseMode.Full && DuplicateDeclaration(id,RW.VAR) ? null : new Var(id,currentSection)
-            ,notes,mode);
+            ,notes,mode,out vars);
          } else {
             AddParsingError(Note.ExpectedId);
+            vars = [];
             return false;
          }
       }
@@ -671,12 +673,13 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a constant declaration.
       /// </summary>
-      private bool ParseConstants(Notes notes,ParseMode mode) {
+      private bool ParseConstants(Notes notes,ParseMode mode,out List<Const> consts) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST,out string? comments)) {
             Debug.Assert(currentSection != null);
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,id=>ParseConstBody(id,mode),notes,mode);
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,id => ParseConstBody(id,mode),notes,mode,out consts);
          } else {
+            consts = [];
             return false;
          }
       }
@@ -781,7 +784,7 @@ namespace CDL2v1 {
                ID id = ID.From(idToken);
                if (container.Ludes[type].Contains(id)) {
                   parser.ReportWarning($"Duplicate {type} {id} ignored");
-               } else { 
+               } else {
                   container.Ludes[type].Add(id);
                }
                if (!parser.tokens.CanConsumeSep()) break;
@@ -839,18 +842,19 @@ namespace CDL2v1 {
       /// <param Id="idList"></param>
       /// <param Id="idList2"></param>
       /// <param Id="processID"></param>
-      private bool ParseIDDeclarationList(Section.DeclarationDictionary declarations,string comments,
-            Func<ID,CDL2Object?> getObject,Notes notes,ParseMode mode) {
+      private bool ParseIDDeclarationList<T>(Section.DeclarationDictionary declarations,string comments,
+            Func<ID,T?> getObject,Notes notes,ParseMode mode,out List<T> objectList) where T : CDL2Object {
+         objectList = [];
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            CDL2Object? CDL2Object = getObject(id);
+            T? CDL2Object = getObject(id);
             if (mode == ParseMode.Full && CDL2Object != null && declarations.TryAdd(id,CDL2Object)) {
                firstObject ??= (NamedElement)CDL2Object;
+               objectList.Add(CDL2Object);
             }
 
-            if (!tokens.CanConsumeSep())
-               break;
+            if (!tokens.CanConsumeSep()) break;
          }
          if (!tokens.CanConsumeEnd()) {
             if (mode == ParseMode.Full) {
@@ -884,10 +888,10 @@ namespace CDL2v1 {
          tokens.CanConsumeEnd();
       }
 
-      private void ReportError(string message,bool suppressErrorAction = false)    => ErrorReporter(Severity.Error,message,suppressErrorAction);
+      private void ReportError(string message,bool suppressErrorAction = false) => ErrorReporter(Severity.Error,message,suppressErrorAction);
       private void ReportError(string message) => ErrorReporter(Severity.Error,message,false);
       private void ReportWarning(string message) => ErrorReporter(Severity.Warning,message,false);
-      private void ReportInfo(string message) => ErrorReporter(Severity.Info,message,false); 
+      private void ReportInfo(string message) => ErrorReporter(Severity.Info,message,false);
 
       internal void SkipToNextEnd() {
          while (!tokens.IsNext(TT.END))
@@ -907,7 +911,7 @@ namespace CDL2v1 {
       /// <param name="replace"></param>
       internal bool Parse(ParsingContext parsingContext,out NamedElement? element,Func<bool> canReplace,string input,ParseMode mode = ParseMode.Full) {
          element = null;
-         if (tokens.Peek().type != TokenType.RESWORD) { 
+         if (tokens.Peek().type != TokenType.RESWORD) {
             if (mode == ParseMode.Full) ReportError($"Expected a reserved word at the start of input, not \"{tokens.Peek()}\".");
             return false;
          }
@@ -990,22 +994,61 @@ namespace CDL2v1 {
                   if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode)) element = alg;
                   // alg was added to the current section at the end
                   MoveObjectToPosition(parsingContext,context,alg);
-               } else { 
+               } else {
                   if (mode == ParseMode.Full) {
-                  ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
-                  AddParsingError(Note.NoSectionForAlgorithm,context.ToString());
-               }
+                     ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
+                     AddParsingError(Note.NoSectionForObject,context.ToString());
+                  }
                   element = null;
                }
                break;
             case RW.CONST:
-               ReportInfo($"Parsing const with input: {input}");
+               section = context.Section;
+               if (section is not null) {
+                  currentSection = section;
+                  if (ParseConstants(Notes.Empty,mode,out List<Const> consts)) {
+                     MoveObjectToPosition(parsingContext,context,consts);
+                     element = consts.LastOrDefault();
+                  }
+               } else {
+                  if (mode == ParseMode.Full) {
+                     ReportError($"Cannot add a const because I don't know which {RW.SECTION} to add it to. Context: {context}");
+                     AddParsingError(Note.NoSectionForObject,context.ToString());
+                  }
+                  element = null;
+               }
                break;
             case RW.VAR:
-               ReportInfo($"Parsing var with input: {input}");
+               section = context.Section;
+               if (section is not null) {
+                  currentSection = section;
+                  if (ParseVar(Notes.Empty,mode,out List<Var> vars)) {
+                     MoveObjectToPosition(parsingContext,context,vars);
+                     element = vars.LastOrDefault();
+                  }
+               } else {
+                  if (mode == ParseMode.Full) {
+                     ReportError($"Cannot add a var because I don't know which {RW.SECTION} to add it to. Context: {context}");
+                     AddParsingError(Note.NoSectionForObject,context.ToString());
+                  }
+                  element = null;
+               }
                break;
             case RW.LIST:
-               ReportInfo($"Parsing list with input: {input}");
+               section = context.Section;
+               if (section is not null) {
+                  currentSection = section;
+                  if (ParseList(Notes.Empty,out List<LIST> lists,mode)) {
+                     MoveObjectToPosition(parsingContext,context,lists);
+                     element = lists.LastOrDefault();
+                  }
+               } else {
+                  if (mode == ParseMode.Full) {
+                     ReportError($"Cannot add a list because I don't know which {RW.SECTION} to add it to. Context: {context}");
+                     AddParsingError(Note.NoSectionForObject,context.ToString());
+                  }
+                  element = null;
+               }
                break;
             case RW.ABSTR:
             case RW.EXT:
@@ -1018,6 +1061,7 @@ namespace CDL2v1 {
             case RW.POSTLUDE:
                if (context.FocusType == SelectorType.LAYER) {
                   ReportError($"Layers don't have {objectType}s");
+                  AddParsingError(Note.InvalidLudeContext,objectType.ToString(),context.ToString());
                } else {
                   switch (context.FocusType) {
                      case SelectorType.MODULE:
@@ -1072,6 +1116,16 @@ namespace CDL2v1 {
                   break;
             }
          }
+      }
+      /// <summary>
+      /// Moves each object in the specified list to the given position within the parsing context.
+      /// </summary>
+      /// <typeparam name="T">The type of objects to move. Must inherit from CDL2Object.</typeparam>
+      /// <param name="parsingContext">The parsing context in which the objects are to be moved.</param>
+      /// <param name="context">The focus or target position to which each object will be moved.</param>
+      /// <param name="objList">The list of objects to move. Cannot be null.</param>
+      private static void MoveObjectToPosition<T>(ParsingContext parsingContext, Focus context, List<T> objList) where T: CDL2Object {
+         foreach (T obj in objList.Reverse<T>()) MoveObjectToPosition(parsingContext, context, obj);
       }
    }
 }

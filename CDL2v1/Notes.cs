@@ -131,7 +131,8 @@ namespace CDL2v1 {
       public static readonly Note ParseExpectedProcBody             = new(Severity.Error  , 048, "Expected procedure body.");
       public static readonly Note ParseExpectedMacroBody            = new(Severity.Error  , 049, "Expected macro body.");
       public static readonly Note ExpectedId                        = new(Severity.Error  , 050, "Expected identifier.");
-      public static readonly Note NoSectionForAlgorithm             = new(Severity.Error  , 0510,"Unable to determine section for algorithm. Context is {0}.");
+      public static readonly Note NoSectionForObject                = new(Severity.Error  , 0510,"Unable to determine section for object. Context is {0}.");
+      public static readonly Note InvalidLudeContext                = new(Severity.Error  , 0511,"Layers don't have {0}s.");
 
 
       public static readonly Note NoEffect                          = new(Severity.Warning, 101, "Procedure has no effect tough is declared as {0}");
