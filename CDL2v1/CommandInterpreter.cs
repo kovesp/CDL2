@@ -126,8 +126,17 @@ namespace CDL2v1 {
                if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
                   // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
                   // Must also take care of adding an undo record if something is replaced.
-                  if (parser.Parse(ParsingContext.AsParsingContext,out NamedElement? element,CanReplace,input)) {
-                     if (setFocus) Focus.SetFocus(element!);
+                  ParsingContext parsingContext = ParsingContext.AsParsingContext;
+                  if (parser.Parse(parsingContext,out NamedElement? element,CanReplace,input)) {
+                     if (setFocus && element is not null) Focus.SetFocus(element);
+                     if (Container.LudeSelectors.Contains(type)) {
+                        Container container = parsingContext.Focus.FocusType switch {
+                           ST.PROGRAM => (parsingContext.Focus.Object as Program)!,
+                           ST.MODULE => (parsingContext.Focus.Object as Module)!,
+                           _ => parsingContext.Focus.Object!.Section!,
+                        };
+                        WriteInfo($"{container} {type} added");
+                     }
                   } else {
                      foreach (Note note in parser.ParsingErrors) {
                         WriteError(note.ToString());
@@ -593,6 +602,7 @@ namespace CDL2v1 {
          BoundedStack<Database.UndoRecord> stack = undo ? Database.Instance.UndoStack : Database.Instance.RedoStack;
          BoundedStack<Database.UndoRecord> otherStack = undo ? Database.Instance.RedoStack : Database.Instance.UndoStack;
          string stackName = undo ? "undo" : "redo";
+         string tag = "";
          if (Settings.SettingValue<bool>("list")) {
             int n = 0;
             WriteLine($"{stackName} stack ({stack.Count}/{stack.Capacity})");
@@ -609,27 +619,44 @@ namespace CDL2v1 {
                }
             }
          } else if (stack.Count == 0) {
-            WriteError($"{stackName} stack is empty.");
-         } else {
-            int index = int.TryParse(args,out int i) ? i-1 : 0;
-            if (i < 0 || i > stack.Count) {
-               WriteError($"argument {index + 1} for {stackName} stack out of range: must be {(stack.Count==1?"1 if given":$"between 1 and {stack.Count}")}.");
-            } else {
-               string tag = Settings.SettingValue<string>("settag")!;
+            WriteWarning($"{stackName} stack is empty.");
+         } else if ((tag = Settings.SettingValue<string>("tag")!).IsNotEmptyOrWhitespace) {
+            // Find the most recent record with the given tag
+            int index = stack.FindIndex(r => r.Tag == tag);
+            if (index < 0) {
+               WriteError($"No record with tag '{tag}' found in {stackName} stack.");
+               return;
+            }
+            // Move the found record to the top of the stack then do the operation
+            stack.Surface(index);
+            SingleUndoRedo(undo,stack,otherStack);
+            SetStatus();
+         } else { 
+            int n = 1;
+            bool isIndex = false;
+            Match m = Regex.Match(args.Trim(),@"^(:?)\s*(\d+)\s*$",RegexOptions.Compiled);
+            if (m.Success) {
+               isIndex = m.Groups[1].Value == ":";
+               n = int.Parse(m.Groups[2].Value);
+               if (n <= 0 || n > stack.Count) {
+                  WriteError($"Argument {n} for {stackName} stack out of range: must be {(stack.Count == 1 ? "1 if given" : $"between 1 and {stack.Count}")}.");
+                  return;
+               }
+            }
+            if (isIndex) {
+               tag = Settings.SettingValue<string>("settag")!;
                if (tag.IsNotEmptyOrWhitespace) {
-                  stack[index]?.Tag = tag == "-" ? "" : tag;
+                  stack[n - 1]?.Tag = tag == "-" ? "" : tag;
                } else {
-                  tag = Settings.SettingValue<string>("tag")!;
-                  // Move the requested record to the top of the stack
-                  if (tag.IsNotEmptyOrWhitespace) {
-                     stack.Surface(record => record.Tag == tag);
-                  } else {
-                     stack.Surface(index);
-                  }
+                  // Move the requested record to the top of the stack and perform the operation
+                  stack.Surface(n - 1);
                   SingleUndoRedo(undo,stack,otherStack);
                }
-               SetStatus();
+            } else {
+               // Perform n operations
+               for (int i = 0; i < n; i++) SingleUndoRedo(undo,stack,otherStack);
             }
+            SetStatus();
          }
       }
 

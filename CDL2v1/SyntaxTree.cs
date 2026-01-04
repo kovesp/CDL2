@@ -523,12 +523,14 @@ namespace CDL2v1 {
          { RW.POSTLUDE,[] }
       };
       public static readonly List<RW> LudeTypes = [RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
+      public static readonly List<ST> LudeSelectors = [ST.PRELUDE,ST.ROOT,ST.POSTLUDE];
+
 
       /// <summary>
       /// Sets the LudeParser action for the container. The default is to do nothing.
       /// </summary>
       [JsonIgnore]
-      public Action<Parser,RW,Container> LudeParser = (parser,ludeType,container) => { };
+      public Func<Parser,RW,Container,bool> LudeParser = (parser,ludeType,container) => false;
 
       /// <summary>
       /// The short Id of the container with its type. Used in the ToString method.

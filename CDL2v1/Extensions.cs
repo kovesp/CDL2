@@ -257,6 +257,27 @@ namespace CDL2v1 {
             _items = newItems;
          }
       }
+
+      /// <summary>
+      /// Searches for an element that matches the conditions defined by the specified predicate and returns the
+      /// zero-based index of the first occurrence within the collection.
+      /// </summary>
+      /// <remarks>The search starts from the most recently added element and proceeds in reverse order of
+      /// insertion. If the collection is empty, the method returns –1.</remarks>
+      /// <param name="predicate">The delegate that defines the conditions of the element to search for. Cannot be null.</param>
+      /// <returns>The zero-based index of the first element that matches the predicate; otherwise, –1 if no such element is
+      /// found.</returns>
+      public int FindIndex(Predicate<T> predicate) {
+         if (IsEmpty) return -1;
+         int current = _head;
+         for (int i = 0; i < _size; i++) {
+            current = (current - 1 + _items.Length) % _items.Length;
+            if (predicate(_items[current])) {
+               return i;
+            }
+         }
+         return -1;
+      }
    
       /// <summary>
       /// Gets the number of elements contained in the <see cref="BoundedStack{T}"/>.
@@ -845,7 +866,7 @@ namespace CDL2v1 {
       }
 
       extension(ParsingContext? context) {
-         public ParsingContext AsParsingContext => context ?? new ParsingContext();
+         public ParsingContext AsParsingContext => context ?? new ParsingContext(location:InsertLocation.After);
       }
 
       extension<T>(List<T> list) where T : notnull {

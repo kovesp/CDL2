@@ -779,7 +779,7 @@ namespace CDL2v1 {
          container.LudeParser(this,RW.POSTLUDE,container);
       }
 
-      internal static void ParseLudeOfIDs(Parser parser,RW type,Container container) {
+      internal static bool ParseLudeOfIDs(Parser parser,RW type,Container container) {
          if (parser.tokens.Optional(type)) {
             while (parser.tokens.Optional(TT.ID,out Token idToken)) {
                ID id = ID.From(idToken);
@@ -792,6 +792,7 @@ namespace CDL2v1 {
             }
             parser.tokens.CanConsumeEnd();
          }
+         return true;
       }
 
       /// <summary>
@@ -802,7 +803,7 @@ namespace CDL2v1 {
       /// <param Id="parser"></param>
       /// <param Id="LudeType"></param>
       /// <param Id="container"></param>
-      internal static void ParseLudeOfCalls(Parser parser,RW ludeType,Container container) {
+      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container) {
          if (parser.tokens.Optional(ludeType)) {
             //Debug.Assert(container != null);
             Section section = (Section)container;
@@ -814,17 +815,21 @@ namespace CDL2v1 {
                if (ParseCall(parser,ID.From(id),lude,alternative,ParseMode.Full,out Call? call)) {
                   alternative.calls.Add(call);
                } else {
-                  parser.ReportError("Expected ID");
-                  return;
+                  parser.ReportError("Expected Call");
+                  parser.AddParsingError(Note.ExpectedCall);
+                  return false;
                }
-               if (!parser.tokens.CanConsumeSep())
-                  break;
+               if (!parser.tokens.CanConsumeSep()) break;
             }
-            parser.tokens.CanConsumeEnd();
+            if (!parser.tokens.CanConsumeEnd()) {
+               parser.AddParsingError(Note.ExpectedPeriod);
+               return false;
+            }
             if (alternative.calls.Count >= 1) {
                alternative.NormalizeCalls();
             } else {
                parser.AddNote(container,Note.EmptyLude,ludeType);
+               parser.AddParsingError(Note.EmptyLude,ludeType.ToString());
             }
 
             lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
@@ -833,6 +838,7 @@ namespace CDL2v1 {
             // section.Declarations[lude.Id] = lude.GUID;
             section.LudeProcs[ludeType] = lude.GUID;
          }
+         return true;
       }
 
 
@@ -1081,10 +1087,9 @@ namespace CDL2v1 {
                         break;
                      default:
                         // Either the context is a Section or it is inside a section.
-                        section = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
-                        Debug.Assert(section != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
-                        ParseLudeOfCalls(this,objectType,section);
-                        break;
+                        currentSection = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
+                        Debug.Assert(currentSection != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
+                        return ParseLudeOfCalls(this,objectType,currentSection);
                   }
                }
                break;
