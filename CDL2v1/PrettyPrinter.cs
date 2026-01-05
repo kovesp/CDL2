@@ -395,7 +395,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="ludeType"></param>
       /// <param name="container"></param>
-      private void PrintLude(RW ludeType,Container container) {
+      /// <param name="asString">Returns the lude as a string if true, otherwise prints it directly.</param>
+      public string PrintLude(RW ludeType,Container container,bool asString = false) {
          if (container is Section section) {
             if (section.Ludes[ludeType].Count != 0) {
                // Section Ludes are stored as ids of a generated Procedure item and this is used as a indicator that the lude Procedure is present.
@@ -412,6 +413,7 @@ namespace CDL2v1 {
             // The Program and Module ludes are lists of module respectively section Ids.
             PrintList(ludeType,container.Ludes[ludeType],decorate:false);
          }
+         return asString ? Emitter.Content : "";
       }
       //private class Boxed<T> {
       //   public T? Value { get; set; }

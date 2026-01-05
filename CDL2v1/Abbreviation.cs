@@ -123,12 +123,12 @@ namespace CDL2v1 {
          new ("LAYER"      ,1,SelectorType.MODULE),
          new ("SECTION"    ,1,SelectorType.LAYER),
          // Matched by FACE and ANY
-         new ("ABSTR"      ,5,SelectorType.SECTION),
-         new ("EXT"        ,3,SelectorType.SECTION),
-         new ("EXPORT"     ,3,SelectorType.SECTION),
-         new ("IMPORT"     ,3,SelectorType.SECTION),
-         new ("IMPORTED"   ,8,SelectorType.SECTION),
-         new ("INV"        ,3,SelectorType.SECTION),
+         new ("ABSTR"      ,5,SelectorType.SECTION,focusable:false),
+         new ("EXT"        ,3,SelectorType.SECTION,focusable:false),
+         new ("EXPORT"     ,3,SelectorType.SECTION,focusable:false),
+         new ("IMPORT"     ,3,SelectorType.SECTION,focusable:false),
+         new ("IMPORTED"   ,8,SelectorType.SECTION,focusable:false),
+         new ("INV"        ,3,SelectorType.SECTION,focusable:false),
          // Matched by DATA, OBJECT and ANY
          new ("CONST"      ,3,SelectorType.SECTION),
          new ("LIST"       ,4,SelectorType.SECTION),
@@ -144,9 +144,9 @@ namespace CDL2v1 {
          // Matched by ANY
          new ("NOTE"       ,4),
          new ("PART"       ,4,SelectorType.PROGRAM),
-         new ("POSTLUDE"   ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
-         new ("PRELUDE"    ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
-         new ("ROOT"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION]),
+         new ("POSTLUDE"   ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
+         new ("PRELUDE"    ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
+         new ("ROOT"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
          // Non focusable types, matched by ANY
          new ("AFFIX"      ,3,AlgorithmTypesWithMacro,focusable:false),
          new ("CALL"       ,1,SelectorType.PROCEDURE,focusable:false), // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
@@ -156,7 +156,7 @@ namespace CDL2v1 {
          new ("DATA"       ,4,SelectorType.SECTION),
          new ("FACE"       ,4,SelectorType.SECTION),
          new ("CONTAINER"  ,9,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.LAYER]),
-         new ("OBJECT"     ,6,SelectorType.SECTION),
+         new ("OBJECT"     ,3,SelectorType.SECTION),
       ];
 
       private readonly static Dictionary<SelectorType,Abbreviation<SelectorType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type,abbrev => abbrev);
@@ -174,6 +174,8 @@ namespace CDL2v1 {
          List<SelectorType>? containers = FocusTypeMap[child].Containers; // The direct containers of the child type
          return containers is not null && (containers.Contains(ancestor) || containers.Any(container => AncestorFocusTypeOf(ancestor,container)));
       }
+
+      public static bool Focusable(SelectorType type) => FocusTypeMap.TryGetValue(type,out Abbreviation<SelectorType>? abbrev) && abbrev.IsFocusable;
 
       private static Set<Abbreviation<T>> Abbreviations => typeof(T).Name switch {
          nameof(CommandType) => Commands.Cast<Abbreviation<T>>().ToSet,

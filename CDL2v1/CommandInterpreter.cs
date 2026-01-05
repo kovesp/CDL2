@@ -33,6 +33,7 @@
 // </auto-gen>
 
 using System.Collections.Immutable;
+using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -70,13 +71,13 @@ namespace CDL2v1 {
          ppEdit = new(new EmitterString(),includeComments: true);
       }
 
-      public void SetStatus(NamedElement? element=null) {
+      public void SetStatus(NamedElement? element = null) {
          if (commandWindow is not null) {
             if (element is null) {
                commandWindow.SetStatus("Nothing");
             } else {
                string marker = (element is ITopLevelContainer t ? t : element.Module)?.Modified == true ? "*" : "";
-               commandWindow.SetStatus(marker+element.FQDN(WithInterface:true));
+               commandWindow.SetStatus(marker + element.FQDN(WithInterface: true));
             }
          }
       }
@@ -115,7 +116,7 @@ namespace CDL2v1 {
          if (input.Contains('.')) {
             IEnumerable<string> lines = input.Split('.',StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
             foreach (string line in lines.SkipLast(1)) EnterCode(line,setFocus = false);
-            EnterCode(lines.Last(),setFocus:true);
+            EnterCode(lines.Last(),setFocus: true);
          } else {
             input = input.Trim();
             if (input[^1] != '.') input += '.';
@@ -237,8 +238,8 @@ namespace CDL2v1 {
          public override string ToString() => Type switch {
             SettingType.Boolean => $"-{Name}{(Value is null ? "" : (bool)Value ? "+" : "-")}",
             SettingType.Integer => $"-{Name}={Value}",
-            SettingType.String  => $"-{Name}=\"{Value}\"",
-            _                   => $"-{Name}=<unknown type>"
+            SettingType.String => $"-{Name}=\"{Value}\"",
+            _ => $"-{Name}=<unknown type>"
          };
       }
 
@@ -309,10 +310,10 @@ namespace CDL2v1 {
 
       private static readonly ImmutableDictionary<CommandType,FocusMoveDirection> commandAsFocusMoveDirection =
           new Dictionary<CommandType,FocusMoveDirection> {
-             [CommandType.next]     = FocusMoveDirection.Forward,
+             [CommandType.next] = FocusMoveDirection.Forward,
              [CommandType.previous] = FocusMoveDirection.Backward,
-             [CommandType.first]    = FocusMoveDirection.First,
-             [CommandType.last]     = FocusMoveDirection.Last,
+             [CommandType.first] = FocusMoveDirection.First,
+             [CommandType.last] = FocusMoveDirection.Last,
           }.ToImmutableDictionary();
 
       /// <summary>
@@ -324,9 +325,9 @@ namespace CDL2v1 {
       /// </summary>
       private static readonly ImmutableDictionary<string,Func<bool,string,object?,bool>> SetHandlers =
           new Dictionary<string,Func<bool,string,object?,bool>> {
-             ["programname"]      = SetProgram,
+             ["programname"] = SetProgram,
              ["autosaveinterval"] = SetAutoSaveInterval,
-             ["target"]           = SetTarget,   
+             ["target"] = SetTarget,
           }.ToImmutableDictionary();
 
       /// <summary>
@@ -374,7 +375,7 @@ namespace CDL2v1 {
                   SettingType.String => Settings.SettingValue<string>(setting.Name),
                   _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
                };
-               if (SetHandlers.TryGetValue(setting.Name,out Func<bool,string,object?,bool>? handler) && ! handler(true,setting.Name,setting.Value)) SettingsValid = false;
+               if (SetHandlers.TryGetValue(setting.Name,out Func<bool,string,object?,bool>? handler) && !handler(true,setting.Name,setting.Value)) SettingsValid = false;
                if (SettingsValid) {
                   Settings.SettingValue(setting.Name,setting.Type,setting.Value,CommandOverride: true);
                } else {
@@ -387,7 +388,7 @@ namespace CDL2v1 {
          }
 
          if (Settings.SettingValue<bool>("DebugCommands")) {
-            WriteInfo($"Command: {verb} {string.Join(" ",settings.Select(s=>s.ToString()))} {args}");
+            WriteInfo($"Command: {verb} {string.Join(" ",settings.Select(s => s.ToString()))} {args}");
          }
 
          bool ResetSettings = true; // Whether to reset settings after the command. Some commands may want to keep the settings.
@@ -396,84 +397,84 @@ namespace CDL2v1 {
          try {
             if (SettingsValid) switch (commandType) { // skip command if settings are invalid. Must do the undo in that case
 #if DEBUG
-               case CommandType.vsdebug:
-                  Debugger.Break();
-                  break;
+                  case CommandType.vsdebug:
+                     Debugger.Break();
+                     break;
 #endif
-               case CommandType.INVALID:
-                  WriteError($"Invalid command: {verb}");
-                  return;
+                  case CommandType.INVALID:
+                     WriteError($"Invalid command: {verb}");
+                     return;
 
-               case CommandType.focus:
-                  if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
-               case CommandType.next:
-               case CommandType.previous:
-               case CommandType.first:
-               case CommandType.last:
-                  if (!Focus.Current.Move(args,commandAsFocusMoveDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
+                  case CommandType.focus:
+                     if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
+                  case CommandType.next:
+                  case CommandType.previous:
+                  case CommandType.first:
+                  case CommandType.last:
+                     if (!Focus.Current.Move(args,commandAsFocusMoveDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
 
-               case CommandType.list:
-                  InterpretCommandList(args); break;
+                  case CommandType.list:
+                     InterpretCommandList(args); break;
 
-               case CommandType.print:
-               case CommandType.type:
-                  InterpretCommandPrint(args); break;
+                  case CommandType.print:
+                  case CommandType.type:
+                     InterpretCommandPrint(args); break;
 
-               case CommandType.set:
-                  // Modify settings so that the reset actually sets the new values
-                  if (settings.Length == 0) {
-                     // List the current settings
-                     DisplaySettings();
-                  } else {
-                     ResetSettings = false;
-                  }
-                  break;
-               case CommandType.status:
-                  InterpretCommandStatus(); break;
+                  case CommandType.set:
+                     // Modify settings so that the reset actually sets the new values
+                     if (settings.Length == 0) {
+                        // List the current settings
+                        DisplaySettings();
+                     } else {
+                        ResetSettings = false;
+                     }
+                     break;
+                  case CommandType.status:
+                     InterpretCommandStatus(); break;
 
-               case CommandType.rename:
-                  InterpretCommandRename(args); RequiresSemanticAnalysis = true; break;
-               case CommandType.add:
-                  InterpretCommandAdd(args); RequiresSemanticAnalysis = true; break;
-               case CommandType.edit:
-                  InterpretCommandEdit(args); RequiresSemanticAnalysis = true; break;
-               case CommandType.delete:
-               case CommandType.remove:
-                  InterpretCommandDelete(args); RequiresSemanticAnalysis = true; break;
-               case CommandType.consult:
-                  InterpretCommandConsult(args); RequiresSemanticAnalysis = true; break;
+                  case CommandType.rename:
+                     InterpretCommandRename(args); RequiresSemanticAnalysis = true; break;
+                  case CommandType.add:
+                     InterpretCommandAdd(args); RequiresSemanticAnalysis = true; break;
+                  case CommandType.edit:
+                     InterpretCommandEdit(args); RequiresSemanticAnalysis = true; break;
+                  case CommandType.delete:
+                  case CommandType.remove:
+                     InterpretCommandDelete(args); RequiresSemanticAnalysis = true; break;
+                  case CommandType.consult:
+                     InterpretCommandConsult(args); RequiresSemanticAnalysis = true; break;
 
-               case CommandType.undo:
-                  InterpretCommandUndoRedo(args,undo: true); RequiresSemanticAnalysis = true; break;
-               case CommandType.redo:
-                  InterpretCommandUndoRedo(args,undo: false); RequiresSemanticAnalysis = true; break;
+                  case CommandType.undo:
+                     InterpretCommandUndoRedo(args,undo: true); RequiresSemanticAnalysis = true; break;
+                  case CommandType.redo:
+                     InterpretCommandUndoRedo(args,undo: false); RequiresSemanticAnalysis = true; break;
 
-               case CommandType.save:
-                  WriteInfo($"Saved: {Database.Save()}"); break;
-               case CommandType.abort:
-                  ToastWindow.ShowToast("abort command used, not saving the database.",2000,delay:true);
-                  commandWindow?.Close();
-                  return;
-               case CommandType.bye:
-               case CommandType.quit:
-               case CommandType.exit:
-                  ToastWindow.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
-                  commandWindow?.Close();
-                  return;
+                  case CommandType.save:
+                     WriteInfo($"Saved: {Database.Save()}"); break;
+                  case CommandType.abort:
+                     ToastWindow.ShowToast("abort command used, not saving the database.",2000,delay: true);
+                     commandWindow?.Close();
+                     return;
+                  case CommandType.bye:
+                  case CommandType.quit:
+                  case CommandType.exit:
+                     ToastWindow.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
+                     commandWindow?.Close();
+                     return;
 
-               case CommandType.help:
-                  InterpretCommandHelp(args); break;
+                  case CommandType.help:
+                     InterpretCommandHelp(args); break;
 
-               case CommandType.analyze:
-                  InterpretCommandAnalyze(args); break;
-               case CommandType.generate:
-                  InterpretCommandGenerate(args);
-                  break;
+                  case CommandType.analyze:
+                     InterpretCommandAnalyze(args); break;
+                  case CommandType.generate:
+                     InterpretCommandGenerate(args);
+                     break;
 
                   default:
-                  // Handle other commands as needed
-                  break;
-            }
+                     // Handle other commands as needed
+                     break;
+               }
             if (RequiresSemanticAnalysis && Settings.SettingValue<bool>("AutoAnalyze")) {
                // TODO: Perform semantic analysis after commands that could have made a change if AutoAnalyze is set.
             }
@@ -501,11 +502,11 @@ namespace CDL2v1 {
             Match targetMatch = Regex.Match(program.Comments,@"PRAGMA\s+Target\s*[=:]\s*(\w+)",RegexOptions.Compiled);
             string target = targetMatch.Success ? targetMatch.Groups[1].Value : Settings.SettingValue<string>("Target")!;
             if (CDL2.AvailableCodeGenerators.ContainsKey(target)) {
-               CDL2.GenerateCode(out string targetFileName,target:target,program);
+               CDL2.GenerateCode(out string targetFileName,target: target,program);
                WriteInfo($"{target} code generated for {program.FQDN()} into {targetFileName}");
             } else {
-               WriteError($"Unknown code generator {target} specified in {(targetMatch.Success?"program PRAGMA":"setting")}");
-            }            
+               WriteError($"Unknown code generator {target} specified in {(targetMatch.Success ? "program PRAGMA" : "setting")}");
+            }
          }
       }
 
@@ -545,10 +546,10 @@ namespace CDL2v1 {
                   container.Modified = true;
                }
                WriteInfo($"Consulted => {string.Join(", ",parsedContainers.Select(c => c.FQDN()))}");
-               parsedContainers.LastOrDefault()!.SetFocus();  
+               parsedContainers.LastOrDefault()!.SetFocus();
             } else {
                // Lab mode: interpret each line as a command
-               string[] lines = fileContent.Split(new[] { "\r\n", "\r", "\n" },StringSplitOptions.RemoveEmptyEntries);
+               string[] lines = fileContent.Split(new[] { "\r\n","\r","\n" },StringSplitOptions.RemoveEmptyEntries);
                foreach (string line in lines) {
                   WriteInfo("   " + line);
                   InterpretCommand(line);
@@ -631,7 +632,7 @@ namespace CDL2v1 {
             stack.Surface(index);
             SingleUndoRedo(undo,stack,otherStack);
             SetStatus();
-         } else { 
+         } else {
             int n = 1;
             bool isIndex = false;
             Match m = Regex.Match(args.Trim(),@"^(:?)\s*(\d+)\s*$",RegexOptions.Compiled);
@@ -654,7 +655,7 @@ namespace CDL2v1 {
                }
             } else {
                // Perform n operations
-               for (int i = 0; i < n; i++) SingleUndoRedo(undo,stack,otherStack);
+               for (int i = 0 ; i < n ; i++) SingleUndoRedo(undo,stack,otherStack);
             }
             SetStatus();
          }
@@ -699,9 +700,9 @@ namespace CDL2v1 {
                record.CDL2Object!.SetInterfaces(record.InterfaceStatus);
                record.InterfaceStatus = currentInterfaceType; // Swap the interface status for the symetric operation  
                break;
-            case ChangeType.Replaced: 
+            case ChangeType.Replaced:
                break;
-            case ChangeType.Renamed: 
+            case ChangeType.Renamed:
                break;
             default:
                throw new NotImplementedException($"Undo of change type {record.ChangeType} not implemented.");
@@ -769,12 +770,23 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Edit the selected object.
+      /// Currently only a single section, algorithm or constant can be edited.
+      /// </summary>
+      /// <param name="args"></param>
       private void InterpretCommandEdit(string args) {
          if (commandWindow == null) return; // Ignore the command if there is no command window
-         SingleSelection? context = GetContext(args);
+         Selection? selection = GetMultiContext(args);
+         if (selection is null || selection.Count != 1) {
+            WriteError("Only a single object can be edited.");
+            return;
+         }
+         SingleSelection? context = selection.First();
+         // if (context.)
          if (context == null || context.Object == null || !context.IsFocusable) {
             WriteError("Can't edit.");
-         } else if (context.Object is Container) {
+         } else if (context.Object is Container && context.ListType == ST.INVALID) {
             // Container is a base class for Module, Layer, Section, Program, etc.
             // The idea is
             // 1. PrettyPrint the container into a file.
@@ -788,8 +800,37 @@ namespace CDL2v1 {
             IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
             ppEdit.Emitter.Clear();
             ParsingContext = new (new Focus(context),InsertLocation.Replace); // Set the parsing context to the current focus, so that the parser can use it.
-            commandWindow.EditText(ppEdit.Print(context.Object));
-            // Nothing else. When editing is done the command window will call EnterCode with the edited text.
+            if (context.Object is Section sec && context.ListType != ST.INVALID) {
+               // Special case: editing the prelude of a section.
+               RW ludeType = context.ListType switch {
+                  ST.PRELUDE => RW.PRELUDE,
+                  ST.ROOT => RW.ROOT,
+                  ST.POSTLUDE => RW.POSTLUDE,
+                  _ => RW.NONE
+               };
+               if (ludeType != RW.NONE) {
+                  if (sec.Ludes[ludeType].Count == 0) {
+                     WriteError($"{sec} does not have a {ludeType}.");
+                     IsEditing = false;
+                     ParsingContext = null;
+                     return;
+                  } else {
+                     commandWindow.EditText(ppEdit.PrintLude(ludeType,sec,asString: true)!);
+                  }
+               }
+            } else if (context.Object is CDL2Object) {
+               commandWindow.EditText(ppEdit.Print(context.Object));
+            } else {
+               if (context.Object is Layer lay) {
+                  WriteError($"{RW.LAYER}s do not have ludes: {lay}.");
+               } else {
+                  WriteError($"{context.Object} ${context.ListType} cannot be edited.");
+               }
+               IsEditing = false;
+               ParsingContext = null;
+               return;
+            }
+           // Nothing else. When editing is done the command window will call EnterCode with the edited text.
          }
       }
 

@@ -81,6 +81,10 @@ namespace CDL2v1 {
       public SingleSelection() { }
 
       public SingleSelection(NamedElement? obj) => Object = obj;
+      public SingleSelection(NamedElement? obj,SelectorType type) {
+         Object = obj;
+         ListType = type;
+      }
 
       public static SingleSelection Empty => new();
       /// <summary>
@@ -122,7 +126,7 @@ namespace CDL2v1 {
       /// ABSTR, EXT, INV, IMPORT, EXPORT for a SECTION.
       /// </summary>
       [JsonInclude, JsonPropertyOrder(3)]
-      public RW ListType = RW.NONE;
+      public SelectorType ListType = SelectorType.INVALID;
 
 
       private static readonly Type[] NonFocusableTypes = [typeof(Affix), typeof(Local), typeof(Call)];
@@ -271,10 +275,14 @@ namespace CDL2v1 {
          IEnumerable<NamedElement> candidateObjects;
          IEnumerable<NamedElement> selectedObjects = [];
 
-         if (!isRooted && segments[1].SegmentName == "" && Abbreviation<SelectorType>.AncestorFocusTypeOf(segments[0].SegmentType,Focus.Current.FocusType)) {
+         bool nonRootedRW = !isRooted && segments[1].SegmentName == "";
+         if (nonRootedRW && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: segments[0].SegmentType,child: Focus.Current.FocusType)) {
             // The initial segment is just a type without a name, and the focus is on an object that is a descendant of that type. e.g. "Module" when the focus is on a Layer.
-            candidateObjects = [ Focus.Current.Object!.GetAncestorOfType(segments[0].SegmentType) ];
-         } else if (isRooted || !Abbreviation<SelectorType>.AncestorFocusTypeOf(Focus.Current.FocusType,segments[0].SegmentType)) {
+            candidateObjects = [Focus.Current.Object!.GetAncestorOfType(segments[0].SegmentType)];
+         } else if (nonRootedRW && !Abbreviation<SelectorType>.Focusable(segments[0].SegmentType) /*&& Focus.Current.Container?.FocusType == ST.SECTION*/) {
+            Add(new SingleSelection(Focus.Current.Container,segments[0].SegmentType));
+            return;
+         } else if (isRooted || !Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor:Focus.Current.FocusType,child:segments[0].SegmentType)) {
             candidateObjects = Database.Instance.NamedElements.Values;
          } else {
             candidateObjects = Focus.Current.Object!.DescendantElements();
@@ -539,6 +547,11 @@ namespace CDL2v1 {
          get => Selection.Object;
          set => Selection.Object = value;
       }
+      /// <summary>
+      /// Get the container of the currently selected object.
+      /// </summary>
+      public Container? Container => Object is Container cont ? cont : Object?.Section;
+
       public override string ToString() {
          if (Object == null)
             return "Nothing";
