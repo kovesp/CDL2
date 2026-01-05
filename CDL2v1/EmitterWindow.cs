@@ -275,6 +275,8 @@ namespace CDL2v1 {
          if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
       }
 
+      public override bool CanPauseUpdate => true;
+
       // Call this before making multiple updates
       public override void BeginUpdate() {
          if (window == null) return;

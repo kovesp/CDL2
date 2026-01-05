@@ -542,6 +542,30 @@ namespace CDL2v1 {
          public IEnumerable<T> OptMap(bool condition,Func<IEnumerable<T>,IEnumerable<T>> func) => condition ? func(source) : source;
          public IEnumerable<T> OptWhere(Func<T,bool>? pred = null) => pred is not null ? source.Where(pred) : source;
          public Set<T> ToSet => [.. source];
+
+         /// <summary>
+         /// Deconstructs an enumerable into a tuple of two elements.
+         /// </summary>
+         /// <param name="first">The first element or default if not present.</param>
+         /// <param name="second">The second element or default if not present.</param>
+         public void Deconstruct(out T first,out T second) {
+            T[] array = [.. source];
+            first  = array.Length > 0 ? array[0] : default!;
+            second = array.Length > 1 ? array[1] : default!;
+         }
+      }
+
+      extension(IEnumerable<string> source) {
+         /// <summary>
+         /// Deconstructs an enumerable into a tuple of two elements.
+         /// </summary>
+         /// <param name="first">The first element or default if not present.</param>
+         /// <param name="second">The second element or default if not present.</param>
+         public void Deconstruct(out string first,out string second) {
+            string[] array = [.. source];
+            first  = array.Length > 0 ? array[0].Trim() : "";
+            second = array.Length > 1 ? array[1].Trim() : "";
+         }
       }
 
       extension(string s) {
@@ -656,6 +680,61 @@ namespace CDL2v1 {
                return prefix.ToLower() + s.Split(" ").Select((word,i) => i == 0 ? word.ToLower() : char.ToUpper(word[0]) + word[1..].ToLower()).Aggregate((a,b) => a + b);
             } else {
                return prefix.ToLower() + s.ToLower().Replace(" ",replacement);
+            }
+         }
+
+         /// <summary>
+         /// Ensures the file path is writable by checking directory existence and file permissions.
+         /// </summary>
+         /// <param name="createDirectory">If true, creates the directory if it doesn't exist.</param>
+         /// <param name="errorMessage">Error message if the file is not writable.</param>
+         /// <returns>True if the file can be written to, false otherwise.</returns>
+         public bool EnsureFileWritable(out string errorMessage,out string fileName,string defaultdDirectory="",bool createDirectory = true) {
+            errorMessage = string.Empty;
+            fileName = s;
+
+            // Get directory from file path
+            string? directory = Path.GetDirectoryName(s);
+            if (string.IsNullOrEmpty(directory)) {
+               directory = string.IsNullOrEmpty(defaultdDirectory) ? Directory.GetCurrentDirectory() : defaultdDirectory;
+               fileName = s = Path.Combine(directory, s);
+            }
+
+            // Check/create directory
+            if (!Directory.Exists(directory)) {
+               if (createDirectory) {
+                  try {
+                     Directory.CreateDirectory(directory);
+                  } catch (Exception ex) {
+                     errorMessage = $"Cannot create directory '{directory}': {ex.Message}";
+                     return false;
+                  }
+               } else {
+                  errorMessage = $"Directory '{directory}' does not exist.";
+                  return false;
+               }
+            }
+
+            // If file doesn't exist, directory writability is sufficient
+            if (!File.Exists(s)) return true;
+
+            // Check if existing file is read-only
+            FileAttributes attributes = File.GetAttributes(s);
+            if (attributes.HasFlag(FileAttributes.ReadOnly)) {
+               errorMessage = $"File '{s}' is read-only.";
+               return false;
+            }
+
+            // Try to open for writing to detect locks
+            try {
+               using FileStream fs = File.Open(s,FileMode.Open,FileAccess.Write,FileShare.ReadWrite);
+               return true;
+            } catch (UnauthorizedAccessException) {
+               errorMessage = $"Access denied to file '{s}'.";
+               return false;
+            } catch (IOException ex) {
+               errorMessage = $"File '{s}' is locked or inaccessible: {ex.Message}";
+               return false;
             }
          }
 
@@ -868,6 +947,7 @@ namespace CDL2v1 {
       extension(ParsingContext? context) {
          public ParsingContext AsParsingContext => context ?? new ParsingContext(location:InsertLocation.After);
       }
+
 
       extension<T>(List<T> list) where T : notnull {
          /// <summary>

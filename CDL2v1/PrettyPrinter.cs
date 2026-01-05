@@ -235,7 +235,8 @@ namespace CDL2v1 {
          Emitter.EndUpdate();
       }
 
-      internal string Print(NamedElement namedElement) {
+      internal string Print(NamedElement namedElement,bool withComment = false) {
+         if (withComment) PrintComment($"# {namedElement.FQDN()}");
          switch (namedElement) {
             // Units
             case Program program:
@@ -284,23 +285,27 @@ namespace CDL2v1 {
          return Emitter.Content; // Return the content of the emitter. Only non-empty for EmitterString
       }
       internal void PauseUpdate(Action action) {
-         // Save the current cursor
-         Cursor? previousCursor = Mouse.OverrideCursor;
-         
-         try {
-             // Set the cursor to "Wait" (hourglass)
-             Mouse.OverrideCursor = Cursors.Wait;
-             
-             // Begin update operation (stops UI updates until complete)
-             Emitter.BeginUpdate();
-             
-             // Execute the action
-             action();
-         }
-         finally {
-             // Always restore the cursor and end update, even if an exception occurs
-             Mouse.OverrideCursor = previousCursor;
-             Emitter.EndUpdate();
+         if (Emitter.CanPauseUpdate) {
+            // Save the current cursor
+            Cursor? previousCursor = Mouse.OverrideCursor;
+
+            try {
+               // Set the cursor to "Wait" (hourglass)
+               Mouse.OverrideCursor = Cursors.Wait;
+
+               // Begin update operation (stops UI updates until complete)
+               Emitter.BeginUpdate();
+
+               // Execute the action
+               action();
+            } finally {
+               // Always restore the cursor and end update, even if an exception occurs
+               Mouse.OverrideCursor = previousCursor;
+               Emitter.EndUpdate();
+            }
+         } else {
+            // If updates cannot be paused, just execute the action directly
+            action();
          }
       }
 
@@ -910,10 +915,10 @@ namespace CDL2v1 {
       /// <param name="notes">A collection of notes to emit after the comment. Each note is formatted according to its severity.</param>
       /// <param name="nl">true to insert a new line before emitting the comment; otherwise, false. The default is true.</param>
       /// <param name="needsEnd">true to append an end marker after notes of type Note; otherwise, false. The default is true.</param>
-      private void PrintComment(string comments,Notes notes,bool nl = true,bool needsEnd = true) {
+      private void PrintComment(string comments,Notes? notes=null,bool nl = true,bool needsEnd = true) {
          if (IncludeComments) {
             if (comments.IsNotEmptyOrWhitespace) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
-            foreach (Note note in notes) {
+            foreach (Note note in notes??Notes.Empty) {
                if (note.NoteType == Severity.Note) {
                   NlEmitnl(note.Text.TrimEnd().Decorate(Emitter, SE.Comment));
                   if (needsEnd) {

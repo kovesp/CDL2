@@ -243,6 +243,7 @@ namespace CDL2v1 {
          }
       }
 
+      public virtual bool CanPauseUpdate => false;
       public virtual void BeginUpdate() { }
       public virtual void EndUpdate() { }
       public virtual void UpdateUI() { }

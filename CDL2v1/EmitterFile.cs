@@ -69,5 +69,11 @@ namespace CDL2v1 {
          writer?.Close();
          writer = null;
       }
+
+      /// <summary>
+      /// Determines whether the underlying writer is currently open and available for writing.
+      /// </summary>
+      /// <returns>true if the writer is open; otherwise, false.</returns>
+      public bool IsOpen() => writer is not null;
    }
 }
