@@ -32,31 +32,69 @@
 // </auto-gen>
 
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.IO;
 
 namespace CDL2v1 {
    internal class EmitterFile : Emitter {
       private StreamWriter? writer = null;
-      private string? target = null;
+      private string target = "";
+      private string targetInfo = "";
 
       /// <summary>
-      /// The target file Id. Setting this will close the current file and open a new one.
-      /// The new one is opened only if the target is not null or empty.
+      /// The target file name. Setting this will close the current file and open a new one.
+      /// If the fileName is the empty string, the previous target is reused
       /// This will throw an exception if the file cannot be opened.
       /// </summary>
       public override string Target {
-         get => target??"";
+         get => target;
          set {
-            writer?.Close();
-            writer = null;
-            target = value;
-            if (target is not null && target != "") writer = new StreamWriter(value);            
+            (string fileName, string fileOption) = value.Trim('"').Split("::",2);  // :: is used to avoid conflict with NTFS streams (given by single :).
+
+            bool appending   = fileOption == "append";
+            bool closing     = writer is not null;
+            bool overwriting = false;
+
+            if (target == "" && fileName == "") {
+               throw new IOException("EmitterFile: Target file name cannot be empty if not already set.");
+            } else if (fileName != "") { // Close the existing writter if any and set the new file name
+               if (closing) {
+                  writer?.Flush();
+                  writer?.Close();
+                  writer = null;
+               }
+
+               if (Path.GetExtension(fileName) == "") fileName = Path.ChangeExtension(fileName,"cdl2"); // Change the extension if missing.
+               // Check if file is writable and create directory if needed. Use OutputDirectory when the file does not have a path component.
+               if (!fileName.EnsureFileWritable(out string error,out fileName,defaultdDirectory: Settings.OutputDirectory)) {
+                  throw new IOException($"EmitterFile: Cannot write to target file '{fileName}': {error}");
+               }
+
+               overwriting = File.Exists(fileName) && !appending;
+
+               target = fileName;
+            }
+
+            // Open the new or old file possibly in append mode ... but only for non-empty target
+            if (target != "") {
+               writer = new StreamWriter(target,append: appending);
+               targetInfo = overwriting ? $"Overwriting existing file '{target}'." : (appending ? $"Appending to file '{target}'." : $"Writing to new file '{target}'.");
+            } else { 
+               targetInfo = "No target file.";
+            }
          }
       }
 
-      public EmitterFile() => Target = "";
+      public override string TargetInfo => targetInfo;
+
+      public EmitterFile() => target = "";
       public EmitterFile(string targetFileName) => Target = targetFileName;
-      ~EmitterFile() => Target = "";
+      ~EmitterFile() {
+         target = "";
+         writer?.Flush();
+         writer?.Close();
+         writer = null;
+      }
 
       /// <summary>
       /// Write the item to the target file.
@@ -74,6 +112,6 @@ namespace CDL2v1 {
       /// Determines whether the underlying writer is currently open and available for writing.
       /// </summary>
       /// <returns>true if the writer is open; otherwise, false.</returns>
-      public bool IsOpen() => writer is not null;
+      public override bool IsOpen() => writer is not null;
    }
 }

@@ -52,6 +52,8 @@ namespace CDL2v1 {
       public bool SuppressDebug = false;
 
       public virtual string Target { get; set; } = "";
+      public virtual string TargetInfo { get; } = "";
+
       private int _indentWidth = 3;
       /// <summary>
       /// The number of spaces to use for each level of indentation.
@@ -147,6 +149,13 @@ namespace CDL2v1 {
       /// Override this to close the target.
       /// </summary>
       public virtual void Close() { }
+
+      /// <summary>
+      /// Determines whether the current resource is open and available for operations.
+      /// The default is that the resource is always open. EmitterFile overrides this to report the state of the underlying file.
+      /// </summary>
+      /// <returns>true if the resource is open; otherwise, false.</returns>
+      public virtual bool IsOpen() => true;
 
       /// <summary>
       /// Write the item to the target. Must be supplied by concrete subclasses.

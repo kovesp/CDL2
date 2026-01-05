@@ -48,11 +48,9 @@ namespace CDL2v1 {
       private readonly CommandPromptWindow? commandWindow;
       private readonly PrettyPrinter pp;
       private readonly PrettyPrinter ppFile; // For use in the print command with file setting
-      private readonly EmitterFile ppFileEmitter;
       private readonly PrettyPrinter ppEdit; // For use in the edit command
       private readonly Parser parser;
       private bool IsEditing = false; // Used to determine if we are currently in edit mode
-      private InsertLocation insertionLocation = InsertLocation.After; // Used to determine where to insert the object being added
 
       public const char CommandComment = '!';
       public const char CommandSeparator = ';'; // Not currently used. Difficult to split commands correctly when there are quoted strings.
@@ -71,8 +69,8 @@ namespace CDL2v1 {
             parser = new Parser(CDL2.Compiler,(severity,msg,_) => Debug.WriteLine($"{severity}: {msg}"));
          }
          ppEdit = new(new EmitterString(),includeComments: true);
-         ppFile = new(ppFileEmitter=new EmitterFile(),includeComments: true);
-         ppFileEmitter.Target = Settings.SettingValue<string>("file")!;
+         ppFile = new(new EmitterFile(),includeComments: true);
+         // ppFileEmitter.Target = Settings.SettingValue<string>("file")!;
       }
 
       public void SetStatus(NamedElement? element = null) {
@@ -986,52 +984,26 @@ namespace CDL2v1 {
          WriteInfo($" Available code generators: {string.Join(", ",CDL2.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}");
       }
 
-
+      /// <summary>
+      /// Run the print command.
+      /// The -file setting must be of the form <filename> or <filename>::append. Filename may be empty to refer to the previous file.
+      /// </summary>
+      /// <param name="args"></param>
       private void InterpretCommandPrint(string args) {
-         (string fileName, string fileOption) = Settings.SettingValue<string>("file")!.Trim('"').Split("::",2);  // :: is used to avoid conflict with NTFS streams (given by single :).
+         string fileName = Settings.SettingValue<string>("file")!.Trim('"');
          PrettyPrinter ppTarget;
-         bool closeFileAtEnd = true;
-         bool withComment = true;
+         bool withComment;
 
-         if (Path.GetExtension(fileName) == "") fileName = Path.ChangeExtension(fileName,"cdl2"); // Change the extension if missing.
-         // Check if file is writable and create directory if needed. Use OutputDirectory when the file does not have a path component.
-         if (!fileName.EnsureFileWritable(out string error,out fileName,defaultdDirectory:Settings.OutputDirectory)) {
-            WriteError(error);
-            return;
-         }
-
-         // Handle the option choices
-         if (fileOption == "append" && fileName == "") {
-            // Append to previous file
-            ppTarget = ppFile!;
-            closeFileAtEnd = false;
-            WriteInfo($"Appending to {ppFileEmitter.Target}.");
-         } else if (fileOption == "append,close" && fileName == "") {
-            // Append to previous file and close it at the end of the command
-            ppTarget = ppFile!;
-            closeFileAtEnd = true;
-            WriteInfo($"Appending to {ppFileEmitter.Target} and closing.");
-         } else if (fileOption == "close" && fileName == "") {
-            // Close previous file and print nothing
-            ppFileEmitter.Close();
-            WriteInfo($"{ppFileEmitter.Target} closed.");
-            return;
-         } else if (fileOption == "append" && fileName != "") {
-            // Close the previous file if any and open the new file and leave it open for appending
-            ppTarget = ppFile!;
-            string prev = ppFileEmitter.Target;
-            ppFileEmitter.Target = fileName;
-            closeFileAtEnd = false;
-            string msg = prev != "" ? prev != fileName ? $"Closing {prev}, writing to {fileName} and leaving open for appending." : $"Overwriting {fileName} and leaving open for appending." : $"Writing to {fileName} and leaving open for appending.";
-            WriteInfo(msg);
-         } else if (fileOption == "" && fileName != "") {
-            // Close previous file if any and open the new file. Close the file at the end of the command.
-            ppTarget = ppFile!;
-            string prev = ppFileEmitter.Target;
-            ppFileEmitter.Target = fileName;
-            closeFileAtEnd = true;
-            string msg = prev != "" ? prev != fileName ? $"Closing {prev}, writing to {fileName} and closing." : $"Overwriting {fileName} and closing." : $"Writing to {fileName} and closing.";
-            WriteInfo(msg);
+         if (fileName != "") {
+            try {
+               ppFile.Emitter.Target = fileName;
+               WriteInfo(ppFile.Emitter.TargetInfo);
+            } catch (IOException e) {
+               WriteError(e.Message);
+               return;
+            }
+            ppTarget = ppFile;
+            withComment = true;
          } else {
             // Print to the regular place.
             ppTarget = pp;
@@ -1041,7 +1013,7 @@ namespace CDL2v1 {
          if (args.IsEmptyOrWhitespace) {
             if (Focus.Current.Object is not null) {
                ppTarget.PauseUpdate(() => ppTarget.Print(Focus.Current.Object,withComment));
-               if (closeFileAtEnd && ppTarget == ppFile) ppFileEmitter.Close();
+               ppTarget.Emitter.Close();
             }
          } else {
             Selection selection = new(args);
@@ -1055,7 +1027,7 @@ namespace CDL2v1 {
                      ppTarget.Print(sel.Object!,withComment);
                   }
                });
-               if (closeFileAtEnd && ppTarget == ppFile) ppFileEmitter.Close();
+               ppTarget.Emitter.Close();
             }
          }
       }
