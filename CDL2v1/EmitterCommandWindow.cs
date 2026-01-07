@@ -94,6 +94,11 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// enables collecting output before displaying it.
+      /// </summary>
+      public override bool CanPauseUpdate => true;
+
+      /// <summary>
       /// Write the item to the window using formatted text with spans
       /// </summary>
       protected override void WriteLine(string item) {

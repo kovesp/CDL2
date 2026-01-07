@@ -199,7 +199,6 @@ namespace CDL2v1 {
          if (string.IsNullOrWhiteSpace(selectionString)) return;
          selectionString = selectionString.Trim();
 
-         SelectionSegments segments = [];
 
          bool isRooted = false;
          if (selectionString.StartsWith('^')) {
@@ -212,11 +211,159 @@ namespace CDL2v1 {
             return;
          }
 
-         Regex regex = new(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z\s]*)", RegexOptions.Compiled);
+         SelectionSegments segments = [];
+         if (! ParseSelectionSegments(selectionString,segments,out bool importedSeen)) return;
+
+         IEnumerable<NamedElement> candidateObjects;
+         IEnumerable<NamedElement> selectedObjects = [];
+
+         bool nonRootedRW = !isRooted && segments[1].SegmentName == "";
+         if (nonRootedRW && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: segments[0].SegmentType,child: Focus.Current.FocusType)) {
+            // The initial segment is just a type without a name, and the focus is on an object that is a descendant of that type. e.g. "Module" when the focus is on a Layer.
+            candidateObjects = [Focus.Current.Object!.GetAncestorOfType(segments[0].SegmentType)];
+         } else if (nonRootedRW && !Abbreviation<SelectorType>.Focusable(segments[0].SegmentType) /*&& Focus.Current.Container?.FocusType == ST.SECTION*/) {
+            Add(new SingleSelection(Focus.Current.Container,segments[0].SegmentType));
+            return;
+         } else if (isRooted || !Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: Focus.Current.FocusType,child: segments[0].SegmentType)) {
+            candidateObjects = Database.Instance.NamedElements.Values;
+         } else {
+            candidateObjects = Focus.Current.Object!.DescendantElements();
+            // The selection is relative to the current focus. TODO: sub elements are being ignored
+         }
+
+         if (!candidateObjects.Any()) {
+            // Nothing matches
+            ErrorMessage = "No matches";
+            return;   
+         }
+         // Use the segments to successively narrow down the selection.
+         for (int segNo = 0 ; segNo < segments.Count ; segNo += 2) {
+            selectedObjects = NarrowSelectionByType(candidateObjects,segments,segNo,importedSeen,ref ErrorMessage);
+            if (ErrorMessage != string.Empty) return;
+            if (segNo < segments.Count - 2) candidateObjects = selectedObjects.SelectMany(e => e.DescendantElements());
+         }
+
+         if (segments.Index < 1) {
+            // If the selectedObjects are all siblings, add them in sibling order, otherwise OrderedAsSiblings leaves the order unchanged.
+            AddRange(selectedObjects.OrderedAsSiblings.Select(obj => new SingleSelection(obj)));
+         } else {
+            Add(new SingleSelection(selectedObjects.ElementAt(Math.Min(segments.Index,segments.Count) - 1)));
+         }
+      }
+
+      private IEnumerable<NamedElement> NarrowSelectionByType(IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,bool importedSeen,ref string errorMessage) {
+         IEnumerable<NamedElement> selectedObjects = [];
+
+         string name = segments[segNo + 1].SegmentName;
+         switch (segments[segNo].SegmentType) {
+            // Generic types
+            case SelectorType.ANY      : selectedObjects = NarrowSelection<NamedElement>(candidateObjects,name,importedSeen); break; // Excludes ludes, parts and interfaces for now.
+            case SelectorType.CONTAINER: selectedObjects = NarrowSelection<Container>(candidateObjects,name,importedSeen); break;
+            case SelectorType.DATA     : selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen,obj => obj is IDataElement); break;
+            case SelectorType.FACE     : selectedObjects = NarrowSelectionToList(); break;
+            case SelectorType.OBJECT   : selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen); break;
+
+            // Specific containers
+            case SelectorType.PROGRAM  : selectedObjects = NarrowSelection<Program>(candidateObjects,name,importedSeen); break;
+            case SelectorType.MODULE   : selectedObjects = NarrowSelection<Module>(candidateObjects,name,importedSeen); break;
+            case SelectorType.LAYER    : selectedObjects = NarrowSelection<Layer>(candidateObjects,name,importedSeen); break;
+            case SelectorType.SECTION  : selectedObjects = NarrowSelection<Section>(candidateObjects,name,importedSeen); break;
+
+            // Specific OBJECTS
+            case SelectorType.ALGORITHM: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => !alg.IsSynthetic); break;
+            case SelectorType.PROCEDURE: selectedObjects = NarrowSelection<Procedure>(candidateObjects,name,importedSeen,alg => !alg.IsSynthetic); break;
+            case SelectorType.MACRO    : selectedObjects = NarrowSelection<Macro>(candidateObjects,name,importedSeen); break;
+            case SelectorType.FUNCTION : selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsFunction && !alg.IsSynthetic); break;
+            case SelectorType.ACTION   : selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsAction && !alg.IsSynthetic); break;
+            case SelectorType.TEST     : selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsTest && !alg.IsSynthetic); break;
+            case SelectorType.PREDICATE: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsPredicate && !alg.IsSynthetic); break;
+            case SelectorType.CONST    : selectedObjects = NarrowSelection<Const>(candidateObjects,name,importedSeen); break;
+            case SelectorType.VAR      : selectedObjects = NarrowSelection<Var>(candidateObjects,name,importedSeen); break;
+            case SelectorType.LIST     : selectedObjects = NarrowSelection<LIST>(candidateObjects,name,importedSeen); break;
+
+            // Lists where the selection is the entire list (for now)
+            case SelectorType.ABSTR:
+            case SelectorType.EXT:
+            case SelectorType.INV:
+            case SelectorType.IMPORT:
+            case SelectorType.EXPORT:
+            case SelectorType.PART:
+               selectedObjects = NarrowSelectionToList();
+               break;
+
+            // Non-focusable types
+            //case SelectorType.AFFIX:
+            //case SelectorType.LOCAL:
+            //   selectedObjects = NarrowSelectionToNonFocusable<Algorithm>(candidateObjects,segments,segNo,importedSeen,segments[segNo].SegmentType);
+            //   break;
+            //case SelectorType.CALL:
+            //   selectedObjects = NarrowSelectionToNonFocusable<Procedure>(candidateObjects,segments,segNo,importedSeen,SelectorType.CALL);
+            //   break;
+
+            // Ludes
+            case SelectorType.PRELUDE: selectedObjects = NarrowSelectionToLude(); break;
+            case SelectorType.ROOT: selectedObjects = NarrowSelectionToLude(); break;
+            case SelectorType.POSTLUDE: selectedObjects = NarrowSelectionToLude(); break;
+
+            // NOTE selection. Not clear yet whether this should be supported.
+            case SelectorType.NOTE: goto default;
+
+            // Special prefix that is used to selected imported CONSTs and ALGORITHMs. Handled during segment construction above
+            case SelectorType.IMPORTED:
+               errorMessage = $"Fapipa: Unfiltered IMPORTED which is not possible"; // Hommage à Mihályi Kati 
+               break;
+            case SelectorType.INVALID: errorMessage = $"Unrecognized selection type"; break;
+            default: errorMessage = $"Unimplemented selection type: {segments[segNo].SegmentType}"; break;
+         }
+
+         return selectedObjects;
+      }
+
+      private IEnumerable<NamedElement> NarrowSelection<T>(IEnumerable<NamedElement> candidateObjects,string name,bool importedSeen,Func<T,bool>? pred = null) where T : NamedElement {
+         if (Database.TryGetNamedElements<T>(candidateObjects,name,out IEnumerable<T>? elements) && elements is not null) {
+            if (pred is not null) elements = elements.Where(e => pred((T)e));
+            elements = elements.Where(e => importedSeen == e.IsImported);
+            return elements;
+         }
+         return [];
+      }
+
+      private IEnumerable<NamedElement> NarrowSelectionToNonFocusable<T>(IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,bool importedSeen,SelectorType elementType) where T : Algorithm {
+         // TODO: this implementaton should also work for CALLs in ludes since they are synthetic PROCEDUREs. Verification needed.
+         IEnumerable<NamedElement> selectedObjects = NarrowSelection<T>(candidateObjects,segments[segNo + 1].SegmentName,importedSeen,null); // Narrow down to algorithms for AFFIX and LOCAL any, for CALL PROCEDUREs only.
+         
+         switch (elementType) {
+            case SelectorType.AFFIX:
+               selectedObjects = NarrowToHeaderSubComponent<Affix>(selectedObjects,segments[segNo + 1].SegmentName);
+               break;
+            case SelectorType.LOCAL:
+               selectedObjects = NarrowToHeaderSubComponent<Local>(selectedObjects,segments[segNo + 1].SegmentName);
+               break;
+            case SelectorType.CALL:
+               /// TODO: Implement later. Needs to somwhow collect all calls in each algorithm and the filter by name.
+               break;
+            default:
+               ErrorMessage = $"NarrowSelectionToNonFocusable: Unrecognized element type {elementType}";
+               return [];
+         }
+         return selectedObjects;
+      }
+
+      private IEnumerable<NamedElement> NarrowToHeaderSubComponent<U>(IEnumerable<NamedElement> selectedObjects,string segmentName) where U : NamedElement {
+         return selectedObjects.SelectMany(obj
+            => Database.TryGetNamedElements<U>(((Algorithm)obj).Affixes,segmentName,out IEnumerable<U>? affixes) ? affixes : []);
+      }
+
+      private IEnumerable<NamedElement> NarrowSelectionToLude() => throw new NotImplementedException();
+
+      private IEnumerable<NamedElement> NarrowSelectionToList() => throw new NotImplementedException();
+
+      private bool ParseSelectionSegments(string selectionString,SelectionSegments segments,out bool importedSeen) {
+         Regex regex = new(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z\s]*)",RegexOptions.Compiled);
 
          bool previousSegmentWasUnit = false;
          bool previousSegmentWasNameOrOffset = false;
-         bool importedSeen = false; // Used to track if an IMPORTED segment was seen
+         importedSeen = false;
          while (selectionString.Length > 0) {
             Match match = regex.Match(selectionString);
             if (!match.Success) break; // No more matches, exit loop
@@ -227,11 +374,11 @@ namespace CDL2v1 {
                SelectorType type = Abbreviation<SelectorType>.Identify(segment.ToUpper());
                if (type == SelectorType.INVALID) {
                   ErrorMessage = $"Invalid selector type: {segment}";
-                  return;
+                  return false;
                } else if (type == SelectorType.IMPORTED) {
                   if (importedSeen) {
                      ErrorMessage = $"Invalid selection: multiple IMPORTED segments are not allowed";
-                     return; // Multiple IMPORTED segments are not allowed
+                     return false; // Multiple IMPORTED segments are not allowed
                   } else {
                      importedSeen = true; // Mark that an IMPORTED segment was seen
                   }
@@ -245,8 +392,8 @@ namespace CDL2v1 {
                segments.Index = int.Parse(match.Groups["index"].Value.Trim()); // Parse the index from the segment
             } else if (previousSegmentWasNameOrOffset) {
                ErrorMessage = $"Invalid selection: {segment} after a name or offset segment";
-               return; // Invalid sequence, can't have adjacent name and offset segments
-            } else if (char.IsAsciiLetterLower(segment[0]) || segment[0]=='/') { // Name segment
+               return false; // Invalid sequence, can't have adjacent name and offset segments
+            } else if (char.IsAsciiLetterLower(segment[0]) || segment[0] == '/') { // Name segment
                segments.Add(new NameSegment(segment));
                previousSegmentWasUnit = false;
                previousSegmentWasNameOrOffset = true;
@@ -256,147 +403,24 @@ namespace CDL2v1 {
                previousSegmentWasNameOrOffset = true;
             }
          }
-         if (segments.Count == 0) return; // No valid parts found
+         if (segments.Count == 0) return false; // No valid parts found
          if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if the last was a unit, ensure an even number of elements
          if (segments.Count > 0 && segments.Count % 2 == 1) {
             ErrorMessage = $"Unable to parse selector";
-            return;
+            return false;
          }
          // Verify that the types are in hierarchical order
-         for (int i = 0; i < segments.Count - 2; i += 2) {
+         for (int i = 0 ; i < segments.Count - 2 ; i += 2) {
             if (segments[i].SegmentType == SelectorType.IMPORTED) continue; // Skip IMPORTED segment
-            if (!Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor:segments[i].SegmentType,child:segments[i + 2].SegmentType)) {
+            if (!Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: segments[i].SegmentType,child: segments[i + 2].SegmentType)) {
                // The types are not in hierarchical order, return without setting selection
-               ErrorMessage = $"Invalid selection: {segments[i+2].SegmentType} cannot follow {segments[i].SegmentType}";
-               return;
+               ErrorMessage = $"Invalid selection: {segments[i + 2].SegmentType} cannot follow {segments[i].SegmentType}";
+               return false;
             }
          }
 
-         IEnumerable<NamedElement> candidateObjects;
-         IEnumerable<NamedElement> selectedObjects = [];
-
-         bool nonRootedRW = !isRooted && segments[1].SegmentName == "";
-         if (nonRootedRW && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: segments[0].SegmentType,child: Focus.Current.FocusType)) {
-            // The initial segment is just a type without a name, and the focus is on an object that is a descendant of that type. e.g. "Module" when the focus is on a Layer.
-            candidateObjects = [Focus.Current.Object!.GetAncestorOfType(segments[0].SegmentType)];
-         } else if (nonRootedRW && !Abbreviation<SelectorType>.Focusable(segments[0].SegmentType) /*&& Focus.Current.Container?.FocusType == ST.SECTION*/) {
-            Add(new SingleSelection(Focus.Current.Container,segments[0].SegmentType));
-            return;
-         } else if (isRooted || !Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor:Focus.Current.FocusType,child:segments[0].SegmentType)) {
-            candidateObjects = Database.Instance.NamedElements.Values;
-         } else {
-            candidateObjects = Focus.Current.Object!.DescendantElements();
-            // The selection is relative to the current focus. TODO: sub elements are being ignored
-         }
-
-         // Use the segments to successively narrow down the selection.
-         for (int segNo = 0 ; segNo < segments.Count; segNo += 2) {
-
-            // Narrow the selection using the type and name from the current segment
-            void NarrowSelection<T>(Func<T, bool>? pred = null) where T : NamedElement {
-               if (Database.TryGetNamedElements<T>(candidateObjects,segments[segNo + 1].SegmentName,out IEnumerable<T>? elements) && elements is not null) {
-                  if (pred is not null) elements = elements.Where(e => pred((T)e));
-                  elements = elements.Where(e => importedSeen == e.IsImported);
-                  selectedObjects = elements;
-                  if (segNo < segments.Count - 2) candidateObjects = elements.SelectMany(e => e.DescendantElements());              
-               }
-            }
-            void NarrowSelectionToNonFocusable<T>(SelectorType elementType) where T : Algorithm {
-               // TODO: this implementaton should also work for CALLs in ludes since they are synthetic PROCEDUREs. Verification needed.
-               NarrowSelection<T>(); // Narrow down to algorithms for AFFIX and LOCAL any, for CALL PROCEDUREs only.
-               void NarrowToHeaderSubComponent<U>() where U : NamedElement {
-                  selectedObjects = 
-                     selectedObjects.SelectMany(obj
-                        => Database.TryGetNamedElements<U>(((Algorithm)obj).Affixes,segments[segNo+1].SegmentName,out IEnumerable<U>? affixes) ? affixes : []);
-               }
-               switch (elementType) {
-                  case SelectorType.AFFIX:
-                     NarrowToHeaderSubComponent<Affix>();
-                     break;
-                  case SelectorType.LOCAL:
-                     NarrowToHeaderSubComponent<Local>();
-                     break;
-                  case SelectorType.CALL:
-                     /// TODO: Implement later. Needs to somwhow collect all calls in each algorithm and the filter by name.
-                     break;
-                  default:
-                     ErrorMessage = $"NarrowSelectionToNonFocusable: Unrecognized element type {elementType}";
-                     return;
-               }
-            }
-
-            void NarrowSelectionToLude() => throw new NotImplementedException();
-
-            void NarrowSelectionToList() => throw new NotImplementedException();
-
-            switch (segments[segNo].SegmentType) {
-               // Generic types
-               case SelectorType.ANY:          NarrowSelection<NamedElement> (); break; // Excludes ludes, parts and interfaces for now.
-               case SelectorType.CONTAINER:    NarrowSelection<Container>    (); break;
-               case SelectorType.DATA:         NarrowSelection<CDL2Object>   (obj=>obj is IDataElement); break;
-               case SelectorType.FACE:         NarrowSelectionToList         (); break;
-               case SelectorType.OBJECT:       NarrowSelection<CDL2Object>   (); break;
-
-               // Specific containers
-               case SelectorType.PROGRAM:      NarrowSelection<Program>      (); break;
-               case SelectorType.MODULE:       NarrowSelection<Module>       (); break;
-               case SelectorType.LAYER:        NarrowSelection<Layer>        (); break;
-               case SelectorType.SECTION:      NarrowSelection<Section>      (); break;
-
-               // Specific OBJECTS
-               case SelectorType.ALGORITHM:    NarrowSelection<Algorithm>    (alg=>!alg.IsSynthetic); break;
-               case SelectorType.PROCEDURE:    NarrowSelection<Procedure>    (alg => !alg.IsSynthetic); break;
-               case SelectorType.MACRO:        NarrowSelection<Macro>        (); break;
-               case SelectorType.FUNCTION:     NarrowSelection<Algorithm>    (alg => alg.IsFunction && !alg.IsSynthetic); break;
-               case SelectorType.ACTION:       NarrowSelection<Algorithm>    (alg => alg.IsAction && !alg.IsSynthetic); break;
-               case SelectorType.TEST:         NarrowSelection<Algorithm>    (alg => alg.IsTest && !alg.IsSynthetic); break;
-               case SelectorType.PREDICATE:    NarrowSelection<Algorithm>    (alg => alg.IsPredicate && !alg.IsSynthetic); break;
-               case SelectorType.CONST:        NarrowSelection<Const>        (); break;
-               case SelectorType.VAR:          NarrowSelection<Var>          (); break;
-               case SelectorType.LIST:         NarrowSelection<LIST>         (); break;
-
-               // Lists where the selection is the entire list (for now)
-               case SelectorType.ABSTR:
-               case SelectorType.EXT:
-               case SelectorType.INV:
-               case SelectorType.IMPORT:
-               case SelectorType.EXPORT:
-               case SelectorType.PART:
-                  NarrowSelectionToList();
-                  break;
-
-               // Non-focusable types
-               case SelectorType.AFFIX: 
-               case SelectorType.LOCAL:
-                  NarrowSelectionToNonFocusable<Algorithm>(segments[segNo].SegmentType);
-                  break;
-               case SelectorType.CALL:
-                  NarrowSelectionToNonFocusable<Procedure>(SelectorType.CALL);
-                  break;
-               // Ludes
-               case SelectorType.PRELUDE:    NarrowSelectionToLude           (); break;
-               case SelectorType.ROOT:       NarrowSelectionToLude           (); break;
-               case SelectorType.POSTLUDE:   NarrowSelectionToLude           (); break;
-
-               // NOTE selection. Not clear yet whether this should be supported.
-               case SelectorType.NOTE: goto default;
-
-               // Special prefix that is used to selected imported CONSTs and ALGORITHMs. Handled during segment construction above
-               case SelectorType.IMPORTED:
-                  ErrorMessage = $"Fapipa: Unfiltered IMPORTED which is not possible"; // Hommage à Mihályi Kati 
-                  break;
-               case SelectorType.INVALID:   ErrorMessage = $"Unrecognized selection type"; break;
-               default:                     ErrorMessage = $"Unimplemented selection type: {segments[segNo].SegmentType}"; break;
-            }        
-         }
-
-         if (segments.Index < 1) {
-            // If the selectedObjects are all siblings, add them in sibling order, otherwise OrderedAsSiblings leaves the order unchanged.
-            AddRange(selectedObjects.OrderedAsSiblings.Select(obj => new SingleSelection(obj)));
-         } else {
-            Add(new SingleSelection(selectedObjects.ElementAt(Math.Min(segments.Index,segments.Count)-1)));
-         }
-      }     
+         return true;
+      }
    }
 
    /// <summary>

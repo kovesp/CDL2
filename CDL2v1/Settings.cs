@@ -69,6 +69,7 @@ namespace CDL2v1 {
          Name = name;
          Type = typeof(T);
          Option = new Option<T>(optionName, () => defaultValue, description);
+         Value = defaultValue;
          if (arity != null) Option.Arity = (ArgumentArity)arity;
          IsSaved = saved;
          if (disjoint != "") {
@@ -164,7 +165,8 @@ namespace CDL2v1 {
          new Setting<int>(     "AutosaveNumber",      "--autosave-number",  3,             "The number of autosaves kept. Minimum 1. Older ones are removed.",saved:true),
          new Setting<bool>(    "AutoAnalyze",         "--auto-Analyze",     false,         "Run the semantic analyzer after each change.",saved:true),
          new Setting<int>(     "CommandHistorySize",  "--command-history-size",100,        "The number of inputs preserved across sessions.",saved:true),
-
+         new Setting<string>(  "Shell",               "--shell",            "pwsh",        "The shell to use in the shell command. Default is PowerShell",saved:true),
+         new Setting<string>(  "Editor",              "--editor",           "code",        "The external editor to use for editing files. Default is VS Code",saved:true),
 
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each

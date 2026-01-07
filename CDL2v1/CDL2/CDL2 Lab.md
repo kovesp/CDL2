@@ -299,7 +299,17 @@ is omitted as in the above example.
 Here is another example: `print -print-depth 3 ALG`. This will print the above structure, but also
 add all the algorithm headers without the locals if any.
 
-The `-file` setting may be used to print to a file instead of the output area.
+The `-file` setting may be used to print to a file instead of the output area. The settings may used as follows:
+
+ * `-file=filename`. The output is written to the given file. If the file exists, it is overwritten.
+ * `-file=filename::append`. The output is appended to the given file. If the file does not exist, it is created.
+ * `-file=::append`. The output is appended to the current file. If there is no current file yet
+    an error is genrated.
+
+If the filname has no path (directory) component, then the file is created in the current output directory.
+If the filename has no extension, then `.cdl2` is used.
+
+For example, `print -file=output::append MOD` will append the printed module to the file `output.cdl2`.
 
 #### Consult
 ```
@@ -582,6 +592,14 @@ Displays the list of commands, or the help for the given command.
 If `selectors` is given, then the list of valid selectors is displayed.
 If `settings` is given, then the list of valid settings is displayed.
 
+##### Shell
+```
+shell command : shell token, GLYPH sequence.
+```
+
+Executes the given command line in the host operating system shell. 
+For example, on Windows: `shell dir C:\CDL2`.
+
 ##### Quit/Exit/Bye/Abort
 ```
 quit command : quit token.
@@ -645,6 +663,8 @@ the minimal apreviation is given in ***bold italic***.
 ***s***ave
 
 ***set***
+
+***sh***ell
 
 ***stat***us
 
