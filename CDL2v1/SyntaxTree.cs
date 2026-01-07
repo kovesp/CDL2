@@ -524,6 +524,16 @@ namespace CDL2v1 {
       };
       public static readonly List<RW> LudeTypes = [RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
       public static readonly List<ST> LudeSelectors = [ST.PRELUDE,ST.ROOT,ST.POSTLUDE];
+      public static readonly Dictionary<ST,RW> LudeTypeBySelector = new() {
+         { ST.PRELUDE,RW.PRELUDE },
+         { ST.ROOT,RW.ROOT },
+         { ST.POSTLUDE,RW.POSTLUDE }
+      };
+      public static readonly Dictionary<RW,ST> LudeSelectorByType = new() {
+         { RW.PRELUDE,ST.PRELUDE },
+         { RW.ROOT,ST.ROOT },
+         { RW.POSTLUDE,ST.POSTLUDE }
+      };
 
 
       /// <summary>

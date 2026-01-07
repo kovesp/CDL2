@@ -99,6 +99,7 @@ namespace CDL2v1 {
          new ("rename"  , 3,"rename   [SELECTOR] name:    rename the selected object; may be used just to add/remove spaces"),
          new ("quit"    , 4,"quit:                        exit the Lab after saving the database"),
          new ("save"    , 1,"save:                        save the database to disk now"),
+         new ("shell"   , 2,"shell    system command:     execute a system command"),
          new ("set"     , 3,"set      option:             set an option; +/-option for boolean, option=value otherwise"),
          new ("status"  , 4,"status:                      display information about the status of the database"),
          new ("type"    , 1,"type    [SELECTOR]:          pretty print the selected object"),
@@ -147,6 +148,8 @@ namespace CDL2v1 {
          new ("POSTLUDE"   ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
          new ("PRELUDE"    ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
          new ("ROOT"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
+         new ("FACE"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
+         new ("LUDE"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
          // Non focusable types, matched by ANY
          new ("AFFIX"      ,3,AlgorithmTypesWithMacro,focusable:false),
          new ("CALL"       ,1,SelectorType.PROCEDURE,focusable:false), // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
@@ -154,7 +157,6 @@ namespace CDL2v1 {
          // Generic types
          new ("ANY"        ,3),
          new ("DATA"       ,4,SelectorType.SECTION),
-         new ("FACE"       ,4,SelectorType.SECTION),
          new ("CONTAINER"  ,9,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.LAYER]),
          new ("OBJECT"     ,3,SelectorType.SECTION),
       ];

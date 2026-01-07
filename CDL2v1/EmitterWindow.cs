@@ -171,7 +171,8 @@ namespace CDL2v1 {
          //window.Dispatcher.Invoke(() => window.Close());
       }
 
-   
+      public override bool CanPauseUpdate => true;
+         
       /// <summary>
       /// Write the item to the window.
       /// The text may contain sequences of <spam fg="colorName" style="Normal|Bold|Italic|BoldItalic">text</span>.
@@ -274,8 +275,6 @@ namespace CDL2v1 {
          outputTextBlock?.Inlines.Add(run);
          if (lineBreak) outputTextBlock?.Inlines.Add(new System.Windows.Documents.LineBreak());
       }
-
-      public override bool CanPauseUpdate => true;
 
       // Call this before making multiple updates
       public override void BeginUpdate() {

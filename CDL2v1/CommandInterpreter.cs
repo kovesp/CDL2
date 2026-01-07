@@ -319,7 +319,7 @@ namespace CDL2v1 {
           }.ToImmutableDictionary();
 
       /// <summary>
-      /// When the given setting is encountered in a set command, or on another command this handler is called to process it.
+      /// When the given setting is encountered in a set command, or on another command this handler is called to processor it.
       /// The handler is called when the settings is to be set with first parameter true, and when it is to be reset with false.
       /// The second parameter is the setting name. Specify in all lowercase.
       /// The third parameter is the value to be set.
@@ -464,6 +464,9 @@ namespace CDL2v1 {
                      commandWindow?.Close();
                      return;
 
+                  case CommandType.shell: 
+                     InterpretCommandShell(args); break;
+
                   case CommandType.help:
                      InterpretCommandHelp(args); break;
 
@@ -494,6 +497,55 @@ namespace CDL2v1 {
             }
          }
          SetStatus();
+      }
+
+      private void InterpretCommandShell(string args) {
+         string shell = Settings.SettingValue<string>("Shell")!.ToLower();
+         ProcessStartInfo startInfo = shell switch {
+            "cmd" => new ProcessStartInfo {
+               FileName = "cmd.exe",
+               Arguments = "/c " + args,
+               RedirectStandardOutput = true,
+               RedirectStandardError = true,
+               UseShellExecute = false,
+               CreateNoWindow = true
+            },
+            "pwsh" or "powershell" => new ProcessStartInfo {
+               FileName = "pwsh.exe",
+               Arguments = "-NoLogo -NoProfile -Command \"$PSStyle.OutputRendering = 'PlainText'; " + args.Replace("\"", "`\"") + "\"",
+               RedirectStandardOutput = true,
+               RedirectStandardError = true,
+               UseShellExecute = false,
+               CreateNoWindow = true
+            },
+            "bash" => new ProcessStartInfo {
+               FileName = "bash",
+               Arguments = "-c \"" + args.Replace("\"", "\\\"") + "\"",
+               RedirectStandardOutput = true,
+               RedirectStandardError = true,
+               UseShellExecute = false,
+               CreateNoWindow = true
+            },
+            _ => throw new InvalidOperationException($"Unsupported shell: {shell}. Valid values are: cmd, pwsh, bash")
+         };
+
+         try {
+            using Process process = new() { StartInfo = startInfo };
+            process.Start();
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+
+            process.WaitForExit();
+
+            if (!string.IsNullOrEmpty(output)) WriteLine(output.TrimEnd());
+            
+            if (!string.IsNullOrEmpty(error)) WriteError(error.TrimEnd());
+
+            if (process.ExitCode != 0) WriteWarning($"Process exited with code {process.ExitCode}");
+         } catch (Exception ex) {
+            WriteError($"Error executing shell command: {ex.Message}");
+         }
       }
 
       private void InterpretCommandGenerate(string args) {
@@ -990,7 +1042,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="args"></param>
       private void InterpretCommandPrint(string args) {
-         string fileName = Settings.SettingValue<string>("file")!.Trim('"');
+         string fileName = Settings.SettingValue<string>("file")?.Trim('"') ?? "";
          PrettyPrinter ppTarget;
          bool withComment;
 
@@ -1022,9 +1074,9 @@ namespace CDL2v1 {
             } else if (selection.Count == 0) {
                WriteInfo("No matches for selector");
             } else {
-               pp.PauseUpdate(() => {
+               ppTarget.PauseUpdate(() => {
                   foreach (SingleSelection sel in selection) {
-                     ppTarget.Print(sel.Object!,withComment);
+                     ppTarget.Print(sel,withComment);
                   }
                });
                ppTarget.Emitter.Close();

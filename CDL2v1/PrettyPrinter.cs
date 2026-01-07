@@ -52,6 +52,8 @@ using System.Windows.Media;
 using System.Windows.Xps;
 
 using static CDL2v1.Logger;
+using static System.Collections.Specialized.BitVector32;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CDL2v1 {
    /// <summary>
@@ -235,6 +237,25 @@ namespace CDL2v1 {
          Emitter.EndUpdate();
       }
 
+      internal string Print(SingleSelection sel, bool withComment = false) {
+         if (sel.ListType != SelectorType.INVALID) {
+            Container? container = sel.Object as Container;
+            Debug.Assert(container is not null,$"Selection with ListType {sel.ListType} has no container.");
+            if (sel.ListType == SelectorType.LUDE) {
+               return PrintLudes(container,asString: true);
+            } else if (Container.LudeTypeBySelector.TryGetValue(sel.ListType,out ReservedWord rw)) {
+               return PrintLude(rw,container,asString: true);
+            } else if (sel.ListType == SelectorType.INTERFACE) {
+               // TODO print interface lists. Also add entry for individual interface lists.
+               return "";
+            } else {
+               throw new NotImplementedException($"Cannot print selection of type {sel.ListType}");
+            }
+         } else {
+            return Print(sel.Object!,withComment);
+         }
+      }
+
       internal string Print(NamedElement namedElement,bool withComment = false) {
          if (withComment) PrintComment($"# {namedElement.FQDN()}");
          switch (namedElement) {
@@ -256,13 +277,14 @@ namespace CDL2v1 {
                Print(algorithm);
                break;
             case Const constant:
-               Print(constant);
+               PrintDataDefinition(RW.CONST,Print,constant);
                break;
             case Var variable:
+               PrintDataDefinition(RW.VAR,Print,variable);
                Print(variable);
                break;
             case LIST list:
-               Print(list,list.Section!);
+               PrintDataDefinition(RW.LIST,l => Print(l,l.Section!),list);
                break;
 
             // Smaller elements
@@ -389,10 +411,11 @@ namespace CDL2v1 {
       /// Print all 3 ludes of the caintainer if any are present.
       /// </summary>
       /// <param name="container"></param>
-      private void PrintLudes(Container container) {
+      private string PrintLudes(Container container,bool asString = false) {
          PrintLude(RW.PRELUDE,container);
          PrintLude(RW.ROOT,container);
          PrintLude(RW.POSTLUDE,container);
+         return asString ? Emitter.Content : "";
       }
 
       /// <summary>
