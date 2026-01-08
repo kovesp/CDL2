@@ -226,11 +226,9 @@ namespace CDL2v1 {
       FUNCTION,
       IMPORT,
       IMPORTED,
-      INTERFACE,
       INV,
       LAYER,
       LIST,
-      LUDE,
       MACRO,
       MODULE,
       NOTE,
@@ -244,16 +242,17 @@ namespace CDL2v1 {
       SECTION,
       TEST,
       VAR,
-      // Generic types
-      ANY,
-      CONTAINER,
-      DATA,
-      FACE,
-      OBJECT,
       // Non-focusable types.
       AFFIX,
       CALL,
       LOCAL,
+      // Generic types
+      ANY,        // When used in focusing commands (focus, next, etc.) means any focusable type.
+      CONTAINER,
+      DATA,
+      FACE,       // Non-focusable
+      LUDE,       // Non-focusable
+      OBJECT,
    }
    // cspell:enable
 

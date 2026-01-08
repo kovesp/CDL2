@@ -132,7 +132,7 @@ namespace CDL2v1 {
       private static readonly Type[] NonFocusableTypes = [typeof(Affix), typeof(Local), typeof(Call)];
       [JsonIgnore]
       public bool IsFocusable => ! NonFocusableTypes.Contains(Object?.GetType() ?? typeof(NamedElement));
-      public override string ToString() => $"SingleSelection<{Object}>";
+      public override string ToString() => $"SingleSelection<{Object}{(ListType != SelectorType.INVALID?" "+ListType:"")}>";
    }
 
    /// <summary>
@@ -420,6 +420,12 @@ namespace CDL2v1 {
          }
 
          return true;
+      }
+
+      private const int SingleSelectionCount = 2;
+      public override string ToString() {
+         if (IsInvalid) return $"Selection(Invalid: {ErrorMessage})";
+         return "Selection<" + (this.Take(SingleSelectionCount).Aggregate("", (a, b) => $"{a} {b}")).TrimStart() + (this.Count > SingleSelectionCount ? "..." : "") + ">";
       }
    }
 

@@ -194,7 +194,7 @@ namespace CDL2v1 {
          IsFocusable = focusable;
       }
 
-      public Abbreviation(string name,int minLength,T nesting,string help = "",bool focusable = true) : this(name,minLength,[nesting],help) { }
+      public Abbreviation(string name,int minLength,T nesting,string help = "",bool focusable = true) : this(name,minLength,[nesting],help,focusable:focusable) { }
       public Abbreviation(string name,int minLength,string help = "") : this(name,minLength,[],help) { }
 
       /// <summary>

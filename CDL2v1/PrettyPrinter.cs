@@ -245,13 +245,38 @@ namespace CDL2v1 {
                return PrintLudes(container,asString: true);
             } else if (Container.LudeTypeBySelector.TryGetValue(sel.ListType,out ReservedWord rw)) {
                return PrintLude(rw,container,asString: true);
-            } else if (sel.ListType == SelectorType.INTERFACE) {
+            } else if (sel.ListType == SelectorType.FACE) {
                // TODO print interface lists. Also add entry for individual interface lists.
-               return "";
+               switch (sel.Object) {
+                  case Section sec:
+                     return PrintInterfaces(sec,asString: true);
+                  case Layer lay:
+                     foreach (Section sec in lay.Sections) PrintInterfaces(sec,withSectionComment:true);
+                     return Emitter.Content;
+                  case Module mod:
+                     foreach (Section sec in mod.Sections) PrintInterfaces(sec,withSectionComment: true);
+                     return Emitter.Content;
+                  default:
+                     return "";
+               }
+            } else if (Container.InterfaceTypeBySelector.TryGetValue(sel.ListType,out rw)) {
+               switch (sel.Object) {
+                  case Section sec:
+                     PrintList(rw,sec.Interfaces[Container.InterfaceEnumBySelector[sel.ListType]]);
+                     return Emitter.Content;
+                  case Layer lay:
+                     foreach (Section sec in lay.Sections) PrintList(rw,sec.Interfaces[Container.InterfaceEnumBySelector[sel.ListType]],sec,withSectionComment: true);
+                     return Emitter.Content;
+                  case Module mod:
+                     foreach (Section sec in mod.Sections) PrintList(rw,sec.Interfaces[Container.InterfaceEnumBySelector[sel.ListType]],sec,withSectionComment: true);
+                     return Emitter.Content;
+                  default:
+                     return "";
+               }
             } else {
                throw new NotImplementedException($"Cannot print selection of type {sel.ListType}");
             }
-         } else {
+         } else { 
             return Print(sel.Object!,withComment);
          }
       }
@@ -342,13 +367,7 @@ namespace CDL2v1 {
 
       public void Print(Section section) => PrintContainer(section,() => {
          // Always print the interfaces at the top
-         EmitOptNl(
-           PrintList(RW.EXPORT,section.export)  |
-           PrintList(RW.IMPORT,section.import)  |
-           PrintList(RW.ABSTR,section.abstr)    |
-           PrintList(RW.EXT,section.ext)        |
-           PrintList(RW.INV,section.inv)
-         );
+         PrintInterfaces(section);
 
          if (Settings.SettingValue<bool>("PrettyPrintSorted")) {
             // Sort the section contents by their type
@@ -388,9 +407,26 @@ namespace CDL2v1 {
                } else {
                   ReportError($"Unknown CDL2Object type {cdl2obj.GetType()} in section {section.Id}");
                }
-            }            
+            }
          }
       },updateUI: true);
+      /// <summary>
+      /// Prints the interface lists contained within the specified section, including exports, imports, abstractions,
+      /// extensions, and invariants.  
+      /// </summary>
+      /// <param name="section">The section whose interface lists will be printed. Must not be null.</param>
+      /// <param name="asString"></param>
+      private string PrintInterfaces(Section section,bool asString = false,bool withSectionComment = false) {
+         if (withSectionComment) PrintLineComment(section);
+         EmitOptNl(
+                 PrintList(RW.EXPORT,section.export) |
+                 PrintList(RW.IMPORT,section.import) |
+                 PrintList(RW.ABSTR,section.abstr) |
+                 PrintList(RW.EXT,section.ext) |
+                 PrintList(RW.INV,section.inv)
+               );
+         return asString ? Emitter.Content : "";
+      }
 
       /// <summary>
       /// Print a single data definition.
@@ -654,8 +690,9 @@ namespace CDL2v1 {
       /// default formatting is applied.</param>
       /// <param name="decorate">true to apply decoration to each identifier; otherwise, false.</param>
       /// <returns>true if the list was emitted; otherwise, false if the collection of identifiers was empty.</returns>
-      private bool PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true) {
+      private bool PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true,bool withSectionComment=false) {
          if (ids.Any()) {
+            if (withSectionComment && section is not null) PrintLineComment(section);
             EmitReservedwordForObject(rw);
             Emit(" ",DecoratedID(ids.First(),section,decorate));
             foreach (ID id in ids.Skip(1)) {
@@ -899,6 +936,14 @@ namespace CDL2v1 {
          if (Newline) Emitnl();
          if (updateUI) Emitter.UpdateUI();
       }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="section"></param>
+      /// <exception cref="NotImplementedException"></exception>
+      private void PrintLineComment(Section section) => Emitnl(("# "+section.FQDN()).Decorate(Emitter,SE.Comment));
+
 
       /// <summary>
       /// Print the comments for the element.

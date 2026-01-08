@@ -522,24 +522,50 @@ namespace CDL2v1 {
          { RW.ROOT,[] },
          { RW.POSTLUDE,[] }
       };
+
       public static readonly List<RW> LudeTypes = [RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
       public static readonly List<ST> LudeSelectors = [ST.PRELUDE,ST.ROOT,ST.POSTLUDE];
       public static readonly Dictionary<ST,RW> LudeTypeBySelector = new() {
-         { ST.PRELUDE,RW.PRELUDE },
-         { ST.ROOT,RW.ROOT },
-         { ST.POSTLUDE,RW.POSTLUDE }
+         { ST.PRELUDE , RW.PRELUDE },
+         { ST.ROOT    , RW.ROOT },
+         { ST.POSTLUDE, RW.POSTLUDE }
       };
       public static readonly Dictionary<RW,ST> LudeSelectorByType = new() {
-         { RW.PRELUDE,ST.PRELUDE },
-         { RW.ROOT,ST.ROOT },
-         { RW.POSTLUDE,ST.POSTLUDE }
+         { RW.PRELUDE , ST.PRELUDE },
+         { RW.ROOT    , ST.ROOT },
+         { RW.POSTLUDE, ST.POSTLUDE }
+      };
+
+      //public static readonly List<RW> InterfaceTypes = [RW.IMPORT,RW.EXPORT,RW.EXT,RW.ABSTR,RW.INV];
+      public static readonly List<ST> InterfaceSelectors = [ST.IMPORT,ST.EXPORT,ST.EXT,ST.ABSTR,ST.INV];
+      public static readonly Dictionary<ST,RW> InterfaceTypeBySelector = new() {
+         { ST.IMPORT, RW.IMPORT },
+         { ST.EXPORT, RW.EXPORT },
+         { ST.EXT   , RW.EXT },
+         { ST.ABSTR , RW.ABSTR },
+         { ST.INV   , RW.INV }
+      };
+      public static readonly Dictionary<ST,InterfaceTypes> InterfaceEnumBySelector = new() {
+         { ST.IMPORT, InterfaceTypes.Import },
+         { ST.EXPORT, InterfaceTypes.Export  },
+         { ST.EXT   , InterfaceTypes.Ext },
+         { ST.ABSTR , InterfaceTypes.Abstr },
+         { ST.INV   , InterfaceTypes.Inv }
+      };
+      public static readonly Dictionary<RW,ST> InterfaceSelectorByType = new() {
+         { RW.IMPORT, ST.IMPORT },
+         { RW.EXPORT, ST.EXPORT },
+         { RW.EXT   , ST.EXT },
+         { RW.ABSTR , ST.ABSTR },
+         { RW.INV   , ST.INV }
       };
 
 
-      /// <summary>
-      /// Sets the LudeParser action for the container. The default is to do nothing.
-      /// </summary>
-      [JsonIgnore]
+
+         /// <summary>
+         /// Sets the LudeParser action for the container. The default is to do nothing.
+         /// </summary>
+         [JsonIgnore]
       public Func<Parser,RW,Container,bool> LudeParser = (parser,ludeType,container) => false;
 
       /// <summary>
