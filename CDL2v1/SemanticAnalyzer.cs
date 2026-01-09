@@ -137,7 +137,7 @@ namespace CDL2v1 {
          // First collect all the imports in the sections into the imports table of the module.
          // While doing this check for consistency in case an object is imported ínto multiple sections.
          foreach (Section section in module.Sections) {
-            foreach (ID elemid in section.import) {
+            foreach (ID elemid in section.Interfaces[InterfaceTypes.Import]) {
                if (section.Declarations.TryGetValue(elemid,out CDL2Object? obj)) {
                   if (obj is IImportable imported) {
                      if (module.imports.TryGetValue(elemid,out IImportable? importedObj)) {
@@ -174,7 +174,7 @@ namespace CDL2v1 {
       /// <param name="module"></param>
       private void AnalyzeModuleExports(Module module) {
          Log(2,$"Analyzing module {module} exports");
-         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.export, module.exports,logDepth:3);
+         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.Interfaces[InterfaceTypes.Export], module.exports,logDepth:3);
       }
       /// <summary>
       /// Verify the consistency of interface declarations.
@@ -185,8 +185,8 @@ namespace CDL2v1 {
             Log(1, $"Analyzing internal interfaces of {module}");
             // Construct the Visible table of each layer in the module
             foreach (Section section in module.Sections) {
-               AnalyzeProvidedInterfaces(section, RW.EXT, section.ext, section.Layer!.Visible,logDepth:2);
-               AnalyzeProvidedInterfaces(section, RW.ABSTR, section.abstr, section.Layer?.Successor?.Visible,logDepth:2);
+               AnalyzeProvidedInterfaces(section, RW.EXT, section.Interfaces[InterfaceTypes.Ext], section.Layer!.Visible,logDepth:2);
+               AnalyzeProvidedInterfaces(section, RW.ABSTR, section.Interfaces[InterfaceTypes.Abstr], section.Layer?.Successor?.Visible,logDepth:2);
             }
             // At this point Visible of each layer contains all the objects that are visible in the layer, i.e., that have been extended in this layer's sections
             // or abstracted from below.
@@ -196,11 +196,11 @@ namespace CDL2v1 {
             foreach (Layer layer in module.Layers) {
                foreach (Section section in layer.Sections) {
                   Log(2,$"Analyzing section {section} {RW.INV}");
-                  Set<ID> invs = [.. section.inv];
-                  section.inv.Clear();
+                  Set<ID> invs = [.. section.Interfaces[InterfaceTypes.Inv]];
+                  section.Interfaces[InterfaceTypes.Inv].Clear();
                   foreach (ID elemid in invs) {
                      if (layer.Visible.TryGetValue(elemid,out IProvidable? elem)) {
-                        section.inv.Add(elem.Id);
+                        section.Interfaces[InterfaceTypes.Inv].Add(elem.Id);
                      } else {
                         AddNote(section, Note.MissingInvoke, elemid, layer);
                      }

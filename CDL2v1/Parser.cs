@@ -124,7 +124,6 @@ namespace CDL2v1 {
       };
 
       private readonly Action<Severity,string,bool> ErrorReporter;
-      public readonly List<Note> ParsingErrors = [];
 
       public Parser(CDL2 compiler,Action<Severity,string,bool>? reporter = null) : base(compiler) {
          currentObject = new CompilationObject(this);
@@ -148,8 +147,6 @@ namespace CDL2v1 {
          base.ReportNoteCounts(reachable,message);
       }
 
-      private void AddParsingError(Note note,params string[] insertions) => ParsingErrors.Add(new Note(note,PhaseName,null,insertions));
-      private void AddParsingError(Note note,ID id) => AddParsingError(note,id.Name);
 
       /// <summary>
       /// Recursive descent parser for CDL2.
@@ -335,9 +332,9 @@ namespace CDL2v1 {
                // IMPORT declaration. Check if it is in the imports list.
                algorithm = new ImportedAlgorithm(id,affixes,algType,currentSection);
                algorithm.AddNotes(PhaseName,notes);
-               if (mode == ParseMode.Full && !currentSection.import.Contains(id)) {
+               if (mode == ParseMode.Full && !currentSection.Interfaces[InterfaceTypes.Import].Contains(id)) {
                   AddNote(currentSection,Note.ObjectNotImported,algorithm);
-                  AddParsingError(Note.ObjectNotImported,algorithm.ToString());
+                  ReportProblem(Note.ObjectNotImported,algorithm.ToString());
                   return false;
                }
             } else {
@@ -349,8 +346,7 @@ namespace CDL2v1 {
                      algorithm.AddNotes(PhaseName,notes);
                      if (!ParseProcedureBody((Procedure)algorithm,mode)) {
                         if (mode == ParseMode.Full) {
-                           ReportError("Expected procedure body");
-                           AddParsingError(Note.ParseExpectedProcBody);
+                           ReportProblem(Note.ParseExpectedProcBody);
                         }
                         return false;
                      }
@@ -360,16 +356,16 @@ namespace CDL2v1 {
                      algorithm.AddNotes(PhaseName,notes);
                      if (!ParseMacroBody((Macro)algorithm,mode)) {
                         if (mode == ParseMode.Full) {
-                           ReportError("Expected macro body");
-                           AddParsingError(Note.ParseExpectedMacroBody);
+                           ReportProblem(Note.ParseExpectedMacroBody);
                         }
                         return false;
                      }
                   }
                }
                Debug.Assert(algorithm != null);
-               if (mode == ParseMode.Full && currentSection.import.Contains(id)) {
+               if (mode == ParseMode.Full && currentSection.Interfaces[InterfaceTypes.Import].Contains(id)) {
                   AddNote(currentSection,Note.ObjectImportedButHasBody,algorithm);
+                  ReportProblem(Note.ObjectImportedButHasBody,algorithm);
                   return false;
                }
             }
@@ -384,7 +380,7 @@ namespace CDL2v1 {
       private bool DuplicateDeclaration(ID id,RW type) {
          if (currentSection!.Declarations.TryGetValue(id,out CDL2Object? value)) {
             AddNote(currentSection,Note.DuplicateDeclaration,$"{type} {id}",value!);
-            AddParsingError(Note.DuplicateDeclaration,$"{type} {id}",value?.ToString() ?? "");
+            ReportProblem(Note.DuplicateDeclaration,$"{type} {id}",value?.ToString() ?? "");
             return true;
          }
          return false;
@@ -563,8 +559,7 @@ namespace CDL2v1 {
             Local local = new(ID.From(token));
             if (!locals.Add(local)) {
                if (mode == ParseMode.Full) {
-                  ReportError($"Duplicate Declarations {local}");
-                  AddParsingError(Note.PareseDuplicateLocal,$"{local.Id.Name}");
+                  ReportProblem(Note.PareseDuplicateLocal,$"{local.Id.Name}");
                }
                return false;
             }
@@ -589,23 +584,20 @@ namespace CDL2v1 {
                AffixType affixType = affixTypeInd.type == TT.AFFIXSEP ? AffixType.std : AffixType.str;
                if (affixType == AffixType.str && affixDir != AffixDir.NONE) {
                   if (mode == ParseMode.Full) {
-                     ReportError("String arguments cannot have a direction");
-                     AddParsingError(Note.ParseArgStringWithDirection,$"{id.Name}");
+                     ReportProblem(Note.ParseArgStringWithDirection,$"{id.Name}");
                   }
                   return false;
                }
                if (affixType == AffixType.std && affixDir == AffixDir.NONE) {
                   if (mode == ParseMode.Full) {
-                     ReportError("Standard arguments must be input, output, or transput");
-                     AddParsingError(Note.ParseArgStdArgHasNoDirection,$"{id.Name}");
+                     ReportProblem(Note.ParseArgStdArgHasNoDirection,$"{id.Name}");
                   }
                   return false;
                }
                Affix affix = new(id,affixDir,affixType);
                if (args.Contains(affix)) {
                   if (mode == ParseMode.Full) {
-                     ReportError($"Duplicate formal parameter {id}");
-                     AddParsingError(Note.ParseArgDuplicateArg,$"{id.Name}");
+                     ReportProblem(Note.ParseArgDuplicateArg,$"{id.Name}");
                   }
                   return false;
                } else {
@@ -614,7 +606,7 @@ namespace CDL2v1 {
             } else {
                if (mode == ParseMode.Full) {
                   ReportError("Expected ID for formal parameter");
-                  AddParsingError(Note.ParseArgMissingId,$"{id.Name}");
+                  ReportProblem(Note.ParseArgMissingId,$"{id.Name}");
                }
                return false;
             }
@@ -649,7 +641,7 @@ namespace CDL2v1 {
          } else {
             if (mode == ParseMode.Full) {
                AddNote(currentSection,Note.InvalidListBounds,id);
-               AddParsingError(Note.InvalidListBounds,id);
+               ReportProblem(Note.InvalidListBounds,id);
             }
          }
          return list;
@@ -665,7 +657,7 @@ namespace CDL2v1 {
                id => mode == ParseMode.Full && DuplicateDeclaration(id,RW.VAR) ? null : new Var(id,currentSection)
             ,notes,mode,out vars);
          } else {
-            AddParsingError(Note.ExpectedId);
+            ReportProblem(Note.ExpectedId);
             vars = [];
             return false;
          }
@@ -696,18 +688,16 @@ namespace CDL2v1 {
          if (DuplicateDeclaration(id,RW.CONST))
             return null;
          if (tokens.Optional(TT.EQUALS)) {
-            if (mode == ParseMode.Full && currentSection.import.Contains(id)) {
-               LogError($"CONST {id} with definition is imported in container {currentSection.Id}");
-               AddParsingError(Note.ObjectImportedButHasBody,$"CONST {id}");
+            if (mode == ParseMode.Full && currentSection.Interfaces[InterfaceTypes.Import].Contains(id)) {
+               ReportProblem(Note.ObjectImportedButHasBody,$"CONST {id}");
                return null;
             } else {
                Const c = new(id,currentSection);
                ParseElementList(c,c.elements,"ID, STRING, INT, or FLOAT",mode,secondaryTerminator: TT.SEP);
                return c;
             }
-         } else if (mode == ParseMode.Full && !currentSection.import.Contains(id)) {
-            LogError($"CONST {id} with no definition is not imported in container {currentSection.Id}");
-            AddParsingError(Note.ObjectNotImported,$"CONST {id}");
+         } else if (mode == ParseMode.Full && !currentSection.Interfaces[InterfaceTypes.Import].Contains(id)) {
+            ReportProblem(Note.ObjectNotImported,$"CONST {id}");
             return null;
          } else {
             return new ImportedConst(id,currentSection);
@@ -735,7 +725,7 @@ namespace CDL2v1 {
             } else {
                if (mode == ParseMode.Full) {
                   AddNote(parent,Note.UnexpectedToken,expected,tokens.Peek().ToString());
-                  AddParsingError(Note.UnexpectedToken,expected,tokens.Peek().ToString());
+                  ReportProblem(Note.UnexpectedToken,expected,tokens.Peek().ToString());
                }
                return false;
             }
@@ -751,12 +741,12 @@ namespace CDL2v1 {
          // The interface can be in any order.
          while (tokens.IsNext([RW.ABSTR,RW.EXT,RW.INV,RW.IMPORT,RW.EXPORT])) {
             // Provided interfaces
-            ParseInterfaceList(RW.ABSTR,currentSection.abstr);
-            ParseInterfaceList(RW.EXT,currentSection.ext);
-            ParseInterfaceList(RW.EXPORT,currentSection.export);
+            ParseInterfaceList(RW.ABSTR,currentSection.Interfaces[InterfaceTypes.Abstr]);
+            ParseInterfaceList(RW.EXT,currentSection.Interfaces[InterfaceTypes.Ext]);
+            ParseInterfaceList(RW.EXPORT,currentSection.Interfaces[InterfaceTypes.Export]);
             // Required interfaces
-            ParseInterfaceList(RW.INV,currentSection.inv);
-            ParseInterfaceList(RW.IMPORT,currentSection.import);
+            ParseInterfaceList(RW.INV,currentSection.Interfaces[InterfaceTypes.Inv]);
+            ParseInterfaceList(RW.IMPORT,currentSection.Interfaces[InterfaceTypes.Import]);
          }
       }
 
@@ -784,7 +774,7 @@ namespace CDL2v1 {
             while (parser.tokens.Optional(TT.ID,out Token idToken)) {
                ID id = ID.From(idToken);
                if (container.Ludes[type].Contains(id)) {
-                  parser.ReportWarning($"Duplicate {type} {id} ignored");
+                  parser.ReportProblem(Note.DuplicateLude,type,id,container);
                } else {
                   container.Ludes[type].Add(id);
                }
@@ -815,21 +805,20 @@ namespace CDL2v1 {
                if (ParseCall(parser,ID.From(id),lude,alternative,ParseMode.Full,out Call? call)) {
                   alternative.calls.Add(call);
                } else {
-                  parser.ReportError("Expected Call");
-                  parser.AddParsingError(Note.ExpectedCall);
+                  parser.ReportProblem(Note.ExpectedCall);
                   return false;
                }
                if (!parser.tokens.CanConsumeSep()) break;
             }
             if (!parser.tokens.CanConsumeEnd()) {
-               parser.AddParsingError(Note.ExpectedPeriod);
+               parser.ReportProblem(Note.ExpectedPeriod);
                return false;
             }
             if (alternative.calls.Count >= 1) {
                alternative.NormalizeCalls();
             } else {
                parser.AddNote(container,Note.EmptyLude,ludeType);
-               parser.AddParsingError(Note.EmptyLude,ludeType.ToString());
+               parser.ReportProblem(Note.EmptyLude,ludeType);
             }
 
             lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
@@ -887,7 +876,7 @@ namespace CDL2v1 {
             if (!idList.Contains(id)) {
                idList.Add(id);
             } else {
-               ReportWarning($"Duplicate {type} {id} ignored");
+               ReportProblem(Note.DuplicateInterfaceElementInSection,type,id);
             }
             if (!tokens.CanConsumeSep())
                break;
@@ -895,8 +884,8 @@ namespace CDL2v1 {
          tokens.CanConsumeEnd();
       }
 
+      private void ReportProblem(Note note,params object[] args) => ErrorReporter(note.NoteType,note.FormattedText(args),false);
       private void ReportError(string message,bool suppressErrorAction = false) => ErrorReporter(Severity.Error,message,suppressErrorAction);
-      private void ReportError(string message) => ErrorReporter(Severity.Error,message,false);
       private void ReportWarning(string message) => ErrorReporter(Severity.Warning,message,false);
       private void ReportInfo(string message) => ErrorReporter(Severity.Info,message,false);
 
@@ -927,7 +916,7 @@ namespace CDL2v1 {
          RW objectType = initialToken.reservedWordValue ?? RW.NONE;
          string comments = initialToken.Comments ?? string.Empty;
          ID id;
-         int after; ;
+         int after;
          Focus context = parsingContext.Focus;
          switch (objectType) {
             case RW.PROGRAM:
@@ -998,7 +987,7 @@ namespace CDL2v1 {
                Section? section = context.Section;
                if (section is not null) {
                   currentSection = section;
-                  if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode)) {
+                  if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode,canReplace())) {
                      element = alg;
                      // alg was added to the current section at the end
                      MoveObjectToPosition(parsingContext,context,alg);
@@ -1006,8 +995,7 @@ namespace CDL2v1 {
                   }
                } else {
                   if (mode == ParseMode.Full) {
-                     ReportError($"Cannot add an algorithm because I don't know which {RW.SECTION} to add it to. Context: {context}");
-                     AddParsingError(Note.NoSectionForObject,context.ToString());
+                     ReportProblem(Note.NoSectionForObject,context.ToString());
                   }
                   element = null;
                }
@@ -1023,8 +1011,7 @@ namespace CDL2v1 {
                   }
                } else {
                   if (mode == ParseMode.Full) {
-                     ReportError($"Cannot add a const because I don't know which {RW.SECTION} to add it to. Context: {context}");
-                     AddParsingError(Note.NoSectionForObject,context.ToString());
+                     ReportProblem(Note.NoSectionForObject,context.ToString());
                   }
                   element = null;
                }
@@ -1040,8 +1027,7 @@ namespace CDL2v1 {
                   }
                } else {
                   if (mode == ParseMode.Full) {
-                     ReportError($"Cannot add a var because I don't know which {RW.SECTION} to add it to. Context: {context}");
-                     AddParsingError(Note.NoSectionForObject,context.ToString());
+                     ReportProblem(Note.NoSectionForObject,context.ToString());
                   }
                   element = null;
                }
@@ -1057,8 +1043,7 @@ namespace CDL2v1 {
                   }
                } else {
                   if (mode == ParseMode.Full) {
-                     ReportError($"Cannot add a list because I don't know which {RW.SECTION} to add it to. Context: {context}");
-                     AddParsingError(Note.NoSectionForObject,context.ToString());
+                     ReportProblem(Note.NoSectionForObject,context.ToString());
                   }
                   element = null;
                }
@@ -1068,13 +1053,18 @@ namespace CDL2v1 {
             case RW.INV:
             case RW.EXPORT:
             case RW.IMPORT:
+               section = context.Section;
+               if (section is not null) {
+                  ParseInterfaceList(objectType,section.Interfaces[Container.InterfaceEnumByType[objectType]]);
+               } else if (mode == ParseMode.Full) {
+                  ReportProblem(Note.NoSectionForObject,context.ToString());
+               }
                break;
             case RW.ROOT:
             case RW.PRELUDE:
             case RW.POSTLUDE:
                if (context.FocusType == SelectorType.LAYER) {
-                  ReportError($"Layers don't have {objectType}s");
-                  AddParsingError(Note.InvalidLudeContext,objectType.ToString(),context.ToString());
+                  ReportProblem(Note.InvalidLudeContext,objectType.ToString(),context.ToString());
                } else {
                   switch (context.FocusType) {
                      case SelectorType.MODULE:

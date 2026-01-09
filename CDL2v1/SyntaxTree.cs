@@ -552,6 +552,13 @@ namespace CDL2v1 {
          { ST.ABSTR , InterfaceTypes.Abstr },
          { ST.INV   , InterfaceTypes.Inv }
       };
+      public static readonly Dictionary<RW,InterfaceTypes> InterfaceEnumByType = new() {
+         { RW.IMPORT, InterfaceTypes.Import },
+         { RW.EXPORT, InterfaceTypes.Export  },
+         { RW.EXT   , InterfaceTypes.Ext },
+         { RW.ABSTR , InterfaceTypes.Abstr },
+         { RW.INV   , InterfaceTypes.Inv }
+      };
       public static readonly Dictionary<RW,ST> InterfaceSelectorByType = new() {
          { RW.IMPORT, ST.IMPORT },
          { RW.EXPORT, ST.EXPORT },
@@ -561,11 +568,10 @@ namespace CDL2v1 {
       };
 
 
-
-         /// <summary>
-         /// Sets the LudeParser action for the container. The default is to do nothing.
-         /// </summary>
-         [JsonIgnore]
+      /// <summary>
+      /// Sets the LudeParser action for the container. The default is to do nothing.
+      /// </summary>
+      [JsonIgnore]
       public Func<Parser,RW,Container,bool> LudeParser = (parser,ludeType,container) => false;
 
       /// <summary>
@@ -738,18 +744,12 @@ namespace CDL2v1 {
       /// <summary>
       /// The interfaces. Maintained as sorted sets for display.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(40)] public SortedSet<ID> ext = [];
-      [JsonInclude][JsonPropertyOrder(41)] public SortedSet<ID> abstr = [];
-      [JsonInclude][JsonPropertyOrder(42)] public SortedSet<ID> inv = [];
-      [JsonInclude][JsonPropertyOrder(43)] public SortedSet<ID> export = [];
-      [JsonInclude][JsonPropertyOrder(44)] public SortedSet<ID> import = [];
-
-      public Dictionary<InterfaceTypes,SortedSet<ID>> Interfaces => new() {
-         { InterfaceTypes.Ext,ext },
-         { InterfaceTypes.Abstr,abstr },
-         { InterfaceTypes.Inv,inv },
-         { InterfaceTypes.Export,export },
-         { InterfaceTypes.Import,import }
+      [JsonInclude][JsonPropertyOrder(40)] public Dictionary<InterfaceTypes,SortedSet<ID>> Interfaces = new() {
+         { InterfaceTypes.Ext,[] },
+         { InterfaceTypes.Abstr,[] },
+         { InterfaceTypes.Inv,[] },
+         { InterfaceTypes.Export,[] },
+         { InterfaceTypes.Import,[] }
       };
 
       /// <summary>
@@ -913,7 +913,7 @@ namespace CDL2v1 {
       public bool TryGetResolvedObject<T>(ID Id,out T? resolvedObject) where T : CDL2Object {
          if (Declarations.TryGetValue(Id,out CDL2Object? declared) && declared is T localObject) {
             resolvedObject = localObject;
-         } else if (inv.Contains(Id) && Layer!.Visible.TryGetValue(Id,out IProvidable? visible) && visible is T visibleObject) {
+         } else if (Interfaces[InterfaceTypes.Inv].Contains(Id) && Layer!.Visible.TryGetValue(Id,out IProvidable? visible) && visible is T visibleObject) {
             resolvedObject = visibleObject;
          } else {
             resolvedObject = null;
@@ -931,7 +931,7 @@ namespace CDL2v1 {
          CDL2Object? resolvedObject = null;
          if (Declarations.TryGetValue(Id,out CDL2Object? localObject)) {
             resolvedObject = localObject;
-         } else if (inv.Contains(Id) && Layer!.Visible.TryGetValue(Id,out IProvidable? visibleObject)) {
+         } else if (Interfaces[InterfaceTypes.Inv].Contains(Id) && Layer!.Visible.TryGetValue(Id,out IProvidable? visibleObject)) {
             resolvedObject = (CDL2Object?)visibleObject;
          }
          if (resolvedObject?.IsImported == true) {

@@ -419,11 +419,11 @@ namespace CDL2v1 {
       private string PrintInterfaces(Section section,bool asString = false,bool withSectionComment = false) {
          if (withSectionComment) PrintLineComment(section);
          EmitOptNl(
-                 PrintList(RW.EXPORT,section.export) |
-                 PrintList(RW.IMPORT,section.import) |
-                 PrintList(RW.ABSTR,section.abstr) |
-                 PrintList(RW.EXT,section.ext) |
-                 PrintList(RW.INV,section.inv)
+                 PrintList(RW.EXPORT,section.Interfaces[InterfaceTypes.Export]) |
+                 PrintList(RW.IMPORT,section.Interfaces[InterfaceTypes.Import]) |
+                 PrintList(RW.ABSTR,section.Interfaces[InterfaceTypes.Abstr]) |
+                 PrintList(RW.EXT,section.Interfaces[InterfaceTypes.Ext]) |
+                 PrintList(RW.INV,section.Interfaces[InterfaceTypes.Inv])
                );
          return asString ? Emitter.Content : "";
       }

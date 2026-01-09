@@ -79,6 +79,8 @@ namespace CDL2v1 {
               string.Format(template.Text, [.. args.Select(arg => arg is Affix aff ? $"<{aff.Id}>" : arg is Local loc ? $"<{loc.Id}>" : $"<{arg}>")]), 
               phaseName) => Owner = owner?.GUID ?? Guid.Empty;
 
+      public string FormattedText(params object[] args) => string.Format(Text, args);
+
       public static readonly string Marker = " >>> ";
 
       public static readonly Note Defect                            = new(Severity.Error  , 001, "Procedure has defect (has an effect tough tough declared as {0})");
@@ -131,10 +133,13 @@ namespace CDL2v1 {
       public static readonly Note ParseExpectedProcBody             = new(Severity.Error  , 048, "Expected procedure body.");
       public static readonly Note ParseExpectedMacroBody            = new(Severity.Error  , 049, "Expected macro body.");
       public static readonly Note ExpectedId                        = new(Severity.Error  , 050, "Expected identifier.");
-      public static readonly Note NoSectionForObject                = new(Severity.Error  , 051,"Unable to determine section for object. Context is {0}.");
-      public static readonly Note InvalidLudeContext                = new(Severity.Error  , 052,"Layers don't have {0}s.");
-      public static readonly Note ExpectedCall                      = new(Severity.Error  , 053,"Expected call.");
-      public static readonly Note ExpectedPeriod                    = new(Severity.Error  , 054,"Expected statement end.");
+      public static readonly Note NoSectionForObject                = new(Severity.Error  , 051, "Unable to determine section for object or element. Context is {0}.");
+      public static readonly Note InvalidLudeContext                = new(Severity.Error  , 052, "Layers don't have {0}s.");
+      public static readonly Note ExpectedCall                      = new(Severity.Error  , 053, "Expected call.");
+      public static readonly Note ExpectedPeriod                    = new(Severity.Error  , 054, "Expected statement end.");
+      public static readonly Note DuplicateInterfaceElementInSection= new(Severity.Error  , 055, "Duplicate {0} {1} in section");
+      public static readonly Note DuplicateLude                     = new(Severity.Error  , 056, "Duplicate {0} {1} in {3}}");
+
 
 
       public static readonly Note NoEffect                          = new(Severity.Warning, 101, "Procedure has no effect tough is declared as {0}");

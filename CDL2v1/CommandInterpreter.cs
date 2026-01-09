@@ -116,45 +116,114 @@ namespace CDL2v1 {
       /// <param name="setFocus"></param>
       public void EnterCode(string input,bool setFocus = true) {
          if (input.Contains('.')) {
-            IEnumerable<string> lines = input.Split('.',StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-            foreach (string line in lines.SkipLast(1)) EnterCode(line,setFocus = false);
-            EnterCode(lines.Last(),setFocus: true);
-         } else {
-            input = input.Trim();
-            if (input[^1] != '.') input += '.';
-            string firstWord = input.Split(' ','\t','\r','\n')[0];
-            SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
-            if (type != SelectorType.INVALID) {
-               input = type + input[firstWord.Length..];
-               if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
-                  // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
-                  // Must also take care of adding an undo record if something is replaced.
-                  ParsingContext parsingContext = ParsingContext.AsParsingContext;
-                  if (parser.Parse(parsingContext,out NamedElement? element,CanReplace,input)) {
-                     if (setFocus && element is not null) Focus.SetFocus(element);
-                     if (Container.LudeSelectors.Contains(type)) {
-                        Container container = parsingContext.Focus.FocusType switch {
-                           ST.PROGRAM => (parsingContext.Focus.Object as Program)!,
-                           ST.MODULE => (parsingContext.Focus.Object as Module)!,
-                           _ => parsingContext.Focus.Object!.Section!,
-                        };
-                        WriteInfo($"{container} {type} added");
-                     }
-                  } else {
-                     foreach (Note note in parser.ParsingErrors) {
-                        WriteError(note.ToString());
-                     }
-                     parser.ParsingErrors.Clear();
+            IEnumerable<string> lines = SplitOnPeriods(input);
+            if (lines.Count() > 1) {
+               foreach (string line in lines.SkipLast(1)) EnterSourceSentence(line,setFocus: false);
+               EnterSourceSentence(lines.Last());
+               return;
+            }
+         }
+         EnterSourceSentence(input,setFocus);
+      }
+
+      /// <summary>
+      /// Process a single code entry without splitting on periods.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <param name="setFocus"></param>
+      private void EnterSourceSentence(string input,bool setFocus=false) {
+         input = input.Trim();
+         if (input[^1] != '.') input += '.';
+         string inputBody = RemoveLeadingComments(input);
+         string inputComment = input.Length > inputBody.Length ? input[..(input.Length - inputBody.Length)] : "";
+         string firstWord = inputBody.Split(' ','\t','\r','\n')[0];
+         SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
+         if (type != SelectorType.INVALID) {
+            input = inputComment + type + inputBody[firstWord.Length..];
+            if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
+               // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
+               // Must also take care of adding an undo record if something is replaced.
+               ParsingContext parsingContext = ParsingContext.AsParsingContext;
+               if (parser.Parse(parsingContext,out NamedElement? element,CanReplace,input)) {
+                  if (setFocus && element is not null) Focus.SetFocus(element);
+                  if (Container.LudeSelectors.Contains(type)) {
+                     Container container = parsingContext.Focus.FocusType switch {
+                        ST.PROGRAM => (parsingContext.Focus.Object as Program)!,
+                        ST.MODULE => (parsingContext.Focus.Object as Module)!,
+                        _ => parsingContext.Focus.Object!.Section!,
+                     };
+                     WriteInfo($"{container} {type} added");
                   }
-               } else {
-                  WriteError("Lexical Analysis found no usable tokens in input.");
                }
             } else {
-               WriteError($"Unknown object type: {firstWord}");
+               WriteError("Lexical Analysis found no usable tokens in input.");
             }
-            ParsingContext = null; // Reset the parsing context after a parse
+         } else {
+            WriteError($"Unknown object type: {firstWord}");
          }
+         ParsingContext = null; // Reset the parsing context after a parse
       }
+
+      /// <summary>
+      /// Split input on periods that are not inside comments or quoted strings.
+      /// CDL2 comments are delimited by # and can span to end of line or be closed with another #.
+      /// Quoted strings use " and support $ escaping.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
+      private static IEnumerable<string> SplitOnPeriods(string input) {
+         List<string> result = [];
+         StringBuilder current = new();
+         bool inQuotes = false;
+         bool inComment = false;
+         int length = input.Length;
+
+         for (int i = 0; i < length; i++) {
+            char c = input[i];
+
+            if (inQuotes) {
+               current.Append(c);
+               if (c == '$' && i + 1 < length) {
+                  current.Append(input[++i]); // Escaped character
+               } else if (c == '"') {
+                  inQuotes = false;
+               }
+            } else if (inComment) {
+               current.Append(c);
+               if (c == '#' || c == '\n') {
+                  inComment = false;
+               }
+            } else {
+               if (c == '"') {
+                  inQuotes = true;
+                  current.Append(c);
+               } else if (c == '#') {
+                  inComment = true;
+                  current.Append(c);
+               } else if (c == '.') {
+                  string trimmed = current.ToString().Trim();
+                  if (trimmed.Length > 0) result.Add(trimmed);
+                  current.Clear();
+               } else {
+                  current.Append(c);
+               }
+            }
+         }
+
+         // Add remaining content
+         string final = current.ToString().Trim();
+         if (final.Length > 0) result.Add(final);
+
+         return result.Count > 0 ? result : [input.Trim()];
+      }
+
+      /// <summary>
+      /// Remove leading comments from the input.
+      /// </summary>
+      /// <param name="input"></param>
+      /// <returns></returns>
+      private static string RemoveLeadingComments(string input) => Regex.Replace(input, @"^(\s*#.*?#\s*|\n)+", "", RegexOptions.Singleline);
+
       /// <summary>
       /// Parse the input and verify whther it is syntactically correct.
       /// DO not add anything to the database, just check the syntax.
@@ -238,10 +307,10 @@ namespace CDL2v1 {
          public object? PreviousValue = currentValue;
 
          public override string ToString() => Type switch {
-            SettingType.Boolean => $"-{Name}{(Value is null ? "" : (bool)Value ? "+" : "-")}",
-            SettingType.Integer => $"-{Name}={Value}",
-            SettingType.String => $"-{Name}=\"{Value}\"",
-            _ => $"-{Name}=<unknown type>"
+            SettingType.Boolean => $"-{Name}{(Value is null ? "" : (bool)Value ? "+" : "-")} ",
+            SettingType.Integer => $"-{Name}={Value} ",
+            SettingType.String => $"-{Name}=\"{Value}\" ",
+            _ => $"-{Name}=<unknown type> "
          };
       }
 
@@ -568,7 +637,7 @@ namespace CDL2v1 {
       /// Verifies that the given program name existis in the database.
       /// </summary>
       /// <param name="_1">True when setting the value, false when reseting. Since the previous value is passed on reset, no need to check.</param>
-      /// <param name="_2">The name of the setting == "ProgramName"</param>
+      /// <param name="_2">The name of the setting (not used).</param>
       /// <param name="programName"></param>
       /// <returns></returns>
       private static bool SetProgram(bool _1,string _2,object? programName) {
@@ -1009,11 +1078,11 @@ namespace CDL2v1 {
                      WriteError($"An object named {newName} already exists in the section.");
                      return;
                   }
-                  if (! section.inv.All(id => id.CanonicalName != newCannonicalName)) {
+                  if (! section.Interfaces[InterfaceTypes.Inv].All(id => id.CanonicalName != newCannonicalName)) {
                      WriteError($"{newName} is in the INV list of this section.");
                      return;
                   }
-                  if (!section.import.All(id => id.CanonicalName != newCannonicalName)) {
+                  if (!section.Interfaces[InterfaceTypes.Import].All(id => id.CanonicalName != newCannonicalName)) {
                      WriteError($"{newName} is in the IMPORT list of this section.");
                      return;
                   }
