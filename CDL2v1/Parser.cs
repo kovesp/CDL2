@@ -757,9 +757,11 @@ namespace CDL2v1 {
       /// <param Id="interfaceType"></param>
       /// <param Id="idList">The container interface list.</param>
       /// <returns></returns>
-      private void ParseInterfaceList(RW interfaceType,ICollection<ID> idList) {
+      private List<ID> ParseInterfaceList(RW interfaceType,ICollection<ID> idList) {
          if (tokens.Consume(interfaceType)) {
-            ParseIDList(interfaceType,idList);
+            return ParseIDList(interfaceType,idList);
+         } else {
+            return [];
          }
       }
 
@@ -769,7 +771,8 @@ namespace CDL2v1 {
          container.LudeParser(this,RW.POSTLUDE,container);
       }
 
-      internal static bool ParseLudeOfIDs(Parser parser,RW type,Container container) {
+      internal static bool ParseLudeOfIDs(Parser parser,RW type,Container container,out List<ID> ids) {
+         ids = [];
          if (parser.tokens.Optional(type)) {
             while (parser.tokens.Optional(TT.ID,out Token idToken)) {
                ID id = ID.From(idToken);
@@ -777,6 +780,7 @@ namespace CDL2v1 {
                   parser.ReportProblem(Note.DuplicateLude,type,id,container);
                } else {
                   container.Ludes[type].Add(id);
+                  ids.Add(id);
                }
                if (!parser.tokens.CanConsumeSep()) break;
             }
@@ -784,6 +788,7 @@ namespace CDL2v1 {
          }
          return true;
       }
+      internal static bool ParseLudeOfIDs(Parser parser,RW type,Container container) => ParseLudeOfIDs(parser,type,container,out List<ID> _);
 
       /// <summary>
       /// Parse a Section lude. This is an alternative (i.e., a sequence of calls, without the other options for the last call) terminated by a period.
@@ -793,7 +798,8 @@ namespace CDL2v1 {
       /// <param Id="parser"></param>
       /// <param Id="LudeType"></param>
       /// <param Id="container"></param>
-      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container) {
+      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container,out Guid ludeGuid) {
+         ludeGuid = Guid.Empty;
          if (parser.tokens.Optional(ludeType)) {
             //Debug.Assert(container != null);
             Section section = (Section)container;
@@ -824,11 +830,11 @@ namespace CDL2v1 {
             lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
             lude.group.Alternatives.Add(alternative);
             section.Ludes[ludeType].Add(lude.Id);
-            // section.Declarations[lude.Id] = lude.GUID;
-            section.LudeProcs[ludeType] = lude.GUID;
+            section.LudeProcs[ludeType] = ludeGuid = lude.GUID;
          }
          return true;
       }
+      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container) => ParseLudeOfCalls(parser,ludeType,container,out Guid _);
 
 
       /// <summary>
@@ -870,11 +876,14 @@ namespace CDL2v1 {
       /// </summary>
       /// <param PhaseName="idList"></param>
       /// <param PhaseName="idList2"></param>
-      private void ParseIDList(RW type,ICollection<ID> idList) {
+      /// <returns>The list of ids parsed.</returns>
+      private List<ID> ParseIDList(RW type,ICollection<ID> idList) {
+         List<ID> result = [];
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
             if (!idList.Contains(id)) {
                idList.Add(id);
+               result.Add(id);
             } else {
                ReportProblem(Note.DuplicateInterfaceElementInSection,type,id);
             }
@@ -882,6 +891,7 @@ namespace CDL2v1 {
                break;
          }
          tokens.CanConsumeEnd();
+         return result;
       }
 
       private void ReportProblem(Note note,params object[] args) => ErrorReporter(note.NoteType,note.FormattedText(args),false);
@@ -1053,9 +1063,11 @@ namespace CDL2v1 {
             case RW.INV:
             case RW.EXPORT:
             case RW.IMPORT:
-               section = context.Section;
+               element = section = context.Section;
                if (section is not null) {
-                  ParseInterfaceList(objectType,section.Interfaces[Container.InterfaceEnumByType[objectType]]);
+                  foreach (ID interfaceId in ParseInterfaceList(objectType,section.Interfaces[Container.InterfaceEnumByType[objectType]])) {
+                     Database.Instance.RecordUndo(section,objectType,interfaceId,ChangeType.InterfaceAdded);
+                  }
                } else if (mode == ParseMode.Full) {
                   ReportProblem(Note.NoSectionForObject,context.ToString());
                }
@@ -1068,18 +1080,23 @@ namespace CDL2v1 {
                } else {
                   switch (context.FocusType) {
                      case SelectorType.MODULE:
-                        ParseLudeOfIDs(this,objectType,(context.Object as Module)!);
-                        // TODO: Produce warnings for ludes that don't have corresponding sections?
+                        Module mod = (context.Object as Module)!;
+                        ParseLudeOfIDs(this,objectType,mod,out List<ID> ludeIds);
+                        foreach (ID ludeId in ludeIds) Database.Instance.RecordUndo(mod,objectType,ludeId,ChangeType.LudeAdded);
                         break;
                      case SelectorType.PROGRAM:
-                        ParseLudeOfIDs(this,objectType,(context.Object as Program)!);
-                        // TODO: Produce warnings for ludes that don't have corresponding modules?
+                        Program program = (context.Object as Program)!;
+                        ParseLudeOfIDs(this,objectType,program,out ludeIds);
+                        foreach (ID ludeId in ludeIds) Database.Instance.RecordUndo(program,objectType,ludeId,ChangeType.LudeAdded);
                         break;
                      default:
                         // Either the context is a Section or it is inside a section.
                         currentSection = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
                         Debug.Assert(currentSection != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
-                        return ParseLudeOfCalls(this,objectType,currentSection);
+                        if (ParseLudeOfCalls(this,objectType,currentSection,out Guid ludeGuid)) {
+                           Database.Instance.RecordUndo(currentSection,objectType,ludeGuid,ChangeType.LudeAdded);
+                        }
+                        break;
                   }
                }
                break;

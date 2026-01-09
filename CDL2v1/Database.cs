@@ -333,16 +333,25 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
          [JsonInclude][JsonPropertyOrder(3)] public Guid ObjectGuid { get; set; } = Guid.Empty;
          [JsonInclude][JsonPropertyOrder(4)] public InterfaceTypes InterfaceStatus { get; set; } = InterfaceTypes.None;
-         [JsonInclude][JsonPropertyOrder(5)] public ChangeType ChangeType { get; set; }
+         [JsonInclude][JsonPropertyOrder(5)] public RW LudeType { get; set; } = RW.NONE;
+         [JsonInclude][JsonPropertyOrder(6)] public ChangeType ChangeType { get; set; }
 
          // For rename operations
-         [JsonInclude][JsonPropertyOrder(6)] public string OriginalName { get; set; } = "";
-         [JsonInclude][JsonPropertyOrder(7)] public string NewName { get; set; } = "";
-         [JsonInclude][JsonPropertyOrder(8)] public bool UpdateReferences { get; private set; }
-         [JsonInclude][JsonPropertyOrder(9)] public ID Id { get; set; } = ID.AnonID;
+         [JsonInclude][JsonPropertyOrder(7)] public string OriginalName { get; set; } = "";
+         [JsonInclude][JsonPropertyOrder(8)] public string NewName { get; set; } = "";
+         [JsonInclude][JsonPropertyOrder(9)] public bool UpdateReferences { get; private set; }
+         [JsonInclude][JsonPropertyOrder(10)] public ID Id { get; set; } = ID.AnonID;
 
-         [JsonInclude][JsonPropertyOrder(10)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
-         [JsonInclude][JsonPropertyOrder(11)] public int Position { get; private set; } = -1;
+         [JsonInclude][JsonPropertyOrder(11)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
+         /// <summary>
+         /// Alias
+         /// </summary>
+         [JsonIgnore] public Guid LudeProcGuid {
+            get => ReplacementGuid;
+            set => ReplacementGuid = value;
+         }
+
+         [JsonInclude][JsonPropertyOrder(12)] public int Position { get; private set; } = -1;
 
          [JsonIgnore]public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
 
@@ -393,6 +402,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="element"></param>
       public void RecordUndo(CDL2Object element,ChangeType changeType) => UndoStack.Push(new UndoRecord(element,changeType));
+
       /// <summary>
       /// Create an undo record for a rename operation. Renames are performed on IDs so have to be recorded like that.
       /// </summary>
@@ -410,38 +420,58 @@ namespace CDL2v1 {
       /// <param name="replacementGuid">The unique identifier of the replacement element. This is the now live guid.</param>
       public void RecordUndo(CDL2Object element,Guid replacementGuid) => UndoStack.Push(new UndoRecord(element,ChangeType.Replaced) { ReplacementGuid = replacementGuid });
 
-      ///// <summary>
-      ///// Add a tag to the top undo record for the given named element.
-      ///// </summary>
-      ///// <param name="guid"></param>
-      ///// <param name="tag"></param>
-      ///// <returns></returns>
-      //public bool TagUndoRecord(Guid guid,string tag) {
-      //   UndoRecord? record = UndoStack.FirstOrDefault(ur => ur.CDL2Object?.GUID == guid);
-      //   if (record != null) {
-      //      record.Tag = tag;
-      //      return true;
-      //   }
-      //   return false;
-      //}
-      //public bool TagUndoRecord(CDL2Object element,string tag) => TagUndoRecord(element.GUID,tag);
-      //public bool TryGetUndo(string tag,out CDL2Object? element) {
-      //   UndoRecord? record = UndoStack.FirstOrDefault(ur => ur.Tag == tag);
-      //   if (record != null) {
-      //      element = record.CDL2Object!;
-      //      return true;
-      //   } else {
-      //      element = null;
-      //      return false;
-      //   }
-      //}
-
       /// <summary>
-      /// When registration is suspended, named elements are still added to the NamedElements dictionary,
-      /// but are removed when suspension is turned off.
-      /// This implementation allows for nested suspensions, as long as the Resume call is made the same number of times.
+      /// Used to record adding or deleting an interface declaration or ludes from a section.
       /// </summary>
-      [JsonIgnore] private bool _suspendNamedElementRegistration = false;
+      /// <param name="section"></param>
+      /// <param name="elementType"></param>
+      /// <param name="id"></param>
+      /// <param name="changeType"></param>
+      public void RecordUndo(Container container,RW elementType,ID id,ChangeType changeType) {
+         switch (elementType) {
+            case RW.EXPORT:
+             case RW.IMPORT:
+            case RW.EXT:
+            case RW.ABSTR:
+            case RW.INV:
+               UndoStack.Push(new UndoRecord() {
+                  ObjectGuid = container.GUID,
+                  InterfaceStatus = Container.InterfaceEnumByType[elementType],
+                  Id = id,
+                  ChangeType = changeType,
+               });
+               break;
+            case RW.PRELUDE:
+            case RW.ROOT:
+            case RW.POSTLUDE:
+               UndoStack.Push(new UndoRecord() {
+                  ObjectGuid = container.GUID,
+                  LudeType = elementType,
+                  Id = id,
+                  ChangeType = changeType,
+               });
+               break;
+             default:
+               throw new ArgumentOutOfRangeException(nameof(elementType),elementType,null);
+         }
+      }
+      public void RecordUndo(Container container,RW elementType,Guid ludeGuid,ChangeType changeType) {
+         UndoStack.Push(new UndoRecord() {
+            ObjectGuid = container.GUID,
+            LudeType = elementType,
+            LudeProcGuid = ludeGuid,
+            ChangeType = changeType,
+         });
+      }
+
+
+
+         /// <summary>
+         /// When registration is suspended, named elements are still added to the NamedElements dictionary,
+         /// but are removed when suspension is turned off.
+         /// This implementation allows for nested suspensions, as long as the Resume call is made the same number of times.
+         /// </summary>
+         [JsonIgnore] private bool _suspendNamedElementRegistration = false;
       [JsonIgnore] private readonly List<Guid> _suspendedNamedElementRegistrationList = [];
       [JsonIgnore] private uint _suspendNamedElementRegistrationCount = 0;
       public void SuspendNamedElementRegistration() {
