@@ -85,6 +85,11 @@ namespace CDL2v1 {
          Object = obj;
          ListType = type;
       }
+      public SingleSelection(NamedElement? obj,SelectorType type,string name) {
+         Object = obj;
+         ListType = type;
+         if (name.IsNotEmptyOrWhitespace) Id = new(name);
+      }
 
       public static SingleSelection Empty => new();
       /// <summary>
@@ -127,6 +132,8 @@ namespace CDL2v1 {
       /// </summary>
       [JsonInclude, JsonPropertyOrder(3)]
       public SelectorType ListType = SelectorType.INVALID;
+
+      [JsonInclude, JsonPropertyOrder(4)] public ID Id = ID.AnonID;
 
 
       private static readonly Type[] NonFocusableTypes = [typeof(Affix), typeof(Local), typeof(Call)];
@@ -217,12 +224,11 @@ namespace CDL2v1 {
          IEnumerable<NamedElement> candidateObjects;
          IEnumerable<NamedElement> selectedObjects = [];
 
-         bool nonRootedRW = !isRooted && segments[1].SegmentName == "";
-         if (nonRootedRW && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: segments[0].SegmentType,child: Focus.Current.FocusType)) {
+         if (!isRooted && segments[1].SegmentName == "" && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: segments[0].SegmentType,child: Focus.Current.FocusType)) {
             // The initial segment is just a type without a name, and the focus is on an object that is a descendant of that type. e.g. "Module" when the focus is on a Layer.
             candidateObjects = [Focus.Current.Object!.GetAncestorOfType(segments[0].SegmentType)];
-         } else if (nonRootedRW && !Abbreviation<SelectorType>.Focusable(segments[0].SegmentType) /*&& Focus.Current.Container?.FocusType == ST.SECTION*/) {
-            Add(new SingleSelection(Focus.Current.Container,segments[0].SegmentType));
+         } else if (!isRooted && !Abbreviation<SelectorType>.Focusable(segments[0].SegmentType)) {
+            Add(new SingleSelection(Focus.Current.Container,segments[0].SegmentType,segments[1].SegmentName));
             return;
          } else if (isRooted || !Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: Focus.Current.FocusType,child: segments[0].SegmentType)) {
             candidateObjects = Database.Instance.NamedElements.Values;

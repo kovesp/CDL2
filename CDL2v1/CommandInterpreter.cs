@@ -33,6 +33,7 @@
 // </auto-gen>
 
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.IO;
@@ -41,6 +42,7 @@ using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Interop;
 
 
 namespace CDL2v1 {
@@ -63,7 +65,7 @@ namespace CDL2v1 {
             pp = new(commandWindow.Emitter = new EmitterCommandWindow(commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },includeComments: true);
             // pp = new(commandWindow.Emitter = new EmitterMulticast(new EmitterDebug(),new EmitterCommandWindow(commandWindow)),includeComments: true);
 
-            parser = new Parser(CDL2.Compiler,(severity,msg,_) => commandWindow.WriteLine($"{severity}: {msg}",severity));
+            parser = new Parser(CDL2.Compiler,(severity,msg,_) => ErrorReporter(severity,msg,_));
          } else {
             pp = new(new EmitterDebug(),includeComments: true);
             parser = new Parser(CDL2.Compiler,(severity,msg,_) => Debug.WriteLine($"{severity}: {msg}"));
@@ -72,6 +74,10 @@ namespace CDL2v1 {
          ppFile = new(new EmitterFile(),includeComments: true);
          // ppFileEmitter.Target = Settings.SettingValue<string>("file")!;
       }
+
+      public void ErrorReporter(Severity severity,string msg,bool _) => commandWindow?.WriteLine($"{severity}: {msg}",severity);
+      private void ReportProblem(Note note,params object[] args) => ErrorReporter(note.NoteType,note.FormattedText(args),false);
+
 
       public void SetStatus(NamedElement? element = null) {
          if (commandWindow is not null) {
@@ -847,23 +853,78 @@ namespace CDL2v1 {
             foreach (SingleSelection context in multiContext) {
                switch (context.Object) {
                   case Program p:
-                     Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
-                     Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
-                     Database.Instance.NamedElements.Remove(p.GUID);
-                     Database.Instance.ElementsWithNotes.Remove(p.GUID);
-                     // The above is what needs to be done for a single element. It then needs to be repeated for all children.
-                     // ... Program doesn't have any, since Parts are not exactly children.
-                     // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
-                     WriteInfo($"{p.FQDN()} removed");
+                     if (context.ListType != ST.INVALID) {
+                        switch (context.ListType) {
+                           case ST.PRELUDE:
+                           case ST.ROOT:
+                           case ST.POSTLUDE:
+                              break;
+                           default:
+                              ReportProblem(Note.CannotDelete,context.ListType,p.FQDN());
+                              break;
+                        }
+                     } else {
+                        Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
+                        Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
+                        Database.Instance.NamedElements.Remove(p.GUID);
+                        Database.Instance.ElementsWithNotes.Remove(p.GUID);
+                        // The above is what needs to be done for a single element. It then needs to be repeated for all children.
+                        // ... Program doesn't have any, since Parts are not exactly children.
+                        // CDL2.Compiler.SemanticAnalyzer!.Analyze(p);
+                        WriteInfo($"{p.FQDN()} removed");
+                     }
                      break;
                   case Module m:
-                     WriteInfo("Not implemented.");
+                     if (context.ListType != ST.INVALID) {
+                        switch (context.ListType) {
+                           case ST.PRELUDE:
+                           case ST.ROOT:
+                           case ST.POSTLUDE:
+                              break;
+                            default:
+                              ReportProblem(Note.CannotDelete,context.ListType,m.FQDN());
+                              break;
+                        }
+                     } else {
+                        ReportProblem(Note.NotImplemented);
+                     }
                      break;
                   case Layer l:
                      WriteInfo("Not implemented.");
                      break;
                   case Section s:
-                     WriteInfo("Not implemented.");
+                     if (context.ListType != ST.INVALID) {
+                        switch (context.ListType) {
+                           case ST.PRELUDE:
+                           case ST.ROOT:
+                           case ST.POSTLUDE:
+                              ReportProblem(Note.NotImplemented);
+                              break;
+                           case ST.EXPORT:
+                           case ST.IMPORT:
+                           case ST.EXT:
+                           case ST.ABSTR:
+                           case ST.INV:
+                              if (context.Id == ID.AnonID) {
+                                 ReportProblem(Note.CannotDelete,$"All {context.ListType}",s.FQDN());
+                              } else {
+                                 // Single interface element removal
+                                 SortedSet<ID> interfaceList = s.Interfaces[Container.InterfaceEnumBySelector[context.ListType]];
+                                 if (interfaceList.Remove(context.Id)) {
+                                    Database.Instance.RecordUndo(s,Container.InterfaceTypeBySelector[context.ListType],context.Id,ChangeType.InterfaceRemoved);
+                                    s.Module!.Modified = true;
+                                 } else {
+                                    ReportProblem(Note.CannotDelete,$"Non-existent {context.ListType} {context.Id}",s.FQDN());
+                                 }
+                              }
+                              break;
+                           default:
+                              ReportProblem(Note.CannotDelete,context.ListType,s.FQDN());
+                              break;
+                        }
+                     } else {
+                        ReportProblem(Note.NotImplemented);
+                     }
                      break;
                   case CDL2Object obj:
                      InterfaceTypes interfaceTypes = InterfaceTypeFromSetting();
@@ -885,7 +946,7 @@ namespace CDL2v1 {
                      obj.Module?.Modified = true;
                      break;
                   default:
-                     WriteError($"Cannot delete {Focus.Current.Object?.FQDN() ?? "<unknown>"}");
+                     ReportProblem(Note.CannotDelete,Focus.Current.Object?.FQDN() ?? "<unknown>");
                      break;
                }
             }
