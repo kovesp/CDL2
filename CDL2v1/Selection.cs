@@ -139,7 +139,7 @@ namespace CDL2v1 {
       private static readonly Type[] NonFocusableTypes = [typeof(Affix), typeof(Local), typeof(Call)];
       [JsonIgnore]
       public bool IsFocusable => ! NonFocusableTypes.Contains(Object?.GetType() ?? typeof(NamedElement));
-      public override string ToString() => $"SingleSelection<{Object}{(ListType != SelectorType.INVALID?" "+ListType:"")}>";
+      public override string ToString() => $"SingleSelection<{Object}{(ListType != SelectorType.INVALID?" "+ListType:"")}{(Id is not null ? " " + Id : "")}>";
    }
 
    /// <summary>
@@ -365,7 +365,7 @@ namespace CDL2v1 {
       private IEnumerable<NamedElement> NarrowSelectionToList() => throw new NotImplementedException();
 
       private bool ParseSelectionSegments(string selectionString,SelectionSegments segments,out bool importedSeen) {
-         Regex regex = new(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z\s]*)",RegexOptions.Compiled);
+         Regex regex = new(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z0-9\s]*)",RegexOptions.Compiled);
 
          bool previousSegmentWasUnit = false;
          bool previousSegmentWasNameOrOffset = false;

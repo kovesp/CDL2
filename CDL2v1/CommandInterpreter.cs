@@ -43,6 +43,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Interop;
+using System.Xml.Linq;
 
 
 namespace CDL2v1 {
@@ -843,15 +844,26 @@ namespace CDL2v1 {
                if (undo) {
                   ludes.Remove(record.Id);
                } else {
-                  ludes.Add(record.Id);
+                  ludes.Insert(Math.Max(0,record.Position),record.Id);
                }
-               if (record.Object is Section s) {
-                  // If it is a section lude, then there is also a ludeProc Guid lude type
-                  s.LudeProcs[record.LudeType] = undo ? record.LudeProcGuid : Guid.Empty;
+               if (record.Object is Section s1) {
+                  // If it is a section lude, then there is also a ludeProc Guid
+                  s1.LudeProcs[record.LudeType] = undo ? null : record.LudeProcGuid;
                }
                break;
             case ChangeType.LudeRemoved:
-               done = false; break;
+               ludes = (record.Object as Container)!.Ludes[record.LudeType];
+               // For programs and modules it is alist of IDs, for sections there is only one lude per type
+               if (undo) {
+                  ludes.Insert(Math.Max(0,record.Position),record.Id);
+               } else {
+                  ludes.Remove(record.Id);
+               }
+               if (record.Object is Section s2) {
+                  // If it is a section lude, then there is also a ludeProc Guid
+                  s2.LudeProcs[record.LudeType] = undo ? record.LudeProcGuid : null;
+               }
+               break;
             case ChangeType.LudeReplaced:
                done = false; break;
             default:
@@ -883,7 +895,10 @@ namespace CDL2v1 {
                            case ST.PRELUDE:
                            case ST.ROOT:
                            case ST.POSTLUDE:
-                              ReportProblem(Note.NotImplemented,$"Program {context.ListType} delete");
+                              RW ludeType = Container.LudeTypeBySelector[context.ListType];
+                              List<ID> ludes = p.Ludes[ludeType];
+                              ludes.Remove(context.Id);
+                              Database.Instance.RecordUndo(p,ludeType,context.Id,ChangeType.LudeRemoved);
                               break;
                            default:
                               ReportProblem(Note.CannotDelete,context.ListType,p.FQDN());
@@ -906,6 +921,10 @@ namespace CDL2v1 {
                            case ST.PRELUDE:
                            case ST.ROOT:
                            case ST.POSTLUDE:
+                              RW ludeType = Container.LudeTypeBySelector[context.ListType];
+                              List<ID> ludes = m.Ludes[ludeType];
+                              ludes.Remove(context.Id);
+                              Database.Instance.RecordUndo(m,ludeType,context.Id,ChangeType.LudeRemoved);
                               break;
                             default:
                               ReportProblem(Note.CannotDelete,context.ListType,m.FQDN());
@@ -924,7 +943,12 @@ namespace CDL2v1 {
                            case ST.PRELUDE:
                            case ST.ROOT:
                            case ST.POSTLUDE:
-                              ReportProblem(Note.NotImplemented,$"Section {context.ListType} delete");
+                              RW ludeType = Container.LudeTypeBySelector[context.ListType];
+                              List<ID> ludes = s.Ludes[ludeType];
+                              ludes.Clear();  // there is only one
+                              // If it is a section lude, then there is also a ludeProc Guid
+                              Database.Instance.RecordUndo(s,ludeType,context.Id,s.LudeProcs[ludeType]!.Value,ChangeType.LudeRemoved);
+                              s.LudeProcs[ludeType] = null;
                               break;
                            case ST.EXPORT:
                            case ST.IMPORT:
