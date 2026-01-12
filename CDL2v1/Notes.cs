@@ -140,8 +140,10 @@ namespace CDL2v1 {
       public static readonly Note ExpectedPeriod                    = new(Severity.Error  , 054, "Expected statement end.");
       public static readonly Note DuplicateInterfaceElementInSection= new(Severity.Error  , 055, "Duplicate {0} {1} in section");
       public static readonly Note DuplicateLude                     = new(Severity.Error  , 056, "Duplicate {0} {1} in {3}");
-      public static readonly Note NotImplemented                    = new(Severity.Error  , 057, "Not implemented");
+      public static readonly Note NotImplemented                    = new(Severity.Error  , 057, "Not implemented: {0}");
       public static readonly Note CannotDelete                      = new(Severity.Error  , 058, "Cannot remove {0} from {1}");
+      public static readonly Note InvalidLude                       = new(Severity.Error  , 059, "Invalid lude {0}");
+
 
       public static readonly Note NoEffect                          = new(Severity.Warning, 101, "Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten            = new(Severity.Warning, 102, "Output affix {0} whose value has not been read passed to output in {1}");

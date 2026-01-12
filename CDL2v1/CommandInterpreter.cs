@@ -736,18 +736,7 @@ namespace CDL2v1 {
          if (Settings.SettingValue<bool>("list")) {
             int n = 0;
             WriteLine($"{stackName} stack ({stack.Count}/{stack.Capacity})");
-            foreach (Database.UndoRecord record in stack) {
-               if (record.ChangeType == ChangeType.Renamed) {
-                  WriteLine($"{++n,3}:{(record.Tag.IsNotEmptyOrWhitespace ? $" [{record.Tag}]:" : "")} {record.ChangeType,8} :: {record.OriginalName} -> {record.NewName}");
-               } else {
-                  CDL2Object? obj = record.CDL2Object;
-                  if (obj is not null) {
-                     WriteLine($"{++n,3}:{(record.Tag.IsNotEmptyOrWhitespace ? $" [{record.Tag}]:" : "")} {record.ChangeType,8} :: {obj.FQDN(WithInterface: true)}");
-                  } else {
-                     WriteLine($"{++n,3}: Undo record contains {record.ObjectGuid} which is not in NamedElements");
-                  }
-               }
-            }
+            foreach (Database.UndoRecord record in stack) WriteLine($"{++n,3}:{record.Description()}");
          } else if (stack.Count == 0) {
             WriteWarning($"{stackName} stack is empty.");
          } else if ((tag = Settings.SettingValue<string>("tag")!).IsNotEmptyOrWhitespace) {
@@ -797,9 +786,10 @@ namespace CDL2v1 {
       /// <param name="stack">undo stack for undo, redo stack for redo</param>
       /// <param name="otherStack">redo stack for undo, undo stack for redo</param>
       /// <exception cref="NotImplementedException"></exception>
-      private static void SingleUndoRedo(bool undo,BoundedStack<Database.UndoRecord> stack,BoundedStack<Database.UndoRecord> otherStack) {
-         Database.UndoRecord record = stack.Pop();
+      private void SingleUndoRedo(bool undo,BoundedStack<Database.UndoRecord> stack,BoundedStack<Database.UndoRecord> otherStack) {
+         Database.UndoRecord record = stack.Peek();
          CDL2Object obj = record.CDL2Object!;
+         bool done = true;
          switch (record.ChangeType) {
             case ChangeType.Added:
                if (undo) {
@@ -824,19 +814,54 @@ namespace CDL2v1 {
                   obj.Remove();
                }
                break;
+            case ChangeType.Replaced:
+               done = false; break;
+            case ChangeType.Renamed:
+               done = false; break;
             case ChangeType.InterfaceChanged:
                InterfaceTypes currentInterfaceType = record.CDL2Object!.GetInterfaces();
                record.CDL2Object!.SetInterfaces(record.InterfaceStatus);
                record.InterfaceStatus = currentInterfaceType; // Swap the interface status for the symetric operation  
                break;
-            case ChangeType.Replaced:
+            case ChangeType.InterfaceAdded:
+               if (undo) {
+                  (record.Object as Section)!.Interfaces[Container.InterfaceEnumBySelector[record.InterfaceType]].Remove(record.Id);
+               } else {
+                  (record.Object as Section)!.Interfaces[Container.InterfaceEnumBySelector[record.InterfaceType]].Add(record.Id);
+               }
                break;
-            case ChangeType.Renamed:
+            case ChangeType.InterfaceRemoved:
+               if (undo) {
+                  (record.Object as Section)!.Interfaces[Container.InterfaceEnumBySelector[record.InterfaceType]].Add(record.Id);
+               } else {
+                  (record.Object as Section)!.Interfaces[Container.InterfaceEnumBySelector[record.InterfaceType]].Remove(record.Id);
+               }
                break;
+            case ChangeType.LudeAdded:
+               List<ID> ludes = (record.Object as Container)!.Ludes[record.LudeType];
+               // For programs and modules it is alist of IDs, for sections there is only one lude per type
+               if (undo) {
+                  ludes.Remove(record.Id);
+               } else {
+                  ludes.Add(record.Id);
+               }
+               if (record.Object is Section s) {
+                  // If it is a section lude, then there is also a ludeProc Guid lude type
+                  s.LudeProcs[record.LudeType] = undo ? record.LudeProcGuid : Guid.Empty;
+               }
+               break;
+            case ChangeType.LudeRemoved:
+               done = false; break;
+            case ChangeType.LudeReplaced:
+               done = false; break;
             default:
-               throw new NotImplementedException($"Undo of change type {record.ChangeType} not implemented.");
+               throw new NotImplementedException($"Undo/Redo of change type {record.ChangeType} is unknown to SingleUndoRedo.");
          }
-         otherStack.Push(record);
+         if (done) {
+            otherStack.Push(stack.Pop());
+         } else {
+            ReportProblem(Note.NotImplemented,$"Undo/Redo of change type {record.ChangeType}.");
+         }
       }
 
 
@@ -858,6 +883,7 @@ namespace CDL2v1 {
                            case ST.PRELUDE:
                            case ST.ROOT:
                            case ST.POSTLUDE:
+                              ReportProblem(Note.NotImplemented,$"Program {context.ListType} delete");
                               break;
                            default:
                               ReportProblem(Note.CannotDelete,context.ListType,p.FQDN());
@@ -886,11 +912,11 @@ namespace CDL2v1 {
                               break;
                         }
                      } else {
-                        ReportProblem(Note.NotImplemented);
+                        ReportProblem(Note.NotImplemented,$"Module delete");
                      }
                      break;
                   case Layer l:
-                     WriteInfo("Not implemented.");
+                     ReportProblem(Note.NotImplemented,$"Layer delete");
                      break;
                   case Section s:
                      if (context.ListType != ST.INVALID) {
@@ -898,7 +924,7 @@ namespace CDL2v1 {
                            case ST.PRELUDE:
                            case ST.ROOT:
                            case ST.POSTLUDE:
-                              ReportProblem(Note.NotImplemented);
+                              ReportProblem(Note.NotImplemented,$"Section {context.ListType} delete");
                               break;
                            case ST.EXPORT:
                            case ST.IMPORT:
@@ -923,7 +949,7 @@ namespace CDL2v1 {
                               break;
                         }
                      } else {
-                        ReportProblem(Note.NotImplemented);
+                        ReportProblem(Note.NotImplemented,$"Section delete");
                      }
                      break;
                   case CDL2Object obj:

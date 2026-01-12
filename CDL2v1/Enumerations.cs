@@ -293,8 +293,9 @@ namespace CDL2v1 {
       InterfaceChanged,    // Used when the interface of an object changes
       InterfaceAdded,      // Used when an interface is added to a section when the object may not be declared yet.
       InterfaceRemoved,    // Used when an interface is removed from a section when the object may not be declared yet.
-      LudeAdded,
-      LudeRemoved,
+      LudeAdded,           // Section, Module and Program ludes can be added
+      LudeRemoved,         // ... or removed
+      LudeReplaced,        // Section ludes can be edited ans so replaced.
    }
 
    /// <summary>

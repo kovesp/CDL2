@@ -798,7 +798,8 @@ namespace CDL2v1 {
       /// <param Id="parser"></param>
       /// <param Id="LudeType"></param>
       /// <param Id="container"></param>
-      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container,out Guid ludeGuid) {
+      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container,out ID ludeId,out Guid ludeGuid) {
+         ludeId = ID.AnonID;
          ludeGuid = Guid.Empty;
          if (parser.tokens.Optional(ludeType)) {
             //Debug.Assert(container != null);
@@ -829,12 +830,12 @@ namespace CDL2v1 {
 
             lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
             lude.group.Alternatives.Add(alternative);
-            section.Ludes[ludeType].Add(lude.Id);
+            section.Ludes[ludeType].Add(ludeId = lude.Id);
             section.LudeProcs[ludeType] = ludeGuid = lude.GUID;
          }
          return true;
       }
-      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container) => ParseLudeOfCalls(parser,ludeType,container,out Guid _);
+      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container) => ParseLudeOfCalls(parser,ludeType,container,out ID _,out Guid _);
 
 
       /// <summary>
@@ -1078,25 +1079,24 @@ namespace CDL2v1 {
                if (context.FocusType == SelectorType.LAYER) {
                   ReportProblem(Note.InvalidLudeContext,objectType.ToString(),context.ToString());
                } else {
-                  switch (context.FocusType) {
-                     case SelectorType.MODULE:
-                        Module mod = (context.Object as Module)!;
-                        ParseLudeOfIDs(this,objectType,mod,out List<ID> ludeIds);
-                        foreach (ID ludeId in ludeIds) Database.Instance.RecordUndo(mod,objectType,ludeId,ChangeType.LudeAdded);
-                        break;
-                     case SelectorType.PROGRAM:
-                        Program program = (context.Object as Program)!;
-                        ParseLudeOfIDs(this,objectType,program,out ludeIds);
-                        foreach (ID ludeId in ludeIds) Database.Instance.RecordUndo(program,objectType,ludeId,ChangeType.LudeAdded);
-                        break;
-                     default:
-                        // Either the context is a Section or it is inside a section.
-                        currentSection = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
-                        Debug.Assert(currentSection != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
-                        if (ParseLudeOfCalls(this,objectType,currentSection,out Guid ludeGuid)) {
-                           Database.Instance.RecordUndo(currentSection,objectType,ludeGuid,ChangeType.LudeAdded);
-                        }
-                        break;
+                  if (context.FocusType == SelectorType.SECTION) {
+                     // Either the context is a Section or it is inside a section.
+                     currentSection = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
+                     Debug.Assert(currentSection != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
+                     if (ParseLudeOfCalls(this,objectType,currentSection,out ID ludeProcId,out Guid ludeGuid)) {
+                        Database.Instance.RecordUndo(currentSection,objectType,ludeProcId,ludeGuid,ChangeType.LudeAdded);
+                     } else {
+                        ReportProblem(Note.InvalidLude,$"{objectType} in {currentSection.FQDN()}");
+                     }
+
+                  } else { 
+                     // Otherwise it is a Program or a Module
+                     Container container = (context.Object as Container)!;
+                     if (ParseLudeOfIDs(this,objectType,container,out List<ID> ludeIds)) {
+                        foreach (ID ludeId in ludeIds) Database.Instance.RecordUndo(container,objectType,ludeId,ChangeType.LudeAdded);
+                     } else {
+                        ReportProblem(Note.InvalidLude,$"{objectType} in {context.Object!.FQDN()}");
+                     }
                   }
                }
                break;

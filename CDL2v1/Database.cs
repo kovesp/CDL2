@@ -332,6 +332,7 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
          [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
          [JsonInclude][JsonPropertyOrder(3)] public Guid ObjectGuid { get; set; } = Guid.Empty;
+         [JsonIgnore] public NamedElement? Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj : null;
          [JsonInclude][JsonPropertyOrder(4)] public InterfaceTypes InterfaceStatus { get; set; } = InterfaceTypes.None;
          [JsonInclude][JsonPropertyOrder(5)] public RW LudeType { get; set; } = RW.NONE;
          [JsonInclude][JsonPropertyOrder(6)] public ChangeType ChangeType { get; set; }
@@ -343,6 +344,23 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(10)] public ID Id { get; set; } = ID.AnonID;
 
          [JsonInclude][JsonPropertyOrder(11)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
+         [JsonIgnore] public NamedElement? ReplacementObject => Database.Instance.NamedElements.TryGetValue(ReplacementGuid,out NamedElement? obj) ? obj : null;
+
+         public override string ToString() => $"UndoRecord: {Description()}";
+         public string Description() => ChangeType switch {
+            ChangeType.Renamed          => $"Renamed          {OriginalName} ==> {NewName}",
+            ChangeType.InterfaceChanged => $"InterfaceChanged {Object!.FQDN()} {InterfaceStatus} ==> {(Object as CDL2Object)!.GetInterfaces()}",
+            ChangeType.Added            => $"Added            {Object!.FQDN()}",
+            ChangeType.Removed          => $"Removed          {Object!.FQDN()}",
+            ChangeType.Replaced         => $"Replaced         {Object!.FQDN()} ==> {ReplacementObject!.FQDN()}",
+            ChangeType.InterfaceAdded   => $"InterfaceAdded   {InterfaceStatus} {Id} in {Object!.FQDN()}",
+            ChangeType.InterfaceRemoved => $"InterfaceRemoved {InterfaceStatus} {Id} in {Object!.FQDN()}",
+            ChangeType.LudeAdded        => $"LudeAdded        {LudeType} {(Object is Section ? "" : Id)} in {Object!.FQDN()}",
+            ChangeType.LudeRemoved      => $"LudeRemoved      {LudeType} {(Object is Section ? "" : Id)} in {Object!.FQDN()}",
+            ChangeType.LudeReplaced     => $"LudeReplaced     in {Object!.FQDN()}",
+            _                           => $"{ChangeType} unknown",
+         };
+
          /// <summary>
          /// Alias
          /// </summary>
@@ -354,6 +372,16 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(12)] public int Position { get; private set; } = -1;
 
          [JsonIgnore]public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
+
+         [JsonIgnore] public ST InterfaceType => InterfaceStatus switch {
+            InterfaceTypes.Abstr => ST.ABSTR,
+            InterfaceTypes.Ext => ST.EXT,
+            InterfaceTypes.Inv => ST.INV,
+            InterfaceTypes.Export => ST.EXPORT,
+            InterfaceTypes.Import => ST.IMPORT,
+            InterfaceTypes.None => ST.INVALID,
+            _ => throw new InvalidOperationException($"InterfaceStatus contains multiple types or an invalid value: {InterfaceStatus}")
+         };
 
          public UndoRecord(CDL2Object? element, ChangeType changeType) {
             ObjectGuid = element?.GUID ?? Guid.Empty;
@@ -455,23 +483,24 @@ namespace CDL2v1 {
                throw new ArgumentOutOfRangeException(nameof(elementType),elementType,null);
          }
       }
-      public void RecordUndo(Container container,RW elementType,Guid ludeGuid,ChangeType changeType) {
+      public void RecordUndo(Container container,RW elementType,ID ludeId,Guid ludeGuid,ChangeType changeType) {
          UndoStack.Push(new UndoRecord() {
             ObjectGuid = container.GUID,
             LudeType = elementType,
             LudeProcGuid = ludeGuid,
+            Id = ludeId,
             ChangeType = changeType,
          });
       }
 
 
 
-         /// <summary>
-         /// When registration is suspended, named elements are still added to the NamedElements dictionary,
-         /// but are removed when suspension is turned off.
-         /// This implementation allows for nested suspensions, as long as the Resume call is made the same number of times.
-         /// </summary>
-         [JsonIgnore] private bool _suspendNamedElementRegistration = false;
+      /// <summary>
+      /// When registration is suspended, named elements are still added to the NamedElements dictionary,
+      /// but are removed when suspension is turned off.
+      /// This implementation allows for nested suspensions, as long as the Resume call is made the same number of times.
+      /// </summary>
+      [JsonIgnore] private bool _suspendNamedElementRegistration = false;
       [JsonIgnore] private readonly List<Guid> _suspendedNamedElementRegistrationList = [];
       [JsonIgnore] private uint _suspendNamedElementRegistrationCount = 0;
       public void SuspendNamedElementRegistration() {
