@@ -891,19 +891,7 @@ namespace CDL2v1 {
                switch (context.Object) {
                   case Program p:
                      if (context.ListType != ST.INVALID) {
-                        switch (context.ListType) {
-                           case ST.PRELUDE:
-                           case ST.ROOT:
-                           case ST.POSTLUDE:
-                              RW ludeType = Container.LudeTypeBySelector[context.ListType];
-                              List<ID> ludes = p.Ludes[ludeType];
-                              ludes.Remove(context.Id);
-                              Database.Instance.RecordUndo(p,ludeType,context.Id,ChangeType.LudeRemoved);
-                              break;
-                           default:
-                              ReportProblem(Note.CannotDelete,context.ListType,p.FQDN());
-                              break;
-                        }
+                        DeleteContainerLude(context,p);
                      } else {
                         Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
                         Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
@@ -917,19 +905,7 @@ namespace CDL2v1 {
                      break;
                   case Module m:
                      if (context.ListType != ST.INVALID) {
-                        switch (context.ListType) {
-                           case ST.PRELUDE:
-                           case ST.ROOT:
-                           case ST.POSTLUDE:
-                              RW ludeType = Container.LudeTypeBySelector[context.ListType];
-                              List<ID> ludes = m.Ludes[ludeType];
-                              ludes.Remove(context.Id);
-                              Database.Instance.RecordUndo(m,ludeType,context.Id,ChangeType.LudeRemoved);
-                              break;
-                            default:
-                              ReportProblem(Note.CannotDelete,context.ListType,m.FQDN());
-                              break;
-                        }
+                        DeleteContainerLude(context,m);
                      } else {
                         ReportProblem(Note.NotImplemented,$"Module delete");
                      }
@@ -1001,6 +977,32 @@ namespace CDL2v1 {
                }
             }
             SetStatus();
+         }
+      }
+
+      /// <summary>
+      /// Delete a single or all ludes of a given type of a Program or a Module
+      /// </summary>
+      /// <param name="context"></param>
+      /// <param name="container"></param>
+      private void DeleteContainerLude(SingleSelection context,Container container) {
+         switch (context.ListType) {
+            case ST.PRELUDE:
+            case ST.ROOT:
+            case ST.POSTLUDE:
+               RW ludeType = Container.LudeTypeBySelector[context.ListType];
+               List<ID> ludes = container.Ludes[ludeType];
+               if (context.Id.IsAnonymous) {
+                  foreach (ID id in ludes) Database.Instance.RecordUndo(container,ludeType,id,ChangeType.LudeRemoved);
+                  ludes.Clear();
+               } else {
+                  Database.Instance.RecordUndo(container,ludeType,context.Id,ChangeType.LudeRemoved);
+                  ludes.Remove(context.Id);
+               }
+               break;
+            default:
+               ReportProblem(Note.CannotDelete,context.ListType,container.FQDN());
+               break;
          }
       }
 
