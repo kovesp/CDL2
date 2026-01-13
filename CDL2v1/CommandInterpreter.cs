@@ -735,9 +735,7 @@ namespace CDL2v1 {
          string stackName = undo ? "undo" : "redo";
          string tag = "";
          if (Settings.SettingValue<bool>("list")) {
-            int n = 0;
-            WriteLine($"{stackName} stack ({stack.Count}/{stack.Capacity})");
-            foreach (Database.UndoRecord record in stack) WriteLine($"{++n,3}:{record.Description()}");
+            ListUndoRedoStack(stack,stackName);
          } else if (stack.Count == 0) {
             WriteWarning($"{stackName} stack is empty.");
          } else if ((tag = Settings.SettingValue<string>("tag")!).IsNotEmptyOrWhitespace) {
@@ -778,6 +776,23 @@ namespace CDL2v1 {
             }
             SetStatus();
          }
+      }
+
+      /// <summary>
+      /// List the undo or redo stack if the given setting is true or if no setting is given.
+      /// </summary>
+      /// <param name="stack"></param>
+      /// <param name="stackName"></param>
+      /// <param name="ifSetting"></param>
+      /// <returns>true if listing was done</returns>
+      private bool ListUndoRedoStack(BoundedStack<Database.UndoRecord> stack,string stackName,string? ifSetting = null) {
+         if (ifSetting is null || Settings.SettingValue<bool>(ifSetting)) {
+            int n = 0;
+            WriteLine($"{stackName} stack ({stack.Count}/{stack.Capacity})");
+            foreach (Database.UndoRecord record in stack) WriteLine($"{++n,3}:{record.Description()}");
+            return true;
+         }
+         return false;
       }
 
       /// <summary>
@@ -892,6 +907,7 @@ namespace CDL2v1 {
                   case Program p:
                      if (context.ListType != ST.INVALID) {
                         DeleteContainerLude(context,p);
+                        p!.Modified = true;
                      } else {
                         Debug.Assert(p.Siblings.Contains(p.GUID),"{p} is not among its siblings.");
                         Focus.MoveFocusFrom(p); // Must move the focus first because it relies on p still being among the siblings.
@@ -906,6 +922,7 @@ namespace CDL2v1 {
                   case Module m:
                      if (context.ListType != ST.INVALID) {
                         DeleteContainerLude(context,m);
+                        m!.Modified = true;
                      } else {
                         ReportProblem(Note.NotImplemented,$"Module delete");
                      }
@@ -925,13 +942,14 @@ namespace CDL2v1 {
                               // If it is a section lude, then there is also a ludeProc Guid
                               Database.Instance.RecordUndo(s,ludeType,context.Id,s.LudeProcs[ludeType]!.Value,ChangeType.LudeRemoved);
                               s.LudeProcs[ludeType] = null;
+                              s.Module!.Modified = true;
                               break;
                            case ST.EXPORT:
                            case ST.IMPORT:
                            case ST.EXT:
                            case ST.ABSTR:
                            case ST.INV:
-                              if (context.Id == ID.AnonID) {
+                              if (context.Id.IsAnonymous) {
                                  ReportProblem(Note.CannotDelete,$"All {context.ListType}",s.FQDN());
                               } else {
                                  // Single interface element removal
@@ -964,12 +982,13 @@ namespace CDL2v1 {
                         if (currentInterfaceTypes != interfaceTypes) {
                            Database.Instance.RecordUndo(obj,ChangeType.InterfaceChanged);
                            obj.ClearInterfaces(interfaceTypes);
+                           obj.Module!.Modified = true;
                         }
                      } else {
                         Focus.MoveFocusFrom(obj);
+                        obj.Module!.Modified = true;
                         obj.Remove();
                      }
-                     obj.Module?.Modified = true;
                      break;
                   default:
                      ReportProblem(Note.CannotDelete,Focus.Current.Object?.FQDN() ?? "<unknown>");
@@ -1266,8 +1285,14 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="args"></param>
       private void InterpretCommandList(string args) {
          if (args.IsEmptyOrWhitespace) {
+            if (ListUndoRedoStack(Database.Instance.UndoStack,"Undo",ifSetting: "undo") | ListUndoRedoStack(Database.Instance.RedoStack,"Redo",ifSetting: "redo")) return;
+
             if (Focus.Current.Object is not null) {
                WriteWithInterface(Focus.Current.Object);
             } else {

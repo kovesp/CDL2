@@ -188,6 +188,8 @@ namespace CDL2v1 {
                                                                                            "the existing file is reused. If this option is missing, the file is closed by print/type.\n"+
                                                                                            "Specify ::close to print nothing, just close the file. If a directory is not given,\n"+
                                                                                            "it is taken from the OutputDirectory setting."),
+         new Setting<bool>(    "undo",               NoOption,             false,          "Can be used in the list command to display the undo stack."),
+         new Setting<bool>(    "redo",               NoOption,             false,          "Can be used in the list command to display the redo stack."),
 
          new Setting<bool>(    "DebugCommands",       NoOption,             false,         "Display the parsed command."),
       ];
