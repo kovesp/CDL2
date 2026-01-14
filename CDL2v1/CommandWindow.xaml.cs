@@ -131,8 +131,10 @@ F1    | Show this help message.
 
          InitializeComponent();
 
+         Title = CDL2.LabName;
+
          // Set initial prompt
-         WriteLine($"CDL2 Laboratory v{CDL2.Version} - Type 'help' for available commands");
+         WriteLine($"{CDL2.LabName} v{CDL2.Version} - Type 'help' for available commands");
          DisplayPrompt();
 
          // Apply saved window position and size
@@ -381,7 +383,7 @@ F1    | Show this help message.
          OutputTextBlock.Inlines.Clear();
 
          // Add initial message
-         WriteLine($"CDL2 Laboratory v{CDL2.Version} - Output cleared");
+         WriteLine($"{CDL2.LabName} v{CDL2.Version} - Output cleared");
 
          // Focus back on input box
          InputTextBox.Focus();

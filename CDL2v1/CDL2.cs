@@ -149,6 +149,8 @@ namespace CDL2v1 {
       public static readonly string Version = "1.0.0";
       public static readonly Dictionary<string,Type> AvailableCodeGenerators = [];
 
+      public const string LabName = "CDL2 Laboratory Redux";
+
       /// <summary>
       /// Static constructor
       /// </summary>
@@ -174,7 +176,7 @@ namespace CDL2v1 {
          // Then process command line args (they'll override saved settings)
          Settings.ProcessCommandLine(args);
 
-         Log(0, $"\nCDL2 {(Settings.LabMode?"Laboratory":"Compiler")} v{Version}");
+         Log(0, $"\nCDL2 {(Settings.LabMode?CDL2.LabName:"Compiler")} v{Version}");
 
          Compiler.CompileSources(Settings.SettingValue<string[]>("Sources")!);
       }
@@ -219,7 +221,7 @@ namespace CDL2v1 {
                // Handle commands
                commandWindow.CommandEntered += (sender, input) => ProcessInput(input);
                commandWindow.Closed += (s, e) => app.Shutdown();
-               commandWindow.Title = $"CDL2 Laboratory - {Settings.LabDBName}";
+               commandWindow.Title = $"{CDL2.LabName} - {Settings.LabDBName}";
                CLI.SetStatus();
                app.Run(commandWindow);
             });

@@ -101,7 +101,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       public bool QueryBox(string message,MessageBoxButton buttons = MessageBoxButton.OKCancel,MessageBoxImage icon = MessageBoxImage.Question) {
          if (commandWindow is not null) { // Must be in interactive mode
-            return MessageBox.Show(commandWindow,message,"CDL2 Laboratory",buttons,icon) == MessageBoxResult.OK;
+            return MessageBox.Show(commandWindow,message,CDL2.LabName,buttons,icon) == MessageBoxResult.OK;
          }
          return false;
       }

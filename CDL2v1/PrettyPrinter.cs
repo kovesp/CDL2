@@ -88,16 +88,50 @@ namespace CDL2v1 {
       public static readonly FontStyle Italic = FontStyles.Oblique;
       public static TextDecorationCollection? Underline { get; internal set; } = TextDecorations.Underline;
 
-      // public record Decoration(string FG = "White", string BG = "#1E1E1E", DS Style = DS.Normal);
-      public const string BackgroundColor = "DarkSlateGray";
-      public record Decoration(string FG = "White", string BG = BackgroundColor, DS Style = DS.Normal);
+      // Color constants - Windows color names mapped to hex codes
+      // Color names <see cref="System.Windows.Media.Colors"/> and https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.colors?view=windowsdesktop-9.0
+      public const string White             = "#FFFFFF";
+      public const string DarkSlateGray     = "#2F4F4F";
+      public const string DarkOrange        = "#FF8C00";
+      public const string LightGray         = "#D3D3D3";
+      public const string Olive             = "#808000";
+      public const string OliveDrab         = "#6B8E23";
+      public const string DarkOliveGreen    = "#556B2F";
+      public const string Red               = "#FF0000";
+      public const string Orange            = "#FFA500";
+      public const string LightSkyBlue      = "#87CEFA";
+      public const string MediumSpringGreen = "#00FA9A";
+      public const string DarkGray          = "#A9A9A9";
+
+      public const string BackgroundColor = DarkSlateGray;
+
+      public partial record Decoration {
+         private static readonly Regex HexColorRegex = ColourRE();         
+         public string FG { get; init; }
+         public string BG { get; init; }
+         public DS Style { get; init; }
+
+         public Decoration(string FG = White, string BG = BackgroundColor, DS Style = DS.Normal) {
+            if (!HexColorRegex.IsMatch(FG))
+               throw new ArgumentException($"Foreground color in Decoration must be in #RRGGBB format, got: {FG}", nameof(FG));
+            if (!HexColorRegex.IsMatch(BG))
+               throw new ArgumentException($"Background color in Decoration must be in #RRGGBB format, got: {BG}", nameof(BG));
+            
+            this.FG = FG;
+            this.BG = BG;
+            this.Style = Style;
+         }
+
+         [GeneratedRegex(@"^#[0-9A-Fa-f]{6}$",RegexOptions.Compiled)]
+         private static partial Regex ColourRE();
+      }
+
       public static readonly Decoration DefaultDecoration = new();
 
       private static readonly string AffixColor = "#9cdcfe";
       /// <summary>
       /// Decorators for all syntax elements.
-      /// Colors may be specified as hex values of the form #rrggbb or
-      /// as a color name, <see cref="System.Windows.Media.Colors"/> and https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.colors?view=windowsdesktop-9.0
+      /// Colors may be specified as hex values of the form #rrggbb only. Use the color constants defined above if you want names.
       /// </summary>
       public readonly static Dictionary<SE,Decoration> Decorators = new() {
          { SE.Id                       ,DefaultDecoration },
@@ -108,20 +142,20 @@ namespace CDL2v1 {
          { SE.OutputAffix              ,new(FG:AffixColor.IntensifyColor(1.25)) },  // #51c0fd
          { SE.TransputAffix            ,new(FG:AffixColor.IntensifyColor(1.50)) },  // #26b1fd
          { SE.StringAffix              ,new(FG:"#d69d85") },
-         { SE.Local                    ,new(FG:"DarkOrange") },
-         { SE.Label                    ,new(FG:"LightGray") },
-         { SE.Const                    ,new(FG:"Olive") },
-         { SE.Var                      ,new(FG:"OliveDrab") },
-         { SE.List                     ,new(FG:"DarkOliveGreen") },
+         { SE.Local                    ,new(FG:DarkOrange) },
+         { SE.Label                    ,new(FG:LightGray) },
+         { SE.Const                    ,new(FG:Olive) },
+         { SE.Var                      ,new(FG:OliveDrab) },
+         { SE.List                     ,new(FG:DarkOliveGreen) },
          { SE.Number                   ,new(FG:"#b5cea8") },
          { SE.String                   ,new(FG:"#d69d85") },
          { SE.Comment                  ,new(FG:"#57a64a") },
-         { SE.NoteError                ,new(FG:"Red") },
-         { SE.NoteWarning              ,new(FG:"Orange") },
-         { SE.NoteInfo                 ,new(FG:"LightSkyBlue") },
-         { SE.ConditionalCompilationOn ,new(FG:"MediumSpringGreen",Style:DS.Italic) },
-         { SE.ConditionalCompilationOff,new(FG:"DarkGray",Style:DS.Italic) },
-         { SE.UNDEFINED                ,new(FG:"Red")},                             // Undefined identifiers.
+         { SE.NoteError                ,new(FG:Red) },
+         { SE.NoteWarning              ,new(FG:Orange) },
+         { SE.NoteInfo                 ,new(FG:LightSkyBlue) },
+         { SE.ConditionalCompilationOn ,new(FG:MediumSpringGreen,Style:DS.Italic) },
+         { SE.ConditionalCompilationOff,new(FG:DarkGray,Style:DS.Italic) },
+         { SE.UNDEFINED                ,new(FG:Red)},                             // Undefined identifiers.
          { SE.Other                    ,DefaultDecoration },                        // Will be used to obtain the overall background
          { SE.AlgorithmName            ,DefaultDecoration},                         // Not used, but required entry
        };
