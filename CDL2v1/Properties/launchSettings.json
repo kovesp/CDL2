@@ -19,6 +19,11 @@
       "commandName": "Project",
       "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d5\r\n--parse-only --allow-errors\r\n--messages Info --report-all",
       "workingDirectory": "$(ProjectDir)\\CDL2"
+    },
+    "LAB Console": {
+      "commandName": "Project",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5 --allow-errors\r\n--messages Warning --lab\r\n--pretty-print-debug --cg-debug\r\n--program \"csharp sort\"\r\n--console",
+      "workingDirectory": "$(ProjectDir)\\CDL2"
     }
   }
 }

@@ -48,7 +48,8 @@ using System.Xml.Linq;
 
 namespace CDL2v1 {
    public class CommandInterpreter {
-      private readonly CommandPromptWindow? commandWindow;
+      private readonly ICommandInterpreterOutput? commandWindow;
+      private readonly IToaster? toaster;
       private readonly PrettyPrinter pp;
       private readonly PrettyPrinter ppFile; // For use in the print command with file setting
       private readonly PrettyPrinter ppEdit; // For use in the edit command
@@ -58,12 +59,13 @@ namespace CDL2v1 {
       public const char CommandComment = '!';
       public const char CommandSeparator = ';'; // Not currently used. Difficult to split commands correctly when there are quoted strings.
 
-      public CommandInterpreter(CommandPromptWindow? window = null) {
+      public CommandInterpreter(CommandPromptWindow? window = null,Emitter? emitter = null,IToaster? toaster = null) {
          commandWindow = window;
+         this.toaster = toaster;
          // Create a CommandWindowEmitter that integrates with our window
          // Initialize the parser with the compiler and a callback for error messages
          if (commandWindow is not null) {
-            pp = new(commandWindow.Emitter = new EmitterCommandWindow(commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },includeComments: true);
+            pp = new(commandWindow.Emitter = emitter!,includeComments: true);
             // pp = new(commandWindow.Emitter = new EmitterMulticast(new EmitterDebug(),new EmitterCommandWindow(commandWindow)),includeComments: true);
 
             parser = new Parser(CDL2.Compiler,(severity,msg,_) => ErrorReporter(severity,msg,_));
@@ -101,7 +103,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       public bool QueryBox(string message,MessageBoxButton buttons = MessageBoxButton.OKCancel,MessageBoxImage icon = MessageBoxImage.Question) {
          if (commandWindow is not null) { // Must be in interactive mode
-            return MessageBox.Show(commandWindow,message,CDL2.LabName,buttons,icon) == MessageBoxResult.OK;
+            return MessageBox.Show(message,CDL2.LabName,buttons,icon) == MessageBoxResult.OK;
          }
          return false;
       }
@@ -530,13 +532,15 @@ namespace CDL2v1 {
                   case CommandType.save:
                      WriteInfo($"Saved: {Database.Save()}"); break;
                   case CommandType.abort:
-                     ToastWindow.ShowToast("abort command used, not saving the database.",2000,delay: true);
-                     commandWindow?.Close();
+                     Task.Delay(2000).ContinueWith(_ => {
+                        ((Window)commandWindow!).Dispatcher.Invoke(() => commandWindow.Close());
+                     });
+                     toaster!.ShowToast("abort command used, not saving the database.",2000,delay: true,setOwner:false);
                      return;
                   case CommandType.bye:
                   case CommandType.quit:
                   case CommandType.exit:
-                     ToastWindow.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
+                     toaster!.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
                      commandWindow?.Close();
                      return;
 

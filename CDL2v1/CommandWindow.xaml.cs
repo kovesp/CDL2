@@ -50,12 +50,13 @@ namespace CDL2v1 {
    /// <summary>
    /// Interaction logic for CommandWindow.xaml
    /// </summary>
-   public partial class CommandPromptWindow : Window {
+   public partial class CommandPromptWindow : Window, ICommandInterpreterOutput {
       private readonly History _commandHistory = new();
       private readonly FontFamily _textFont = new("Cascadia Mono");
 
       // Store the last height of the output area for restore functionality
       private double _lastOutputHeight = 0;
+      private double _initialStatusBarHeight = 0;  // Add this
 
       // Event raised when a command is entered
       public event EventHandler<string>? CommandEntered;
@@ -123,9 +124,11 @@ F1    | Show this help message.
       private readonly Brush _multilineInputForeground = Brushes.Black;
       private readonly Brush _multilineInputErrorBackground = Brushes.Moccasin;
 
-      public Emitter? Emitter;   // Used to get the indent width
+      public Emitter? Emitter { get; set; }
+      public IToaster Toaster { get; init; }
 
-      public CommandPromptWindow() {
+      public CommandPromptWindow(IToaster toaster) {
+         this.Toaster = toaster;
 
          Settings.LoadSettings(this);
 
@@ -157,13 +160,18 @@ F1    | Show this help message.
 
          // Focus on the window so it can receive keyboard input
          Loaded += (s,e) => {
+            // Initialize zoom restrictions AFTER layout is complete
+            InitializeZoomRestrictions();
+            
+            // Store initial status bar height
+            _initialStatusBarHeight = StatusBarGrid.ActualHeight;
+            
             Keyboard.Focus(InputTextBox);
          };
 
          _standardInputBackground = InputTextBox.Background;
          _standardInputForeground = InputTextBox.Foreground;
          InputTextBox.ToolTip = _singleLineTooltip;
-         // Store the original background at startup
 
          // Get the Info color from PrettyPrinter.Decorators
          var infoColorHex = PrettyPrinter.Decorators[SE.NoteInfo].FG;
@@ -498,11 +506,11 @@ F1    | Show this help message.
                   if (commandHelp.IsNotEmptyOrWhitespace) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
                }
             }
-            ToastWindow.ShowToast(toastMessage);
+            Toaster.ShowToast(toastMessage);
          }
 
          void InsertIndentation() {
-            int spacesToInsert = Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex - 1,0)) % Emitter!.IndentWidth;
+            int spacesToInsert = this.Emitter!.IndentWidth - (Math.Min(InputTextBox.CaretIndex - 1,0)) % Emitter!.IndentWidth;
             Insert(new string(' ',spacesToInsert));
          }
 
@@ -564,6 +572,12 @@ F1    | Show this help message.
          // Display new prompt
          DisplayPrompt();
       }
+
+      // Implement ICommandInterface.QueryBox with simplified signature
+      bool ICommandInterpreterOutput.QueryBox(string message) => 
+         MessageBox.Show(this,message,CDL2.LabName,
+                              MessageBoxButton.OKCancel,
+                              MessageBoxImage.Question) == MessageBoxResult.OK;
       #endregion
 
       #region UI Controls
@@ -610,32 +624,203 @@ F1    | Show this help message.
       /// <summary>
       /// Increase font size
       /// </summary>
-      private void ZoomIn(int percentage = 20) => OutputTextBlock.FontSize *= (100 + percentage) / 100.0;
+      private void ZoomIn(int percentage = 20) {
+         double multiplier = (100 + percentage) / 100.0;
+         ApplyZoomToChildren(this,multiplier);
+         AdjustStatusBarHeight(multiplier);
+      }
 
       /// <summary>
       /// Decrease font size
       /// </summary>
-      private void ZoomOut(int percentage = 20) => OutputTextBlock.FontSize /= (100 + percentage) / 100.0;
+      private void ZoomOut(int percentage = 20) {
+         double divisor = (100 + percentage) / 100.0;
+         ApplyZoomToChildren(this,1.0 / divisor);
+         AdjustStatusBarHeight(1.0 / divisor);
+      }
 
       /// <summary>
-      /// Handle mouse wheel zoom with Ctrl key on the ScrollViewer
+      /// Adjust status bar height based on zoom multiplier
       /// </summary>
-      private void OutputScrollViewer_PreviewMouseWheel(object sender,MouseWheelEventArgs e) {
-         if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) {
-            if (e.Delta > 0) {
-               ZoomIn(10);
-            } else {
-               ZoomOut(10);
-            }
-            e.Handled = true;
+      private void AdjustStatusBarHeight(double multiplier) {
+         if (_initialStatusBarHeight == 0) {
+            _initialStatusBarHeight = StatusBarGrid.ActualHeight;
+         }
+
+         if (_initialStatusBarHeight > 0) {
+            double currentHeight = StatusBarGrid.ActualHeight;
+            double newHeight = currentHeight * multiplier;
+            StatusBarGrid.Height = newHeight;
          }
       }
 
       /// <summary>
-      /// In multiline mode, handl;e double-click.
+      /// Reset all font sizes to their initial values
       /// </summary>
-      /// <param name="sender"></param>
-      /// <param name="e"></param>
+      private void ResetZoom() {
+         foreach (KeyValuePair<string,ZoomParameters> entry in ZoomRestrictions) {
+            ZoomRestrictions[entry.Key] = entry.Value with { SkippedZooms = 0 };
+            RestoreFontSize(this,entry.Key,entry.Value.InitialFontSize);
+         }
+
+         // Reset status bar to initial height
+         if (_initialStatusBarHeight > 0) {
+            StatusBarGrid.Height = _initialStatusBarHeight;
+         } else {
+            StatusBarGrid.Height = double.NaN;  // Auto-size
+         }
+      }
+
+      private record ZoomParameters(int MinPct = 0, int MaxPct = 0, double InitialFontSize = 0.0, int SkippedZooms = 0);
+
+      private Dictionary<string,ZoomParameters> ZoomRestrictions = new() {
+         { "PromptTextBlock", new ZoomParameters(0, -1, 0.0, 0) },
+         { "InputTextBox",    new ZoomParameters(0, -1, 0.0, 0) },
+      };
+
+      /// <summary>
+      /// Recursively apply zoom to all text-displaying controls in the visual tree
+      /// </summary>
+      private void ApplyZoomToChildren(DependencyObject parent, double multiplier) {
+         int childCount = VisualTreeHelper.GetChildrenCount(parent);
+         
+         for (int i = 0; i < childCount; i++) {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+
+            // Apply zoom to TextBoxes and TextBlocks only, and recursively to other controls
+            if (child is TextBlock textBlock) {
+               if (ShouldApplyZoom(textBlock.Name,textBlock.FontSize,multiplier,out double blockNewSize))textBlock.FontSize = blockNewSize;
+            } else if (child is TextBox textBox) {
+               if (ShouldApplyZoom(textBox.Name,textBox.FontSize,multiplier,out double boxNewSize)) textBox.FontSize = boxNewSize;
+            } else {
+               // Recursively process children
+               ApplyZoomToChildren(child,multiplier);
+            }
+         }
+      }
+
+      /// <summary>
+/// Determines if zoom should be applied based on restrictions
+/// </summary>
+private bool ShouldApplyZoom(string? controlName, double currentFontSize, double multiplier, out double newSize) {
+   newSize = currentFontSize * multiplier;
+   bool isZoomingIn = multiplier > 1.0;
+   
+   // Only zoom named controls - skip unnamed controls (like TextBlocks inside buttons)
+   if (string.IsNullOrEmpty(controlName)) {
+      newSize = currentFontSize;
+      return false;
+   }
+   
+   // No restrictions - allow zoom
+   if (!ZoomRestrictions.TryGetValue(controlName, out ZoomParameters? restrictions)) return true;
+   
+   // Initialize the initial font size if needed
+   if (restrictions.InitialFontSize == 0.0) {
+      ZoomRestrictions[controlName] = restrictions with { InitialFontSize = currentFontSize };
+      restrictions = ZoomRestrictions[controlName];
+   }
+   
+   // Calculate limits based on initial font size
+   double minAllowed = restrictions.MinPct == 0 ? restrictions.InitialFontSize 
+                     : restrictions.MinPct == -1 ? 0 
+                     : restrictions.InitialFontSize * restrictions.MinPct / 100.0;
+   
+   double maxAllowed = restrictions.MaxPct == 0 ? restrictions.InitialFontSize
+                     : restrictions.MaxPct == -1 ? double.MaxValue 
+                     : restrictions.InitialFontSize * restrictions.MaxPct / 100.0;
+   
+   // Check if we have skipped zooms in the opposite direction to consume first
+   if ((isZoomingIn && restrictions.SkippedZooms < 0) || (!isZoomingIn && restrictions.SkippedZooms > 0)) {
+      // Consume one skipped zoom instead of actually zooming
+      int adjustment = isZoomingIn ? 1 : -1;
+      ZoomRestrictions[controlName] = restrictions with { SkippedZooms = restrictions.SkippedZooms + adjustment };
+      newSize = currentFontSize;
+      return false;
+   }
+   
+   // Check if new size would violate restrictions
+   if (newSize < minAllowed || newSize > maxAllowed) {
+      // Track this skipped zoom
+      int skipAdjustment = isZoomingIn ? 1 : -1;
+      ZoomRestrictions[controlName] = restrictions with { SkippedZooms = restrictions.SkippedZooms + skipAdjustment };
+      newSize = currentFontSize;
+      return false;
+   }
+   
+   return true;
+}
+      /// <summary>
+      /// Initialize zoom restrictions for all named TextBox and TextBlock controls
+      /// </summary>
+      private void InitializeZoomRestrictions() {
+         PopulateZoomRestrictions(this);
+      }
+
+      /// <summary>
+      /// Recursively populate zoom restrictions for all text controls
+      /// </summary>
+      private void PopulateZoomRestrictions(DependencyObject parent) {
+         int childCount = VisualTreeHelper.GetChildrenCount(parent);
+         
+         for (int i = 0; i < childCount; i++) {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+
+            // Process TextBlock and TextBox controls - these are leaf nodes, don't recurse
+            if (child is TextBlock textBlock) {
+               string? controlName = textBlock.Name;
+               if (!string.IsNullOrEmpty(controlName)) {
+                  if (!ZoomRestrictions.ContainsKey(controlName)) {
+                     ZoomRestrictions[controlName] = new ZoomParameters(-1, -1, textBlock.FontSize, 0);
+                  } else if (ZoomRestrictions[controlName].InitialFontSize == 0.0) {
+                     // Update existing entry with actual font size
+                     ZoomRestrictions[controlName] = ZoomRestrictions[controlName] with { InitialFontSize = textBlock.FontSize };
+                  }
+               }
+            } else if (child is TextBox textBox) {
+               string? controlName = textBox.Name;
+               if (!string.IsNullOrEmpty(controlName)) {
+                  if (!ZoomRestrictions.ContainsKey(controlName)) {
+                     ZoomRestrictions[controlName] = new ZoomParameters(-1, -1, textBox.FontSize, 0);
+                  } else if (ZoomRestrictions[controlName].InitialFontSize == 0.0) {
+                     // Update existing entry with actual font size
+                     ZoomRestrictions[controlName] = ZoomRestrictions[controlName] with { InitialFontSize = textBox.FontSize };
+                  }
+               }
+            } else {
+               // Only recurse into containers (Grid, StackPanel, etc.), not into TextBlock/TextBox
+               PopulateZoomRestrictions(child);
+            }
+         }
+      }
+
+      /// <summary>
+      /// Recursively find and restore font size for a named control
+      /// </summary>
+      private void RestoreFontSize(DependencyObject parent, string controlName, double fontSize) {
+         int childCount = VisualTreeHelper.GetChildrenCount(parent);
+         
+         for (int i = 0; i < childCount; i++) {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+            
+            if ((child as FrameworkElement)?.Name == controlName) {
+               if (child is TextBlock textBlock) textBlock.FontSize = fontSize;
+               else if (child is TextBox textBox) textBox.FontSize = fontSize;
+               return;
+            }
+            
+            RestoreFontSize(child, controlName, fontSize);
+         }
+      }
+
+      /// <summary>
+      /// Reset zoom button click handler
+      /// </summary>
+      private void ResetZoom_Click(object sender, RoutedEventArgs e) => ResetZoom();
+      
+      /// <summary>
+      /// In multiline mode, handle double-click.
+      /// </summary>
       private void InputTextBox_PreviewMouseLeftButtonDown(object sender,MouseButtonEventArgs e) {
          e.Handled = false;
          if (e.ClickCount != 2 && e.ClickCount != 3) return;
@@ -665,7 +850,6 @@ F1    | Show this help message.
          if (algoLineIndex < 0) return;
          string headerLine = lines[algoLineIndex];
          int headerLineStart = textBox.GetCharacterIndexFromLineIndex(algoLineIndex);
-
 
          GetHeaderSeparator(headerLine,out int sepIdx,out int sepLen,out string sepType);
 
@@ -706,7 +890,6 @@ F1    | Show this help message.
                return;
             }
          }
-         // Let WPF handle selection if not handled above
 
          /////////////////////
          // Local functions //
@@ -753,9 +936,7 @@ F1    | Show this help message.
             int idxEq = headerLine.IndexOf('=');
             sepIdx = -1; sepLen = 0; sepType = "";
             if (idxColonEq >= 0 && (sepIdx == -1 || idxColonEq < sepIdx)) { sepIdx = idxColonEq; sepLen = 2; sepType = ":="; }
-            if (idxEqColon >= 0 && (sepIdx == -1 || idxEqColon < sepIdx)) {
-               sepIdx = idxEqColon; sepLen = 2; sepType = "=:";
-            }
+            if (idxEqColon >= 0 && (sepIdx == -1 || idxEqColon < sepIdx)) { sepIdx = idxEqColon; sepLen = 2; sepType = "=:"; }
             if (idxColon >= 0 && (sepIdx == -1 || idxColon < sepIdx)) { sepIdx = idxColon; sepLen = 1; sepType = ":"; }
             if (idxEq >= 0 && (sepIdx == -1 || idxEq < sepIdx)) { sepIdx = idxEq; sepLen = 1; sepType = "="; }
          }
@@ -766,7 +947,6 @@ F1    | Show this help message.
                  : c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == ' ';
 
          void ExpandSelection(Predicate<char> validChar) {
-            int startStart = startSel, endStart = endSel;
             while (startSel > 0 && validChar(text[startSel - 1])) startSel--;
             while (!char.IsAsciiLetter(text[startSel]) && startSel < endSel) startSel++;
             while (endSel < text.Length - 1 && validChar(text[endSel + 1])) endSel++;
@@ -830,9 +1010,10 @@ F1    | Show this help message.
 
       private void InputTextBox_TextChanged(object sender,TextChangedEventArgs e) {
          if (_multilineMode && sender is TextBox box) {
-             box.Background = Database.Instance.CLI.VerifySyntax(box.Text) ? _multilineInputBackground : _multilineInputErrorBackground;
+            box.Background = Database.Instance.CLI.VerifySyntax(box.Text) ? _multilineInputBackground : _multilineInputErrorBackground;
          }
       }
+
       #endregion
 
       #region Command History

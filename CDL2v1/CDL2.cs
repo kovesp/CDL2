@@ -194,41 +194,56 @@ namespace CDL2v1 {
             if (settingString != null) Log(1, settingString);
          }
 
+
          if (Settings.LabMode) {
+            bool usingGUI = Settings.OnWindows && !Settings.SettingValue<bool>("Console") && Settings.LabMode;
+            IToaster toaster = usingGUI ? new ToastWindow() : new ToastConsole(); // Kludge, but ...;;
+            Serializer.Toaster = toaster;
             Database.Load();
+
             SemanticAnalyzer = SemanticAnalysis(GetMainProgram()!,Reachable);
             if (SemanticAnalyzer.AbortCompilation()) return;
 
-            Thread CLIThread = new(() => {
-               Application app = new();
-               // Create and show the window
-               CommandPromptWindow commandWindow = new();
-               CommandInterpreter CLI = new(commandWindow);
-               Database.Instance.CLI = CLI;
+            if (usingGUI) {
+               Thread CLIThread = new(() => {
+                  Application app = new();
+                  // Create and show the window
+                  ToastWindow guiToater = new();
+                  CommandPromptWindow commandWindow = new(guiToater);
+                  CommandInterpreter CLI = new(commandWindow,
+                     new EmitterCommandWindow(commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },
+                     toaster=guiToater); // Needs to be set again 
+                  Database.Instance.CLI = CLI;
 
-               void ProcessInput(string input) {
-                  input = input.Trim();
+                  void ProcessInput(string input) {
+                     input = input.Trim();
 
-                  if (char.IsAsciiLetterLower(input[0])) {
-                     // Commands start with a lowercase letter
-                     CLI.InterpretCommand(input);
-                  } else if (!input.StartsWith(CommandInterpreter.CommandComment)) { // A caommand comment. Can't be the CDL2 comment delimiter # becasue that is valid in CDL2 source
-                     // Assume it is a cdl2 construct that must be parsed
-                     CLI.EnterCode(input);
+                     if (char.IsAsciiLetterLower(input[0])) {
+                        // Commands start with a lowercase letter
+                        CLI.InterpretCommand(input);
+                     } else if (!input.StartsWith(CommandInterpreter.CommandComment)) { // A caommand comment. Can't be the CDL2 comment delimiter # becasue that is valid in CDL2 source
+                        // Assume it is a cdl2 construct that must be parsed
+                        CLI.EnterCode(input);
+                     }
                   }
-               }
 
-               // Handle commands
-               commandWindow.CommandEntered += (sender, input) => ProcessInput(input);
-               commandWindow.Closed += (s, e) => app.Shutdown();
-               commandWindow.Title = $"{CDL2.LabName} - {Settings.LabDBName}";
-               CLI.SetStatus();
-               app.Run(commandWindow);
-            });
+                  // Handle commands
+                  commandWindow.CommandEntered += (sender,input) => ProcessInput(input);
+                  commandWindow.Closed += (s,e) => app.Shutdown();
+                  commandWindow.Title = $"{CDL2.LabName} - {Settings.LabDBName}";
+                  CLI.SetStatus();
+                  app.Run(commandWindow);
+               });
 
-            CLIThread.SetApartmentState(ApartmentState.STA);
-            CLIThread.Start();
-            CLIThread.Join(); // Wait for the command window to close before continuing
+               CLIThread.SetApartmentState(ApartmentState.STA);
+               CLIThread.Start();
+               CLIThread.Join(); // Wait for the command window to close before continuing
+            } else {
+               // Command line interface mode
+               // TODO: Implement command line interface mode
+               Log(0, "CDL2 Laboratory command line interface mode is not yet implemented.");
+               // toaster is already set to new ToastConsole(); 
+            }
          } else if (args.Length > 0) { // File compiler mode
             Parser = new Parser(this);
             foreach (string arg in args) {

@@ -167,6 +167,7 @@ namespace CDL2v1 {
          new Setting<int>(     "CommandHistorySize",  "--command-history-size",100,        "The number of inputs preserved across sessions.",saved:true),
          new Setting<string>(  "Shell",               "--shell",            "pwsh",        "The shell to use in the shell command. Default is PowerShell",saved:true),
          new Setting<string>(  "Editor",              "--editor",           "code",        "The external editor to use for editing files. Default is VS Code",saved:true),
+         new Setting<bool>  (  "Console",             "--console",          false,          "Run the Lab in console mode if given. Default is false on Windows."),
 
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each
@@ -214,6 +215,10 @@ namespace CDL2v1 {
          }
          ValidSetting = [.. SettingsList.Select(s => s.Name)];
       }
+
+      public static bool OnWindows =>    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+      public static bool OnLinux =>      System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux);
+      public static bool OnMacOS =>      System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX);
 
       public static bool Verbosity(int level) => SettingValue<int>("VerbosityLevel") >= level;
       public static bool DebugVerbosity(int level) => SettingValue<int>("DebugVerbosityLevel") >= level;

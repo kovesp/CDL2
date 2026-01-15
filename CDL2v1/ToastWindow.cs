@@ -9,10 +9,19 @@ using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace CDL2v1 {
-   public class ToastWindow : Window {
+   public class ToastWindow : Window, IToaster {
       private readonly DispatcherTimer? _timer;
 
-      public ToastWindow(string message,int timeoutMs = 3000) {
+      /// <summary>
+      /// Bit wastful becasue actual method calls create thier own instace, but easiest to do it this way
+      /// </summary>
+      public ToastWindow() { }
+      /// <summary>
+      /// Used internally to display actual messages
+      /// </summary>
+      /// <param name="message"></param>
+      /// <param name="timeoutMs"></param>
+      private ToastWindow(string message,int timeoutMs = 3000) {
          WindowStyle = WindowStyle.None;
          AllowsTransparency = true;
          Background = Brushes.Transparent;
@@ -115,11 +124,10 @@ namespace CDL2v1 {
          Focus(); // Ensure window can receive key events
       }
 
-      public static void ShowToast(string message,int timeoutMs = 0,bool delay=false) {
-         ToastWindow toast = new(message,timeoutMs) {
-            Owner = Application.Current.MainWindow,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-         };
+      public void ShowToast(string message,int timeoutMs = 0,bool delay=false,bool setOwner=true) {
+         ToastWindow toast = new(message,timeoutMs);
+         if (setOwner) toast.Owner = Application.Current.MainWindow;
+         toast.WindowStartupLocation = WindowStartupLocation.CenterOwner;
          toast.Show();
          if (delay) Thread.Sleep(timeoutMs);
       }
@@ -131,7 +139,7 @@ namespace CDL2v1 {
       /// <param name="message"></param>
       /// <param name="action"></param>
       /// <param name="minShowInterval"></param>
-      public static void ShowToast(string message, Action action, int minShowInterval = 0) {
+      public void ShowToast(string message, Action action, int minShowInterval = 0) {
          var actionDone = new ManualResetEvent(false);
          Thread toastThread = new(() => {
             ToastWindow toast = new ToastWindow(message, minShowInterval) {
