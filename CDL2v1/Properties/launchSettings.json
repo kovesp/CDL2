@@ -22,7 +22,7 @@
     },
     "LAB Console": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5 --allow-errors\r\n--messages Warning --lab\r\n--pretty-print-debug --cg-debug\r\n--program \"csharp sort\"\r\n--console",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5 --allow-errors\r\n--messages Warning --lab\r\n--pretty-print-debug --cg-debug\r\n--program \"csharp sort\"\r\n--console --ansi",
       "workingDirectory": "$(ProjectDir)\\CDL2"
     }
   }

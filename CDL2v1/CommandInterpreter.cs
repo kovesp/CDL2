@@ -41,6 +41,7 @@ using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
 using System.Windows;
 using System.Windows.Interop;
 using System.Xml.Linq;
@@ -48,7 +49,7 @@ using System.Xml.Linq;
 
 namespace CDL2v1 {
    public class CommandInterpreter {
-      private readonly ICommandInterpreterOutput? commandWindow;
+      private readonly ICLIREPL? REPL;
       private readonly IToaster? toaster;
       private readonly PrettyPrinter pp;
       private readonly PrettyPrinter ppFile; // For use in the print command with file setting
@@ -59,14 +60,13 @@ namespace CDL2v1 {
       public const char CommandComment = '!';
       public const char CommandSeparator = ';'; // Not currently used. Difficult to split commands correctly when there are quoted strings.
 
-      public CommandInterpreter(CommandPromptWindow? window = null,Emitter? emitter = null,IToaster? toaster = null) {
-         commandWindow = window;
+      public CommandInterpreter(ICLIREPL? repl = null,Emitter? emitter = null,IToaster? toaster = null) {
+         REPL = repl;
          this.toaster = toaster;
          // Create a CommandWindowEmitter that integrates with our window
          // Initialize the parser with the compiler and a callback for error messages
-         if (commandWindow is not null) {
-            pp = new(commandWindow.Emitter = emitter!,includeComments: true);
-            // pp = new(commandWindow.Emitter = new EmitterMulticast(new EmitterDebug(),new EmitterCommandWindow(commandWindow)),includeComments: true);
+         if (REPL is not null) {
+            pp = new(REPL.Emitter = emitter!,includeComments: true);
 
             parser = new Parser(CDL2.Compiler,(severity,msg,_) => ErrorReporter(severity,msg,_));
          } else {
@@ -75,20 +75,19 @@ namespace CDL2v1 {
          }
          ppEdit = new(new EmitterString(),includeComments: true);
          ppFile = new(new EmitterFile(),includeComments: true);
-         // ppFileEmitter.Target = Settings.SettingValue<string>("file")!;
       }
 
-      public void ErrorReporter(Severity severity,string msg,bool _) => commandWindow?.WriteLine($"{severity}: {msg}",severity);
+      public void ErrorReporter(Severity severity,string msg,bool _) => REPL?.WriteLine($"{severity}: {msg}",severity);
       private void ReportProblem(Note note,params object[] args) => ErrorReporter(note.NoteType,note.FormattedText(args),false);
 
 
       public void SetStatus(NamedElement? element = null) {
-         if (commandWindow is not null) {
+         if (REPL is not null) {
             if (element is null) {
-               commandWindow.SetStatus("Nothing");
+               REPL.SetStatus("Nothing");
             } else {
                string marker = (element is ITopLevelContainer t ? t : element.Module)?.Modified == true ? "*" : "";
-               commandWindow.SetStatus(marker + element.FQDN(WithInterface: true));
+               REPL.SetStatus(marker + element.FQDN(WithInterface: true));
             }
          }
       }
@@ -102,7 +101,7 @@ namespace CDL2v1 {
       /// <param name="icon"></param>
       /// <returns></returns>
       public bool QueryBox(string message,MessageBoxButton buttons = MessageBoxButton.OKCancel,MessageBoxImage icon = MessageBoxImage.Question) {
-         if (commandWindow is not null) { // Must be in interactive mode
+         if (REPL is not null) { // Must be in interactive mode
             return MessageBox.Show(message,CDL2.LabName,buttons,icon) == MessageBoxResult.OK;
          }
          return false;
@@ -266,8 +265,8 @@ namespace CDL2v1 {
       ParsingContext? ParsingContext = null;
 
       private void WriteLine(string message,Severity severity = Severity.NONE) {
-         if (commandWindow is not null) {
-            commandWindow.WriteLine(message,severity);
+         if (REPL is not null) {
+            REPL.WriteLine(message,severity);
          } else {
             Debug.WriteLine(message);
          }
@@ -357,9 +356,26 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// Must be called by 
+      /// </summary>
+      /// <param name="input"></param>
+      public void ProcessInput(string input) {
+         input = input.Trim();
+
+         if (char.IsAsciiLetterLower(input[0])) {
+            // Commands start with a lowercase letter
+            InterpretCommand(input);
+         } else if (!input.StartsWith(CommandInterpreter.CommandComment)) { // A command comment. Can't be the CDL2 comment delimiter # becasue that is valid in CDL2 source
+                                                                            // Assume it is a cdl2 construct that must be parsed
+            EnterCode(input);
+         }
+      }
+
+      /// <summary>
       /// Pasrse the command into verb, argumensts and settings and then interprete it.
       /// </summary>
       /// <param name="command"></param>
+      /// <remarks>For use by unit tests and the consult command.</remarks>
       public void InterpretCommand(string command) {
          if ((command = command.Trim()) == "" || command.StartsWith(CommandComment)) return; // Ignore empty commands and command comments
          ParseCommand(command,out string verb,out CommandType commandType,out string args,out ParsedSetting[] settings);
@@ -532,16 +548,17 @@ namespace CDL2v1 {
                   case CommandType.save:
                      WriteInfo($"Saved: {Database.Save()}"); break;
                   case CommandType.abort:
-                     Task.Delay(2000).ContinueWith(_ => {
-                        ((Window)commandWindow!).Dispatcher.Invoke(() => commandWindow.Close());
-                     });
+                     //Task.Delay(2000).ContinueWith(_ => {
+                     //   ((Window)commandWindow!).Dispatcher.Invoke(() => commandWindow.Close());
+                     //});
                      toaster!.ShowToast("abort command used, not saving the database.",2000,delay: true,setOwner:false);
-                     return;
+                     REPL?.Close();
+                     break;
                   case CommandType.bye:
                   case CommandType.quit:
                   case CommandType.exit:
                      toaster!.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
-                     commandWindow?.Close();
+                     REPL?.Close();
                      return;
 
                   case CommandType.shell: 
@@ -1035,7 +1052,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="args"></param>
       private void InterpretCommandEdit(string args) {
-         if (commandWindow == null) return; // Ignore the command if there is no command window
+         if (REPL == null) return; // Ignore the command if there is no command window
          Selection? selection = GetMultiContext(args);
          if (selection is null || selection.Count != 1) {
             WriteError("Only a single object can be edited.");
@@ -1074,11 +1091,11 @@ namespace CDL2v1 {
                      ParsingContext = null;
                      return;
                   } else {
-                     commandWindow.EditText(ppEdit.PrintLude(ludeType,sec,asString: true)!);
+                     REPL.EditText(ppEdit.PrintLude(ludeType,sec,asString: true)!);
                   }
                }
             } else if (context.Object is CDL2Object) {
-               commandWindow.EditText(ppEdit.Print(context.Object));
+               REPL.EditText(ppEdit.Print(context.Object));
             } else {
                if (context.Object is Layer lay) {
                   WriteError($"{RW.LAYER}s do not have ludes: {lay}.");
@@ -1100,7 +1117,7 @@ namespace CDL2v1 {
       /// <param name="after"></param>
       /// <param name="add"></param>
       private void InterpretCommandAdd(string args) {
-         if (commandWindow == null) return; // Ignore the command if there is no command window
+         if (REPL == null) return; // Ignore the command if there is no command window
          Selection? context = GetMultiContext(args);
          if (context == null || context.Count == 0) return;
 
@@ -1129,7 +1146,7 @@ namespace CDL2v1 {
             InsertLocation insertLocation = Settings.SettingValue<bool>("before") ? InsertLocation.Before : InsertLocation.After; // This will of coruse be ignored if the object exists and is replaced.
             ppEdit.Emitter.Clear();
             ParsingContext = new(new Focus(context),insertLocation);
-            commandWindow.EditText();
+            REPL.EditText();
             // Nothing else. When editing is done the command window will call EnterCode with the edited text. What to do with it is determined by the insertionLocation and IsEditing flags.
          }
       }

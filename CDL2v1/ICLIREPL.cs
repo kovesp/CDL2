@@ -37,7 +37,7 @@ namespace CDL2v1 {
    /// Interface for command-line interfaces (GUI or text-based).
    /// Abstracts the interaction between CommandInterpreter and the user interface.
    /// </summary>
-   public interface ICommandInterpreterOutput {
+   public interface ICLIREPL {
       /// <summary>
       /// Gets or sets the emitter used for formatted output.
       /// The emitter handles the actual formatting (GUI-based or text-based).
@@ -72,6 +72,17 @@ namespace CDL2v1 {
       /// <param name="message">The question to ask.</param>
       /// <returns>True if user confirms, false otherwise.</returns>
       bool QueryBox(string message);
+
+      /// <summary>
+      /// Sets the input line processor for this REPL
+      /// </summary>
+      /// <param name="inputProcessor"></param>
+      void SetInputProcessor(Action<string> inputProcessor);
+
+      /// <summary>
+      /// Opens the command interface starting the REPL or GUI loop.
+      /// </summary>
+      void Open();
 
       /// <summary>
       /// Closes/exits the command interface.

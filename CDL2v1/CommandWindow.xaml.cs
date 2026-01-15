@@ -50,7 +50,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Interaction logic for CommandWindow.xaml
    /// </summary>
-   public partial class CommandPromptWindow : Window, ICommandInterpreterOutput {
+   public partial class CommandPromptWindow : Window, ICLIREPL {
       private readonly History _commandHistory = new();
       private readonly FontFamily _textFont = new("Cascadia Mono");
 
@@ -178,6 +178,20 @@ F1    | Show this help message.
          StatusBarLeftTextBlock.Foreground = (Brush)new BrushConverter().ConvertFromString(infoColorHex)!;
          StatusBarRightTextBlock.Foreground = (Brush)new BrushConverter().ConvertFromString(infoColorHex)!;
       }
+
+      #region Open and Close
+      /// <summary>
+      /// Start the REPL loop. This is automatic in WPF, so this is a no-op.
+      /// </summary>
+      public void Open() { }
+
+      public void SetInputProcessor(Action<string> processor) => CommandEntered += (sender,input) => processor(input);
+
+      /// <summary>
+      /// The underlying Window already has a Close() method, no need to override it.
+      /// </summary>
+
+      #endregion Open and Close
 
       #region Window Settings
       private void ApplySavedWindowSettings() {
@@ -574,7 +588,7 @@ F1    | Show this help message.
       }
 
       // Implement ICommandInterface.QueryBox with simplified signature
-      bool ICommandInterpreterOutput.QueryBox(string message) => 
+      bool ICLIREPL.QueryBox(string message) => 
          MessageBox.Show(this,message,CDL2.LabName,
                               MessageBoxButton.OKCancel,
                               MessageBoxImage.Question) == MessageBoxResult.OK;
@@ -1015,51 +1029,6 @@ private bool ShouldApplyZoom(string? controlName, double currentFontSize, double
       }
 
       #endregion
-
-      #region Command History
-      /// <summary>
-      /// </summary>
-      /// Command history manager
-      private class History {
-         private readonly List<string> _history = [];
-         private int _currentIndex = -1;
-
-         /// <summary>
-         /// Gets or sets the collection of command strings maintained in the command history.
-         /// </summary>
-         /// <remarks>When setting this property, the existing command history is replaced with the
-         /// provided collection, and the current index is reset to the end of the new history. The number of commands
-         /// returned when getting this property is limited by the configured command history size.</remarks>
-         public IEnumerable<string> Commands {
-            get => _history.TakeLast(Settings.SettingValue<int>("CommandHistorySize"));
-            set {
-               _history.Clear();
-               _history.AddRange(value);
-               _currentIndex = _history.Count;
-            }
-         }
-
-         public void Add(string command) {
-            _history.Add(command);
-            _currentIndex = _history.Count;
-         }
-
-         public string? Previous() {
-            if (_history.Count == 0 || _currentIndex == 0) return null;
-
-            _currentIndex = Math.Max(0,_currentIndex - 1);
-            return _currentIndex < _history.Count ? _history[_currentIndex] : "";
-         }
-
-         public string? Next() {
-            if (_history.Count == 0 || _currentIndex >= _history.Count) return null;
-
-            _currentIndex = Math.Min(_history.Count,_currentIndex + 1);
-            return _currentIndex < _history.Count ? _history[_currentIndex] : "";
-         }
-      }
-      #endregion
-
       public void SetStatus(string message) {
          StatusBarLeftTextBlock.Text = message;
          string programName = Settings.SettingValue<string>("ProgramName")!;
