@@ -3,13 +3,17 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <!--<TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>-->
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
-    <UseWPF>true</UseWPF>
     <UseWindowsForms>false</UseWindowsForms>
     <ApplicationIcon>CDL-V1.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -24,12 +28,23 @@
     <Compile Remove="CDL2\**\*.cs" />
     <None Include="CDL2\**\*.cs" />
   </ItemGroup>
-
+  
+    <!-- Package reference for ALL target frameworks 
   <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+  -->
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
      <Reference Include="PresentationCore, Version=10.0.0.0,Culture=neutral, PublicKeyToken=31bf3856ad364e35" />
      <Reference Include="PresentationFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" />
      <Reference Include="WindowsBase, Version=10.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" />
   </ItemGroup>
+
+  <!-- Suppress WPF warnings when building for non-Windows platforms -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != '' AND !$(RuntimeIdentifier.StartsWith('win'))">
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
 
 </Project>
