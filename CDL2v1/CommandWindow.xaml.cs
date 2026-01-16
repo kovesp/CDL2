@@ -30,12 +30,7 @@
 // </attribution>
 //=======================================================================
 // </auto-gen>
-
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
+#if WINDOWS
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -1092,3 +1087,4 @@ private bool ShouldApplyZoom(string? controlName, double currentFontSize, double
       private static partial Regex AlgorithmHeaderRE();
    }
 }
+#endif

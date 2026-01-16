@@ -39,10 +39,6 @@
 
 // Ignore Spelling: Transput CDL abstr ext inv ludes lude lwb upb FQN
 
-using Microsoft.Windows.Themes;
-
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 

@@ -16,8 +16,6 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
 
 namespace CDL2v1 {
    /// <summary>

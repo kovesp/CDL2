@@ -16,11 +16,7 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
-using System.Security.Permissions;
 using System.Text.RegularExpressions;
-using System.Windows.Media;
 
 namespace CDL2v1 {
    /// <summary>

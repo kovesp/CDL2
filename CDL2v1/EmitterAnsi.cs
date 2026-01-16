@@ -16,7 +16,6 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
 using System.Text.RegularExpressions;
 
 namespace CDL2v1 {

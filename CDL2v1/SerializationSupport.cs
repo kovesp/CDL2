@@ -35,20 +35,11 @@
 #define COMPRESSED_DATABASE
 using CDL2v1;
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.IO.Enumeration;
-using System.Linq;
-using System.Printing;
-using System.Reflection.Metadata.Ecma335;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using System.Windows.Input;
 
 
 namespace CDL2v1 {

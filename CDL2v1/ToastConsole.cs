@@ -32,8 +32,6 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Threading;
 
 namespace CDL2v1 {
    /// <summary>

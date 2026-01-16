@@ -32,13 +32,7 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Reflection;
-using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CDL2v1 {
    public class Abbreviation<T> : IComparable<Abbreviation<T>> where T : struct, Enum {

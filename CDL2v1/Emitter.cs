@@ -33,13 +33,7 @@
 
 // Ignore Spelling: CDL Emitnl Nl nlafter nlbefore
 
-using System;
-using System.CodeDom.Compiler;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace CDL2v1 {
    public abstract partial class Emitter {

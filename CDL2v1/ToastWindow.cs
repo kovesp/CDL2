@@ -1,7 +1,4 @@
-using System;
-using System.Linq;
-using System.Reflection;
-using System.Threading;
+#if WINDOWS
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -173,3 +170,4 @@ namespace CDL2v1 {
       }
    }
 }
+#endif

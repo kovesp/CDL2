@@ -35,23 +35,14 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.CommandLine;
-using System.CommandLine.Invocation;
 using System.Data;
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Windows;
-using System.Windows.Input;
 
 using static CDL2v1.Logger;
-using static CDL2v1.TokenList;
 
 namespace CDL2v1 {
    /// <summary>

@@ -33,10 +33,9 @@
 // </auto-gen>
 
 // Ignore Spelling: CDL
-
+#if WINDOWS
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Windows.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -381,4 +380,4 @@ namespace CDL2v1 {
       private static partial Regex BodySeparatorRE();
    }
 }
-
+#endif

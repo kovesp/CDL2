@@ -39,8 +39,6 @@ using System.ComponentModel;
 using System.Data;
 using System.IO;
 using System.Text.Json;
-using System.Windows.Controls;
-using System.Windows.Navigation;
 
 namespace CDL2v1 {
    public interface ISetting {
