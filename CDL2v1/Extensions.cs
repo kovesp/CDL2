@@ -808,15 +808,11 @@ namespace CDL2v1 {
       }
 
       private static string ScaleColor(string s,double factor) {
-         Match match = Regex.Match(s,@"^#(?<r>[0-9A-Fa-f]{2})(?<g>[0-9A-Fa-f]{2})(?<b>[0-9A-Fa-f]{2})(?<a>[0-9A-Fa-f]{2})?$",RegexOptions.Compiled);
+         Match match = Regex.Match(s,@"^#(?<r>[0-9A-Fa-f]{2})(?<g>[0-9A-Fa-f]{2})(?<b>[0-9A-Fa-f]{2})$",RegexOptions.Compiled);
+         string Scale(string c) => ((byte)Math.Min(255,int.Parse(match.Groups[c].Value,NumberStyles.HexNumber)*factor)).ToString("x2");
          if (!match.Success) throw new ArgumentException($"Invalid hex color string: {s}");
-         byte r = (byte)Math.Min(255,int.Parse(match.Groups['r'].Value,NumberStyles.HexNumber)*factor);
-         byte g = (byte)Math.Min(255,int.Parse(match.Groups['g'].Value,NumberStyles.HexNumber)*factor);
-         byte b = (byte)Math.Min(255,int.Parse(match.Groups['b'].Value,NumberStyles.HexNumber)*factor);
-         byte a = match.Groups['a'].Success ? (byte)Math.Min(255,int.Parse(match.Groups['a'].Value,NumberStyles.HexNumber)*factor) : (byte)255;
-         return "#" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2") + (a < 255 ? a.ToString("X2") : "");
+         return "#" + Scale("r") + Scale("g") + Scale("b");
       }
-
 
       private static readonly Regex NeverMatches = new(@"(?!.*)",RegexOptions.Compiled);
 

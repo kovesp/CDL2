@@ -224,7 +224,11 @@ namespace CDL2v1 {
 
          if (Settings.LabMode) {
             bool usingGUI = Settings.OnWindows && !Settings.SettingValue<bool>("Console") && Settings.LabMode;
+#if WINDOWS
             IToaster toaster = usingGUI ? new ToastWindow() : new ToastConsole();
+#else
+            IToaster toaster = new ToastConsole();
+#endif
             Serializer.Toaster = toaster;
             Database.Load();
 
@@ -291,8 +295,10 @@ namespace CDL2v1 {
                   Emitter emitter;
                   if (PrettyPrint == null) {
                      emitter = new EmitterDebug();
+#if WINDOWS
                   } else if (Regex.IsMatch(PrettyPrint,@"^w(?:indow)$",RegexOptions.IgnoreCase)) {
                      emitter = new EmitterWindow();
+#endif
                   } else if (PrettyPrint.IsValidFileName) {
                      emitter = new EmitterFile(PrettyPrint);
                   } else {

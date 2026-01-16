@@ -450,8 +450,8 @@ namespace CDL2v1 {
       /// Second from the constructor of the commandwindow to load command history.
       /// The settings file will be read twice, but no big deal.
       /// </summary>
-      /// <param name="commandWindow"></param>
-      public static void LoadSettings(CommandPromptWindow? commandWindow = null) {
+      /// <param name="repl"></param>
+      public static void LoadSettings(ICLIREPL? repl = null) {
          try {
             string settingsPath = Path.Combine(OutputDirectory,SettingsFileName);
             if (File.Exists(settingsPath)) {
@@ -459,12 +459,12 @@ namespace CDL2v1 {
                Dictionary<string,object>? loadedSettings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string,object>>(json);
 
                if (loadedSettings != null) {
-                  if (commandWindow != null) {
+                  if (repl != null) {
                      if (loadedSettings.TryGetValue("CommandHistory",out object? value)) {
                         // Load command history
                         JsonElement element = (JsonElement)value;
                         string[]? history = element.Deserialize<string[]>();
-                        if (history != null) commandWindow.CommandHistory = history;
+                        if (history != null) repl.CommandHistory = history;
                      }
                   } else {
                      foreach (KeyValuePair<string,object> kvp in loadedSettings) {

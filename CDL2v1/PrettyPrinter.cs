@@ -35,7 +35,9 @@
 
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+#if WINDOWS
 using System.Windows.Input;
+#endif
 
 using static CDL2v1.Logger;
 
@@ -234,7 +236,9 @@ namespace CDL2v1 {
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file Id.
       /// </summary>
       /// <param Id="fileName">If this is null, use the <see cref="EmitterDebug"/> instead.</param>
-      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT,fileName!.IsValidFileName ? new EmitterFile(fileName ?? "") : new EmitterWindow()) { }
+      public PrettyPrinter(string? fileName) 
+         : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT,fileName!.IsValidFileName ? new EmitterFile(fileName ?? "") 
+                                                                                                                     : throw new ArgumentException("Invalid file name", nameof(fileName))) { }
 
       private record struct UnitDelimiter(RW Start,RW End);
       private static readonly Dictionary<Type,UnitDelimiter> units = new() {
@@ -347,6 +351,7 @@ namespace CDL2v1 {
       }
       internal void PauseUpdate(Action action) {
          if (Emitter.CanPauseUpdate) {
+#if WINDOWS
             // Save the current cursor
             Cursor? previousCursor = Mouse.OverrideCursor;
 
@@ -364,6 +369,9 @@ namespace CDL2v1 {
                Mouse.OverrideCursor = previousCursor;
                Emitter.EndUpdate();
             }
+#else
+            action();
+#endif
          } else {
             // If updates cannot be paused, just execute the action directly
             action();
