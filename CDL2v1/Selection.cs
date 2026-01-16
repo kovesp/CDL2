@@ -33,6 +33,7 @@
 // </auto-gen>
 
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
@@ -520,6 +521,7 @@ namespace CDL2v1 {
       /// <returns>True if focus was successfully set, false otherwise</returns>
       public static bool SetFocus(string focusString,out string errorMessage) {
          errorMessage = "";
+         if (string.IsNullOrWhiteSpace(focusString)) return true; // Empty focus string means no change to focus, but this is OK
          Selection selection = new(focusString);
          if (selection.IsInvalid) {
             errorMessage = selection.ErrorMessage;

@@ -40,8 +40,7 @@ namespace CDL2v1 {
       /// Enable ANSI escape sequence support in Windows console
       /// </summary>
       private static void EnableAnsiSupport() {
-         if (!Settings.OnWindows) return;
-
+#if WINDOWS
          try {
             IntPtr handle = GetStdHandle(-11); // STD_OUTPUT_HANDLE
             if (GetConsoleMode(handle,out uint mode)) {
@@ -51,6 +50,7 @@ namespace CDL2v1 {
          } catch {
             // Ignore if ANSI support cannot be enabled
          }
+#endif
       }
 
       /// <summary>
@@ -122,6 +122,7 @@ namespace CDL2v1 {
       }
 
       #region Windows Console API for ANSI support
+#if WINDOWS
       [System.Runtime.InteropServices.DllImport("kernel32.dll",SetLastError = true)]
       private static extern IntPtr GetStdHandle(int nStdHandle);
 
@@ -130,6 +131,7 @@ namespace CDL2v1 {
 
       [System.Runtime.InteropServices.DllImport("kernel32.dll")]
       private static extern bool SetConsoleMode(IntPtr hConsoleHandle,uint dwMode);
-      #endregion
+#endif
+#endregion
    }
 }

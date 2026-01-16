@@ -81,7 +81,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="program"></param>
       internal void Analyze(Program program) {
-         Log(0,$"Analyzing {program}");
+         Log(1,$"Analyzing {program}");
          //phase 1
          AnalyzeProgram(program);
          // Phase 2
@@ -215,7 +215,7 @@ namespace CDL2v1 {
                unusedObjects.Add(obj.Id.Name,obj);
             }
          }
-         Log(0,$"There are {unused.Plural("unused object")} in the program");
+         Log(1,$"There are {unused.Plural("unused object")} in the program");
          if (Settings.AnyVerbosity(4)) foreach (CDL2Object obj in unusedObjects.Values) Log(1,$"  {obj}");
       }
 

@@ -381,6 +381,22 @@ namespace CDL2v1 {
             Position = element?.Siblings.IndexOf(element.GUID) ?? -1;
          }
 
+         /// <summary>
+         /// Records Addtions and their context
+         /// </summary>
+         /// <param name="element"></param>
+         /// <param name="context"></param>
+         public UndoRecord(CDL2Object? element,NamedElement? context) {
+            ObjectGuid = element?.GUID ?? Guid.Empty;
+            ChangeType = ChangeType.Added;
+            Position = context is CDL2Object contextElement ? contextElement.Siblings.IndexOf(contextElement.GUID) : -1;
+         }
+
+         public UndoRecord(Guid replaced,Guid replacement) {
+            ObjectGuid = replaced;
+            ChangeType = ChangeType.Replaced;
+            ReplacementGuid = replacement;
+         }
 
          /// <summary>
          /// Used when an object is renamed.
@@ -421,6 +437,10 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="element"></param>
       public void RecordUndo(CDL2Object element,ChangeType changeType) => UndoStack.Push(new UndoRecord(element,changeType));
+      public void RecordUndo(CDL2Object element,NamedElement? context) {
+         if (context is not null) UndoStack.Push(new UndoRecord(element,context));
+      }
+
 
       /// <summary>
       /// Create an undo record for a rename operation. Renames are performed on IDs so have to be recorded like that.
@@ -435,9 +455,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <remarks>This method pushes an undo record onto the undo stack, allowing the operation to be
       /// reversed if needed.</remarks>
-      /// <param name="element">The object for which the undo operation is being recorded. Cannot be null.</param>
+      /// <param name="replacedGuid">The object for which the undo operation is being recorded. Cannot be null.</param>
       /// <param name="replacementGuid">The unique identifier of the replacement element. This is the now live guid.</param>
-      public void RecordUndo(CDL2Object element,Guid replacementGuid) => UndoStack.Push(new UndoRecord(element,ChangeType.Replaced) { ReplacementGuid = replacementGuid });
+      public void RecordUndo(Guid replaced,Guid replacement) => UndoStack.Push(new UndoRecord(replaced,replacement));
 
       /// <summary>
       /// Used to record adding or deleting an interface declaration or ludes from a section.

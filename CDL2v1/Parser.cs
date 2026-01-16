@@ -301,14 +301,15 @@ namespace CDL2v1 {
       }
 
       private static readonly List<TT> bodyTypes = [TT.INLINEPROCBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
-      private bool ParseAlgorithm(Notes notes,[NotNullWhen(true)] out Algorithm? algorithm,ParseMode mode = ParseMode.Full,bool replace = false) {
+      private bool ParseAlgorithm(Notes notes,[NotNullWhen(true)] out Algorithm? algorithm,ParseMode mode = ParseMode.Full,Func<bool>? canReplace = null,NamedElement? contextObj=null) {
          Debug.Assert(currentSection != null);
          algorithm = null;
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             Logger.Log(4,$"Parsing {algType} {id}");
             RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
             currentObject.Object = (algTypeRW, id);
-            if (!replace && mode == ParseMode.Full && DuplicateDeclaration(id,algTypeRW)) return false;
+            bool duplicate = DuplicateDeclaration(id,algTypeRW);
+            if (mode == ParseMode.Full && duplicate && !canReplace?.Invoke() == false) return false;
             if (!ParseAffixes(mode,out List<Affix> affixes)) return false;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the imports list.
@@ -351,7 +352,16 @@ namespace CDL2v1 {
                   return false;
                }
             }
-            if (mode == ParseMode.Full) currentSection.Declarations[id] = algorithm.GUID;
+            if (mode == ParseMode.Full) {
+               if (duplicate) {
+                  // Replace the existing declaration, but record an undo
+                  if (contextObj is not null) Database.Instance.RecordUndo(currentSection.Declarations[id],algorithm.GUID);
+               } else {
+                  // Record an add
+                  Database.Instance.RecordUndo(algorithm,contextObj);
+               }
+               currentSection.Declarations[id] = algorithm.GUID;
+            }
          } else {
             if (mode == ParseMode.Full) ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
          }
@@ -980,11 +990,10 @@ namespace CDL2v1 {
                Section? section = context.Section;
                if (section is not null) {
                   currentSection = section;
-                  if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode,canReplace())) {
+                  if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode,canReplace,context.Object)) {
                      element = alg;
                      // alg was added to the current section at the end
                      MoveObjectToPosition(parsingContext,context,alg);
-                     Database.Instance.RecordUndo(alg,ChangeType.Added);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1000,7 +1009,7 @@ namespace CDL2v1 {
                   if (ParseConstants(Notes.Empty,mode,out List<Const> consts)) {
                      MoveObjectToPosition(parsingContext,context,consts);
                      element = consts.LastOrDefault();
-                     foreach (Const c in consts) Database.Instance.RecordUndo(c,ChangeType.Added);
+                     foreach (Const c in consts) Database.Instance.RecordUndo(c,ChangeType.Added); // TODO Fix in ParseConstants
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1016,7 +1025,7 @@ namespace CDL2v1 {
                   if (ParseVar(Notes.Empty,mode,out List<Var> vars)) {
                      MoveObjectToPosition(parsingContext,context,vars);
                      element = vars.LastOrDefault();
-                     foreach (Var v in vars) Database.Instance.RecordUndo(v,ChangeType.Added);
+                     foreach (Var v in vars) Database.Instance.RecordUndo(v,ChangeType.Added); // TODO Fix in ParseVar
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1032,7 +1041,7 @@ namespace CDL2v1 {
                   if (ParseList(Notes.Empty,out List<LIST> lists,mode)) {
                      MoveObjectToPosition(parsingContext,context,lists);
                      element = lists.LastOrDefault();
-                     foreach (LIST l in lists) Database.Instance.RecordUndo(l,ChangeType.Added);
+                     foreach (LIST l in lists) Database.Instance.RecordUndo(l,ChangeType.Added); // TODO Fix in ParseList
                   }
                } else {
                   if (mode == ParseMode.Full) {

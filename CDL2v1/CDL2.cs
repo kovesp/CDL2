@@ -204,7 +204,7 @@ namespace CDL2v1 {
          }
 #endif
 
-         Log(0,$"\nCDL2 {(Settings.LabMode ? CDL2.LabName : "Compiler")} v{Version}");
+         Log(2,$"\n {(Settings.LabMode ? CDL2.LabName : "Compiler")} v{Version}");
          Compiler.CompileSources(Settings.SettingValue<string[]>("Sources")!);
       }
 
@@ -215,10 +215,10 @@ namespace CDL2v1 {
 
 
       public void CompileSources(string[] args) {
-         Log(Settings.AllSettings.First().ToTabularString(title: true,compact: true)!);
+         Log(2,Settings.AllSettings.First().ToTabularString(title: true,compact: true)!);
          foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.LongOption)) {
             string? settingString = setting.ToTabularString(compact: true);
-            if (settingString != null) Log(1,settingString);
+            if (settingString != null) Log(2,settingString);
          }
 
 

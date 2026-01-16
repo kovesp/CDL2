@@ -491,7 +491,9 @@ namespace CDL2v1 {
                      return;
 
                   case CommandType.focus:
-                     if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage); break;
+                     if ( !Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage);
+                     if (!Settings.SettingValue<bool>("Console") || !Settings.SettingValue<bool>("LongConsolePrompt")) WriteLine(Focus.Current.ToString());
+                     break;
                   case CommandType.next:
                   case CommandType.previous:
                   case CommandType.first:
@@ -1243,7 +1245,7 @@ namespace CDL2v1 {
       }
       private void InterpretCommandStatus() {
          WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
-         Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo);
+         Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo,0);
          WriteInfo($" Available code generators: {string.Join(", ",CDL2.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}");
       }
 

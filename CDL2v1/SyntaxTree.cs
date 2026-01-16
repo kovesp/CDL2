@@ -1129,7 +1129,7 @@ namespace CDL2v1 {
             Database.Instance.NamedElements[replacement.GUID] = replacement;
 
             if (replacement.Notes is not null && replacement.Notes.Count > 0) Database.Instance.ElementsWithNotes.Add(replacement.GUID);
-            Database.Instance.RecordUndo(this,replacement.GUID);
+            Database.Instance.RecordUndo(this.GUID,replacement.GUID);
          }
       }
       public void Remove() => RemoveOrReplace(null,ChangeType.Removed);

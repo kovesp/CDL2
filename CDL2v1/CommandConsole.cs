@@ -44,25 +44,59 @@ namespace CDL2v1 {
       /// </summary>
       public void Open() {
          _isRunning = true;
-         WriteLine($"{CDL2.LabName} v{CDL2.Version}");
-         WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.");
+         WriteLine($"\n{CDL2.LabName} v{CDL2.Version}");
+         WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.",severity:Severity.Info);
 
+         bool multiline = false;
+         List<string> lines = [];
          while (_isRunning) {
-            Console.Write("> ");
-            string? input = Console.ReadLine();
-
-            if (input == null) break;
-
-            input = input.Trim();
-
-            if (string.IsNullOrEmpty(input)) continue;
-
-            if (char.IsAsciiLetterLower(input[0])) {
-               _commandHistory.Add(input);
-               _historyIndex = _commandHistory.Count;
+            if (multiline) {
+               Console.Write("... ");
+            } else if (Settings.SettingValue<bool>("LongConsolePrompt")) {
+               if (Settings.SettingValue<bool>("ANSI")) {
+                  Console.Write($"\x1b[93m{Focus.Current.Object?.FQDN() ?? ""}\x1b[0m> ");
+               } else {
+                  Console.Write($"{Focus.Current.Object?.FQDN() ?? ""}> ");
+               }
+            } else {
+               Console.Write("> ");
             }
+            string? line = Console.ReadLine();
 
-            inputProcessor!(input);
+            if (line == null) break;
+
+            line = line.Trim();
+
+            if (string.IsNullOrEmpty(line)) continue;
+
+            if (multiline) {
+               lines.Add(line);
+               if (line.EndsWith('.')) {                  
+                  // End of multiline input
+                  line = string.Join("\n", lines).Trim();
+                  lines.Clear();
+                  multiline = false;
+                  inputProcessor!(line);
+                  return;
+               } else {
+                  continue;
+               }
+            } else {
+               if (char.IsAsciiLetterLower(line[0])) {
+                  // Command
+                  _commandHistory.Add(line);
+                  _historyIndex = _commandHistory.Count;
+                  inputProcessor!(line);
+               } else if (!line.EndsWith('.')) {
+                  // Start of multiline code snippet
+                  multiline = true;
+                  lines.Add(line);
+                  continue;
+               } else {
+                  // Single line code snippet
+                  inputProcessor!(line);
+               }
+            }
          }
       }
 

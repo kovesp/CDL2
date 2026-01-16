@@ -94,8 +94,8 @@ namespace CDL2v1 {
          LogObjectCount(Objects,$"reachable from {prog}");
       }
 
-      public static void LogObjectCount(Set<CDL2Object> objects,string sort,Action<string>? logger = null) {
-         logger ??= str => Logger.Log(0,str);
+      public static void LogObjectCount(Set<CDL2Object> objects,string sort,Action<string>? logger = null,int logLevel=1) {
+         logger ??= str => Logger.Log(logLevel,str);
          string CountObjects(Type type,Set<CDL2Object> objects,bool noComma = false) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name,noComma ? null : ",");
          logger($"{objects.Count.Plural("object")} {sort} ...");
          logger($"   {CountObjects(typeof(Const),objects)} {CountObjects(typeof(Var),objects)} {CountObjects(typeof(LIST),objects)} {CountObjects(typeof(Macro),objects)} {CountObjects(typeof(Procedure),objects,noComma: true)}.");

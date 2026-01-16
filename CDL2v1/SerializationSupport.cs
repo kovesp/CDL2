@@ -106,7 +106,7 @@ namespace CDL2v1 {
       /// <returns>The loaded database or null if loading failed</returns>
       public static Database? LoadDB(string? path = null,bool addInstance = true) {
          Database? database = null;
-         Toaster!.ShowToast($"Loading ${Settings.LabDBPath}",() => {
+         Toaster!.ShowToast($"Loading Lab DB from {Settings.LabDBPath}",() => {
             path ??= Settings.LabDBPath; // Use the default lab database path if not provided
             if (!path.EndsWith(DBExtension)) path = Path.ChangeExtension(path,DBExtension);
             if (!Path.Exists(path)) throw new FileNotFoundException($"CDL2: Database file not found at {path}");
