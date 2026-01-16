@@ -35,12 +35,12 @@ using System.Collections;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-//using System.Windows.Media;
 
 namespace CDL2v1 {
    public class Set<T> : HashSet<T> {
@@ -619,26 +619,15 @@ namespace CDL2v1 {
          /// <returns></returns>
          public string WithNoWhitespace => string.IsNullOrEmpty(s) ? s : Regex.Replace(s,@"\s+","",RegexOptions.Compiled);
 
-         public string IntensifyColor(double factor) => s.FromHex.IntensifyColor(factor).ToHex;
-         public string DimColor(double factor) => s.FromHex.DimColor(factor).ToHex;
-
-         /// <summary>
-         /// Convert a hex string to a Color object.
-         /// </summary>
-         /// <returns></returns>
-         /// <exception cref="ArgumentException"></exception>
-         public Color FromHex {
-            get {
-               if (string.IsNullOrWhiteSpace(s))
-                  throw new ArgumentException("Invalid hex color string",nameof(s));
-
-               // Ensure the hex string starts with '#'
-               if (s[0] != '#') s = "#" + s;
-
-               // Use ColorConverter to convert the hex string to a Color object
-               return (Color)ColorConverter.ConvertFromString(s);
-            }
+         public string IntensifyColor(double factor) {
+            if (factor < 1) throw new ArgumentOutOfRangeException(nameof(factor),"IntensifyColor: Factor must be greater than or equal to 1.");
+            return ScaleColor(s,factor);
          }
+         public string DimColor(double factor) {
+            if (factor < 0 || factor > 1) throw new ArgumentOutOfRangeException(nameof(factor),"DimColor: Factor must be between 0 and 1.");
+            return ScaleColor(s,factor);
+         }
+
 
          /// <summary>
          /// Returns the pluralized form of the string based on the specified count.
@@ -817,6 +806,18 @@ namespace CDL2v1 {
          }
 
       }
+
+      private static string ScaleColor(string s,double factor) {
+         Match match = Regex.Match(s,@"^#(?<r>[0-9A-Fa-f]{2})(?<g>[0-9A-Fa-f]{2})(?<b>[0-9A-Fa-f]{2})(?<a>[0-9A-Fa-f]{2})?$",RegexOptions.Compiled);
+         if (!match.Success) throw new ArgumentException($"Invalid hex color string: {s}");
+         byte r = (byte)Math.Min(255,int.Parse(match.Groups['r'].Value,NumberStyles.HexNumber)*factor);
+         byte g = (byte)Math.Min(255,int.Parse(match.Groups['g'].Value,NumberStyles.HexNumber)*factor);
+         byte b = (byte)Math.Min(255,int.Parse(match.Groups['b'].Value,NumberStyles.HexNumber)*factor);
+         byte a = match.Groups['a'].Success ? (byte)Math.Min(255,int.Parse(match.Groups['a'].Value,NumberStyles.HexNumber)*factor) : (byte)255;
+         return "#" + r.ToString("X2") + g.ToString("X2") + b.ToString("X2") + (a < 255 ? a.ToString("X2") : "");
+      }
+
+
       private static readonly Regex NeverMatches = new(@"(?!.*)",RegexOptions.Compiled);
 
       extension(int i) {
@@ -1009,49 +1010,6 @@ namespace CDL2v1 {
                }
             }
          }
-      }
-
-      extension(Color color) {
-         /// <summary>
-         /// Dim a color by a factor.
-         /// </summary>
-         /// <param name="factor">The 0 <= factor <= 1 to use.</param>
-         /// <returns></returns>
-         /// <exception cref="ArgumentOutOfRangeException"></exception>
-         public Color DimColor(double factor) {
-            if (factor < 0 || factor > 1)
-               throw new ArgumentOutOfRangeException(nameof(factor),"Factor must be between 0 and 1.");
-
-            return Color.FromArgb(
-                color.A,
-                (byte)(color.R * factor),
-                (byte)(color.G * factor),
-                (byte)(color.B * factor)
-            );
-         }
-         /// <summary>
-         /// Intensify a color by a factor.
-         /// </summary>
-         /// <param name="factor">The factor >= 1 to use.</param>
-         /// <returns></returns>
-         /// <exception cref="ArgumentOutOfRangeException"></exception>
-         public Color IntensifyColor(double factor) {
-            if (factor < 1)
-               throw new ArgumentOutOfRangeException(nameof(factor),"Factor must be greater than or equal to 1.");
-
-            return Color.FromArgb(
-                color.A,
-                (byte)Math.Min(255,color.R * factor),
-                (byte)Math.Min(255,color.G * factor),
-                (byte)Math.Min(255,color.B * factor)
-            );
-         }
-
-         /// <summary>
-         /// Convert a Color to a hex string.
-         /// </summary>
-         /// <returns></returns>
-         public string ToHex => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
       }
 
       extension<T>(T? obj) {

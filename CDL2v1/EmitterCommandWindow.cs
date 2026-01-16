@@ -122,32 +122,32 @@ namespace CDL2v1 {
                   case "normal":
                      break;
                   case "bold":
-                     fontWeight = PrettyPrinter.Bold;
+                     fontWeight = FontWeights.Bold;
                      break;
                   case "italic":
-                     fontStyle = PrettyPrinter.Italic;
+                     fontStyle = FontStyles.Oblique;
                      break;
                   case "underline":
-                     textDecorations = PrettyPrinter.Underline;
+                     textDecorations = TextDecorations.Underline;
                      break;
                   case "bold, italic":
-                     fontWeight = PrettyPrinter.Bold;
-                     fontStyle = PrettyPrinter.Italic;
+                     fontWeight = FontWeights.Bold;
+                     fontStyle = FontStyles.Oblique;
                      break;
                   case "bold, underline": {
-                        fontWeight = PrettyPrinter.Bold;
-                        textDecorations = PrettyPrinter.Underline;
+                        fontWeight = FontWeights.Bold;
+                        textDecorations = TextDecorations.Underline;
                         break;
                      }
                   case "italic, underline": {
-                        fontStyle = PrettyPrinter.Italic;
-                        textDecorations = PrettyPrinter.Underline;
+                        fontStyle = FontStyles.Oblique;
+                        textDecorations = TextDecorations.Underline;
                         break;
                      }
                   case "bold, italic, underline": {
-                        fontWeight = PrettyPrinter.Bold;
-                        fontStyle = PrettyPrinter.Italic;
-                        textDecorations = PrettyPrinter.Underline;
+                        fontWeight = FontWeights.Bold;
+                        fontStyle = FontStyles.Oblique;
+                        textDecorations = TextDecorations.Underline;
                         break;
                      }
                }

@@ -35,7 +35,6 @@
 
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-//using System.Windows;
 using System.Windows.Input;
 
 using static CDL2v1.Logger;
@@ -68,10 +67,6 @@ namespace CDL2v1 {
       /// </summary>
       /// <param Id="action"></param>
       private void KeepTogether(Action action) => Emitter.KeepTogether(action);
-
-      public static readonly FontWeight Bold = FontWeights.Bold;
-      public static readonly FontStyle Italic = FontStyles.Oblique;
-      public static TextDecorationCollection? Underline { get; internal set; } = TextDecorations.Underline;
 
       // Color constants - Windows color names mapped to hex codes
       // Color names <see cref="System.Windows.Media.Colors"/> and https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.colors?view=windowsdesktop-9.0
