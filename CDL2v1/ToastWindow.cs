@@ -121,7 +121,7 @@ namespace CDL2v1 {
          Focus(); // Ensure window can receive key events
       }
 
-      public void ShowToast(string message,int timeoutMs = 0,bool delay=false,bool setOwner=true) {
+      public void ShowToast(string message,int timeoutMs = 0,bool delay = false,bool setOwner = true) {
          ToastWindow toast = new(message,timeoutMs);
          if (setOwner) toast.Owner = Application.Current.MainWindow;
          toast.WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -136,16 +136,16 @@ namespace CDL2v1 {
       /// <param name="message"></param>
       /// <param name="action"></param>
       /// <param name="minShowInterval"></param>
-      public void ShowToast(string message, Action action, int minShowInterval = 0) {
+      public void ShowToast(string message,Action action,int minShowInterval = 0) {
          var actionDone = new ManualResetEvent(false);
          Thread toastThread = new(() => {
-            ToastWindow toast = new ToastWindow(message, minShowInterval) {
+            ToastWindow toast = new ToastWindow(message,minShowInterval) {
                WindowStartupLocation = WindowStartupLocation.CenterScreen
             };
             toast.Show();
 
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(minShowInterval) };
-            timer.Tick += (s, e) => {
+            timer.Tick += (s,e) => {
                timer.Stop();
                actionDone.WaitOne();
                toast.Close();

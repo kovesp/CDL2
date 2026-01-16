@@ -33,41 +33,26 @@
 
 // Ignore Spelling: CDL
 
-using System;
-using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.InteropServices;
-using System.Security.Principal;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Xps;
 
 using static CDL2v1.Logger;
-using static System.Collections.Specialized.BitVector32;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace CDL2v1 {
    /// <summary>
    /// Formatted printing of the parse tree.
    /// </summary>
    public partial class PrettyPrinter {
-      private const int DEFAULT_LINE_LENGTH          = 100;
-      private const int DEFAULT_INDENT_MULTIPLIER    = 3;
+      private const int DEFAULT_LINE_LENGTH = 100;
+      private const int DEFAULT_INDENT_MULTIPLIER = 3;
       private const int DEFAULT_MAX_INDENT_INCREMENT = 3;
 
-      private int LineLength { get; set; }              = DEFAULT_LINE_LENGTH;              // Line length for wrapping        
-      private int IndentMultiplier { get; set; }        = DEFAULT_INDENT_MULTIPLIER;        // The indent multiplier
-      private int MaxIndentIncrement { get; set; }      = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
-   
+      private int LineLength { get; set; } = DEFAULT_LINE_LENGTH;              // Line length for wrapping        
+      private int IndentMultiplier { get; set; } = DEFAULT_INDENT_MULTIPLIER;        // The indent multiplier
+      private int MaxIndentIncrement { get; set; } = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
+
       public readonly Emitter Emitter;
 
       private readonly bool IncludeComments = true;
@@ -90,33 +75,33 @@ namespace CDL2v1 {
 
       // Color constants - Windows color names mapped to hex codes
       // Color names <see cref="System.Windows.Media.Colors"/> and https://learn.microsoft.com/en-us/dotnet/api/system.windows.media.colors?view=windowsdesktop-9.0
-      public const string White             = "#FFFFFF";
-      public const string DarkSlateGray     = "#2F4F4F";
-      public const string DarkOrange        = "#FF8C00";
-      public const string LightGray         = "#D3D3D3";
-      public const string Olive             = "#808000";
-      public const string OliveDrab         = "#6B8E23";
-      public const string DarkOliveGreen    = "#556B2F";
-      public const string Red               = "#FF0000";
-      public const string Orange            = "#FFA500";
-      public const string LightSkyBlue      = "#87CEFA";
+      public const string White = "#FFFFFF";
+      public const string DarkSlateGray = "#2F4F4F";
+      public const string DarkOrange = "#FF8C00";
+      public const string LightGray = "#D3D3D3";
+      public const string Olive = "#808000";
+      public const string OliveDrab = "#6B8E23";
+      public const string DarkOliveGreen = "#556B2F";
+      public const string Red = "#FF0000";
+      public const string Orange = "#FFA500";
+      public const string LightSkyBlue = "#87CEFA";
       public const string MediumSpringGreen = "#00FA9A";
-      public const string DarkGray          = "#A9A9A9";
+      public const string DarkGray = "#A9A9A9";
 
       public const string BackgroundColor = DarkSlateGray;
 
       public partial record Decoration {
-         private static readonly Regex HexColorRegex = ColourRE();         
+         private static readonly Regex HexColorRegex = ColourRE();
          public string FG { get; init; }
          public string BG { get; init; }
          public DS Style { get; init; }
 
-         public Decoration(string FG = White, string BG = BackgroundColor, DS Style = DS.Normal) {
+         public Decoration(string FG = White,string BG = BackgroundColor,DS Style = DS.Normal) {
             if (!HexColorRegex.IsMatch(FG))
-               throw new ArgumentException($"Foreground color in Decoration must be in #RRGGBB format, got: {FG}", nameof(FG));
+               throw new ArgumentException($"Foreground color in Decoration must be in #RRGGBB format, got: {FG}",nameof(FG));
             if (!HexColorRegex.IsMatch(BG))
-               throw new ArgumentException($"Background color in Decoration must be in #RRGGBB format, got: {BG}", nameof(BG));
-            
+               throw new ArgumentException($"Background color in Decoration must be in #RRGGBB format, got: {BG}",nameof(BG));
+
             this.FG = FG;
             this.BG = BG;
             this.Style = Style;
@@ -228,7 +213,7 @@ namespace CDL2v1 {
       ///   or simpler
       ///    PrettyPrinter pp = new("output.txt");
       /// </example>
-      public PrettyPrinter(int width,int indent,int maxIndentIncrement,Emitter emitter,bool includeComments=true) {
+      public PrettyPrinter(int width,int indent,int maxIndentIncrement,Emitter emitter,bool includeComments = true) {
          this.LineLength = width;
          this.IndentMultiplier = indent;
          this.MaxIndentIncrement = maxIndentIncrement;
@@ -249,14 +234,14 @@ namespace CDL2v1 {
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified Emitter.
       /// </summary>
       /// <param Id="Emitter"></param>
-      public PrettyPrinter(Emitter emitter,bool includeComments=true) : this (DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, emitter,includeComments) { }
+      public PrettyPrinter(Emitter emitter,bool includeComments = true) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT,emitter,includeComments) { }
       /// <summary>
       /// Construct a pretty printer with a default maximum line length of <see cref="DEFAULT_LINE_LENGTH"/> and an indentation width of <see cref="DEFAULT_INDENT_MULTIPLIER"/> using the specified file Id.
       /// </summary>
       /// <param Id="fileName">If this is null, use the <see cref="EmitterDebug"/> instead.</param>
-      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT, fileName!.IsValidFileName ? new EmitterFile(fileName ?? "") : new EmitterWindow()) { }
+      public PrettyPrinter(string? fileName) : this(DEFAULT_LINE_LENGTH,DEFAULT_INDENT_MULTIPLIER,DEFAULT_MAX_INDENT_INCREMENT,fileName!.IsValidFileName ? new EmitterFile(fileName ?? "") : new EmitterWindow()) { }
 
-      private record struct UnitDelimiter(RW Start, RW End);
+      private record struct UnitDelimiter(RW Start,RW End);
       private static readonly Dictionary<Type,UnitDelimiter> units = new() {
          { typeof(Program),new (RW.PROGRAM, RW.ENDPROG)},
          { typeof(Module),new (RW.MODULE, RW.ENDMOD)},
@@ -271,7 +256,7 @@ namespace CDL2v1 {
          Emitter.EndUpdate();
       }
 
-      internal string Print(SingleSelection sel, bool withComment = false) {
+      internal string Print(SingleSelection sel,bool withComment = false) {
          if (sel.ListType != SelectorType.INVALID) {
             Container? container = sel.Object as Container;
             Debug.Assert(container is not null,$"Selection with ListType {sel.ListType} has no container.");
@@ -285,7 +270,7 @@ namespace CDL2v1 {
                   case Section sec:
                      return PrintInterfaces(sec,asString: true);
                   case Layer lay:
-                     foreach (Section sec in lay.Sections) PrintInterfaces(sec,withSectionComment:true);
+                     foreach (Section sec in lay.Sections) PrintInterfaces(sec,withSectionComment: true);
                      return Emitter.Content;
                   case Module mod:
                      foreach (Section sec in mod.Sections) PrintInterfaces(sec,withSectionComment: true);
@@ -310,7 +295,7 @@ namespace CDL2v1 {
             } else {
                throw new NotImplementedException($"Cannot print selection of type {sel.ListType}");
             }
-         } else { 
+         } else {
             return Print(sel.Object!,withComment);
          }
       }
@@ -348,17 +333,17 @@ namespace CDL2v1 {
 
             // Smaller elements
             case Group group:
-               Print(group, group.Section!);
+               Print(group,group.Section!);
                break;
             case Alternative alternative:
-               Print(alternative, alternative.Section!);
+               Print(alternative,alternative.Section!);
                break;
             case Call call:
-               Print(call, call.Section!, extraSpace: false, firstInAlternative: true);
+               Print(call,call.Section!,extraSpace: false,firstInAlternative: true);
                break;
             case LastCall lastCall:
-               Print(lastCall, lastCall.Section!);
-            break;
+               Print(lastCall,lastCall.Section!);
+               break;
 
             default:
                throw new NotImplementedException($"Cannot print {namedElement.GetType()}");
@@ -391,13 +376,13 @@ namespace CDL2v1 {
       }
 
       public void Print(Program program) => PrintContainer(program,() => {
-         PrintList(RW.PART,program.Parts,decorate:false);
+         PrintList(RW.PART,program.Parts,decorate: false);
          PrintLudes(program);
       },Newline: true,updateUI: true);
 
-      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Layers) Print(layer); },Newline: true,updateUI: true); 
+      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Layers) Print(layer); },Newline: true,updateUI: true);
 
-      public void Print(Layer layer)   => PrintContainer(layer,() => { foreach (Section section in layer.Sections) Print(section); },updateUI: false);
+      public void Print(Layer layer) => PrintContainer(layer,() => { foreach (Section section in layer.Sections) Print(section); },updateUI: false);
 
       public void Print(Section section) => PrintContainer(section,() => {
          // Always print the interfaces at the top
@@ -509,7 +494,7 @@ namespace CDL2v1 {
             }
          } else {
             // The Program and Module ludes are lists of module respectively section Ids.
-            PrintList(ludeType,container.Ludes[ludeType],decorate:false);
+            PrintList(ludeType,container.Ludes[ludeType],decorate: false);
          }
          return asString ? Emitter.Content : "";
       }
@@ -524,19 +509,19 @@ namespace CDL2v1 {
       /// <param name="alternative"></param>
       /// <param name="section"></param>
       /// <param name="extraSpace"></param>
-      private void Print(Alternative alternative, Section section,bool extraSpace=false) {
+      private void Print(Alternative alternative,Section section,bool extraSpace = false) {
          Emitter.ExtraIndent = 0;
          if (alternative.calls.Count > 0) {
-            PrintComment(alternative,needsEnd:false);
-            Print(alternative.calls.First(), section, extraSpace: extraSpace, firstInAlternative: true);
+            PrintComment(alternative,needsEnd: false);
+            Print(alternative.calls.First(),section,extraSpace: extraSpace,firstInAlternative: true);
             foreach (Call call in alternative.calls.Skip(1)) {
                EmitSeparator(TT.CALLSEP);
-               Print(call, section);
+               Print(call,section);
             }
             if (alternative.lastCall.type != LCT.None) EmitSeparator(TT.CALLSEP);
          }
 
-         if (alternative.lastCall.type != LCT.None) Print(alternative.lastCall, section, extraSpace: extraSpace);
+         if (alternative.lastCall.type != LCT.None) Print(alternative.lastCall,section,extraSpace: extraSpace);
       }
 
       /// <summary>
@@ -545,26 +530,26 @@ namespace CDL2v1 {
       /// <param name="lastCall"></param>
       /// <param name="section"></param>
       /// <param name="extraSpace"></param>
-      private void Print(LastCall lastCall, Section section, bool extraSpace = false) {
+      private void Print(LastCall lastCall,Section section,bool extraSpace = false) {
          Debug.Assert(lastCall.type != LCT.None,"lastCall.type is None in call of Print(LastCall,...)");
          switch (lastCall.type) {
             case LastCallType.Standard:
                Debug.Assert(lastCall.call is not null,"lastCall.call is null");
-               Print(lastCall.call, section, extraSpace: extraSpace, firstInAlternative: false);
+               Print(lastCall.call,section,extraSpace: extraSpace,firstInAlternative: false);
                break;
             case LastCallType.Succeed:
-               EmitWithExtraSpace(extraSpace, TT.SUCCEED);
+               EmitWithExtraSpace(extraSpace,TT.SUCCEED);
                break;
             case LastCallType.Fail:
-               EmitWithExtraSpace(extraSpace, TT.FAIL);
+               EmitWithExtraSpace(extraSpace,TT.FAIL);
                break;
             case LastCallType.Abort:
-               EmitWithExtraSpace(extraSpace, TT.ABORT);
+               EmitWithExtraSpace(extraSpace,TT.ABORT);
                break;
             case LastCallType.Repeat:
-               EmitWithExtraSpace(extraSpace, TT.REPEAT);
-               if (!lastCall.label?.IsAnonymous??true) {
-                  Emit(lastCall.label!.Name.Decorate(Emitter, SE.Label));
+               EmitWithExtraSpace(extraSpace,TT.REPEAT);
+               if (!lastCall.label?.IsAnonymous ?? true) {
+                  Emit(lastCall.label!.Name.Decorate(Emitter,SE.Label));
                }
                break;
             case LastCallType.Group:
@@ -582,7 +567,7 @@ namespace CDL2v1 {
       /// <param name="section">The section context in which the group is being printed. Determines formatting and emission rules.</param>
       private void Print(Group group,Section section) => Indented(() => {
          NlEmit(TT.GRPOPEN);
-         if (! group.IsSynthetic) Emit(group.Id.Name.Decorate(Emitter,SE.Label),TT.LABELSEP);
+         if (!group.IsSynthetic) Emit(group.Id.Name.Decorate(Emitter,SE.Label),TT.LABELSEP);
          Print(group.Alternatives,section);
          Emit(TT.GRPCLOSE);
       });
@@ -598,7 +583,7 @@ namespace CDL2v1 {
          Print(alternatives.First(),section);
          foreach (Alternative alternative in alternatives.Skip(1)) {
             EmitSeparatorWithNL(TT.ALTSEP);
-            Print(alternative,section,extraSpace:true);
+            Print(alternative,section,extraSpace: true);
          }
       }
 
@@ -609,25 +594,25 @@ namespace CDL2v1 {
       /// <param name="section"></param>
       /// <param name="extraSpace"></param>
       /// <param name="firstInAlternative"></param>
-      public void Print(Call call, Section section, bool extraSpace = false, bool firstInAlternative = false) => KeepTogether(() => {
+      public void Print(Call call,Section section,bool extraSpace = false,bool firstInAlternative = false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
          Algorithm? called = null;
          if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
             called = algorithm;
             callDecorator = algorithm!.NameType;
-         //} else {
-         //   ReportError($"Internal error: {call.id} has no container. Something wrong with semantic analysis?");
+            //} else {
+            //   ReportError($"Internal error: {call.id} has no container. Something wrong with semantic analysis?");
          }
          if (call.IsBuiltin) {
-            EmitWithExtraSpace(extraSpace, RW.BUILTIN.Decorate(Emitter, SE.Builtin), " ", call.id.Decorate(Emitter, SE.Builtin));
+            EmitWithExtraSpace(extraSpace,RW.BUILTIN.Decorate(Emitter,SE.Builtin)," ",call.id.Decorate(Emitter,SE.Builtin));
          } else if (called is null) {
-            EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, SE.UNDEFINED));
+            EmitWithExtraSpace(extraSpace,call.id.Decorate(Emitter,SE.UNDEFINED));
          } else if (called.IsConditionalCompilationOn) {
-            EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, SE.ConditionalCompilationOn));
+            EmitWithExtraSpace(extraSpace,call.id.Decorate(Emitter,SE.ConditionalCompilationOn));
          } else if (called.IsConditionalCompilationOff) {
-            EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, SE.ConditionalCompilationOff));
-         } else { 
-            EmitWithExtraSpace(extraSpace, call.id.Decorate(Emitter, AlgorithmNameDecorators[callDecorator]));
+            EmitWithExtraSpace(extraSpace,call.id.Decorate(Emitter,SE.ConditionalCompilationOff));
+         } else {
+            EmitWithExtraSpace(extraSpace,call.id.Decorate(Emitter,AlgorithmNameDecorators[callDecorator]));
          }
          foreach (IActualArg arg in call.Args) {
             Emit(TT.AFFIXSEP);
@@ -639,25 +624,25 @@ namespace CDL2v1 {
                   Emit(c.Id.Decorate(Emitter,SE.Const));
                   break;
                case Var v:
-                  Emit(v.Id.Decorate(Emitter, SE.Var));
+                  Emit(v.Id.Decorate(Emitter,SE.Var));
                   break;
                case Affix affix:
-                  Emit(affix.Id.Decorate(Emitter, affix.SyntaxElement));
+                  Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
                   break;
                case Local local:
-                  Emit(local.Id.Decorate(Emitter, SE.Local));
+                  Emit(local.Id.Decorate(Emitter,SE.Local));
                   break;
                case ID id:
-                  if (section.TryGetDeclaration(id, out CDL2Object? cdl2obj)) {
+                  if (section.TryGetDeclaration(id,out CDL2Object? cdl2obj)) {
                      switch (cdl2obj) {
                         case Const constant:
-                           Emit(id.Decorate(Emitter, SE.Const));
+                           Emit(id.Decorate(Emitter,SE.Const));
                            break;
                         case LIST list:
-                           Emit(id.Decorate(Emitter, SE.List));
+                           Emit(id.Decorate(Emitter,SE.List));
                            break;
                         case Var var:
-                           Emit(id.Decorate(Emitter, SE.Var));
+                           Emit(id.Decorate(Emitter,SE.Var));
                            break;
                         default:
                            Emit(id);
@@ -724,7 +709,7 @@ namespace CDL2v1 {
       /// default formatting is applied.</param>
       /// <param name="decorate">true to apply decoration to each identifier; otherwise, false.</param>
       /// <returns>true if the list was emitted; otherwise, false if the collection of identifiers was empty.</returns>
-      private bool PrintList(RW rw,IEnumerable<ID> ids,Section? section=null,bool decorate = true,bool withSectionComment=false) {
+      private bool PrintList(RW rw,IEnumerable<ID> ids,Section? section = null,bool decorate = true,bool withSectionComment = false) {
          if (ids.Any()) {
             if (withSectionComment && section is not null) PrintLineComment(section);
             EmitReservedwordForObject(rw);
@@ -745,8 +730,8 @@ namespace CDL2v1 {
       /// <param name="id"></param>
       /// <param name="decorate"></param>
       /// <returns></returns>
-      private string DecoratedID(ID id,Section? section,bool decorate=true) {
-         if (decorate && (section?.TryGetDeclaration(id,out CDL2Object? obj)??false)) {
+      private string DecoratedID(ID id,Section? section,bool decorate = true) {
+         if (decorate && (section?.TryGetDeclaration(id,out CDL2Object? obj) ?? false)) {
             if (obj!.SE == SE.AlgorithmName) {
                return id.Decorate(Emitter,AlgorithmNameDecorators[((Algorithm)obj).NameType]);
             } else {
@@ -763,10 +748,10 @@ namespace CDL2v1 {
       public void Print(Algorithm algorithm) {
          if (algorithm is Macro macro) {
             Print(macro);
-         } else if (algorithm is ImportedAlgorithm impProc) { 
+         } else if (algorithm is ImportedAlgorithm impProc) {
             Print(impProc);
          } else {
-            Print((Procedure)algorithm, algorithm.Section!);
+            Print((Procedure)algorithm,algorithm.Section!);
          }
       }
 
@@ -808,7 +793,7 @@ namespace CDL2v1 {
             IElement elem1 = macro.elements.First();
             bool wasID = PrintMacroElement(elem1,withNl: false);
             foreach (IElement elem in macro.elements.Skip(1)) {
-               wasID = PrintMacroElement(elem,withSpace: true,wasID:wasID);
+               wasID = PrintMacroElement(elem,withSpace: true,wasID: wasID);
             }
             EmitSeparatorWithNL(TT.END);
          });
@@ -822,11 +807,11 @@ namespace CDL2v1 {
       /// <param name="withNl"></param>
       /// <returns>True if the element printed was an ID.</returns>
       /// <exception cref="NotImplementedException"></exception>
-      private bool PrintMacroElement(IElement elem,bool withSpace = false,bool withNl = true,bool wasID=false) {
+      private bool PrintMacroElement(IElement elem,bool withSpace = false,bool withNl = true,bool wasID = false) {
          if (withSpace) Emit(" ");
          switch (elem) {
             case STRING s:
-               Emit((withNl && s.value.Contains('\n')?"\n":""),s.AsDecoratedCDL2String(Emitter));
+               Emit((withNl && s.value.Contains('\n') ? "\n" : ""),s.AsDecoratedCDL2String(Emitter));
                break;
             case INT n:
                Emit(n.value.Decorate(Emitter));
@@ -839,11 +824,11 @@ namespace CDL2v1 {
                Emit(id.Name);
                break;
             case Affix affix:
-               if (wasID) Emit(TT.ELEMSEP, " ");
+               if (wasID) Emit(TT.ELEMSEP," ");
                Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
                break;
             case Local local:
-               if (wasID) Emit(TT.ELEMSEP, " ");
+               if (wasID) Emit(TT.ELEMSEP," ");
                Emit(local.Id.Decorate(Emitter,SE.Local));
                break;
             default:
@@ -865,16 +850,13 @@ namespace CDL2v1 {
             Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
             if (affix.IsOutput) Emit(TT.AFFIXDIR);
          }
-         if (algorithm is not ImportedAlgorithm)
-         {
-            if (algorithm.Locals.Any())
-            {
-               foreach (Local local in algorithm.Locals)
-               {
-                  Emit(" ", TT.LOCALSEP, local.Id.Decorate(Emitter, SE.Local));
+         if (algorithm is not ImportedAlgorithm) {
+            if (algorithm.Locals.Any()) {
+               foreach (Local local in algorithm.Locals) {
+                  Emit(" ",TT.LOCALSEP,local.Id.Decorate(Emitter,SE.Local));
                }
             }
-            Emitnl(" ", algorithm.BodyType);
+            Emitnl(" ",algorithm.BodyType);
          }
       }
       /// <summary>
@@ -882,9 +864,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alg"></param>
       /// <returns></returns>
-      private static Decoration AlgorithmNameDecorator(Algorithm alg) 
-         => alg.IsConditionalCompilationOn ? Decorators[SE.ConditionalCompilationOn] : 
-            alg.IsConditionalCompilationOff ? Decorators[SE.ConditionalCompilationOff] : 
+      private static Decoration AlgorithmNameDecorator(Algorithm alg)
+         => alg.IsConditionalCompilationOn ? Decorators[SE.ConditionalCompilationOn] :
+            alg.IsConditionalCompilationOff ? Decorators[SE.ConditionalCompilationOff] :
             AlgorithmNameDecorators[alg.NameType];
       /// <summary>
       /// Emits the representation of the specified constant, including its identifier and value, to the output stream.
@@ -894,7 +876,7 @@ namespace CDL2v1 {
       /// <param name="constant">The constant to be printed. Must not be null.</param>
       /// <exception cref="NotImplementedException">Thrown if the constant contains an element of an unsupported type.</exception>
       public void Print(Const constant) {
-         Emit(constant.Id.Decorate(Emitter, SE.Const));
+         Emit(constant.Id.Decorate(Emitter,SE.Const));
          if (constant.IsImported) return;
          Emit(" ",TT.EQUALS," ");
          bool wasID;
@@ -928,7 +910,7 @@ namespace CDL2v1 {
       /// Print a variable.
       /// </summary>
       /// <param name="var"></param>
-      public void Print(Var var) => Emit(var.Id.Decorate(Emitter, SE.Var));
+      public void Print(Var var) => Emit(var.Id.Decorate(Emitter,SE.Var));
 
       private void PrintIDComment(CDL2Object obj,SE type) {
          if (obj.Comments != null || obj.Notes.Count > 0) {
@@ -950,7 +932,7 @@ namespace CDL2v1 {
       /// <param name="list"></param>
       /// <param name="section"></param>
       public void Print(LIST list,Section section) {
-         Emit(list.Id.Decorate(Emitter, SE.List));
+         Emit(list.Id.Decorate(Emitter,SE.List));
          Emit(TT.LISTBOUNDSTART,DecoratedID(list.lwb,section),TT.LISTBOUNDSEP,DecoratedID(list.upb,section),TT.LISTBOUNDEND);
       }
 
@@ -976,7 +958,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="section"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void PrintLineComment(Section section) => Emitnl(("# "+section.FQDN()).Decorate(Emitter,SE.Comment));
+      private void PrintLineComment(Section section) => Emitnl(("# " + section.FQDN()).Decorate(Emitter,SE.Comment));
 
 
       /// <summary>
@@ -989,7 +971,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="element"></param>
       /// <param name="needsEnd"></param>
-      private void PrintComment(Alternative element,bool needsEnd = true) => PrintComment(string.Empty,element.Notes,needsEnd:false);
+      private void PrintComment(Alternative element,bool needsEnd = true) => PrintComment(string.Empty,element.Notes,needsEnd: false);
 
       /// <summary>
       /// Print an inline comment, i.e., # comment #
@@ -997,7 +979,7 @@ namespace CDL2v1 {
       /// <param name="comment"></param>
       private void PrintInlineComment(string comment) {
          if (IncludeComments) {
-            Emit($"{Token.TokenType2Glyph[TT.COMMENT]}{comment}{Token.TokenType2Glyph[TT.COMMENT]} ".Decorate(Emitter, SE.Comment));
+            Emit($"{Token.TokenType2Glyph[TT.COMMENT]}{comment}{Token.TokenType2Glyph[TT.COMMENT]} ".Decorate(Emitter,SE.Comment));
          }
       }
       /// <summary>
@@ -1017,20 +999,20 @@ namespace CDL2v1 {
       /// <param name="notes">A collection of notes to emit after the comment. Each note is formatted according to its severity.</param>
       /// <param name="nl">true to insert a new line before emitting the comment; otherwise, false. The default is true.</param>
       /// <param name="needsEnd">true to append an end marker after notes of type Note; otherwise, false. The default is true.</param>
-      private void PrintComment(string comments,Notes? notes=null,bool nl = true,bool needsEnd = true) {
+      private void PrintComment(string comments,Notes? notes = null,bool nl = true,bool needsEnd = true) {
          if (IncludeComments) {
-            if (comments.IsNotEmptyOrWhitespace) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter, SE.Comment));
-            foreach (Note note in notes??Notes.Empty) {
+            if (comments.IsNotEmptyOrWhitespace) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter,SE.Comment));
+            foreach (Note note in notes ?? Notes.Empty) {
                if (note.NoteType == Severity.Note) {
-                  NlEmitnl(note.Text.TrimEnd().Decorate(Emitter, SE.Comment));
+                  NlEmitnl(note.Text.TrimEnd().Decorate(Emitter,SE.Comment));
                   if (needsEnd) {
                      Emitnl(RW.NOTE,Token.TokenType2Glyph[TT.END]);
                   } else {
                      Emitnl(RW.NOTE);
                   }
                } else {
-                  Emitnl(string.Concat("#", Note.Marker, (note.NoteType.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "), note.Text)
-                     .Decorate(Emitter, note.NoteType switch {
+                  Emitnl(string.Concat("#",Note.Marker,(note.NoteType.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "),note.Text)
+                     .Decorate(Emitter,note.NoteType switch {
                         Severity.Error => SE.NoteError,
                         Severity.Warning => SE.NoteWarning,
                         Severity.Info => SE.NoteInfo,
@@ -1049,9 +1031,9 @@ namespace CDL2v1 {
       /// output.</remarks>
       /// <param name="comments">The comment text in which divider lines will be normalized. Cannot be null.</param>
       /// <returns>A string containing the comment text with all divider lines replaced by a standardized divider format.</returns>
-      private string NormalizeDividers(string comments) 
-         => string.Join("\n", comments.Split("\r\n").Select(l 
-            => DividerLineRegex().Replace(l,m => $"\n#{new string(m.Groups[1].Value[0], Emitter.LineLength-4)}#"))).Trim();
+      private string NormalizeDividers(string comments)
+         => string.Join("\n",comments.Split("\r\n").Select(l
+            => DividerLineRegex().Replace(l,m => $"\n#{new string(m.Groups[1].Value[0],Emitter.LineLength - 4)}#"))).Trim();
 
       /// <summary>
       /// Translate all objects to strings using their to ToString, unless it is a TokenType, then use the glyph.
@@ -1086,8 +1068,8 @@ namespace CDL2v1 {
       /// <param Id="items"></param>
       private void Emit(params object[] items) => Emitter.Emit(TranslateTokens(items));
       private void EmitWithExtraSpace(bool extraSpace,params object[] items) => Emitter.EmitWithExtraSpace(extraSpace,TranslateTokens(items));
-      private void EmitSeparator(TT sep,bool space=true) => Emitter.EmitIgnoreLineLength(TranslateToken(sep)+(space?" ":""));
-      private void EmitSeparatorWithNL(TT sep) => Emitter.EmitIgnoreLineLength(TranslateToken(sep),NL:true);
+      private void EmitSeparator(TT sep,bool space = true) => Emitter.EmitIgnoreLineLength(TranslateToken(sep) + (space ? " " : ""));
+      private void EmitSeparatorWithNL(TT sep) => Emitter.EmitIgnoreLineLength(TranslateToken(sep),NL: true);
       private void Emitnl(params object[] items) => Emitter.Emitnl(TranslateTokens(items));
       private void EmitOptNl(bool nl,params object[] items) {
          if (nl) Emitnl(items); else Emit(items);

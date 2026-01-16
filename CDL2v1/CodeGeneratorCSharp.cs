@@ -31,11 +31,8 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorCSharp : TargetCodeGenerator, ICodeGenerator {
@@ -324,7 +321,8 @@ namespace CDL2Generated {
       }
 
       void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) {
-         if (macro.CanFail) emitter.Emit("return "); }
+         if (macro.CanFail) emitter.Emit("return ");
+      }
 
       void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro) {
          if (macro.CanFail) emitter.Emitnl(";");
@@ -436,11 +434,11 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateCallArgReferenceVar(Affix calledAffix,Var v,bool needFinalization)
          => emitter.Emit(calledAffix.IsOutput ? "ref " : "",CSName(v,needFinalization ? "_" : ""));
 
-      void ICodeGenerator.GenerateRepeat(Procedure proc, Group group, ID label, bool canFail) {
+      void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label,bool canFail) {
          if (label.IsAnonymous) {
             emitter.Emitnl("continue;");
          } else {
-            emitter.Emitnl("goto ", label.CanonicalName, ";");
+            emitter.Emitnl("goto ",label.CanonicalName,";");
          }
       }
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
@@ -479,9 +477,9 @@ namespace CDL2Generated {
       }
 
       private static string CSName(CDL2Object obj,string suffix = "") => obj.FQN(camelCase: false,literalObjectName: obj.IsSynthetic) + suffix;
-      private static string CSName(Affix affix,string suffix = "") => "a_"+affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
-      private static string CSName(Local local,string suffix = "") => "l_"+local.Id.Name.AsIdentifier(camelCase: false) + suffix;
-      private static string CSName(Var var,string suffix = "") => "v_"+var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
+      private static string CSName(Affix affix,string suffix = "") => "a_" + affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
+      private static string CSName(Local local,string suffix = "") => "l_" + local.Id.Name.AsIdentifier(camelCase: false) + suffix;
+      private static string CSName(Var var,string suffix = "") => "v_" + var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
       #endregion Helpers
    }
 }

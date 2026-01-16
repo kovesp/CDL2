@@ -48,7 +48,7 @@ namespace CDL2v1 {
       Option Option { get; set; }
       string LongOption { get; }
       bool CommandOverride { get; set; }
-      string? ToTabularString(bool title=false,bool compact=false);
+      string? ToTabularString(bool title = false,bool compact = false);
    }
 
    public class Setting<T> : ISetting {
@@ -60,13 +60,13 @@ namespace CDL2v1 {
       public bool IsSaved { get; set; } = false; // Whether this setting should be saved to a file
       public bool CommandOverride { get; set; } = false; // Whether this setting was specified from a lab command
 
-      public Setting(string name, string optionName, T defaultValue, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "")
-         : this(name, [optionName], defaultValue, description, arity, saved:saved,disjoint:disjoint) { }
+      public Setting(string name,string optionName,T defaultValue,string description,ArgumentArity? arity = null,bool saved = false,string disjoint = "")
+         : this(name,[optionName],defaultValue,description,arity,saved: saved,disjoint: disjoint) { }
 
-      public Setting(string name, string[] optionName, T defaultValue, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "") {
+      public Setting(string name,string[] optionName,T defaultValue,string description,ArgumentArity? arity = null,bool saved = false,string disjoint = "") {
          Name = name;
          Type = typeof(T);
-         Option = new Option<T>(optionName, () => defaultValue, description);
+         Option = new Option<T>(optionName,() => defaultValue,description);
          Value = defaultValue;
          if (arity != null) Option.Arity = (ArgumentArity)arity;
          IsSaved = saved;
@@ -75,10 +75,10 @@ namespace CDL2v1 {
             Settings.DisjointSettings[Name] = disjoint;
          }
       }
-      public Setting(string name, string optionName, string description, ArgumentArity? arity = null, bool saved = false,string disjoint = "") {
+      public Setting(string name,string optionName,string description,ArgumentArity? arity = null,bool saved = false,string disjoint = "") {
          Name = name;
          Type = typeof(string[]);
-         Option = new Option<T>(optionName, description);
+         Option = new Option<T>(optionName,description);
          if (arity != null) Option.Arity = (ArgumentArity)arity;
          IsSaved = saved;
          if (disjoint != "") {
@@ -90,7 +90,7 @@ namespace CDL2v1 {
       public override string ToString() =>
          $"{Name}: {LongOption} => {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
       private const char HorizontalBar = '\u2501'; // BOX DRAWINGS HEAVY HORIZONTAL
-      public string? ToTabularString(bool title = false,bool optionOnly=false) {
+      public string? ToTabularString(bool title = false,bool optionOnly = false) {
          if (optionOnly && LongOption.StartsWith("--NA")) return null;
          if (title) {
             string titleString;
@@ -200,7 +200,7 @@ namespace CDL2v1 {
       private static int NoOptionCounter = 1;
       private static string NoOption => $"--NA{NoOptionCounter++}";
 
-      private readonly Dictionary<string, ISetting> SettingsDict = [];
+      private readonly Dictionary<string,ISetting> SettingsDict = [];
 
       public static readonly Settings Instance = new();
       public int MaxNameLength = 0;
@@ -209,42 +209,43 @@ namespace CDL2v1 {
          for (int i = 0 ; i < SettingsList.Count ; i++) {
             SettingsList[i].Index = i;
             SettingsDict[SettingsList[i].Name] = SettingsDict[SettingsList[i].Name.ToLower()] = SettingsList[i];
-            MaxNameLength = Math.Max(MaxNameLength, SettingsList[i].Name.Length);
-            MaxOptionLength = Math.Max(MaxOptionLength, SettingsList[i].LongOption.Length);
+            MaxNameLength = Math.Max(MaxNameLength,SettingsList[i].Name.Length);
+            MaxOptionLength = Math.Max(MaxOptionLength,SettingsList[i].LongOption.Length);
          }
          ValidSetting = [.. SettingsList.Select(s => s.Name)];
       }
 
-      public static bool OnWindows =>    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
-      public static bool OnLinux =>      System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux);
-      public static bool OnMacOS =>      System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX);
+      public static bool OnWindows => System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
+      public static bool OnLinux => System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux);
+      public static bool OnMacOS => System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX);
 
       public static bool Verbosity(int level) => SettingValue<int>("VerbosityLevel") >= level;
       public static bool DebugVerbosity(int level) => SettingValue<int>("DebugVerbosityLevel") >= level;
       public static bool AnyVerbosity(int level) => Verbosity(level) || DebugVerbosity(level);
 
       public static string OutputDirectory => SettingValue<string>("OutputDirectory") ?? Directory.GetCurrentDirectory();
-      public static string LabDBName => Path.ChangeExtension(SettingValue<string>("DB") ?? "CDL2v1", Serializer.DBExtension);
-      public static string LabDBPath => Path.Combine(OutputDirectory, LabDBName);
+      public static string LabDBName => Path.ChangeExtension(SettingValue<string>("DB") ?? "CDL2v1",Serializer.DBExtension);
+      public static string LabDBPath => Path.Combine(OutputDirectory,LabDBName);
 
-      public static bool LabMode => SettingValue<bool>("Lab") && ! SettingValue<bool>("ParseOnly");
+      public static bool LabMode => SettingValue<bool>("Lab") && !SettingValue<bool>("ParseOnly");
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static object? SettingValue(string name) => Setting<object>(name);
 
       public static void SettingValue<T>(string name,T value) => Setting<T>(name)!.Value = value;
 
-      public static void SettingValue(string name,SettingType type,object? value,bool CommandOverride=false) {
+      public static void SettingValue(string name,SettingType type,object? value,bool CommandOverride = false) {
          switch (type) {
             case SettingType.Boolean: SettingValue<bool>(name,value is null ? !SettingValue<bool>(name) : (bool)value); break;
             case SettingType.Integer: SettingValue<int>(name,(int)value!); break;
-            case SettingType.String:  SettingValue<string>(name,(string)value!); break;
-            default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");         }
+            case SettingType.String: SettingValue<string>(name,(string)value!); break;
+            default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");
+         }
          SetCommandOverride(name,CommandOverride);
       }
 
       public static Setting<T>? Setting<T>(string name) {
-         if (Instance.SettingsDict.TryGetValue(name, out ISetting? setting) && setting is Setting<T> typedSetting) {
+         if (Instance.SettingsDict.TryGetValue(name,out ISetting? setting) && setting is Setting<T> typedSetting) {
             return typedSetting;
          }
          throw new KeyNotFoundException($"Setting with name '{name}' not found or of incorrect type.");
@@ -258,8 +259,8 @@ namespace CDL2v1 {
          }
       }
       public static bool IsValidSetting(string name) => Instance.SettingsDict.ContainsKey(name);
-      public static bool TryGetSettingValue(string name, out string value) {
-         if (Instance.SettingsDict.TryGetValue(name, out ISetting? setting)) {
+      public static bool TryGetSettingValue(string name,out string value) {
+         if (Instance.SettingsDict.TryGetValue(name,out ISetting? setting)) {
             if (setting is Setting<string> sSetting) {
                value = sSetting.Value!;
                return true;
@@ -280,17 +281,17 @@ namespace CDL2v1 {
       public static void ProcessCommandLine(string[] commandLine) {
          // Create a HashSet of explicitly provided options from the raw command line
          HashSet<string> explicitlyProvidedOptions = [];
-         Dictionary<string, HashSet<string>> optionAliasMap = [];
-         
+         Dictionary<string,HashSet<string>> optionAliasMap = [];
+
          // Build a map of option names to all their aliases
          foreach (ISetting setting in Instance.SettingsList) {
-             string longName = setting.Name;
-             var allAliases = new HashSet<string>(setting.Option.Aliases);
-             optionAliasMap[longName] = allAliases;
+            string longName = setting.Name;
+            var allAliases = new HashSet<string>(setting.Option.Aliases);
+            optionAliasMap[longName] = allAliases;
          }
-         
+
          // Parse raw command line to identify which options are explicitly provided
-         for (int i = 0; i < commandLine.Length; i++) {
+         for (int i = 0 ; i < commandLine.Length ; i++) {
             string arg = commandLine[i];
             if (arg.StartsWith('-')) {
                string option = arg;
@@ -305,27 +306,27 @@ namespace CDL2v1 {
                   // Handle combined short options like -v3
                   // This could be a short option with attached value
                   string shortOption = arg[..2]; // e.g., "-v"
-                  
+
                   // Check if this is a known short option
-                  bool isKnownShortOption = Instance.SettingsList.Any(s => 
+                  bool isKnownShortOption = Instance.SettingsList.Any(s =>
                      s.Option.Aliases.Any(a => a == shortOption));
-                     
+
                   if (isKnownShortOption) {
                      option = shortOption;
                      shortOptionWithValue = arg;
                   }
                }
-               
+
                // Add the identified option
                explicitlyProvidedOptions.Add(option);
-               
+
                // Skip the value if this option takes one and it's not combined or in --option=value format
                if (shortOptionWithValue == null && !arg.Contains('=') && i + 1 < commandLine.Length && !commandLine[i + 1].StartsWith('-')) {
                   i++; // Skip the next arg which is the value
                }
             }
          }
-         
+
          // Debug output
          //if (AnyVerbosity(2)) {
          //   System.Diagnostics.Debug.WriteLine("Command line: " + string.Join(" ", commandLine));
@@ -334,36 +335,36 @@ namespace CDL2v1 {
          //      System.Diagnostics.Debug.WriteLine($"  {opt}");
          //   }
          //}
-         
+
          // Now process using regular System.CommandLine but only override settings for explicitly provided options
          RootCommand rootCommand = new() { Description = "CDL2 Compiler" };
-         
+
          // Add options as before
-         for (int i = 0; i < Instance.SettingsList.Count; i++) 
+         for (int i = 0 ; i < Instance.SettingsList.Count ; i++)
             rootCommand.AddOption(Instance.SettingsList[i].Option);
-         
+
          rootCommand.SetHandler((context) => {
             System.CommandLine.Parsing.ParseResult parseResult = context.ParseResult;
-            
+
             foreach (ISetting setting in Instance.SettingsList) {
                // Check if any alias of this option was explicitly provided
-               bool wasExplicitlyProvided = setting.Option.Aliases.Any(alias => 
+               bool wasExplicitlyProvided = setting.Option.Aliases.Any(alias =>
                      explicitlyProvidedOptions.Contains(alias));
-               
+
                if (wasExplicitlyProvided) {
                   switch (setting) {
-                     case Setting<string[]> saSetting: saSetting.Value = parseResult.GetValueForOption<string[]>((Option<string[]>)setting.Option)!; break;                     
-                     case Setting<int> iSetting:       iSetting.Value  = parseResult.GetValueForOption<int>((Option<int>)setting.Option); break;
-                     case Setting<double> dSetting:    dSetting.Value  = parseResult.GetValueForOption<double>((Option<double>)setting.Option); break;
-                     case Setting<string> sSetting:    sSetting.Value  = parseResult.GetValueForOption<string>((Option<string>)setting.Option)!; break;
-                     case Setting<bool> bSetting:      bSetting.Value  = parseResult.GetValueForOption<bool>((Option<bool>)setting.Option); break;
-                     case Setting<Severity> nSetting:  nSetting.Value  = parseResult.GetValueForOption<Severity>((Option<Severity>)setting.Option); break;
+                     case Setting<string[]> saSetting: saSetting.Value = parseResult.GetValueForOption<string[]>((Option<string[]>)setting.Option)!; break;
+                     case Setting<int> iSetting: iSetting.Value = parseResult.GetValueForOption<int>((Option<int>)setting.Option); break;
+                     case Setting<double> dSetting: dSetting.Value = parseResult.GetValueForOption<double>((Option<double>)setting.Option); break;
+                     case Setting<string> sSetting: sSetting.Value = parseResult.GetValueForOption<string>((Option<string>)setting.Option)!; break;
+                     case Setting<bool> bSetting: bSetting.Value = parseResult.GetValueForOption<bool>((Option<bool>)setting.Option); break;
+                     case Setting<Severity> nSetting: nSetting.Value = parseResult.GetValueForOption<Severity>((Option<Severity>)setting.Option); break;
                      default: throw new InvalidEnumArgumentException($"Unknown setting type {setting.GetType()}");
                   }
 
                   // If this setting has a disjoint setting, set it to false
                   if (Settings.DisjointSettings.TryGetValue(setting.Name,out string? disjointSettingName)) {
-                     if (Settings.Instance.SettingsDict.TryGetValue(disjointSettingName, out ISetting? disjointSetting) && disjointSetting is Setting<bool> boolSetting) {
+                     if (Settings.Instance.SettingsDict.TryGetValue(disjointSettingName,out ISetting? disjointSetting) && disjointSetting is Setting<bool> boolSetting) {
                         boolSetting.Value = false; // Set the other setting to false
                      }
                   }
@@ -382,7 +383,7 @@ namespace CDL2v1 {
                Setting<bool>("Lab")!.Value = false;
             }
          });
-         
+
          rootCommand.Invoke(commandLine);
       }
 
@@ -404,7 +405,7 @@ namespace CDL2v1 {
       // Save settings to a file
       public static void SaveSettings(CommandPromptWindow? commandWindow = null) {
          try {
-            var settingsToSave = new Dictionary<string, object>();
+            var settingsToSave = new Dictionary<string,object>();
             foreach (ISetting setting in Instance.SettingsDict.Values) {
                switch (setting) {
                   case Setting<double> doubleSetting:
@@ -435,8 +436,8 @@ namespace CDL2v1 {
             }
 
             string json = System.Text.Json.JsonSerializer.Serialize(settingsToSave);
-            string settingsPath = Path.Combine(OutputDirectory, SettingsFileName);
-            File.WriteAllText(settingsPath, json);
+            string settingsPath = Path.Combine(OutputDirectory,SettingsFileName);
+            File.WriteAllText(settingsPath,json);
          } catch (Exception ex) {
             // Log error but don't crash
             System.Diagnostics.Debug.WriteLine($"Error saving settings: {ex.Message}");
@@ -452,10 +453,10 @@ namespace CDL2v1 {
       /// <param name="commandWindow"></param>
       public static void LoadSettings(CommandPromptWindow? commandWindow = null) {
          try {
-            string settingsPath = Path.Combine(OutputDirectory, SettingsFileName);
+            string settingsPath = Path.Combine(OutputDirectory,SettingsFileName);
             if (File.Exists(settingsPath)) {
                string json = File.ReadAllText(settingsPath);
-               Dictionary<string, object>? loadedSettings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+               Dictionary<string,object>? loadedSettings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string,object>>(json);
 
                if (loadedSettings != null) {
                   if (commandWindow != null) {

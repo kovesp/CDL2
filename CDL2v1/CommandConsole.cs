@@ -46,29 +46,29 @@ namespace CDL2v1 {
          _isRunning = true;
          WriteLine($"{CDL2.LabName} v{CDL2.Version}");
          WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.");
-         
+
          while (_isRunning) {
             Console.Write("> ");
             string? input = Console.ReadLine();
-            
+
             if (input == null) break;
-            
+
             input = input.Trim();
-            
-            if (string.IsNullOrEmpty(input)) continue;            
-          
+
+            if (string.IsNullOrEmpty(input)) continue;
+
             if (char.IsAsciiLetterLower(input[0])) {
                _commandHistory.Add(input);
                _historyIndex = _commandHistory.Count;
             }
-            
+
             inputProcessor!(input);
          }
       }
 
       public void Close() {
          _isRunning = false;
-      }  
+      }
 
       /// <summary>
       /// Configure formatted output (no-op for console)
@@ -95,9 +95,9 @@ namespace CDL2v1 {
       /// <summary>
       /// Write a line of text with optional severity coloring
       /// </summary>
-      public void WriteLine(string text, Severity severity = Severity.NONE) {
+      public void WriteLine(string text,Severity severity = Severity.NONE) {
          ConsoleColor originalColor = Console.ForegroundColor;
-         
+
          Console.ForegroundColor = severity switch {
             Severity.Error => ConsoleColor.Red,
             Severity.Warning => ConsoleColor.Yellow,
@@ -105,7 +105,7 @@ namespace CDL2v1 {
             Severity.Note => ConsoleColor.Gray,
             _ => originalColor
          };
-         
+
          Console.WriteLine(text);
          Console.ForegroundColor = originalColor;
       }
@@ -116,7 +116,7 @@ namespace CDL2v1 {
       public bool QueryBox(string message) {
          Console.Write($"{message} (y/n): ");
          string? response = Console.ReadLine();
-         return response?.Trim().Equals("y", StringComparison.OrdinalIgnoreCase) == true;
+         return response?.Trim().Equals("y",StringComparison.OrdinalIgnoreCase) == true;
       }
 
       /// <summary>
@@ -127,7 +127,7 @@ namespace CDL2v1 {
          if (!string.IsNullOrEmpty(text)) {
             Console.Write(text);
          }
-         
+
          string? input = Console.ReadLine();
          if (input != null) {
             inputProcessor!(input);

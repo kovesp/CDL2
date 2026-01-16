@@ -32,8 +32,6 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-
 namespace CDL2v1 {
    /// <summary>
    /// Interface for displaying toast notifications.
@@ -46,7 +44,7 @@ namespace CDL2v1 {
       /// <param name="message">The message to display.</param>
       /// <param name="timeoutMs">Timeout in milliseconds to display the toast. Default is 0 (no timeout).</param>
       /// <param name="delay">If true, delays showing the toast. Default is false.</param>
-      void ShowToast(string message, int timeoutMs = 0, bool delay = false,bool setOwner = true);
+      void ShowToast(string message,int timeoutMs = 0,bool delay = false,bool setOwner = true);
 
       /// <summary>
       /// Shows a toast notification with the specified message and executes an action.
@@ -54,6 +52,6 @@ namespace CDL2v1 {
       /// <param name="message">The message to display.</param>
       /// <param name="action">Action to execute while showing the toast.</param>
       /// <param name="minShowInterval">Minimum time in milliseconds to keep toast visible. Default is 0.</param>
-      void ShowToast(string message, Action action, int minShowInterval = 0);
+      void ShowToast(string message,Action action,int minShowInterval = 0);
    }
 }

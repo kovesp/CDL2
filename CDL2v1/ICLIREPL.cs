@@ -49,7 +49,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="text">The text to write.</param>
       /// <param name="severity">Severity level for formatting/coloring.</param>
-      void WriteLine(string text, Severity severity = Severity.NONE);
+      void WriteLine(string text,Severity severity = Severity.NONE);
 
       /// <summary>
       /// Updates the status display with the given message.

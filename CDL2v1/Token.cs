@@ -33,18 +33,11 @@
 
 // Ignore Spelling: CDL
 
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace CDL2v1 {
    /// <summary>
@@ -60,7 +53,7 @@ namespace CDL2v1 {
       public static readonly Dictionary<string,TokenType> Glyph2TokenType;
       public static readonly Dictionary<TokenType,string> TokenType2Glyph;
       public static readonly Dictionary<string,string> Escape2Char;
-      public static readonly Dictionary<string,string> Char2Escape =[];
+      public static readonly Dictionary<string,string> Char2Escape = [];
 
       public static readonly Dictionary<string,Token> IDTokens = [];
 
@@ -76,11 +69,11 @@ namespace CDL2v1 {
       private static readonly Regex IdRE_;
       private static readonly Regex StringEscapeRE_;
 
-      [GeneratedRegex(@"^"".*?(?:\$"".*?)*""",                  RegexOptions.Compiled)]private static partial Regex StringRE();
-      [GeneratedRegex(@"^(?m:#((?:##)?.*?)?(?:#|$))",           RegexOptions.Compiled)]private static partial Regex CommentRE();
-      [GeneratedRegex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",        RegexOptions.Compiled)]private static partial Regex IntRE();
-      [GeneratedRegex(@"^[+-]?\d+\.\d(?:\d*(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled)]private static partial Regex FloatRE();
-      [GeneratedRegex(@"\s+",                                   RegexOptions.Compiled)]private static partial Regex ReduceWhitespaceRE();
+      [GeneratedRegex(@"^"".*?(?:\$"".*?)*""",RegexOptions.Compiled)] private static partial Regex StringRE();
+      [GeneratedRegex(@"^(?m:#((?:##)?.*?)?(?:#|$))",RegexOptions.Compiled)] private static partial Regex CommentRE();
+      [GeneratedRegex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",RegexOptions.Compiled)] private static partial Regex IntRE();
+      [GeneratedRegex(@"^[+-]?\d+\.\d(?:\d*(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled)] private static partial Regex FloatRE();
+      [GeneratedRegex(@"\s+",RegexOptions.Compiled)] private static partial Regex ReduceWhitespaceRE();
       private static Regex GlyphRE() => GlyphRE_; // Lazy initialization of the regex to avoid static constructor issues.
       private static Regex ReservedWordRE() => ReservedWordRE_; // Lazy initialization of the regex to avoid static constructor issues.
       public static Regex IdRE() => IdRE_; // Lazy initialization of the regex to avoid static constructor issues.
@@ -117,12 +110,12 @@ namespace CDL2v1 {
          };
          Escape2Char.Values.Distinct().ToList().ForEach(v => Char2Escape[v] = Escape2Char.First(kvp => kvp.Value == v).Key.ToUpper());
 
-         GlyphRE_        = new Regex(@$"^({string.Join("|", Glyph2TokenType.Keys.Select(Regex.Escape))})", RegexOptions.Compiled);
-         ReservedWordRE_ = new Regex(@$"^(?:{string.Join("|", Enum.GetNames(typeof(ReservedWord)))})", RegexOptions.Compiled);
+         GlyphRE_ = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})",RegexOptions.Compiled);
+         ReservedWordRE_ = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})",RegexOptions.Compiled);
          // Allows annotation symbols to precede and follow the ID; these are removed.
-         IdRE_           = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*", RegexOptions.Compiled);
+         IdRE_ = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*",RegexOptions.Compiled);
          // Must match all occurrences anywhere in a string
-         StringEscapeRE_ = new Regex(@$"\$([{string.Join("", Escape2Char.Keys)}])", RegexOptions.Compiled);
+         StringEscapeRE_ = new Regex(@$"\$([{string.Join("",Escape2Char.Keys)}])",RegexOptions.Compiled);
 
          ErrorToken = new Token();
          ACTIONToken = new Token(TokenClass.ResWord,"ACTION");
@@ -177,7 +170,7 @@ namespace CDL2v1 {
                break;
             case TokenClass.ID:
                type = TokenType.ID;
-               TokenString = ReduceWhitespaceRE().Replace(text, " ").Trim();  // Reduce all white space to a single space
+               TokenString = ReduceWhitespaceRE().Replace(text," ").Trim();  // Reduce all white space to a single space
                StringValue = ReduceWhitespaceRE().Replace(text,"");
                break;
             case TokenClass.ResWord:
@@ -186,13 +179,13 @@ namespace CDL2v1 {
                // Attach comments encountered before reserved words that can have comments.
                if (CommentableReservedWords.Contains(reservedWordValue.Value) && collectedComments.Count > 0) {
                   bool blockComment = collectedComments[0].StartsWith("##");
-                  IEnumerable<string> trimmedComments = collectedComments.Select(c => c.Trim('#', ' '));
+                  IEnumerable<string> trimmedComments = collectedComments.Select(c => c.Trim('#',' '));
                   int width = trimmedComments.Select(c => c.Length).Max();
                   string mark = blockComment ? "###" : "#";
                   StringBuilder sb = new();
-                  if (blockComment) sb.AppendLine(new string('#',width+8));
+                  if (blockComment) sb.AppendLine(new string('#',width + 8));
                   foreach (string comment in trimmedComments) sb.AppendLine(string.Format("{0} {1} {0}",mark,comment.Trim().PadRight(width)));
-                  if (blockComment) sb.AppendLine(new string('#',width+8));
+                  if (blockComment) sb.AppendLine(new string('#',width + 8));
                   Comments = sb.ToString();
                }
                ClearComments();
@@ -253,14 +246,14 @@ namespace CDL2v1 {
       public static bool TryCreateToken(ref string input,out Token token) {
          while (true) {
             input = input.TrimStart();
-            token = ErrorToken; 
+            token = ErrorToken;
             if (string.IsNullOrEmpty(input)) return false;
 
             // Collect comments into a list
             Match match = CommentRE().Match(input);
             if (match.Success) {
                input = input[match.Length..].TrimStart();
-               if (! match.Groups[^1].Value.StartsWith(Note.Marker)) collectedComments.Add(match.Groups[^1].Value);
+               if (!match.Groups[^1].Value.StartsWith(Note.Marker)) collectedComments.Add(match.Groups[^1].Value);
                continue;
             }
 
@@ -288,22 +281,22 @@ namespace CDL2v1 {
          return type switch {
             TT.RESWORD => reservedWordValue?.ToString() ?? "NONE",
             TT.COMMENT => $"COMMENT<{EscapedString()}>",
-            TT.STRING  => $"STRING<{EscapedString()}>",
-            TT.INT     => $"INT<{intValue?.ToString() ?? "0"}>",
-            TT.FLOAT   => $"FLOAT<{floatValue?.ToString() ?? "0.0"}>",
-            TT.ID      => $"ID<{StringValue ?? string.Empty}>",
-            TT.ERROR   => "ERROR",
-            _          => TokenType2Glyph.TryGetValue(type,out string? value) ? value : type.ToString(),
+            TT.STRING => $"STRING<{EscapedString()}>",
+            TT.INT => $"INT<{intValue?.ToString() ?? "0"}>",
+            TT.FLOAT => $"FLOAT<{floatValue?.ToString() ?? "0.0"}>",
+            TT.ID => $"ID<{StringValue ?? string.Empty}>",
+            TT.ERROR => "ERROR",
+            _ => TokenType2Glyph.TryGetValue(type,out string? value) ? value : type.ToString(),
          };
       }
 
       public override bool Equals(object? obj) => obj is Token token && type == token.type && type switch {
          TT.COMMENT or TT.STRING or TT.ID => StringValue == token.StringValue,
-         TT.RESWORD                       => reservedWordValue == token.reservedWordValue,
-         TT.INT                           => intValue == token.intValue,
-         TT.FLOAT                         => floatValue == token.floatValue,
-         _                                => false
-      }; 
+         TT.RESWORD => reservedWordValue == token.reservedWordValue,
+         TT.INT => intValue == token.intValue,
+         TT.FLOAT => floatValue == token.floatValue,
+         _ => false
+      };
       public override int GetHashCode() => HashCode.Combine(type,reservedWordValue,StringValue,intValue,floatValue);
       /// <summary>
       /// Return the token as a Id. If the token is an ID, the Id is returned.
@@ -314,12 +307,12 @@ namespace CDL2v1 {
       /// <param Id="spaceReplacement"></param>
       /// <returns>The normalized Id.</returns>
       /// <example>Token.TryCreateToken("3.14",out Token token).AsIdentifier() -> "float_3_14"</example>
-      internal string AsIdentifier(string replacement = "_",bool camelCase = true) 
-         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier(camelCase:camelCase)}";
+      internal string AsIdentifier(string replacement = "_",bool camelCase = true)
+         => $"{(type != TT.ID ? type.ToString().ToLower() + replacement : "")}{Regex.Replace(TokenString,@"(?:\s+|[^\p{L}\d])",replacement).AsIdentifier(camelCase: camelCase)}";
       internal static Token From(RW rw) => new(TokenClass.ID,rw.ToString());
       public static bool operator ==(Token? left,Token? right) => EqualityComparer<Token>.Default.Equals(left,right);
       public static bool operator !=(Token? left,Token? right) => !(left == right);
 
-      
+
    }
 }

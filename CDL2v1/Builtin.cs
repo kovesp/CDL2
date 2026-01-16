@@ -31,13 +31,6 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.CodeDom.Compiler;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace CDL2v1 {
    internal static class Builtin {
       // FUNCTION date+date>.
@@ -51,8 +44,8 @@ namespace CDL2v1 {
       // TEST     is environment variable*name.       // Is it defined?
       // TEST     is target*target
 
-      private static readonly Set<string> BuiltinFunctions = ["date","time", "version", "option", "environmentvariable"];
-      private static readonly Set<string> BuiltinTests     = ["isoption", "isoptionvalue", "isenvironmentvariable", "istarget"]; 
+      private static readonly Set<string> BuiltinFunctions = ["date","time","version","option","environmentvariable"];
+      private static readonly Set<string> BuiltinTests = ["isoption","isoptionvalue","isenvironmentvariable","istarget"];
 
       public static bool IsFunction(Call call) => BuiltinFunctions.Contains(call.id.CanonicalName);
       public static bool IsTest(Call call) => BuiltinTests.Contains(call.id.CanonicalName);
@@ -67,7 +60,7 @@ namespace CDL2v1 {
                return CDL2.Version;
             case "option":
                if (call.Args.FirstOrDefault() is STRING option) {
-                  return Settings.TryGetSettingValue(option.value, out string? value) ? value : "";
+                  return Settings.TryGetSettingValue(option.value,out string? value) ? value : "";
                } else {
                   return "";
                }
@@ -85,13 +78,13 @@ namespace CDL2v1 {
          switch (call.id.CanonicalName) {
             case "isoption":
                if (call.Args.FirstOrDefault() is STRING option) {
-                  return Settings.TryGetSettingValue(option.value, out _);
+                  return Settings.TryGetSettingValue(option.value,out _);
                } else {
                   return false;
                }
             case "isoptionvalue":
                if (call.Args.FirstOrDefault() is STRING option1 && call.Args.Skip(1).FirstOrDefault() is STRING value) {
-                  return Settings.TryGetSettingValue(option1.value, out string? settingValue) && settingValue == value.value;
+                  return Settings.TryGetSettingValue(option1.value,out string? settingValue) && settingValue == value.value;
                } else {
                   return false;
                }

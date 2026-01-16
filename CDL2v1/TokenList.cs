@@ -33,16 +33,11 @@
 
 // Ignore Spelling: CDL
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CDL2v1 {
-  public class TokenList(Action<TokenType[],Token,RW[]> unexpectedTokenReporter,TokenList.Options options = TokenList.Options.None) {
+   public class TokenList(Action<TokenType[],Token,RW[]> unexpectedTokenReporter,TokenList.Options options = TokenList.Options.None) {
       [Flags]
       public enum Options {
          None = 0,
@@ -53,7 +48,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Used only to initialize instance variable in parser. Will not actually be used.
       /// </summary>
-      public TokenList() : this((_,_,_) => { }, Options.None) { }
+      public TokenList() : this((_,_,_) => { },Options.None) { }
 
       private readonly Action<TokenType[],Token,RW[]> ReportUnexpectedToken = unexpectedTokenReporter;
 
@@ -85,7 +80,7 @@ namespace CDL2v1 {
             return false;
          }
       }
-      public bool IsNext(List<RW> reservedWords) => IsNonEmpty() && tokens[0].type == TT.RESWORD && reservedWords.Contains(tokens[0].reservedWordValue??0); // ??0 is a hack to suppress error: reservedWordValue can't be null because tokens[0].type == TT.RESWORD
+      public bool IsNext(List<RW> reservedWords) => IsNonEmpty() && tokens[0].type == TT.RESWORD && reservedWords.Contains(tokens[0].reservedWordValue ?? 0); // ??0 is a hack to suppress error: reservedWordValue can't be null because tokens[0].type == TT.RESWORD
       public Token Next() {
          if (IsNonEmpty()) {
             Token token = tokens[0];
@@ -121,7 +116,7 @@ namespace CDL2v1 {
             token = Next();
             return true;
          }
-         ReportUnexpectedToken([type], Peek(), []);
+         ReportUnexpectedToken([type],Peek(),[]);
          token = Token.ErrorToken;
          return false;
       }
@@ -130,7 +125,7 @@ namespace CDL2v1 {
             id = ID.From(token);
             return true;
          }
-         ReportUnexpectedToken([TT.ID], Peek(), []);
+         ReportUnexpectedToken([TT.ID],Peek(),[]);
          id = ID.ErrorID;
          return false;
       }
@@ -139,7 +134,7 @@ namespace CDL2v1 {
             token = Next();
             return true;
          }
-         ReportUnexpectedToken([.. types], Peek(), []);
+         ReportUnexpectedToken([.. types],Peek(),[]);
          token = Token.ErrorToken;
          return false;
       }
@@ -148,7 +143,7 @@ namespace CDL2v1 {
             Next();
             return true;
          }
-         ReportUnexpectedToken([type], Peek(), []);
+         ReportUnexpectedToken([type],Peek(),[]);
          return false;
       }
       public bool Optional(out ID id) {
@@ -166,7 +161,7 @@ namespace CDL2v1 {
             Next();
             return true;
          }
-         ReportUnexpectedToken([.. types], Peek(), []);
+         ReportUnexpectedToken([.. types],Peek(),[]);
          return false;
       }
 
@@ -187,7 +182,7 @@ namespace CDL2v1 {
             token = Next();
             return true;
          }
-         ReportUnexpectedToken([TT.RESWORD], Peek(),[.. reservedWords]);
+         ReportUnexpectedToken([TT.RESWORD],Peek(),[.. reservedWords]);
          Skip();
          token = Token.ErrorToken;
          return false;
@@ -199,7 +194,7 @@ namespace CDL2v1 {
       /// <param Id="unit">The unit type reserved word.</param>
       /// <param Id="Id">If stating a unit, the Id is set, If ending a unit, it is verified that the Id matches the one given in the unit close.</param>
       /// <returns></returns>
-      public bool CanConsumeContainerDelimiter(RW unit,ref ID id,[NotNullWhen(true)]out string? comments) {
+      public bool CanConsumeContainerDelimiter(RW unit,ref ID id,[NotNullWhen(true)] out string? comments) {
          Debug.Assert(Token.UnitStarters.Contains(unit) || Token.UnitEnders.Contains(unit));
          if (Optional(unit,out comments) && CanConsume(out ID thisId) && CanConsumeEnd()) {
             if (Token.UnitStarters.Contains(unit)) {
@@ -234,7 +229,7 @@ namespace CDL2v1 {
       internal bool CanConsumeNote(out Note? note,bool needsEnd = true) {
          if (Optional(RW.NOTE,out string? comments) && comments is not null) {
             if (needsEnd) CanConsumeEnd();
-            note = new Note(Severity.Note, 400, comments);
+            note = new Note(Severity.Note,400,comments);
             return true;
          } else {
             note = null;

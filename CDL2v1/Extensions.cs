@@ -31,33 +31,18 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.CodeDom;
 using System.Collections;
-using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.CommandLine.Parsing;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Diagnostics.Metrics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Security.Policy;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Automation.Text;
-using System.Windows.Documents;
 using System.Windows.Media;
-using System.Xml.Linq;
-using System.Xml.Serialization;
 
-namespace CDL2v1 {  
+namespace CDL2v1 {
    public class Set<T> : HashSet<T> {
       public Set() { }
       public Set(ICollection<T> collection) : base(collection) { }
@@ -84,10 +69,10 @@ namespace CDL2v1 {
 
       public void Clear() => guids.Clear();
       public bool Contains(T item) => guids.Contains(item.GUID);
-      public void CopyTo(T[] array, int arrayIndex) => throw new NotImplementedException();
+      public void CopyTo(T[] array,int arrayIndex) => throw new NotImplementedException();
       public IEnumerator<T> GetEnumerator() {
          foreach (Guid guid in guids) {
-            if (Database.Instance.NamedElements.TryGetValue(guid, out NamedElement? namedElement) && namedElement is T value) {
+            if (Database.Instance.NamedElements.TryGetValue(guid,out NamedElement? namedElement) && namedElement is T value) {
                yield return value;
             }
          }
@@ -100,9 +85,9 @@ namespace CDL2v1 {
    /// A stack of int-s whose top element can be modified and compared to an int.
    /// </summary>
    public class ModifiableStack : Stack<int> {
-      public ModifiableStack(int minimum=0) : base() => Minimum = minimum;
+      public ModifiableStack(int minimum = 0) : base() => Minimum = minimum;
       public ModifiableStack(int capacity,int minimum) : base(capacity) => Minimum = minimum;
-      public ModifiableStack(IEnumerable<int> collection,int minimum=0) : base(collection) => Minimum = minimum;
+      public ModifiableStack(IEnumerable<int> collection,int minimum = 0) : base(collection) => Minimum = minimum;
       private readonly int Minimum;
 
       /// <summary>
@@ -124,10 +109,10 @@ namespace CDL2v1 {
          return stack;
       }
       public static ModifiableStack operator +(ModifiableStack stack,int v) {
-         if (stack.Peek() > 0) stack.Push(Math.Max(stack.Minimum, stack.Pop() + v));
+         if (stack.Peek() > 0) stack.Push(Math.Max(stack.Minimum,stack.Pop() + v));
          return stack;
       }
-      public static ModifiableStack operator -(ModifiableStack stack, int v) {
+      public static ModifiableStack operator -(ModifiableStack stack,int v) {
          if (stack.Peek() > 0) stack.Push(Math.Max(stack.Minimum,stack.Pop() - v));
          return stack;
       }
@@ -139,38 +124,38 @@ namespace CDL2v1 {
       /// <param name="value"></param>
       /// <returns></returns>
       /// <exception cref="InvalidOperationException"></exception>
-      public static bool operator >=(ModifiableStack stack, int value) {
+      public static bool operator >=(ModifiableStack stack,int value) {
          if (stack.Count == 0) {
             throw new InvalidOperationException("Cannot compare to empty stack.");
          }
          return stack.Peek() >= value;
       }
-      public static bool operator >(ModifiableStack stack, int value) {
+      public static bool operator >(ModifiableStack stack,int value) {
          if (stack.Count == 0) {
             throw new InvalidOperationException("Cannot compare to empty stack.");
          }
          return stack.Peek() > value;
       }
-      public static bool operator <=(ModifiableStack stack, int value) {
+      public static bool operator <=(ModifiableStack stack,int value) {
          if (stack.Count == 0) {
             throw new InvalidOperationException("Cannot compare to empty stack.");
          }
          return stack.Peek() <= value;
 
       }
-      public static bool operator <(ModifiableStack stack, int value) {
+      public static bool operator <(ModifiableStack stack,int value) {
          if (stack.Count == 0) {
             throw new InvalidOperationException("Cannot compare to empty stack.");
          }
          return stack.Peek() < value;
       }
-      public static bool operator ==(ModifiableStack stack, int value) {
+      public static bool operator ==(ModifiableStack stack,int value) {
          if (stack.Count == 0) {
             throw new InvalidOperationException("Cannot compare to empty stack.");
          }
          return stack.Peek() == value;
       }
-      public static bool operator !=(ModifiableStack stack, int value) {
+      public static bool operator !=(ModifiableStack stack,int value) {
          if (stack.Count == 0) {
             throw new InvalidOperationException("Cannot compare to empty stack.");
          }
@@ -193,9 +178,9 @@ namespace CDL2v1 {
       /// Set the top element of the stack to a value.
       /// </summary>
       /// <param name="v">The value >= Minimum to set, default is 0.</param>
-      internal void SetTop(int? v=null) {
+      internal void SetTop(int? v = null) {
          if (Count > 0) Pop();
-         Push(Math.Max(Minimum,v??Minimum));
+         Push(Math.Max(Minimum,v ?? Minimum));
       }
       /// <summary>
       /// Reset the top element of the stack to 0.
@@ -223,7 +208,7 @@ namespace CDL2v1 {
          get => _items.Length;
          set {
             if (value < 1)
-               throw new ArgumentOutOfRangeException(nameof(value), "Capacity must be positive.");
+               throw new ArgumentOutOfRangeException(nameof(value),"Capacity must be positive.");
 
             if (value == _items.Length)
                return;
@@ -231,17 +216,17 @@ namespace CDL2v1 {
             T[] newItems = new T[value];
 
             if (_size > 0) {
-               int elementsToCopy = Math.Min(_size, value);
+               int elementsToCopy = Math.Min(_size,value);
 
                // Dispose items that will be discarded (from the bottom of the stack)
                int itemsToDiscard = _size - elementsToCopy;
-               for (int i = 0; i < itemsToDiscard; i++) {
+               for (int i = 0 ; i < itemsToDiscard ; i++) {
                   int discardIndex = (_tail + i) % _items.Length;
                   DisposeIfDisposable(_items[discardIndex]);
                }
 
                // Copy the elements to keep (from newest to oldest)
-               for (int i = 0; i < elementsToCopy; i++) {
+               for (int i = 0 ; i < elementsToCopy ; i++) {
                   int sourceIndex = (_head - 1 - i + _items.Length) % _items.Length;
                   newItems[value - 1 - i] = _items[sourceIndex];
                }
@@ -270,7 +255,7 @@ namespace CDL2v1 {
       public int FindIndex(Predicate<T> predicate) {
          if (IsEmpty) return -1;
          int current = _head;
-         for (int i = 0; i < _size; i++) {
+         for (int i = 0 ; i < _size ; i++) {
             current = (current - 1 + _items.Length) % _items.Length;
             if (predicate(_items[current])) {
                return i;
@@ -278,12 +263,12 @@ namespace CDL2v1 {
          }
          return -1;
       }
-   
+
       /// <summary>
       /// Gets the number of elements contained in the <see cref="BoundedStack{T}"/>.
       /// </summary>
       public int Count => _size;
-   
+
       /// <summary>
       /// Gets a value indicating whether the <see cref="BoundedStack{T}"/> is empty.
       /// </summary>
@@ -304,8 +289,8 @@ namespace CDL2v1 {
       /// </exception>
       public BoundedStack(int capacity) {
          if (capacity < 1)
-            throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be positive.");
-      
+            throw new ArgumentOutOfRangeException(nameof(capacity),"Capacity must be positive.");
+
          _items = new T[capacity];
          _size = 0;
          _head = 0;
@@ -321,12 +306,12 @@ namespace CDL2v1 {
       /// <exception cref="ArgumentOutOfRangeException">
       /// Thrown when capacity is less than 1.
       /// </exception>
-      public BoundedStack(int capacity, IEnumerable<T> collection) : this(capacity) {
+      public BoundedStack(int capacity,IEnumerable<T> collection) : this(capacity) {
          foreach (T item in collection) {
             Push(item);
          }
       }
-   
+
       /// <summary>
       /// Pushes an item onto the stack. If the stack is at capacity, 
       /// the oldest item is removed.
@@ -350,7 +335,7 @@ namespace CDL2v1 {
 
          return itemRemoved;
       }
-   
+
       /// <summary>
       /// Returns the item at the top of the stack without removing it.
       /// </summary>
@@ -361,11 +346,11 @@ namespace CDL2v1 {
       public T Peek() {
          if (IsEmpty)
             throw new InvalidOperationException("The stack is empty.");
-      
+
          int topIndex = (_head - 1 + _items.Length) % _items.Length;
          return _items[topIndex];
       }
-   
+
       /// <summary>
       /// Removes and returns the item at the top of the stack.
       /// </summary>
@@ -375,12 +360,12 @@ namespace CDL2v1 {
       /// </exception>
       public T Pop() {
          if (IsEmpty) throw new InvalidOperationException("The stack is empty.");
-      
+
          _head = (_head - 1 + _items.Length) % _items.Length;
          T item = _items[_head];
          _items[_head] = default!;  // Clear reference to help GC
          _size--;
-      
+
          return item;
       }
       /// <summary>
@@ -433,7 +418,7 @@ namespace CDL2v1 {
          if (matchIndex == -1 || matchIndex == 0) return;
 
          Surface(matchIndex);
-      } 
+      }
       /// <summary>
       /// Gets the element at the specified index from the top of the stack.
       /// </summary>
@@ -446,14 +431,14 @@ namespace CDL2v1 {
             int actualIndex = (_head - 1 - index + _items.Length) % _items.Length;
             return _items[actualIndex];
          }
-      }  
+      }
 
       /// <summary>
       /// Removes all items from the stack.
       /// </summary>
       public void Clear() {
-         for (int i = 0; i < _items.Length; i++) DisposeIfDisposable(_items[i]);
-         Array.Clear(_items, 0, _items.Length);
+         for (int i = 0 ; i < _items.Length ; i++) DisposeIfDisposable(_items[i]);
+         Array.Clear(_items,0,_items.Length);
          _size = 0;
          _head = 0;
          _tail = 0;
@@ -466,16 +451,16 @@ namespace CDL2v1 {
       public IEnumerator<T> GetEnumerator() {
          if (IsEmpty)
             yield break;
-      
+
          int current = _head;
-         for (int i = 0; i < _size; i++) {
+         for (int i = 0 ; i < _size ; i++) {
             current = (current - 1 + _items.Length) % _items.Length;
             yield return _items[current];
          }
       }
-   
+
       IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-   
+
       /// <summary>
       /// Copies the stack elements to a new array in top-to-bottom order.
       /// </summary>
@@ -483,14 +468,14 @@ namespace CDL2v1 {
       public T[] ToArray() {
          T[] result = new T[_size];
          int index = 0;
-      
+
          foreach (T item in this) {
             result[index++] = item;
          }
-      
+
          return result;
       }
-   
+
       /// <summary>
       /// Returns a string representation of the stack.
       /// </summary>
@@ -498,10 +483,10 @@ namespace CDL2v1 {
       public override string ToString() {
          if (IsEmpty)
             return "[]";
-      
+
          StringBuilder sb = new("[");
          bool first = true;
-      
+
          foreach (T item in this) {
             if (!first) {
                sb.Append(", ");
@@ -509,7 +494,7 @@ namespace CDL2v1 {
             sb.Append(item);
             first = false;
          }
-      
+
          sb.Append(']');
          return sb.ToString();
       }
@@ -524,7 +509,7 @@ namespace CDL2v1 {
 
       //public static bool TRUE<T>(T _) => true;
 
-      extension<T>(Predicate<T> predicate) { 
+      extension<T>(Predicate<T> predicate) {
          public static bool TRUE => true;
          public static bool FALSE => false;
       }
@@ -550,7 +535,7 @@ namespace CDL2v1 {
          /// <param name="second">The second element or default if not present.</param>
          public void Deconstruct(out T first,out T second) {
             T[] array = [.. source];
-            first  = array.Length > 0 ? array[0] : default!;
+            first = array.Length > 0 ? array[0] : default!;
             second = array.Length > 1 ? array[1] : default!;
          }
       }
@@ -563,7 +548,7 @@ namespace CDL2v1 {
          /// <param name="second">The second element or default if not present.</param>
          public void Deconstruct(out string first,out string second) {
             string[] array = [.. source];
-            first  = array.Length > 0 ? array[0].Trim() : "";
+            first = array.Length > 0 ? array[0].Trim() : "";
             second = array.Length > 1 ? array[1].Trim() : "";
          }
       }
@@ -632,7 +617,7 @@ namespace CDL2v1 {
          /// Return the string with whitespaces removed.
          /// </summary>
          /// <returns></returns>
-         public string WithNoWhitespace => string.IsNullOrEmpty(s) ? s : Regex.Replace(s, @"\s+", "", RegexOptions.Compiled);
+         public string WithNoWhitespace => string.IsNullOrEmpty(s) ? s : Regex.Replace(s,@"\s+","",RegexOptions.Compiled);
 
          public string IntensifyColor(double factor) => s.FromHex.IntensifyColor(factor).ToHex;
          public string DimColor(double factor) => s.FromHex.DimColor(factor).ToHex;
@@ -689,7 +674,7 @@ namespace CDL2v1 {
          /// <param name="createDirectory">If true, creates the directory if it doesn't exist.</param>
          /// <param name="errorMessage">Error message if the file is not writable.</param>
          /// <returns>True if the file can be written to, false otherwise.</returns>
-         public bool EnsureFileWritable(out string errorMessage,out string fileName,string defaultdDirectory="",bool createDirectory = true) {
+         public bool EnsureFileWritable(out string errorMessage,out string fileName,string defaultdDirectory = "",bool createDirectory = true) {
             errorMessage = string.Empty;
             fileName = s;
 
@@ -697,7 +682,7 @@ namespace CDL2v1 {
             string? directory = Path.GetDirectoryName(s);
             if (string.IsNullOrEmpty(directory)) {
                directory = string.IsNullOrEmpty(defaultdDirectory) ? Directory.GetCurrentDirectory() : defaultdDirectory;
-               fileName = s = Path.Combine(directory, s);
+               fileName = s = Path.Combine(directory,s);
             }
 
             // Check/create directory
@@ -766,7 +751,7 @@ namespace CDL2v1 {
          /// unchanged.</param>
          /// <returns>A new string that is equivalent to the source string except for all instances of the specified substring,
          /// which are removed. If the substring to remove is not found, the original string is returned.</returns>
-         public static string operator -(string src,string oldValue) => (oldValue??"").Length == 0 ? src??"" : (src??"").Replace(oldValue!,"");
+         public static string operator -(string src,string oldValue) => (oldValue ?? "").Length == 0 ? src ?? "" : (src ?? "").Replace(oldValue!,"");
          public static string operator -(string src,char oldChar) => src - oldChar.ToString();
 
          /// <summary>
@@ -782,8 +767,8 @@ namespace CDL2v1 {
          /// <example>
          /// "test string" - ~@"[st]+" --> "e ring"
          /// </example>
-         public static Regex operator ~(string pattern) => (pattern??"").Length == 0 ? NeverMatches : new(pattern!,RegexOptions.Compiled);
-         public static string operator -(string src,Regex re) => re.Replace(src??"","");
+         public static Regex operator ~(string pattern) => (pattern ?? "").Length == 0 ? NeverMatches : new(pattern!,RegexOptions.Compiled);
+         public static string operator -(string src,Regex re) => re.Replace(src ?? "","");
 
          /// <summary>
          /// Replaces all occurrences of a specified regular expression pattern in the input string with a replacement
@@ -803,7 +788,7 @@ namespace CDL2v1 {
          /// Regex re = ~@"[st]+";
          /// "test string" >> (re,"X") --> "XeXX XXring"
          /// </example>
-         public static string operator >>(string input,(string re,string replacement) repl) => Regex.Replace(input,repl.re,repl.replacement);
+         public static string operator >>(string input,(string re, string replacement) repl) => Regex.Replace(input,repl.re,repl.replacement);
          public static string operator >>(string input,(Regex re, string replacement) repl) => repl.re.Replace(input,repl.replacement);
 
          /// <summary>
@@ -898,7 +883,7 @@ namespace CDL2v1 {
             double num = Math.Round(l / Math.Pow(factor,place),0);
 
             // Don't use the "bytes" suffix for values larger than 1
-            if (place == 0 && num > 1) 
+            if (place == 0 && num > 1)
                return $"{num} bytes";
             else if (place == 0)
                return $"{num} byte";
@@ -921,10 +906,10 @@ namespace CDL2v1 {
          /// </summary>
          /// <returns>A list of CDL2Object objects that match the stored GUIDs. The list will be empty if no matching objects are
          /// found.</returns>
-         public List<CDL2Object> ToCDL2Objects() 
+         public List<CDL2Object> ToCDL2Objects()
             => [.. guids.Select(guid => Database.Instance.NamedElements.GetValueOrDefault(guid)).OfType<CDL2Object>()];
-         public List<CDL2Object> ToNonSynthetiCDL2Objectsc() 
-            => [.. guids.ToCDL2Objects().Where(obj => obj is not Algorithm alg || ! obj.IsSynthetic)];
+         public List<CDL2Object> ToNonSynthetiCDL2Objectsc()
+            => [.. guids.ToCDL2Objects().Where(obj => obj is not Algorithm alg || !obj.IsSynthetic)];
          public List<CDL2Object> ToSyntheticCDL2Objects()
             => [.. guids.ToCDL2Objects().Where(obj => obj is not Algorithm alg && obj.IsSynthetic)];
       }
@@ -945,7 +930,7 @@ namespace CDL2v1 {
       }
 
       extension(ParsingContext? context) {
-         public ParsingContext AsParsingContext => context ?? new ParsingContext(location:InsertLocation.After);
+         public ParsingContext AsParsingContext => context ?? new ParsingContext(location: InsertLocation.After);
       }
 
 
@@ -958,7 +943,7 @@ namespace CDL2v1 {
          /// <param name="items">The collections of items to add to the list. Duplicate elements will not be added.</param>
          /// <returns>A new list containing the elements of the original list and the specified items, without duplicates.</returns>
          public List<T> With(params T[] items) => items.All(item => list.Contains(item)) ? list : [.. list.Union(items)];
-         public List<T> With(T item) => list.Contains(item) ? list : [.. list, item];
+         public List<T> With(T item) => list.Contains(item) ? list : [.. list,item];
 
          /// <summary>
          /// Adds the specified item to the collection if it is not null.
@@ -983,7 +968,7 @@ namespace CDL2v1 {
          /// <param name="items">The collections of items to add to the set. Duplicate elements will not be added.</param>
          /// <returns>A new set containing the elements of the original set and the specified items, without duplicates.</returns>
          public Set<T> With(params T[] items) => items.All(item => set.Contains(item)) ? set : [.. set.Union(items)];
-         public Set<T> With(T item) => set.Contains(item) ? set : [.. set, item];
+         public Set<T> With(T item) => set.Contains(item) ? set : [.. set,item];
          /// <summary>
          /// Adds the specified item to the collection if it is not null.
          /// </summary>
@@ -1083,7 +1068,7 @@ namespace CDL2v1 {
       /// <param name="element"></param>
       /// <param name="decoration"></param>
       /// <returns></returns>
-      internal static string Decorate(this string str,Emitter emitter,SE element,PrettyPrinter.Decoration? decoration=null) {
+      internal static string Decorate(this string str,Emitter emitter,SE element,PrettyPrinter.Decoration? decoration = null) {
          if (str == null) return "";
          if (emitter.SupportsDecoration) {
             if (element != SE.AlgorithmName) {
@@ -1099,7 +1084,7 @@ namespace CDL2v1 {
       }
       internal static string Decorate(this RW rw,Emitter emitter,SE element) => rw.ToString().Decorate(emitter,element);
       internal static string Decorate(this Token token,Emitter emitter,SE element) => token.TokenString.Decorate(emitter,element);
-      internal static string Decorate(this ID id,Emitter emitter,SE element) 
+      internal static string Decorate(this ID id,Emitter emitter,SE element)
          => /*Id.Comments!.Decorate(Emitter,SE.Comment) +*/ id.Name.Decorate(emitter,element);
       internal static string Decorate(this long i,Emitter emitter) => i.ToString().Decorate(emitter,SE.Number);
       internal static string Decorate(this double d,Emitter emitter) => d.ToString().Decorate(emitter,SE.Number);

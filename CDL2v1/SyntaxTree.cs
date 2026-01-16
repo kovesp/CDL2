@@ -48,10 +48,6 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
-
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-
 namespace CDL2v1 {
    // Marker interfaces to allow lists to be composed of permissible elements.
 
@@ -67,7 +63,7 @@ namespace CDL2v1 {
    /// </summary>
    public interface ITopLevelContainer {
       bool Modified { get; set; }
-      string FQDN(bool WithInterface=false);
+      string FQDN(bool WithInterface = false);
    }
 
    public interface IElement { }
@@ -274,8 +270,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="pattern"></param>
       /// <returns></returns>
-      public bool MatchesNamePattern(string pattern) 
-            =>    pattern == string.Empty
+      public bool MatchesNamePattern(string pattern)
+            => pattern == string.Empty
                || (pattern.StartsWith('/') && Regex.IsMatch(Id.CanonicalName,pattern.Trim('/').WithNoWhitespace))
                || Id.CanonicalName.Contains(pattern.WithNoWhitespace);
 
@@ -411,7 +407,7 @@ namespace CDL2v1 {
       /// Element display name, i.e. MOD mod LAY lay SEC sec declared.
       /// </summary>
       /// <returns></returns>
-      public virtual string FQDN(bool WithInterface=false) => $"{AncestorContainer<Module>().WithSpace}{AncestorContainer<Layer>().WithSpace}{AncestorContainer<Section>().WithSpace}{ToString()}";
+      public virtual string FQDN(bool WithInterface = false) => $"{AncestorContainer<Module>().WithSpace}{AncestorContainer<Layer>().WithSpace}{AncestorContainer<Section>().WithSpace}{ToString()}";
 
       public static T? From<T>(Guid guid) where T : NamedElement => Database.Instance.NamedElements.TryGetValue(guid,out NamedElement? element) && element is T typedElement ? typedElement : null;
       public static bool From<T>(Guid guid,out T? element) where T : NamedElement => (element = NamedElement.From<T>(guid)) is not null;
@@ -596,12 +592,13 @@ namespace CDL2v1 {
       [JsonPropertyOrder(20)]
       public IDSet Parts = [];
 
-      [JsonIgnore] public bool Modified { 
+      [JsonIgnore]
+      public bool Modified {
          get => _modified;
          set {
             _modified = value;
             if (value) Database.Instance.Modified = true; // Also increment the global modification flag for each program modification.
-         } 
+         }
       }
       [JsonInclude][JsonPropertyOrder(21)] public bool _modified = false;
       /// <summary>
@@ -636,7 +633,7 @@ namespace CDL2v1 {
    /// Represents a module in the syntax tree.
    /// </summary>
    /// <param Id="Id"></param>
-   public class Module : Container,ITopLevelContainer {
+   public class Module : Container, ITopLevelContainer {
       [JsonIgnore]
       public readonly IDDictionary<IImportable> imports = [];        // Imports are specified in sections, but are propagated up the module level.
       [JsonIgnore]
@@ -648,13 +645,14 @@ namespace CDL2v1 {
       [JsonIgnore]
       public readonly IDDictionary<IImportable> resolvedImports = [];
 
-      [JsonInclude][JsonPropertyOrder(21)]
+      [JsonInclude]
+      [JsonPropertyOrder(21)]
       public bool _modified = false;
       [JsonIgnore]
-      public bool Modified { 
+      public bool Modified {
          get => _modified;
-         set { 
-            if (value && ! _modified) {
+         set {
+            if (value && !_modified) {
                // When a module is modified, all programs that have it as a part are also modified. But do not increment the global modification count.
                foreach (Program? program in Database.Instance.Programs.Select(guid => Database.Instance.NamedElements[guid] as Program)
                            .Where(program => program != null && program.Parts.Contains(this.Id))) {
@@ -740,7 +738,9 @@ namespace CDL2v1 {
       /// <summary>
       /// The interfaces. Maintained as sorted sets for display.
       /// </summary>
-      [JsonInclude][JsonPropertyOrder(40)] public Dictionary<InterfaceTypes,SortedSet<ID>> Interfaces = new() {
+      [JsonInclude]
+      [JsonPropertyOrder(40)]
+      public Dictionary<InterfaceTypes,SortedSet<ID>> Interfaces = new() {
          { InterfaceTypes.Ext,[] },
          { InterfaceTypes.Abstr,[] },
          { InterfaceTypes.Inv,[] },
@@ -755,7 +755,8 @@ namespace CDL2v1 {
          public IEnumerable<T> AsCDL2Objects<T>() where T : NamedElement => [.. Values.Select(From<T>).OfType<T>()];
          public IEnumerable<T> AsCDL2Objects<T>(Func<T,bool> pred) where T : NamedElement => [.. Values.Select(From<T>).OfType<T>().Where(pred)];
 
-         [JsonInclude][JsonPropertyOrder(1)]
+         [JsonInclude]
+         [JsonPropertyOrder(1)]
          public List<Guid> Ordering = [];
 
          /// <summary>
@@ -870,7 +871,9 @@ namespace CDL2v1 {
       /// Holds the references to the synthetic Procedures genrAted for section ludes.
       /// </summary>
       /// <remarks>These procs are not in Declarations.</remarks>
-      [JsonInclude][JsonPropertyOrder(46)]public Dictionary<RW,Guid?> LudeProcs { get; set; } = new() {
+      [JsonInclude]
+      [JsonPropertyOrder(46)]
+      public Dictionary<RW,Guid?> LudeProcs { get; set; } = new() {
          { RW.PRELUDE,null },
          { RW.ROOT,null },
          { RW.POSTLUDE,null }
@@ -1010,7 +1013,7 @@ namespace CDL2v1 {
    /// Algorithm (Macro, Porcedure, ImportedAlgorithm), Const (ImportedConst), Var and LIST.
    /// </summary>
    public /*abstract*/ class CDL2Object : NamedElement, ISibling {
-      public CDL2Object(ID id,Section section,string comments,bool synthetic = false,SelectorType FocusType = SelectorType.INVALID) 
+      public CDL2Object(ID id,Section section,string comments,bool synthetic = false,SelectorType FocusType = SelectorType.INVALID)
          : base(id,synthetic,FocusType) {
          Parent = section.GUID;
          Comments = comments;
@@ -1079,7 +1082,7 @@ namespace CDL2v1 {
       /// The default is to clear all interfaces
       /// </summary>
       /// <param name="status"></param>
-      public void ClearInterfaces(InterfaceTypes status=InterfaceTypes.None) {
+      public void ClearInterfaces(InterfaceTypes status = InterfaceTypes.None) {
          if (status == InterfaceTypes.None) { // Clear all
             foreach (SortedSet<ID> intf in Section!.Interfaces.Values) intf.Remove(Id);
          } else { // Clear the ones that are set
@@ -1117,11 +1120,11 @@ namespace CDL2v1 {
          if (changeType == ChangeType.Removed) {
             Section?.Declarations.Remove(Id);
             Siblings.Remove(GUID);
-            Database.Instance.RecordUndo(this, ChangeType.Removed); // Must be done before clearing interfaces so the current interface status is recorded.
+            Database.Instance.RecordUndo(this,ChangeType.Removed); // Must be done before clearing interfaces so the current interface status is recorded.
             ClearInterfaces();
          } else if (changeType == ChangeType.Replaced) {
             // Swap the GUID of this object with the GUID of the replacement object. Also swap them in NamedElements.
-            (GUID,replacement!.GUID) = (replacement.GUID,GUID);
+            (GUID, replacement!.GUID) = (replacement.GUID, GUID);
             Database.Instance.NamedElements[GUID] = this;
             Database.Instance.NamedElements[replacement.GUID] = replacement;
 
@@ -1141,7 +1144,7 @@ namespace CDL2v1 {
       /// <param name="changeType"></param>
       /// <param name="objectPos">The position among siblings where the object should be placed when revived. 
       ///                         -1 indicates place at end. Applies only to ChangeType.Removed.</param>
-      public void Revive(CDL2Object? current,ChangeType changeType,InterfaceTypes interfaceStatus, int objectPos=-1) {
+      public void Revive(CDL2Object? current,ChangeType changeType,InterfaceTypes interfaceStatus,int objectPos = -1) {
          if (changeType == ChangeType.Removed) {
             Section?.Declarations.TryAdd(Id,this);
             if (objectPos < 0) {
@@ -1441,7 +1444,7 @@ namespace CDL2v1 {
       /// <param Id="algorithmType"></param>
       /// <param Id="bodyType"></param>
       /// <param Id="SectionById"></param>
-      public Procedure(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false) 
+      public Procedure(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false)
             : base(id,affixes,locals,algorithmType,bodyType,section,synthetic) {
          group.Parent = GUID;
          group.Id = id; // The group has the same ID as the procedure.

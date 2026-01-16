@@ -33,18 +33,11 @@
 // </auto-gen>
 
 using System.Collections.Immutable;
-using System.ComponentModel;
-using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Channels;
 using System.Windows;
-using System.Windows.Interop;
-using System.Xml.Linq;
 
 
 namespace CDL2v1 {
@@ -139,7 +132,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="input"></param>
       /// <param name="setFocus"></param>
-      private void EnterSourceSentence(string input,bool setFocus=false) {
+      private void EnterSourceSentence(string input,bool setFocus = false) {
          input = input.Trim();
          if (input[^1] != '.') input += '.';
          string inputBody = RemoveLeadingComments(input);
@@ -186,7 +179,7 @@ namespace CDL2v1 {
          bool inComment = false;
          int length = input.Length;
 
-         for (int i = 0; i < length; i++) {
+         for (int i = 0 ; i < length ; i++) {
             char c = input[i];
 
             if (inQuotes) {
@@ -230,7 +223,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="input"></param>
       /// <returns></returns>
-      private static string RemoveLeadingComments(string input) => Regex.Replace(input, @"^(\s*#.*?#\s*|\n)+", "", RegexOptions.Singleline);
+      private static string RemoveLeadingComments(string input) => Regex.Replace(input,@"^(\s*#.*?#\s*|\n)+","",RegexOptions.Singleline);
 
       /// <summary>
       /// Parse the input and verify whther it is syntactically correct.
@@ -551,7 +544,7 @@ namespace CDL2v1 {
                      //Task.Delay(2000).ContinueWith(_ => {
                      //   ((Window)commandWindow!).Dispatcher.Invoke(() => commandWindow.Close());
                      //});
-                     toaster!.ShowToast("abort command used, not saving the database.",2000,delay: true,setOwner:false);
+                     toaster!.ShowToast("abort command used, not saving the database.",2000,delay: true,setOwner: false);
                      REPL?.Close();
                      break;
                   case CommandType.bye:
@@ -561,7 +554,7 @@ namespace CDL2v1 {
                      REPL?.Close();
                      return;
 
-                  case CommandType.shell: 
+                  case CommandType.shell:
                      InterpretCommandShell(args); break;
 
                   case CommandType.help:
@@ -609,7 +602,7 @@ namespace CDL2v1 {
             },
             "pwsh" or "powershell" => new ProcessStartInfo {
                FileName = "pwsh.exe",
-               Arguments = "-NoLogo -NoProfile -Command \"$PSStyle.OutputRendering = 'PlainText'; " + args.Replace("\"", "`\"") + "\"",
+               Arguments = "-NoLogo -NoProfile -Command \"$PSStyle.OutputRendering = 'PlainText'; " + args.Replace("\"","`\"") + "\"",
                RedirectStandardOutput = true,
                RedirectStandardError = true,
                UseShellExecute = false,
@@ -617,7 +610,7 @@ namespace CDL2v1 {
             },
             "bash" => new ProcessStartInfo {
                FileName = "bash",
-               Arguments = "-c \"" + args.Replace("\"", "\\\"") + "\"",
+               Arguments = "-c \"" + args.Replace("\"","\\\"") + "\"",
                RedirectStandardOutput = true,
                RedirectStandardError = true,
                UseShellExecute = false,
@@ -636,7 +629,7 @@ namespace CDL2v1 {
             process.WaitForExit();
 
             if (!string.IsNullOrEmpty(output)) WriteLine(output.TrimEnd());
-            
+
             if (!string.IsNullOrEmpty(error)) WriteError(error.TrimEnd());
 
             if (process.ExitCode != 0) WriteWarning($"Process exited with code {process.ExitCode}");
@@ -1075,7 +1068,7 @@ namespace CDL2v1 {
             // Display the object in the command window for editing.
             IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
             ppEdit.Emitter.Clear();
-            ParsingContext = new (new Focus(context),InsertLocation.Replace); // Set the parsing context to the current focus, so that the parser can use it.
+            ParsingContext = new(new Focus(context),InsertLocation.Replace); // Set the parsing context to the current focus, so that the parser can use it.
             if (context.Object is Section sec && context.ListType != ST.INVALID) {
                // Special case: editing the prelude of a section.
                RW ludeType = context.ListType switch {
@@ -1106,7 +1099,7 @@ namespace CDL2v1 {
                ParsingContext = null;
                return;
             }
-           // Nothing else. When editing is done the command window will call EnterCode with the edited text.
+            // Nothing else. When editing is done the command window will call EnterCode with the edited text.
          }
       }
 
@@ -1152,9 +1145,9 @@ namespace CDL2v1 {
       }
 
       private static readonly Dictionary<string,InterfaceTypes> interfaceTypeMap = new() {
-         ["abstr"]  = InterfaceTypes.Abstr,
-         ["ext"]    = InterfaceTypes.Ext,
-         ["inv"]    = InterfaceTypes.Inv,
+         ["abstr"] = InterfaceTypes.Abstr,
+         ["ext"] = InterfaceTypes.Ext,
+         ["inv"] = InterfaceTypes.Inv,
          ["export"] = InterfaceTypes.Export,
          ["import"] = InterfaceTypes.Import,
       };
@@ -1231,7 +1224,7 @@ namespace CDL2v1 {
                      WriteError($"An object named {newName} already exists in the section.");
                      return;
                   }
-                  if (! section.Interfaces[InterfaceTypes.Inv].All(id => id.CanonicalName != newCannonicalName)) {
+                  if (!section.Interfaces[InterfaceTypes.Inv].All(id => id.CanonicalName != newCannonicalName)) {
                      WriteError($"{newName} is in the INV list of this section.");
                      return;
                   }
@@ -1336,7 +1329,7 @@ namespace CDL2v1 {
          /// Writes the fully qualified name (FQDN) of the given element, including its interface types if specified.
          /// </summary>
          /// <param name="elem">The named element to write.</param>
-         void WriteWithInterface(NamedElement elem) => WriteLine(elem.FQDN(WithInterface:true));
+         void WriteWithInterface(NamedElement elem) => WriteLine(elem.FQDN(WithInterface: true));
       }
 
       /// <summary>

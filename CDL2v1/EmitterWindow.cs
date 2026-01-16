@@ -36,12 +36,12 @@
 #if WINDOWS
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using System.Windows.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Documents;
+using System.Windows.Threading;
 
 namespace CDL2v1 {
    internal partial class EmitterWindow : Emitter {
@@ -171,7 +171,7 @@ namespace CDL2v1 {
       }
 
       public override bool CanPauseUpdate => true;
-         
+
       /// <summary>
       /// Write the item to the window.
       /// The text may contain sequences of <spam fg="colorName" style="Normal|Bold|Italic|BoldItalic">text</span>.
@@ -351,9 +351,9 @@ namespace CDL2v1 {
          textSegmentBuffer.Clear();
       }
 
-      private const char SeparatorSpace   = (char)SpaceCharacters.ThreePerEm;
+      private const char SeparatorSpace = (char)SpaceCharacters.ThreePerEm;
 
-      private static string FormatAlgorithmBodySeparators(string text) => BodySeparatorRE().Replace(text, $"{SeparatorSpace}$1{SeparatorSpace}");
+      private static string FormatAlgorithmBodySeparators(string text) => BodySeparatorRE().Replace(text,$"{SeparatorSpace}$1{SeparatorSpace}");
 
       // Helper to find parent element of specific type
       private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject => VisualTreeHelper.GetParent(child) switch {
@@ -363,7 +363,7 @@ namespace CDL2v1 {
       };
 
       // Zoom in by increasing the font size by 20%
-      private void ZoomIn(int pct=20) {
+      private void ZoomIn(int pct = 20) {
          if (outputTextBlock != null) {
             outputTextBlock.FontSize *= (100 + pct) / 100.0;
          }
@@ -376,7 +376,7 @@ namespace CDL2v1 {
          }
       }
 
-      [GeneratedRegex(@"\s*( := | =: | = | : )\s*$", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
+      [GeneratedRegex(@"\s*( := | =: | = | : )\s*$",RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
       private static partial Regex BodySeparatorRE();
    }
 }

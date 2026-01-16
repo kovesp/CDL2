@@ -33,18 +33,18 @@
 
 // Ignore Spelling: CDL
 
-global using TT  = CDL2v1.TokenType;
-global using RW  = CDL2v1.ReservedWord;
-global using AD  = CDL2v1.AffixDir;
-global using AT  = CDL2v1.AffixType;
-global using LCT = CDL2v1.LastCallType;
-global using SE  = CDL2v1.SyntacticElement;
+global using AD = CDL2v1.AffixDir;
 global using ANT = CDL2v1.AlgorithmNameType;
-global using DS  = CDL2v1.DecorationStyle;
-global using AS  = CDL2v1.AnnotationSymbol;
-global using SA  = CDL2v1.AnnotationSymbols;
+global using AS = CDL2v1.AnnotationSymbol;
+global using AT = CDL2v1.AffixType;
+global using DS = CDL2v1.DecorationStyle;
+global using LCT = CDL2v1.LastCallType;
 global using PBT = CDL2v1.ProcedureBodyType;
-global using ST  = CDL2v1.SelectorType;
+global using RW = CDL2v1.ReservedWord;
+global using SE = CDL2v1.SyntacticElement;
+global using ST = CDL2v1.SelectorType;
+global using TT = CDL2v1.TokenType;
+
 using System.Text;
 
 namespace CDL2v1 {
@@ -53,13 +53,13 @@ namespace CDL2v1 {
 
 
    public enum SpaceCharacters {
-      Figure      = '\u2007', // Unicode character for figure space, width of a digit
-      Em          = '\u2003', // Unicode character for em space, width of an 'M' in the current font
-      En          = '\u2002', // Unicode character for en space, width of an 'N' in the current font, 1/2 em
-      ThreePerEm  = '\u2004', // Unicode character for three-per-em space, width of 1/3 of an em space
+      Figure = '\u2007', // Unicode character for figure space, width of a digit
+      Em = '\u2003', // Unicode character for em space, width of an 'M' in the current font
+      En = '\u2002', // Unicode character for en space, width of an 'N' in the current font, 1/2 em
+      ThreePerEm = '\u2004', // Unicode character for three-per-em space, width of 1/3 of an em space
       Punctuation = '\u2008', // Unicode character for punctuation space, width of a period
-      Thin        = '\u2009', // Unicode character for thin space, 1/5 em
-      Hair        = '\u200A', // Unicode character for hair space, 1/10 em
+      Thin = '\u2009', // Unicode character for thin space, 1/5 em
+      Hair = '\u200A', // Unicode character for hair space, 1/10 em
    }
 
 
@@ -70,46 +70,46 @@ namespace CDL2v1 {
 #pragma warning disable IDE0079 // Remove unnecessary suppression
 #pragma warning disable CA1069 // Enums values should not be duplicated
    public enum TokenType {
-      ERROR          = 0,
-      RESWORD        = 1,
-      INT            = 2,
-      FLOAT          = 3,
-      STRING         = 4,
-      ID             = 5,
-      PLUS           = 6,
-      AFFIXSEP       = 6,  // Alias for PLUS
-      SUCCEED        = 6,  // Alias for PLUS
-      MINUS          = 7,
-      LOCALSEP       = 7,  // Alias for MINUS
-      FAIL           = 7,  // Alias for MINUS
-      STAR           = 8,
-      REPEAT         = 8,  // Alias for STAR
+      ERROR = 0,
+      RESWORD = 1,
+      INT = 2,
+      FLOAT = 3,
+      STRING = 4,
+      ID = 5,
+      PLUS = 6,
+      AFFIXSEP = 6,  // Alias for PLUS
+      SUCCEED = 6,  // Alias for PLUS
+      MINUS = 7,
+      LOCALSEP = 7,  // Alias for MINUS
+      FAIL = 7,  // Alias for MINUS
+      STAR = 8,
+      REPEAT = 8,  // Alias for STAR
       STRINGAFFIXSEP = 8,  // Alias for STAR
-      ABORT          = 9,
-      AFFIXDIR       = 10,
-      COLON          = 11,
-      LABELSEP       = 11,  // Alias for COLON
-      PROCBODY       = 11,  // Alias for COLON
-      LISTBOUNDSEP   = 11,  // Alias for COLON
+      ABORT = 9,
+      AFFIXDIR = 10,
+      COLON = 11,
+      LABELSEP = 11,  // Alias for COLON
+      PROCBODY = 11,  // Alias for COLON
+      LISTBOUNDSEP = 11,  // Alias for COLON
       INLINEPROCBODY = 12,
-      EQUALS         = 13,
-      MACROBODY      = 13,  // Alias for EQUALS
-      MACROPROCBODY  = 14,
-      PERIOD         = 15,
-      END            = 15,  // Alias for PERIOD
-      COMMA          = 16,
-      SEP            = 16,  // Alias for COMMA
-      CALLSEP        = 16,  // Alias for COMMA
-      LISTSEP        = 16,  // Alias for COMMA
-      SEMICOLON      = 17,
-      ALTSEP         = 17,  // Alias for SEMICOLON
-      ELEMSEP        = 17,  // Alias for SEMICOLON
-      GRPOPEN        = 18,
+      EQUALS = 13,
+      MACROBODY = 13,  // Alias for EQUALS
+      MACROPROCBODY = 14,
+      PERIOD = 15,
+      END = 15,  // Alias for PERIOD
+      COMMA = 16,
+      SEP = 16,  // Alias for COMMA
+      CALLSEP = 16,  // Alias for COMMA
+      LISTSEP = 16,  // Alias for COMMA
+      SEMICOLON = 17,
+      ALTSEP = 17,  // Alias for SEMICOLON
+      ELEMSEP = 17,  // Alias for SEMICOLON
+      GRPOPEN = 18,
       LISTBOUNDSTART = 18,  // Alias for GRPOPEN
-      GRPCLOSE       = 19,
-      LISTBOUNDEND   = 19,  // Alias for GRPCLOSE
-      COMMENT        = 20,
-      NOBODY         = 21,  // IMPORTed ALGORITHMs have no body
+      GRPCLOSE = 19,
+      LISTBOUNDEND = 19,  // Alias for GRPCLOSE
+      COMMENT = 20,
+      NOBODY = 21,  // IMPORTed ALGORITHMs have no body
    }
 #pragma warning restore CA1069 // Enums values should not be duplicated
 #pragma warning restore IDE0079 // Remove unnecessary suppression
@@ -117,30 +117,30 @@ namespace CDL2v1 {
    /// <summary>
    /// Reserved words for the CDL2 language.
    /// </summary>
-   public enum ReservedWord { 
-      PROGRAM, 
-      ENDPROG, 
-      PART, 
-      MODULE, 
-      ENDMOD, 
-      LAYER, 
-      ENDLAY, 
+   public enum ReservedWord {
+      PROGRAM,
+      ENDPROG,
+      PART,
+      MODULE,
+      ENDMOD,
+      LAYER,
+      ENDLAY,
       SECTION,
-      ENDSEC, 
-      ABSTR, 
-      EXT, 
-      INV, 
-      EXPORT, 
-      IMPORT, 
-      ROOT, 
-      PRELUDE, 
-      POSTLUDE, 
-      CONST, 
-      VAR, 
-      LIST, 
-      ACTION, 
-      FUNCTION, 
-      TEST, 
+      ENDSEC,
+      ABSTR,
+      EXT,
+      INV,
+      EXPORT,
+      IMPORT,
+      ROOT,
+      PRELUDE,
+      POSTLUDE,
+      CONST,
+      VAR,
+      LIST,
+      ACTION,
+      FUNCTION,
+      TEST,
       PREDICATE,
       NOTE,
 
@@ -259,7 +259,7 @@ namespace CDL2v1 {
    /// <summary>
    /// How to parse. Used by some parsing methods.
    /// </summary>
-   public enum ParseMode { 
+   public enum ParseMode {
       Full,    // Parse and add result to syntax-tree.
       Check,   // Just verify syntax.
       Result,  // Verify syntax and if correct, return cosntruct but don't add to parse tree.
@@ -302,15 +302,15 @@ namespace CDL2v1 {
    /// Specifies the direction in which focus should move within an object list.
    /// </summary>
    /// <remarks>Use this enumeration to indicate how focus navigation should proceed: Forward, Backward,First,Last</remarks>
-   public enum FocusMoveDirection { Forward=1, Backward=-1, First=2, Last=3 };
+   public enum FocusMoveDirection { Forward = 1, Backward = -1, First = 2, Last = 3 };
 
    /// <summary>
    /// Formal parameter directions of procedures.
    /// </summary>
-   public enum AffixDir { 
+   public enum AffixDir {
       input,
-      output, 
-      transput, 
+      output,
+      transput,
       NONE
    }
    /// <summary>
@@ -318,20 +318,20 @@ namespace CDL2v1 {
    ///   std : standard argument
    ///   str : string argument
    /// </summary>
-   public enum AffixType { 
-      std, 
-      str 
+   public enum AffixType {
+      std,
+      str
    }
 
    /// <summary>
    /// Call types that can be used in the last calls of an alternative.
    /// </summary>
    public enum LastCallType {
-      Standard, 
-      Succeed, 
-      Fail, 
-      Abort, 
-      Repeat, 
+      Standard,
+      Succeed,
+      Fail,
+      Abort,
+      Repeat,
       Group,
       None,                   // Use in the alternative generated for container Ludes.
    }
@@ -353,10 +353,10 @@ namespace CDL2v1 {
 
    [Flags]
    public enum InterfaceTypes {
-      None   = 0, 
-      Abstr  = 1,
-      Ext    = 2,
-      Inv    = 4,
+      None = 0,
+      Abstr = 1,
+      Ext = 2,
+      Inv = 4,
       Import = 8,
       Export = 16,
    }
@@ -405,12 +405,12 @@ namespace CDL2v1 {
    ///  /// </summary>
    [Flags]
    public enum AlgorithmNameType {
-      None     = 0,          // 
-      CanFail  = 1,          // Test or Predicate: Italic (otherwise Normal)
-      Macro    = 2,          // Macro: (underline)
-      Abstr    = 4,          // Abstracted from previous layer.
-      Ext      = 8,          // Extended from another container in current layer.
-      Inv      = 16,         // Invoked from another container in the current or previous layer. This is not used. Determine whether it was 
+      None = 0,          // 
+      CanFail = 1,          // Test or Predicate: Italic (otherwise Normal)
+      Macro = 2,          // Macro: (underline)
+      Abstr = 4,          // Abstracted from previous layer.
+      Ext = 8,          // Extended from another container in current layer.
+      Inv = 16,         // Invoked from another container in the current or previous layer. This is not used. Determine whether it was 
       Imported = 32,         // Imported from another module
       Exported = 64,         // Exported from current module. TODO: Not yet implemented
       HasEffect = 128,       // Action or predicate
@@ -425,12 +425,12 @@ namespace CDL2v1 {
    }
    [Flags]
    public enum DecorationStyle {
-      Normal      = 0,
-      Bold        = 1,
-      Italic      = 2,
-      Underline   = 4,
-      Intense     = 8,
-      Dimmed      = 16,
+      Normal = 0,
+      Bold = 1,
+      Italic = 2,
+      Underline = 4,
+      Intense = 8,
+      Dimmed = 16,
    }
 
    /// <summary>
@@ -438,7 +438,7 @@ namespace CDL2v1 {
    /// ImportExport is placed to the left of the PhaseName when imported and to the right when exported. Mutually exclusive.
    /// Abstr/Ext/AbstrExt is placed to the left of the PhaseName when invoked, and to the right when defined.
    /// </summary>
-   public enum  AnnotationSymbol {
+   public enum AnnotationSymbol {
       None = 0,
       ImportExport = 0x86, // Rightward pointing triangular arrow
       Abstr = 0xdb,        // Upward pointing arrow
@@ -456,11 +456,11 @@ namespace CDL2v1 {
       /// <summary>
       /// The string to use as a prefix for a PhaseName.
       /// </summary>
-      public string Prefix => (Prefix1 != AS.None ? $"{(char)Prefix1}" : "")+(Prefix2 != AS.None ? $"{(char)Prefix2}" : "");
+      public string Prefix => (Prefix1 != AS.None ? $"{(char)Prefix1}" : "") + (Prefix2 != AS.None ? $"{(char)Prefix2}" : "");
       /// <summary>
       /// The string to use as a suffix for a PhaseName.
       /// </summary>
-      public string Suffix => (Suffix1 != AS.None ? $"{(char)Suffix1}" : "")+(Suffix2 != AS.None ? $"{(char)Suffix2}" : "");
+      public string Suffix => (Suffix1 != AS.None ? $"{(char)Suffix1}" : "") + (Suffix2 != AS.None ? $"{(char)Suffix2}" : "");
 
       /// <summary>
       /// The character class for the AnnotationSymbol enumeration.
@@ -468,7 +468,7 @@ namespace CDL2v1 {
       public static string CharacterClass => characterClass;
 
       private static readonly string characterClass;
-      static AnnotationSymbols() { 
+      static AnnotationSymbols() {
          // Get the values of the AnnotationSymbol enumeration
          AnnotationSymbol[] values = (AnnotationSymbol[])Enum.GetValues(typeof(AnnotationSymbol));
 

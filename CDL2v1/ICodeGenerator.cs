@@ -33,8 +33,6 @@
 //=======================================================================
 // </auto-gen>
 
-using CDL2v1;
-
 namespace CDL2v1 {
    /// <summary>
    /// Interface for target code generators.
@@ -145,19 +143,19 @@ namespace CDL2v1 {
       ///   Only EmitterFile currently supports this.
       /// </param>
       /// <param name="isSeparate"></param>
-      void GenerateProgramStart(Program program, Emitter emitter, bool isSeparate = false);
+      void GenerateProgramStart(Program program,Emitter emitter,bool isSeparate = false);
       /// <summary>
       /// This is called at the end of the program.
       /// </summary>
       /// <param name="program"></param>
       /// <param name="isSeparate"></param>
-      void GenerateProgramEnd(Program program, bool isSeparate = false);
+      void GenerateProgramEnd(Program program,bool isSeparate = false);
 
       /// This is called for each part of the program. Typically does nothing, but may be used to setup linkage to the participating modules.
       /// </summary>
       /// <param name="program"></param>
       /// <param name="mod"></param>
-      void GenerateProgramPart(Program program, ID mod, bool isSeparate = false);
+      void GenerateProgramPart(Program program,ID mod,bool isSeparate = false);
 
       /// <summary>
       /// 
@@ -169,13 +167,13 @@ namespace CDL2v1 {
       ///   The generator is free to ignore this parameter.
       /// </param>
       /// <param name="target">May specify a target "file", or van be null. The generator can ignore this.</param>
-      void GenerateModuleStart(Module module, bool isSeparate = false, string? target = null);
+      void GenerateModuleStart(Module module,bool isSeparate = false,string? target = null);
       /// <summary>
       /// This is called at the end of the module.
       /// </summary>
       /// <param name="module"></param>
       /// <param name="isSeparate"></param>
-      void GenerateModuleEnd(Module module, bool isSeparate = false);
+      void GenerateModuleEnd(Module module,bool isSeparate = false);
 
       /// <summary>
       /// This is called at the start of a layer. Unlikely to be used for anything.
@@ -216,20 +214,20 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="ludeType"></param>
       /// <param name="program"></param>
-      void GenerateProgramLudeStart(RW ludeType, Program program);
+      void GenerateProgramLudeStart(RW ludeType,Program program);
       /// <summary>
       /// This is called for each lude of the given type in the program and in modules.
       /// </summary>
       /// <param name="ludeType"></param>
       /// <param name="program"></param>
       /// <param name="module"></param>
-      void GenerateProgramLude(RW ludeType, Program program, Module module);
+      void GenerateProgramLude(RW ludeType,Program program,Module module);
       /// <summary>
       /// This is called at the end of the program and module ludes.
       /// </summary>
       /// <param name="ludeType"></param>
       /// <param name="program"></param>
-      void GenerateProgramLudeEnd(RW ludeType, Program program);
+      void GenerateProgramLudeEnd(RW ludeType,Program program);
 
       /// <summary>
       /// This is called at the start generation of program and module ludes
@@ -237,25 +235,25 @@ namespace CDL2v1 {
       /// <param name="ludeType"></param>
       /// <param name="module"></param>
       /// <param name="wrapped"></param>
-      void GenerateModuleLudeStart(RW ludeType, Module module, bool wrapped);
+      void GenerateModuleLudeStart(RW ludeType,Module module,bool wrapped);
       /// <summary>
       /// This is called for each lude of the given type in the program and in modules.
       /// </summary>
       /// <param name="ludeType"></param>
       /// <param name="module"></param>
       /// <param name="section"></param>
-      void GenerateModuleLude(RW ludeType, Module program, Section module);
+      void GenerateModuleLude(RW ludeType,Module program,Section module);
       /// <summary>
       /// This is called at the end of the program and module ludes.
       /// </summary>
       /// <param name="ludeType"></param>
       /// <param name="module"></param>
       /// <param name="wrapped"></param>
-      void GenerateModuleLudeEnd(RW ludeType, Module module, bool wrapped);
+      void GenerateModuleLudeEnd(RW ludeType,Module module,bool wrapped);
 
 
-      void GenerateSectionLudeStart(RW ludeType, Section section);
-      void GenerateSectionLudeEnd(RW ludeType, Section section);
+      void GenerateSectionLudeStart(RW ludeType,Section section);
+      void GenerateSectionLudeEnd(RW ludeType,Section section);
       #endregion
 
       #region Import/Export
@@ -287,8 +285,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="count"></param>
       /// <param name="kind">CONST, VAR, LIST, MACRO, PROCEDURE</param>
-      void GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items, string kind) where T : NamedElement;
-      void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items, string kind) where T : NamedElement;
+      void GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items,string kind) where T : NamedElement;
+      void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items,string kind) where T : NamedElement;
       #endregion Object Sections
 
       #region Data Declarations
@@ -334,7 +332,7 @@ namespace CDL2v1 {
       /// <param name="id"></param>
       /// <param name="lwb">The constant that contains the lower bound.</param>
       /// <param name="upb">The constant that contains the upper bound.</param>
-      void GenerateList(LIST list, Const lwb, Const upb);
+      void GenerateList(LIST list,Const lwb,Const upb);
       #endregion Data Declarations
 
       #region Algorithm Common
@@ -350,7 +348,7 @@ namespace CDL2v1 {
       /// <param name="affix"></param>
       /// <param name="direction"></param>
       /// <param name="algorithmCanFail"></param>
-      void GenerateAffix(Affix affix, AD direction, bool algorithmCanFail);
+      void GenerateAffix(Affix affix,AD direction,bool algorithmCanFail);
       /// <summary>
       /// This is called to generate the separator between affixes in the algorithm header.
       /// </summary>
@@ -388,7 +386,7 @@ namespace CDL2v1 {
       /// <param name="alg"></param>
       /// <param name="var"></param>
       /// <param name="isVar"></param>
-      void GenerateAffixAndVariableInitializer(Algorithm alg, IFailureProtected var, bool isVar = false);
+      void GenerateAffixAndVariableInitializer(Algorithm alg,IFailureProtected var,bool isVar = false);
       /// <summary>
       /// This is called at the end of the initialization of affixes and variables.
       /// </summary>
@@ -407,7 +405,7 @@ namespace CDL2v1 {
       /// <param name="alg"></param>
       /// <param name="var"></param>
       /// <param name="isVar"></param>
-      void GenerateAffixAndVariableFinalizer(Algorithm alg, IFailureProtected var, bool isVar = false);
+      void GenerateAffixAndVariableFinalizer(Algorithm alg,IFailureProtected var,bool isVar = false);
       /// <summary>
       /// This is called at the end of the finalization of affixes and variables.
       /// </summary>
@@ -470,15 +468,15 @@ namespace CDL2v1 {
       /// <param name="value"></param>
       /// <param name="canFail"></param>
       /// <param name="firstElement"></param>
-      void GenerateMacroElementString(string value, bool firstElement,bool quoted);
+      void GenerateMacroElementString(string value,bool firstElement,bool quoted);
       /// <summary>
       /// This is called for each reference in a const, macro or proc that is a constant.
       /// </summary>
       /// <param name="constant"></param>
       void GenerateMacroElementConst(Const constant);
-      void GenerateMacroElementVar(Var var, bool macroCanFail, bool inlined = false);
+      void GenerateMacroElementVar(Var var,bool macroCanFail,bool inlined = false);
       void GenerateMacroElementList(LIST list);
-      void GenerateMacroElementAffix(Affix aff, bool macroCanFail);
+      void GenerateMacroElementAffix(Affix aff,bool macroCanFail);
       void GenerateMacroElementLocal(Local id);
       void GenerateMacroInlineStart(Macro macro);
       void GenerateMacroInlineEnd(Macro macro);
@@ -495,8 +493,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="code"></param>
       void GenerateProcedureEnd(Procedure code);
-      void GenerateProcedureBodyStart(Procedure macro, PBT bodyType);
-      void GenerateProcedureBodyEnd(Procedure macro, PBT bodyType);
+      void GenerateProcedureBodyStart(Procedure macro,PBT bodyType);
+      void GenerateProcedureBodyEnd(Procedure macro,PBT bodyType);
       #region Alternatives
       /// <summary>
       /// Generate the start of alternative i the group.
@@ -504,7 +502,7 @@ namespace CDL2v1 {
       /// <param name="proc"></param>
       /// <param name="group"></param>
       /// <param name="i"></param>
-      void GenerateAlternativeStart(Procedure proc, Group group, int i);
+      void GenerateAlternativeStart(Procedure proc,Group group,int i);
       /// <summary>
       /// Generate the end of alternative i int he group.
       /// </summary>
@@ -514,7 +512,7 @@ namespace CDL2v1 {
       /// <param name="alternative"></param>
       /// <param name="removed">Set if the alternative tail was skipped due to conditional compilation.</param>
       /// 
-      void GenerateAlternativeEnd(Procedure proc, Group group, int i, Alternative alternative, bool removed = false);
+      void GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed = false);
 
       #endregion Alternatives
 
@@ -524,13 +522,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      void GenerateGroupStart(Procedure proc, Group group);
+      void GenerateGroupStart(Procedure proc,Group group);
       /// <summary>
       /// Called at the end of a group.
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      void GenerateGroupEnd(Procedure proc, Group group);
+      void GenerateGroupEnd(Procedure proc,Group group);
       #endregion Groups
 
       #region Calls
@@ -542,34 +540,34 @@ namespace CDL2v1 {
       /// <param name="group">The immediate group containing the operator.</param>
       /// <param name="label">The label to be repeated, or Anon to repeat the enclosing group.</param>
       /// <param name="canFail">True if the alternative that ends with this repeat can fail.</param>
-      void GenerateRepeat(Procedure proc, Group group, ID label,bool canFail);
+      void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail);
       /// <summary>
       /// Exit the current procedure with a fail. This can only occur in a TEST/PREDICATE.
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      void GenerateFail(Procedure proc, Group group);
+      void GenerateFail(Procedure proc,Group group);
       /// <summary>
       /// Exit the current procedure with success. This is probably a no-op.
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      void GenerateSucceed(Procedure proc, Group group);
+      void GenerateSucceed(Procedure proc,Group group);
       /// <summary>
       /// Terminate the running program.
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      void GenerateAbort(Procedure proc, Group group);
+      void GenerateAbort(Procedure proc,Group group);
 
       void GenerateActualArgSeparator();
-      void GenerateCallStart(Algorithm called, Procedure proc, bool firstCall = false, bool onlyCallInAlternative = false,bool lastAlternative = false);
-      void GenerateCallEnd(Algorithm call, Procedure proc, bool firstCall = false, bool onlyCallInAlternative = false,bool lastAlternative=false);
+      void GenerateCallStart(Algorithm called,Procedure proc,bool firstCall = false,bool onlyCallInAlternative = false,bool lastAlternative = false);
+      void GenerateCallEnd(Algorithm call,Procedure proc,bool firstCall = false,bool onlyCallInAlternative = false,bool lastAlternative = false);
       void GenerateCallArgString(string value);
-      void GenerateCallArgReferenceAffix(Affix calledAffix, Affix a, bool needFinalization);
-      void GenerateCallArgReferenceLocal(Affix calledAffix, Local lo);
-      void GenerateCallArgReferenceConst(Affix calledAffix, Const c);
-      void GenerateCallArgReferenceVar(Affix calledAffix, Var v, bool needFinalization);
+      void GenerateCallArgReferenceAffix(Affix calledAffix,Affix a,bool needFinalization);
+      void GenerateCallArgReferenceLocal(Affix calledAffix,Local lo);
+      void GenerateCallArgReferenceConst(Affix calledAffix,Const c);
+      void GenerateCallArgReferenceVar(Affix calledAffix,Var v,bool needFinalization);
       #endregion Calls
 
       #endregion Procedures

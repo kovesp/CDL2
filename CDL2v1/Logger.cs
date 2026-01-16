@@ -32,13 +32,7 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CDL2v1 {
    /// <summary>
@@ -82,7 +76,7 @@ namespace CDL2v1 {
       /// 
       /// </summary>
       /// <param Id="errorAction"></param>
-      public  Logger(Action? errorAction) : this(errorAction,_WriteLine) { }
+      public Logger(Action? errorAction) : this(errorAction,_WriteLine) { }
       /// <summary>
       /// Create a logger with the default actions.
       /// </summary>
@@ -94,8 +88,8 @@ namespace CDL2v1 {
       /// <param Id="level"></param>
       /// <param Id="message"></param>
       public void _Log(int level,string message) {
-         string prefix = "CDL2: "+ new string(' ',3 * level);
-         message = prefix+message.Replace("\n","\n" + prefix);
+         string prefix = "CDL2: " + new string(' ',3 * level);
+         message = prefix + message.Replace("\n","\n" + prefix);
          WriteLine(level,message);
       }
 
@@ -109,16 +103,16 @@ namespace CDL2v1 {
       /// Log an error message.
       /// </summary>
       /// <param Id="message"></param>
-      private void _LogError(string message) => WriteLine(-1, string.Join('\n', message.Split('\n').Select(line => $"CDL2 Error: {line}")));
+      private void _LogError(string message) => WriteLine(-1,string.Join('\n',message.Split('\n').Select(line => $"CDL2 Error: {line}")));
 
       /// <summary>
       /// Report an error message.
       /// If the ErrorAction is not null, it is called.
       /// </summary>
       /// <param Id="message"></param>
-      public void _ReportError(string message, bool suppressErrorAction = false) {
+      public void _ReportError(string message,bool suppressErrorAction = false) {
          string? currentObj = CurrentObject?.ToString();
-         _LogError($"{(currentObj is null?"":": ")}{message}");
+         _LogError($"{(currentObj is null ? "" : ": ")}{message}");
          if (!suppressErrorAction && ErrorAction is not null) ErrorAction();
       }
 
@@ -130,7 +124,7 @@ namespace CDL2v1 {
       public static void Log(int level,string message) => logger._Log(level,message);
       public static void Log(string message) => logger._Log(0,message);
       public static void LogError(string message) => logger._LogError(message);
-      public static void ReportError(string message,bool suppressErrorAction=false) => logger._ReportError(message, suppressErrorAction: suppressErrorAction);
+      public static void ReportError(string message,bool suppressErrorAction = false) => logger._ReportError(message,suppressErrorAction: suppressErrorAction);
 
       /// <summary>
       /// Writes a message to the console and debug output if the verbosity level is high enough.

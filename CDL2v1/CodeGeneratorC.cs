@@ -16,11 +16,6 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-
 namespace CDL2v1 {
    internal partial class CodeGeneratorC : TargetCodeGenerator, ICodeGenerator {
       public string FileExtension => "c";
@@ -34,7 +29,7 @@ namespace CDL2v1 {
 
       public CodeGeneratorC(string dataType) : base() => DataType = dataType;
 
-      public void GenerateProgramStart(Program program, Emitter emitter, bool isSeparate = false) {
+      public void GenerateProgramStart(Program program,Emitter emitter,bool isSeparate = false) {
          this.emitter = emitter;
          emitter.Emitnl("/*cspell:disable*/");
          emitter.Emitnl("/*");
@@ -100,7 +95,7 @@ namespace CDL2v1 {
 
       public void GenerateProgramLudesEnd() { }
 
-      public void GenerateProgramEnd(Program program, bool isSeparate = false) {
+      public void GenerateProgramEnd(Program program,bool isSeparate = false) {
          DecrementIndent();
          emitter.Emitnl("return 0;");
          emitter.Emitnl("}");
@@ -108,41 +103,41 @@ namespace CDL2v1 {
          EmitUnitEndComment(program);
       }
 
-      void ICodeGenerator.GenerateSourceComment() => emitter.NlEmit("\n", sourceEmitter.Content);
+      void ICodeGenerator.GenerateSourceComment() => emitter.NlEmit("\n",sourceEmitter.Content);
 
       public new void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl("/* ", line, " */");
+         foreach (string line in comment.Split('\n')) emitter.Emitnl("/* ",line," */");
       }
 
       public void GenerateComment(PrettyPrinter pp) => emitter.Emit(pp.Emitter.Content);
 
       public void GenerateNewline() => emitter.Emitnl();
 
-      public void GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items, string typeName) where T : NamedElement {
+      public void GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items,string typeName) where T : NamedElement {
          int n = items.Count();
          if (n > 0) emitter.NlEmitnl($"\n/* ##### {n} {typeName}{(n != 1 ? "s" : "")} ##### */\n");
       }
 
-      public void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items, string typeName) where T : NamedElement { }
+      public void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items,string typeName) where T : NamedElement { }
 
-      public void GenerateConstantStart(Const constant) => emitter.Emit("#define ", CName(constant), " ");
+      public void GenerateConstantStart(Const constant) => emitter.Emit("#define ",CName(constant)," ");
       public void GenerateConstElementInt(long value) => emitter.Emit(value);
       public void GenerateConstElementFloat(double value) => emitter.Emit(value);
-      public void GenerateConstElementString(string value) => emitter.Emit("\"", value, "\"");
+      public void GenerateConstElementString(string value) => emitter.Emit("\"",value,"\"");
       public void GenerateConstElementConst(Const c) => emitter.Emit(CName(c));
 
       public void GenerateConstantEnd(Const constant) => emitter.Emitnl();
 
-      public void GenerateVar(Var v) => emitter.Emitnl("VALUE ", CName(v), " = ", RandomInitialValue, ";");
+      public void GenerateVar(Var v) => emitter.Emitnl("VALUE ",CName(v)," = ",RandomInitialValue,";");
 
-      public void GenerateList(LIST list, Const lwb, Const upb) => emitter.Emitnl("CDL2_DECLARE_LIST(", CName(list), ", ", CName(lwb), ", ", CName(upb), ");");
+      public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("CDL2_DECLARE_LIST(",CName(list),", ",CName(lwb),", ",CName(upb),");");
 
       public void GenerateMacroStart(Macro macro) => emitter.NlEmit("\n",sourceEmitter.Content);
       public void GenerateMacroEnd(Macro macro) {
          DecrementIndent();
          emitter.NlEmitnl("}");
       }
-            
+
       public void GenerateMacroBodyStart(Macro macro) {
          if (macro.NeedsFinalization) IncrementIndent();
       }
@@ -164,10 +159,10 @@ namespace CDL2v1 {
 
       public void GenerateMacroElementInt(long value) => emitter.Emit(value);
       public void GenerateMacroElementFloat(double value) => emitter.Emit(value);
-      
-      public void GenerateMacroElementString(string value, bool firstElement, bool quoted) {
+
+      public void GenerateMacroElementString(string value,bool firstElement,bool quoted) {
          if (quoted) {
-            emitter.Emit("\"", value.Replace("\"", "\\\""), "\"");
+            emitter.Emit("\"",value.Replace("\"","\\\""),"\"");
          } else {
             string[] lines = value.Split('\n');
             foreach (string line in lines.Skip(firstElement ? 1 : 0).SkipLast(1)) emitter.Emitnl(line);
@@ -176,10 +171,10 @@ namespace CDL2v1 {
       }
 
       public void GenerateMacroElementConst(Const c) => emitter.Emit(CName(c));
-      public void GenerateMacroElementVar(Var v, bool canFail, bool inlined = false) => emitter.Emit(CName(v, canFail && !inlined ? "_" : ""));
+      public void GenerateMacroElementVar(Var v,bool canFail,bool inlined = false) => emitter.Emit(CName(v,canFail && !inlined ? "_" : ""));
       public void GenerateMacroElementList(LIST l) => emitter.Emit(CName(l));
       public void GenerateMacroElementLocal(Local local) => emitter.Emit(CName(local));
-      public void GenerateMacroElementAffix(Affix affix, bool canFail) => emitter.Emit((affix.IsOutput ? "*" : "") + CName(affix, canFail && affix.IsOutput ? "_" : ""));
+      public void GenerateMacroElementAffix(Affix affix,bool canFail) => emitter.Emit((affix.IsOutput ? "*" : "") + CName(affix,canFail && affix.IsOutput ? "_" : ""));
 
       #region Procedures
       private ModifiableStack ifDepth = [];
@@ -195,7 +190,7 @@ namespace CDL2v1 {
          emitter.NlEmitnl("}");
       }
 
-      public void GenerateProcedureBodyStart(Procedure proc, ProcedureBodyType bodyType) {
+      public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) {
          if (proc.NeedsWrapper) {
             emitter.Emitnl("while (1) {");
             IncrementIndent();
@@ -203,7 +198,7 @@ namespace CDL2v1 {
          IncrementIndent();
       }
 
-      public void GenerateProcedureBodyEnd(Procedure proc, ProcedureBodyType bodyType) {
+      public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) {
          DecrementIndent();
          if (proc.NeedsWrapper) {
             emitter.Emitnl(proc.CanFail ? "return 0;" : "return;");
@@ -212,9 +207,9 @@ namespace CDL2v1 {
          }
       }
 
-      public void GenerateAlternativeStart(Procedure proc, Group group, int alternativeNumber) => GenerateComment($"Alternative {alternativeNumber}");
-      
-      public void GenerateAlternativeEnd(Procedure proc, Group group, int alternativeNumber, Alternative alternative, bool removed) {
+      public void GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber) => GenerateComment($"Alternative {alternativeNumber}");
+
+      public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? "break;" : "return 1;") : "return;");
          while (ifDepth > 0) {
@@ -225,14 +220,14 @@ namespace CDL2v1 {
          GenerateComment($"End Alternative {alternativeNumber}");
       }
 
-      public void GenerateGroupStart(Procedure proc, Group group) {
+      public void GenerateGroupStart(Procedure proc,Group group) {
          GenerateComment("Group");
          if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("while (1) {");
          ifDepth.Push(0);
          IncrementIndent();
       }
 
-      public void GenerateGroupEnd(Procedure proc, Group group) {
+      public void GenerateGroupEnd(Procedure proc,Group group) {
          bool hasDo = group.HasAnonymousRepeat || !group.IsSynthetic;
          if (hasDo) emitter.Emitnl("break;");
          DecrementIndent();
@@ -241,17 +236,17 @@ namespace CDL2v1 {
          GenerateComment("End Group");
       }
 
-      public void GenerateCallStart(Algorithm called, Procedure calling, bool canFail, bool onlyCallInAlternative, bool lastAlternative) {
+      public void GenerateCallStart(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
-            emitter.Emit("if (!", CName(called), "(");
+            emitter.Emit("if (!",CName(called),"(");
             ifDepth++;
             IncrementIndent();
          } else {
-            emitter.Emit(CName(called), "(");
+            emitter.Emit(CName(called),"(");
          }
       }
 
-      public void GenerateCallEnd(Algorithm called, Procedure calling, bool canFail, bool onlyCallInAlternative, bool lastAlternative) {
+      public void GenerateCallEnd(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
             emitter.Emit(")) {");
          } else {
@@ -260,30 +255,30 @@ namespace CDL2v1 {
          Newline();
       }
 
-      public void GenerateFail(Procedure proc, Group group) => emitter.Emitnl("return 0;");
-      public void GenerateSucceed(Procedure proc, Group group) => emitter.Emitnl("return 1;");
-      public void GenerateAbort(Procedure proc, Group group) => emitter.Emitnl("exit(1);");
-      public void GenerateRepeat(Procedure proc, Group group, ID label, bool canFail) => emitter.Emitnl("continue;");
+      public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("return 0;");
+      public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl("return 1;");
+      public void GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit(1);");
+      public void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail) => emitter.Emitnl("continue;");
 
       public void GenerateActualArgSeparator() => emitter.Emit(", ");
-      public void GenerateCallArgString(string value) => emitter.Emit("\"", value.Replace("\"", "\\\""), "\"");
-      public void GenerateCallArgReferenceConst(Affix affix, Const c) => emitter.Emit(CName(c));
-      
-      public void GenerateCallArgReferenceVar(Affix affix, Var v, bool needFinalization) {
-         if (affix.IsOutput) emitter.Emit("&", CName(v, needFinalization ? "_" : ""));
-         else emitter.Emit(CName(v, needFinalization ? "_" : ""));
+      public void GenerateCallArgString(string value) => emitter.Emit("\"",value.Replace("\"","\\\""),"\"");
+      public void GenerateCallArgReferenceConst(Affix affix,Const c) => emitter.Emit(CName(c));
+
+      public void GenerateCallArgReferenceVar(Affix affix,Var v,bool needFinalization) {
+         if (affix.IsOutput) emitter.Emit("&",CName(v,needFinalization ? "_" : ""));
+         else emitter.Emit(CName(v,needFinalization ? "_" : ""));
       }
 
-      public void GenerateCallArgReferenceAffix(Affix calledAffix, Affix callingAffix, bool needFinalization) {
+      public void GenerateCallArgReferenceAffix(Affix calledAffix,Affix callingAffix,bool needFinalization) {
          if (calledAffix.IsOutput) {
-            if (callingAffix.IsOutput) emitter.Emit("&", CName(callingAffix, needFinalization ? "_" : ""));
+            if (callingAffix.IsOutput) emitter.Emit("&",CName(callingAffix,needFinalization ? "_" : ""));
             else emitter.Emit(CName(callingAffix));
          } else {
-            emitter.Emit(callingAffix.IsOutput ? "*" : "", CName(callingAffix, needFinalization && callingAffix.IsOutput ? "_" : ""));
+            emitter.Emit(callingAffix.IsOutput ? "*" : "",CName(callingAffix,needFinalization && callingAffix.IsOutput ? "_" : ""));
          }
       }
 
-      public void GenerateCallArgReferenceLocal(Affix affix, Local local) => emitter.Emit(affix.IsOutput ? "&" : "", CName(local));
+      public void GenerateCallArgReferenceLocal(Affix affix,Local local) => emitter.Emit(affix.IsOutput ? "&" : "",CName(local));
       #endregion Procedures
 
       public void GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"{(alg.CanFail ? "BOOL" : "void")} {CName(alg)}(");
@@ -292,23 +287,23 @@ namespace CDL2v1 {
          IncrementIndent();
       }
 
-      public void GenerateAffix(Affix affix, AffixDir dir, bool canFail) {
+      public void GenerateAffix(Affix affix,AffixDir dir,bool canFail) {
          switch (dir) {
             case AD.input:
-               emitter.Emit("VALUE ", CName(affix));
+               emitter.Emit("VALUE ",CName(affix));
                break;
             case AD.NONE:
-               emitter.Emit("char *", CName(affix));
+               emitter.Emit("char *",CName(affix));
                break;
             default:
-               emitter.Emit("VALUE *", CName(affix));
+               emitter.Emit("VALUE *",CName(affix));
                break;
          }
       }
 
       public void GenerateAffixSeparator() => emitter.Emit(", ");
 
-      public void GenerateLocal(Local local) => emitter.Emitnl("VALUE ", CName(local), " = ", RandomInitialValue, ";");
+      public void GenerateLocal(Local local) => emitter.Emitnl("VALUE ",CName(local)," = ",RandomInitialValue,";");
 
       public void GenerateAffixAndVariableInitializationStart(Algorithm alg) {
          if (alg.NeedsFinalization) GenerateComment("Initialization");
@@ -318,23 +313,23 @@ namespace CDL2v1 {
          if (alg.NeedsFinalization) GenerateComment("End Initialization");
       }
 
-      public void GenerateAffixAndVariableInitializer(Algorithm alg, IFailureProtected item, bool isVar) {
+      public void GenerateAffixAndVariableInitializer(Algorithm alg,IFailureProtected item,bool isVar) {
          switch (item is Affix affix ? affix.affixDir : AD.transput) {
             case AD.NONE:
             case AD.input:
                break;
             case AD.output:
                if (isVar) {
-                  emitter.Emitnl("VALUE ", CName((Var)item, "_"), " = ", RandomInitialValue, ";");
+                  emitter.Emitnl("VALUE ",CName((Var)item,"_")," = ",RandomInitialValue,";");
                } else {
-                  emitter.Emitnl("VALUE ", CName((Affix)item, "_"), " = ", RandomInitialValue, ";");
+                  emitter.Emitnl("VALUE ",CName((Affix)item,"_")," = ",RandomInitialValue,";");
                }
                break;
             case AD.transput:
                if (isVar) {
-                  emitter.Emitnl("VALUE ", CName((Var)item, "_"), " = ", CName((Var)item), ";");
+                  emitter.Emitnl("VALUE ",CName((Var)item,"_")," = ",CName((Var)item),";");
                } else {
-                  emitter.Emitnl("VALUE ", CName((Affix)item, "_"), " = *", CName((Affix)item), ";");
+                  emitter.Emitnl("VALUE ",CName((Affix)item,"_")," = *",CName((Affix)item),";");
                }
                break;
          }
@@ -348,78 +343,78 @@ namespace CDL2v1 {
          if (algorithm.NeedsFinalization) GenerateComment("End Finalization");
       }
 
-      public void GenerateAffixAndVariableFinalizer(Algorithm alg, IFailureProtected item, bool isVar) {
+      public void GenerateAffixAndVariableFinalizer(Algorithm alg,IFailureProtected item,bool isVar) {
          switch (item is Affix affix ? affix.affixDir : AD.transput) {
             case AD.NONE:
             case AD.input:
                break;
             default:
                if (isVar) {
-                  emitter.Emitnl(CName((Var)item), " = ", CName((Var)item, "_"), ";");
+                  emitter.Emitnl(CName((Var)item)," = ",CName((Var)item,"_"),";");
                } else {
-                  emitter.Emitnl("*", CName((Affix)item), " = ", CName((Affix)item, "_"), ";");
+                  emitter.Emitnl("*",CName((Affix)item)," = ",CName((Affix)item,"_"),";");
                }
                break;
          }
       }
 
-      public void GenerateProgramPart(Program program, ID moduleId, bool isSeparate) { }
+      public void GenerateProgramPart(Program program,ID moduleId,bool isSeparate) { }
 
-      public void GenerateProgramLudeStart(RW ludeType, Program program) => emitter.Emitnl("/* Program ", ludeType, " */");
-      
-      public void GenerateProgramLudeEnd(RW ludeType, Program program) { }
+      public void GenerateProgramLudeStart(RW ludeType,Program program) => emitter.Emitnl("/* Program ",ludeType," */");
 
-      public void GenerateProgramLude(RW ludeType, Program program, Module module) => 
+      public void GenerateProgramLudeEnd(RW ludeType,Program program) { }
+
+      public void GenerateProgramLude(RW ludeType,Program program,Module module) =>
             emitter.Emitnl($"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: false)}__{ludeType}();");
 
-      public void GenerateModuleStart(Module module, bool isSeparate, string? headerFileName = null) {
+      public void GenerateModuleStart(Module module,bool isSeparate,string? headerFileName = null) {
          emitter.Emitnl();
          EmitUnitStartComment(module);
       }
 
-      public void GenerateModuleEnd(Module module, bool isSeparate) => EmitUnitEndComment(module);
+      public void GenerateModuleEnd(Module module,bool isSeparate) => EmitUnitEndComment(module);
 
       public void GenerateImpExStart(Module module) { }
       public void GenerateImpExEnd(Module module) { }
       public void GenerateExport(IProvidable exportedItem) { }
       public void GenerateImport(IProvidable importedItem) { }
 
-      public void GenerateModuleLudeStart(RW ludeType, Module module, bool wrapped) {
-         emitter.Emitnl("/* MOD ", module.Id.Name, " ", ludeType, " */");
+      public void GenerateModuleLudeStart(RW ludeType,Module module,bool wrapped) {
+         emitter.Emitnl("/* MOD ",module.Id.Name," ",ludeType," */");
          if (wrapped) {
             string returnType = ludeType == RW.ROOT || ludeType == RW.PRELUDE || ludeType == RW.POSTLUDE ? "void" : "VALUE";
             string moduleName = $"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: false)}__{ludeType}";
 
-            emitter.Emitnl(returnType, " ", moduleName, "__", ludeType, "()");
+            emitter.Emitnl(returnType," ",moduleName,"__",ludeType,"()");
             emitter.Emitnl("{");
             IncrementIndent();
          }
       }
 
-      public void GenerateModuleLudeEnd(RW ludeType, Module module, bool wrapped) {
+      public void GenerateModuleLudeEnd(RW ludeType,Module module,bool wrapped) {
          if (wrapped) {
             DecrementIndent();
             emitter.Emitnl("}");
          }
       }
 
-      public void GenerateModuleLude(RW ludeType, Module module, Section section) => 
+      public void GenerateModuleLude(RW ludeType,Module module,Section section) =>
          emitter.Emitnl(section.SyntheticProcedures.Where(p => p.Id.CanonicalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: false,literalObjectName: true)!,"();");
 
       public void GenerateLayerStart(Layer layer) { }
       public void GenerateLayerEnd(Layer layer) { }
       public void GenerateSectionStart(Section section) { }
       public void GenerateSectionEnd(Section section) { }
-      public void GenerateSectionLudeStart(RW ludeType, Section section) { }
-      public void GenerateSectionLudeEnd(RW ludeType, Section section) { }
-      public void GenerateSectionLude(RW ludeType, Section section, Procedure proc) => emitter.Emitnl(CName(proc), "();");
+      public void GenerateSectionLudeStart(RW ludeType,Section section) { }
+      public void GenerateSectionLudeEnd(RW ludeType,Section section) { }
+      public void GenerateSectionLude(RW ludeType,Section section,Procedure proc) => emitter.Emitnl(CName(proc),"();");
 
 
       #region Helpers
-      private static string CName(CDL2Object obj, string suffix = "") => obj.FQN(camelCase: false, literalObjectName: obj.IsSynthetic) + suffix;
-      private static string CName(Affix affix, string suffix = "") => "a_" + affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
-      private static string CName(Local local, string suffix = "") => "l_" + local.Id.Name.AsIdentifier(camelCase: false) + suffix;
-      private static string CName(Var var, string suffix = "") => "v_" + var.FQN(camelCase: false, literalObjectName: var.IsSynthetic) + suffix;
+      private static string CName(CDL2Object obj,string suffix = "") => obj.FQN(camelCase: false,literalObjectName: obj.IsSynthetic) + suffix;
+      private static string CName(Affix affix,string suffix = "") => "a_" + affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
+      private static string CName(Local local,string suffix = "") => "l_" + local.Id.Name.AsIdentifier(camelCase: false) + suffix;
+      private static string CName(Var var,string suffix = "") => "v_" + var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
       #endregion Helpers
    }
 }

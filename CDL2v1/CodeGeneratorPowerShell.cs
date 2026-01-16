@@ -33,21 +33,8 @@
 
 // Ignore Spelling: Finalizer lwb upb CDL
 
-using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.CommandLine;
 using System.Diagnostics;
-using System.Diagnostics.Eventing.Reader;
 using System.IO;
-using System.Linq;
-using System.Reflection.Emit;
-using System.Reflection.Metadata;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows.Controls;
-using System.Xml.Linq;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorPowerShell : TargetCodeGenerator, ICodeGenerator {
@@ -65,7 +52,7 @@ namespace CDL2v1 {
       /// <remarks>No explicit references to this class. The instance is constructed via reflection.</remarks>
       public CodeGeneratorPowerShell(string dataType) : base() {
          DataType = dataType;
-         DT       = $"[{DataType}]";
+         DT = $"[{DataType}]";
          NestedComment = ("<#", "#>");
       }
 
@@ -152,7 +139,7 @@ function Remove-Const([string[]]$names) {
          if (isSeparate) {
             // Changes the target file name to be the module name with the extension. Ignored by emitters except for the file Emitter.
             // This causes the file Emitter to close the current file and switch to the new file.
-            emitter.Target = Path.Combine(Path.GetDirectoryName(emitter.Target)??"",module.Id.CanonicalName+((ICodeGenerator)this).FileExtension);
+            emitter.Target = Path.Combine(Path.GetDirectoryName(emitter.Target) ?? "",module.Id.CanonicalName + ((ICodeGenerator)this).FileExtension);
          }
          EmitUnitStartComment(module);
       }
@@ -175,18 +162,18 @@ function Remove-Const([string[]]$names) {
       /// </summary>
       /// <param name="ludetype"></param>
       /// <param name="program"></param>
-      void ICodeGenerator.GenerateProgramLudeStart(RW ludetype, Program program) {
+      void ICodeGenerator.GenerateProgramLudeStart(RW ludetype,Program program) {
          GenerateComment($"{program.TypeShortName}_{program.Id.Name.AsIdentifier(camelCase: true)}__{ludetype}");
          IncrementIndent();
       }
 
-      void ICodeGenerator.GenerateProgramLude(RW ludeType, Program program, Module module)
+      void ICodeGenerator.GenerateProgramLude(RW ludeType,Program program,Module module)
          => emitter.Emitnl($"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: true)}__{ludeType}");
-      void ICodeGenerator.GenerateProgramLudeEnd(RW ludeType, Program program) {
+      void ICodeGenerator.GenerateProgramLudeEnd(RW ludeType,Program program) {
          DecrementIndent();
       }
 
-      void ICodeGenerator.GenerateModuleLudeStart(RW ludetype, Module module, bool wrapped) {
+      void ICodeGenerator.GenerateModuleLudeStart(RW ludetype,Module module,bool wrapped) {
          string moduleName = $"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: true)}__{ludetype}";
          if (wrapped) {
             emitter.Emitnl($"function {moduleName} {{");
@@ -195,9 +182,9 @@ function Remove-Const([string[]]$names) {
          }
          IncrementIndent();
       }
-      void ICodeGenerator.GenerateModuleLude(RW ludeType, Module module, Section section)
-         => emitter.Emitnl(section.SyntheticProcedures.Where(p=>p.Id.CanonicalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true, literalObjectName:true)!);
-      void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType, Module module, bool wrapped) {
+      void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section)
+         => emitter.Emitnl(section.SyntheticProcedures.Where(p => p.Id.CanonicalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true,literalObjectName: true)!);
+      void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType,Module module,bool wrapped) {
          DecrementIndent();
          if (wrapped) emitter.Emitnl("}");
       }
@@ -214,12 +201,12 @@ function Remove-Const([string[]]$names) {
       #endregion Import/Export
 
       #region Object Sections
-      void ICodeGenerator.GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items, string typeName) {
+      void ICodeGenerator.GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items,string typeName) {
          int n = items.Count();
          if (n > 0) {
             emitter.NlEmitnl($"\n##### {n} {typeName}{(n != 1 ? "s" : "")} #####\n");
             if (items.First() is Const) {
-               emitter.Emitnl("Remove-Const ",string.Join(",",items.Select(c=>PSVarPrefix(PSVarType.Const)+PSName((c as Const)!))));
+               emitter.Emitnl("Remove-Const ",string.Join(",",items.Select(c => PSVarPrefix(PSVarType.Const) + PSName((c as Const)!))));
             }
          }
       }
@@ -232,15 +219,15 @@ function Remove-Const([string[]]$names) {
       /// Use this version to get constants that can be modifieed
       /// </summary>
       /// <param name="c"></param>
-      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c), " = 0; Set-Const '",PSVarPrefix(PSVarType.Const),PSName(c),"' ");
-      void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value, false,false);
+      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c)," = 0; Set-Const '",PSVarPrefix(PSVarType.Const),PSName(c),"' ");
+      void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value,false,false);
       void ICodeGenerator.GenerateConstElementFloat(double value) => ((ICodeGenerator)this).GenerateMacroElementFloat(value);
       void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
       void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(PSVar(constant));
       void ICodeGenerator.GenerateConstantEnd(Const c) => emitter.Emitnl();
-      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT, PSVar(var), " = ", RandomInitialValue);
+      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT,PSVar(var)," = ",RandomInitialValue);
 
-      void ICodeGenerator.GenerateList(LIST var, Const lwb, Const upb) => emitter.Emitnl(PSVar(var), $" = [BoundedArray]::new({PSVar(lwb)},{PSVar(upb)})");
+      void ICodeGenerator.GenerateList(LIST var,Const lwb,Const upb) => emitter.Emitnl(PSVar(var),$" = [BoundedArray]::new({PSVar(lwb)},{PSVar(upb)})");
       #endregion Data Declarations
 
       #region Algorithm Common
@@ -255,23 +242,23 @@ function Remove-Const([string[]]$names) {
       /// The latter should be made impossible by semantic analysis.
       /// </summary>
       /// <param name="local"></param>
-      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT, PSVar(local), " = ",RandomInitialValue);
-      void ICodeGenerator.GenerateAffix(Affix affix, AD dir, bool algorithmCanFail) {
+      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT,PSVar(local)," = ",RandomInitialValue);
+      void ICodeGenerator.GenerateAffix(Affix affix,AD dir,bool algorithmCanFail) {
          switch (dir) {
             case AD.input:
-               emitter.Emit(DT, PSVar(affix));
+               emitter.Emit(DT,PSVar(affix));
                break;
             case AD.NONE:
                // String (given as AD.NONE)
-               emitter.Emit("[string]", PSVar(affix));
+               emitter.Emit("[string]",PSVar(affix));
                break;
             default: // input or transput
-               emitter.Emit("[ref]", PSVar(affix));
+               emitter.Emit("[ref]",PSVar(affix));
                break;
          }
       }
 
-      void ICodeGenerator.GenerateAffixAndVariableInitializer(Algorithm alg, IFailureProtected var, bool isVar) {
+      void ICodeGenerator.GenerateAffixAndVariableInitializer(Algorithm alg,IFailureProtected var,bool isVar) {
          switch (var is Affix affix ? affix.affixDir : AD.transput) {
             case AD.NONE:
             case AD.input:
@@ -279,17 +266,16 @@ function Remove-Const([string[]]$names) {
             case AD.output:
                // The output shadow is initialized to arg random value to ensure that it is set before use.
                if (isVar) {
-                  emitter.Emitnl(DT, PSVar((Var)var, "_"), " = ", RandomInitialValue);
+                  emitter.Emitnl(DT,PSVar((Var)var,"_")," = ",RandomInitialValue);
                } else {
-                  emitter.Emitnl(DT, PSVar((Affix)var, "_"), " = ", RandomInitialValue);
+                  emitter.Emitnl(DT,PSVar((Affix)var,"_")," = ",RandomInitialValue);
                }
                break;
             case AD.transput:
                if (isVar) {
-                  emitter.Emitnl(DT, PSVar((Var)var, "_"), " = ", PSVar((Var)var));
-               }
-               else {
-                  emitter.Emitnl(DT, PSVar((Affix)var, "_"), " = ", PSVar((Affix)var, suffix: ".Value"));
+                  emitter.Emitnl(DT,PSVar((Var)var,"_")," = ",PSVar((Var)var));
+               } else {
+                  emitter.Emitnl(DT,PSVar((Affix)var,"_")," = ",PSVar((Affix)var,suffix: ".Value"));
                }
                break;
          }
@@ -299,17 +285,16 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("Finalization"); }
       void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("End Finalization"); }
 
-      void ICodeGenerator.GenerateAffixAndVariableFinalizer(Algorithm alg, IFailureProtected var, bool isVar) {
+      void ICodeGenerator.GenerateAffixAndVariableFinalizer(Algorithm alg,IFailureProtected var,bool isVar) {
          switch (var is Affix affix ? affix.affixDir : AD.transput) {
             case AD.NONE:
             case AD.input:
                break;
             default:
                if (isVar) {
-                  emitter.Emitnl(PSVar((Var)var), " = ", PSVar((Var)var, "_"));
-               }
-               else {
-                  emitter.Emitnl(PSVar((Affix)var, suffix: ".Value"), " = ", PSVar((Affix)var, "_"));
+                  emitter.Emitnl(PSVar((Var)var)," = ",PSVar((Var)var,"_"));
+               } else {
+                  emitter.Emitnl(PSVar((Affix)var,suffix: ".Value")," = ",PSVar((Affix)var,"_"));
                }
                break;
          }
@@ -325,21 +310,21 @@ function Remove-Const([string[]]$names) {
 
       void ICodeGenerator.GenerateMacroElementInt(long value) => emitter.Emit(value);
       void ICodeGenerator.GenerateMacroElementFloat(double value) => emitter.Emit(value);
-      void ICodeGenerator.GenerateMacroElementString(string value, bool firstElement, bool quoted) {
+      void ICodeGenerator.GenerateMacroElementString(string value,bool firstElement,bool quoted) {
          if (quoted) {
-            emitter.Emitnl("\"", value, "\"");
+            emitter.Emitnl("\"",value,"\"");
          } else {
             string[] lines = value.Split('\n');
             foreach (string line in lines.Skip(firstElement ? 1 : 0).SkipLast(1)) emitter.Emitnl(line);
             emitter.Emit(lines.Last());
          }
       }
-      void ICodeGenerator.GenerateMacroElementVar(Var var, bool macroCanFail, bool inlined) => emitter.Emit(PSVar(var, (inlined ? "script:":"")+(macroCanFail ? "_" : "")));
+      void ICodeGenerator.GenerateMacroElementVar(Var var,bool macroCanFail,bool inlined) => emitter.Emit(PSVar(var,(inlined ? "script:" : "") + (macroCanFail ? "_" : "")));
       void ICodeGenerator.GenerateMacroElementList(LIST list) => emitter.Emit(PSVar(list));
       void ICodeGenerator.GenerateMacroElementConst(Const constant) => emitter.Emit(PSVar(constant));
-      void ICodeGenerator.GenerateMacroElementAffix(Affix affix, bool macroCanFail) {
+      void ICodeGenerator.GenerateMacroElementAffix(Affix affix,bool macroCanFail) {
          if (affix.IsOutput) {
-            emitter.Emit(PSVar(affix, macroCanFail ? "_" : "", macroCanFail ? "" : ".Value"));
+            emitter.Emit(PSVar(affix,macroCanFail ? "_" : "",macroCanFail ? "" : ".Value"));
          } else {
             emitter.Emit(PSVar(affix));
          }
@@ -367,7 +352,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
       void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) {
          ConditionalWrapperEnd(macro);
-         Newline(optional:true);
+         Newline(optional: true);
       }
 
       #endregion Macros
@@ -385,7 +370,7 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateProcedureBodyStart(Procedure proc,PBT bodyType) {
          if (proc.NeedsWrapper) {
-            emitter.Emitnl(":", proc.Id.CanonicalName, " do {");
+            emitter.Emitnl(":",proc.Id.CanonicalName," do {");
             IncrementIndent();
          }
       }
@@ -400,10 +385,10 @@ function Remove-Const([string[]]$names) {
          }
       }
       #region Alternatives
-      void ICodeGenerator.GenerateAlternativeStart(Procedure proc, Group group, int i) => GenerateComment($"Alternative {i}");
-      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc, Group group, int i, Alternative alternative, bool removed) {
+      void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) => GenerateComment($"Alternative {i}");
+      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
-            emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.Id.CanonicalName}" : "return $true") : "return");            
+            emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.Id.CanonicalName}" : "return $true") : "return");
          while (ifDepth > 0) {
             DecrementIndent();
             ifDepth--;
@@ -435,41 +420,41 @@ function Remove-Const([string[]]$names) {
       #region Calls
       void ICodeGenerator.GenerateActualArgSeparator() => emitter.Emit(" ");
 
-      void ICodeGenerator.GenerateCallStart(Algorithm called,Procedure proc,bool canFail, bool onlyCallInAlternative,bool lastAlternative) {
+      void ICodeGenerator.GenerateCallStart(Algorithm called,Procedure proc,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          ConditionalWrapperStart(called);
-         emitter.Emit(PSName(called), " ");
+         emitter.Emit(PSName(called)," ");
       }
 
-      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,bool canFail, bool onlyCallInAlternative,bool lastAlternative) {
+      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          ConditionalWrapperEnd(called);
          Newline();
       }
       void ICodeGenerator.GenerateCallArgString(string value) => emitter.Emit($"\"{value}\"");
-      void ICodeGenerator.GenerateCallArgReferenceAffix(Affix calledAffix, Affix arg, bool needFinalization) {
-         Debug.Assert(!(arg.IsInputOnly && calledAffix.IsOutput), $"Illegal Affix {arg} in call to {calledAffix}");
-              if ( needFinalization && calledAffix.IsInputOnly && arg.IsInputOnly)  emitter.Emit(PSVar(arg, prefix: "",  suffix:"",        isRef: false));
-         else if ( needFinalization && calledAffix.IsInputOnly && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "_", suffix: "",       isRef: false));
-         else if ( needFinalization && calledAffix.IsOutput    && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "_", suffix: "",       isRef: true));
-         else if (!needFinalization && calledAffix.IsInputOnly && arg.IsInputOnly)  emitter.Emit(PSVar(arg, prefix: "",  suffix: "",       isRef: false));
-         else if (!needFinalization && calledAffix.IsInputOnly && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "",  suffix: ".Value", isRef: false));
-         else if (!needFinalization && calledAffix.IsOutput    && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "",  suffix: "",       isRef: false));
-         else if (                     calledAffix.IsString    && arg.IsString)     emitter.Emit(PSVar(arg, prefix: "",  suffix: "",       isRef: false));
-         else if (                     calledAffix.IsString    && arg.IsInputOnly)  emitter.Emit(PSVar(arg, prefix: "",  suffix: "",       isRef: false));
-         else if (                     calledAffix.IsString    && arg.IsOutput)     emitter.Emit(PSVar(arg, prefix: "",  suffix: ".Value", isRef: false));
+      void ICodeGenerator.GenerateCallArgReferenceAffix(Affix calledAffix,Affix arg,bool needFinalization) {
+         Debug.Assert(!(arg.IsInputOnly && calledAffix.IsOutput),$"Illegal Affix {arg} in call to {calledAffix}");
+         if (needFinalization && calledAffix.IsInputOnly && arg.IsInputOnly) emitter.Emit(PSVar(arg,prefix: "",suffix: "",isRef: false));
+         else if (needFinalization && calledAffix.IsInputOnly && arg.IsOutput) emitter.Emit(PSVar(arg,prefix: "_",suffix: "",isRef: false));
+         else if (needFinalization && calledAffix.IsOutput && arg.IsOutput) emitter.Emit(PSVar(arg,prefix: "_",suffix: "",isRef: true));
+         else if (!needFinalization && calledAffix.IsInputOnly && arg.IsInputOnly) emitter.Emit(PSVar(arg,prefix: "",suffix: "",isRef: false));
+         else if (!needFinalization && calledAffix.IsInputOnly && arg.IsOutput) emitter.Emit(PSVar(arg,prefix: "",suffix: ".Value",isRef: false));
+         else if (!needFinalization && calledAffix.IsOutput && arg.IsOutput) emitter.Emit(PSVar(arg,prefix: "",suffix: "",isRef: false));
+         else if (calledAffix.IsString && arg.IsString) emitter.Emit(PSVar(arg,prefix: "",suffix: "",isRef: false));
+         else if (calledAffix.IsString && arg.IsInputOnly) emitter.Emit(PSVar(arg,prefix: "",suffix: "",isRef: false));
+         else if (calledAffix.IsString && arg.IsOutput) emitter.Emit(PSVar(arg,prefix: "",suffix: ".Value",isRef: false));
       }
       void ICodeGenerator.GenerateCallArgReferenceLocal(Affix calledAffix,Local lo) => emitter.Emit(PSVar(lo,isRef: calledAffix.IsOutput));
       void ICodeGenerator.GenerateCallArgReferenceConst(Affix calledAffix,Const c) => emitter.Emit(PSVar(c));
-      void ICodeGenerator.GenerateCallArgReferenceVar(Affix calledAffix, Var v, bool needFinalization) 
-         => emitter.Emit(PSVar(v, needFinalization ? "_" : "", isRef: calledAffix.IsOutput));
+      void ICodeGenerator.GenerateCallArgReferenceVar(Affix calledAffix,Var v,bool needFinalization)
+         => emitter.Emit(PSVar(v,needFinalization ? "_" : "",isRef: calledAffix.IsOutput));
 
-      void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label, bool canFail)
+      void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label,bool canFail)
          => emitter.Emitnl("continue ",label.IsAnonymous ? label.CanonicalName : "");
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (!proc.IsVerySimple) {
             emitter.Emitnl(proc.CanFail ? "return $false" : "return");
          }
       }
-      void ICodeGenerator.GenerateSucceed(Procedure proc, Group group) {  }
+      void ICodeGenerator.GenerateSucceed(Procedure proc,Group group) { }
       void ICodeGenerator.GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit 1");
       #endregion Calls
 
@@ -482,7 +467,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateSourceComment() => emitter.NlEmit("\n",sourceEmitter.Content);
       string ICodeGenerator.FileExtension { get; } = ".ps1";
 
-      private readonly EmitterString sourceEmitter = new(prefix:"# ");
+      private readonly EmitterString sourceEmitter = new(prefix: "# ");
       Emitter ICodeGenerator.SourceEmitter => sourceEmitter;
       #endregion Support
 
@@ -517,7 +502,7 @@ function Remove-Const([string[]]$names) {
          _ => throw new NotImplementedException(),
       };
 
-      private static string PS_Var(string name,PSVarType type,string prefix = "",string suffix = "",bool isRef = false) 
+      private static string PS_Var(string name,PSVarType type,string prefix = "",string suffix = "",bool isRef = false)
          => $"{(isRef ? "([ref]" : "")}${prefix}{PSVarPrefix(type)}{name}{suffix}{(isRef ? ")" : "")}";
       private static string PSVar(CDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
       private static string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(affix),PSVarType.Affix,prefix,suffix,isRef);

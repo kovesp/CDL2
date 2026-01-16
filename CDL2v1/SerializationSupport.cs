@@ -33,8 +33,6 @@
 
 #define Debug
 #define COMPRESSED_DATABASE
-using CDL2v1;
-
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;

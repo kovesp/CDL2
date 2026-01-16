@@ -25,7 +25,7 @@ namespace CDL2v1 {
    public class EmitterConsole : Emitter {
       private readonly ConsoleColor _defaultForeground = Console.ForegroundColor;
       private readonly ConsoleColor _defaultBackground = Console.BackgroundColor;
-      private readonly Dictionary<string, ConsoleColor> _colorMap = [];
+      private readonly Dictionary<string,ConsoleColor> _colorMap = [];
 
       public readonly bool SupressBackgroundColors = true;
 
@@ -34,10 +34,10 @@ namespace CDL2v1 {
       /// </summary>
       public EmitterConsole() : base() {
          SupportsDecoration = true;
-         
+
          // Build color map for all colors used by pretty printer
          foreach (string hexColor in PrettyPrinter.UsedColors()) {
-            _colorMap[hexColor] = ParseHexToConsoleColor(hexColor, _defaultForeground);
+            _colorMap[hexColor] = ParseHexToConsoleColor(hexColor,_defaultForeground);
          }
       }
 
@@ -57,7 +57,7 @@ namespace CDL2v1 {
             string style = match.Groups["style"].Value;
             string text = match.Groups["text"].Value;
 
-            ApplyConsoleFormatting(fg, bg, style);
+            ApplyConsoleFormatting(fg,bg,style);
             Console.Write(text);
             ResetConsoleFormatting();
 
@@ -71,17 +71,17 @@ namespace CDL2v1 {
       /// <summary>
       /// Apply console color and style formatting
       /// </summary>
-      private void ApplyConsoleFormatting(string fg, string bg, string style) {
-         if (!string.IsNullOrEmpty(fg) && _colorMap.TryGetValue(fg, out ConsoleColor fgColor)) {
+      private void ApplyConsoleFormatting(string fg,string bg,string style) {
+         if (!string.IsNullOrEmpty(fg) && _colorMap.TryGetValue(fg,out ConsoleColor fgColor)) {
             Console.ForegroundColor = fgColor;
          }
 
-         if (!SupressBackgroundColors && !string.IsNullOrEmpty(bg) && _colorMap.TryGetValue(bg, out ConsoleColor bgColor)) {
+         if (!SupressBackgroundColors && !string.IsNullOrEmpty(bg) && _colorMap.TryGetValue(bg,out ConsoleColor bgColor)) {
             Console.BackgroundColor = bgColor;
          }
 
          // Approximate bold with bright colors
-         if (!string.IsNullOrEmpty(style) && style.Contains("bold", StringComparison.OrdinalIgnoreCase)) {
+         if (!string.IsNullOrEmpty(style) && style.Contains("bold",StringComparison.OrdinalIgnoreCase)) {
             if (Console.ForegroundColor < ConsoleColor.DarkGray) {
                Console.ForegroundColor = Console.ForegroundColor + 8;
             }
@@ -99,16 +99,16 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse hex color string to nearest ConsoleColor
       /// </summary>
-      private static ConsoleColor ParseHexToConsoleColor(string hexColor, ConsoleColor defaultColor) {
+      private static ConsoleColor ParseHexToConsoleColor(string hexColor,ConsoleColor defaultColor) {
          if (string.IsNullOrEmpty(hexColor) || !hexColor.StartsWith("#")) return defaultColor;
 
          try {
             string hex = hexColor.TrimStart('#');
-            int r = Convert.ToInt32(hex.Substring(0, 2), 16);
-            int g = Convert.ToInt32(hex.Substring(2, 2), 16);
-            int b = Convert.ToInt32(hex.Substring(4, 2), 16);
-            
-            return GetNearestConsoleColor(r, g, b);
+            int r = Convert.ToInt32(hex.Substring(0,2),16);
+            int g = Convert.ToInt32(hex.Substring(2,2),16);
+            int b = Convert.ToInt32(hex.Substring(4,2),16);
+
+            return GetNearestConsoleColor(r,g,b);
          } catch {
             return defaultColor;
          }
@@ -117,16 +117,16 @@ namespace CDL2v1 {
       /// <summary>
       /// Get the nearest ConsoleColor for RGB values
       /// </summary>
-      private static ConsoleColor GetNearestConsoleColor(int r, int g, int b) {
+      private static ConsoleColor GetNearestConsoleColor(int r,int g,int b) {
          ConsoleColor result = ConsoleColor.Gray;
          double minDistance = double.MaxValue;
 
          foreach (ConsoleColor color in Enum.GetValues<ConsoleColor>()) {
             System.Drawing.Color systemColor = System.Drawing.Color.FromName(color.ToString());
             double distance = Math.Sqrt(
-                Math.Pow(r - systemColor.R, 2) +
-                Math.Pow(g - systemColor.G, 2) +
-                Math.Pow(b - systemColor.B, 2));
+                Math.Pow(r - systemColor.R,2) +
+                Math.Pow(g - systemColor.G,2) +
+                Math.Pow(b - systemColor.B,2));
 
             if (distance < minDistance) {
                minDistance = distance;

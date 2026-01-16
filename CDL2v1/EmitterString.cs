@@ -32,19 +32,14 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace CDL2v1 {
    internal class EmitterString : Emitter {
 
       private string prefix = "";
       private string suffix = "";
-      public EmitterString(string prefix = "", string suffix = "") {
+      public EmitterString(string prefix = "",string suffix = "") {
          this.prefix = prefix;
          this.suffix = suffix;
          SuppressDebug = true;
@@ -60,8 +55,7 @@ namespace CDL2v1 {
          get {
             try {
                return sb.ToString();
-            }
-            finally {
+            } finally {
                Clear();
             }
          }

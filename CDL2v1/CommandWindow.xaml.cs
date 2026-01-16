@@ -157,10 +157,10 @@ F1    | Show this help message.
          Loaded += (s,e) => {
             // Initialize zoom restrictions AFTER layout is complete
             InitializeZoomRestrictions();
-            
+
             // Store initial status bar height
             _initialStatusBarHeight = StatusBarGrid.ActualHeight;
-            
+
             Keyboard.Focus(InputTextBox);
          };
 
@@ -384,7 +384,7 @@ F1    | Show this help message.
       }
 
       private bool IsEditing = false;
-      public void EditText(string text="") => Application.Current.Dispatcher.Invoke(() => {
+      public void EditText(string text = "") => Application.Current.Dispatcher.Invoke(() => {
          PromptTextBlock.Text = ": ";
          InputTextBox.Text = text.Trim();
          InputTextBox.Focus();
@@ -442,9 +442,9 @@ F1    | Show this help message.
             }
          }
 
-/////////////////////
-// Local functions //
-/////////////////////
+         /////////////////////
+         // Local functions //
+         /////////////////////
          void Insert(string chars) {
             int index = InputTextBox.CaretIndex;
             InputTextBox.Text = InputTextBox.Text.Insert(index,chars);
@@ -583,7 +583,7 @@ F1    | Show this help message.
       }
 
       // Implement ICommandInterface.QueryBox with simplified signature
-      bool ICLIREPL.QueryBox(string message) => 
+      bool ICLIREPL.QueryBox(string message) =>
          MessageBox.Show(this,message,CDL2.LabName,
                               MessageBoxButton.OKCancel,
                               MessageBoxImage.Question) == MessageBoxResult.OK;
@@ -680,7 +680,7 @@ F1    | Show this help message.
          }
       }
 
-      private record ZoomParameters(int MinPct = 0, int MaxPct = 0, double InitialFontSize = 0.0, int SkippedZooms = 0);
+      private record ZoomParameters(int MinPct = 0,int MaxPct = 0,double InitialFontSize = 0.0,int SkippedZooms = 0);
 
       private Dictionary<string,ZoomParameters> ZoomRestrictions = new() {
          { "PromptTextBlock", new ZoomParameters(0, -1, 0.0, 0) },
@@ -690,15 +690,15 @@ F1    | Show this help message.
       /// <summary>
       /// Recursively apply zoom to all text-displaying controls in the visual tree
       /// </summary>
-      private void ApplyZoomToChildren(DependencyObject parent, double multiplier) {
+      private void ApplyZoomToChildren(DependencyObject parent,double multiplier) {
          int childCount = VisualTreeHelper.GetChildrenCount(parent);
-         
-         for (int i = 0; i < childCount; i++) {
-            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+
+         for (int i = 0 ; i < childCount ; i++) {
+            DependencyObject child = VisualTreeHelper.GetChild(parent,i);
 
             // Apply zoom to TextBoxes and TextBlocks only, and recursively to other controls
             if (child is TextBlock textBlock) {
-               if (ShouldApplyZoom(textBlock.Name,textBlock.FontSize,multiplier,out double blockNewSize))textBlock.FontSize = blockNewSize;
+               if (ShouldApplyZoom(textBlock.Name,textBlock.FontSize,multiplier,out double blockNewSize)) textBlock.FontSize = blockNewSize;
             } else if (child is TextBox textBox) {
                if (ShouldApplyZoom(textBox.Name,textBox.FontSize,multiplier,out double boxNewSize)) textBox.FontSize = boxNewSize;
             } else {
@@ -709,56 +709,56 @@ F1    | Show this help message.
       }
 
       /// <summary>
-/// Determines if zoom should be applied based on restrictions
-/// </summary>
-private bool ShouldApplyZoom(string? controlName, double currentFontSize, double multiplier, out double newSize) {
-   newSize = currentFontSize * multiplier;
-   bool isZoomingIn = multiplier > 1.0;
-   
-   // Only zoom named controls - skip unnamed controls (like TextBlocks inside buttons)
-   if (string.IsNullOrEmpty(controlName)) {
-      newSize = currentFontSize;
-      return false;
-   }
-   
-   // No restrictions - allow zoom
-   if (!ZoomRestrictions.TryGetValue(controlName, out ZoomParameters? restrictions)) return true;
-   
-   // Initialize the initial font size if needed
-   if (restrictions.InitialFontSize == 0.0) {
-      ZoomRestrictions[controlName] = restrictions with { InitialFontSize = currentFontSize };
-      restrictions = ZoomRestrictions[controlName];
-   }
-   
-   // Calculate limits based on initial font size
-   double minAllowed = restrictions.MinPct == 0 ? restrictions.InitialFontSize 
-                     : restrictions.MinPct == -1 ? 0 
-                     : restrictions.InitialFontSize * restrictions.MinPct / 100.0;
-   
-   double maxAllowed = restrictions.MaxPct == 0 ? restrictions.InitialFontSize
-                     : restrictions.MaxPct == -1 ? double.MaxValue 
-                     : restrictions.InitialFontSize * restrictions.MaxPct / 100.0;
-   
-   // Check if we have skipped zooms in the opposite direction to consume first
-   if ((isZoomingIn && restrictions.SkippedZooms < 0) || (!isZoomingIn && restrictions.SkippedZooms > 0)) {
-      // Consume one skipped zoom instead of actually zooming
-      int adjustment = isZoomingIn ? 1 : -1;
-      ZoomRestrictions[controlName] = restrictions with { SkippedZooms = restrictions.SkippedZooms + adjustment };
-      newSize = currentFontSize;
-      return false;
-   }
-   
-   // Check if new size would violate restrictions
-   if (newSize < minAllowed || newSize > maxAllowed) {
-      // Track this skipped zoom
-      int skipAdjustment = isZoomingIn ? 1 : -1;
-      ZoomRestrictions[controlName] = restrictions with { SkippedZooms = restrictions.SkippedZooms + skipAdjustment };
-      newSize = currentFontSize;
-      return false;
-   }
-   
-   return true;
-}
+      /// Determines if zoom should be applied based on restrictions
+      /// </summary>
+      private bool ShouldApplyZoom(string? controlName,double currentFontSize,double multiplier,out double newSize) {
+         newSize = currentFontSize * multiplier;
+         bool isZoomingIn = multiplier > 1.0;
+
+         // Only zoom named controls - skip unnamed controls (like TextBlocks inside buttons)
+         if (string.IsNullOrEmpty(controlName)) {
+            newSize = currentFontSize;
+            return false;
+         }
+
+         // No restrictions - allow zoom
+         if (!ZoomRestrictions.TryGetValue(controlName,out ZoomParameters? restrictions)) return true;
+
+         // Initialize the initial font size if needed
+         if (restrictions.InitialFontSize == 0.0) {
+            ZoomRestrictions[controlName] = restrictions with { InitialFontSize = currentFontSize };
+            restrictions = ZoomRestrictions[controlName];
+         }
+
+         // Calculate limits based on initial font size
+         double minAllowed = restrictions.MinPct == 0 ? restrictions.InitialFontSize
+                           : restrictions.MinPct == -1 ? 0
+                           : restrictions.InitialFontSize * restrictions.MinPct / 100.0;
+
+         double maxAllowed = restrictions.MaxPct == 0 ? restrictions.InitialFontSize
+                           : restrictions.MaxPct == -1 ? double.MaxValue
+                           : restrictions.InitialFontSize * restrictions.MaxPct / 100.0;
+
+         // Check if we have skipped zooms in the opposite direction to consume first
+         if ((isZoomingIn && restrictions.SkippedZooms < 0) || (!isZoomingIn && restrictions.SkippedZooms > 0)) {
+            // Consume one skipped zoom instead of actually zooming
+            int adjustment = isZoomingIn ? 1 : -1;
+            ZoomRestrictions[controlName] = restrictions with { SkippedZooms = restrictions.SkippedZooms + adjustment };
+            newSize = currentFontSize;
+            return false;
+         }
+
+         // Check if new size would violate restrictions
+         if (newSize < minAllowed || newSize > maxAllowed) {
+            // Track this skipped zoom
+            int skipAdjustment = isZoomingIn ? 1 : -1;
+            ZoomRestrictions[controlName] = restrictions with { SkippedZooms = restrictions.SkippedZooms + skipAdjustment };
+            newSize = currentFontSize;
+            return false;
+         }
+
+         return true;
+      }
       /// <summary>
       /// Initialize zoom restrictions for all named TextBox and TextBlock controls
       /// </summary>
@@ -771,16 +771,16 @@ private bool ShouldApplyZoom(string? controlName, double currentFontSize, double
       /// </summary>
       private void PopulateZoomRestrictions(DependencyObject parent) {
          int childCount = VisualTreeHelper.GetChildrenCount(parent);
-         
-         for (int i = 0; i < childCount; i++) {
-            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+
+         for (int i = 0 ; i < childCount ; i++) {
+            DependencyObject child = VisualTreeHelper.GetChild(parent,i);
 
             // Process TextBlock and TextBox controls - these are leaf nodes, don't recurse
             if (child is TextBlock textBlock) {
                string? controlName = textBlock.Name;
                if (!string.IsNullOrEmpty(controlName)) {
                   if (!ZoomRestrictions.ContainsKey(controlName)) {
-                     ZoomRestrictions[controlName] = new ZoomParameters(-1, -1, textBlock.FontSize, 0);
+                     ZoomRestrictions[controlName] = new ZoomParameters(-1,-1,textBlock.FontSize,0);
                   } else if (ZoomRestrictions[controlName].InitialFontSize == 0.0) {
                      // Update existing entry with actual font size
                      ZoomRestrictions[controlName] = ZoomRestrictions[controlName] with { InitialFontSize = textBlock.FontSize };
@@ -790,7 +790,7 @@ private bool ShouldApplyZoom(string? controlName, double currentFontSize, double
                string? controlName = textBox.Name;
                if (!string.IsNullOrEmpty(controlName)) {
                   if (!ZoomRestrictions.ContainsKey(controlName)) {
-                     ZoomRestrictions[controlName] = new ZoomParameters(-1, -1, textBox.FontSize, 0);
+                     ZoomRestrictions[controlName] = new ZoomParameters(-1,-1,textBox.FontSize,0);
                   } else if (ZoomRestrictions[controlName].InitialFontSize == 0.0) {
                      // Update existing entry with actual font size
                      ZoomRestrictions[controlName] = ZoomRestrictions[controlName] with { InitialFontSize = textBox.FontSize };
@@ -806,27 +806,27 @@ private bool ShouldApplyZoom(string? controlName, double currentFontSize, double
       /// <summary>
       /// Recursively find and restore font size for a named control
       /// </summary>
-      private void RestoreFontSize(DependencyObject parent, string controlName, double fontSize) {
+      private void RestoreFontSize(DependencyObject parent,string controlName,double fontSize) {
          int childCount = VisualTreeHelper.GetChildrenCount(parent);
-         
-         for (int i = 0; i < childCount; i++) {
-            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
-            
+
+         for (int i = 0 ; i < childCount ; i++) {
+            DependencyObject child = VisualTreeHelper.GetChild(parent,i);
+
             if ((child as FrameworkElement)?.Name == controlName) {
                if (child is TextBlock textBlock) textBlock.FontSize = fontSize;
                else if (child is TextBox textBox) textBox.FontSize = fontSize;
                return;
             }
-            
-            RestoreFontSize(child, controlName, fontSize);
+
+            RestoreFontSize(child,controlName,fontSize);
          }
       }
 
       /// <summary>
       /// Reset zoom button click handler
       /// </summary>
-      private void ResetZoom_Click(object sender, RoutedEventArgs e) => ResetZoom();
-      
+      private void ResetZoom_Click(object sender,RoutedEventArgs e) => ResetZoom();
+
       /// <summary>
       /// In multiline mode, handle double-click.
       /// </summary>
@@ -1031,12 +1031,12 @@ private bool ShouldApplyZoom(string? controlName, double currentFontSize, double
          StatusBarRightTextBlock.Text = $"[{Database.Instance.GetModificationCount()}/{Settings.SettingValue<int>("AutosaveCount")}] {marker}Prog {programName}";
       }
 
-      private double MeasureTextWidth(string text, FontFamily fontFamily, double fontSize) {
+      private double MeasureTextWidth(string text,FontFamily fontFamily,double fontSize) {
          FormattedText formattedText = new(
             text,
             System.Globalization.CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
-            new Typeface(fontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+            new Typeface(fontFamily,FontStyles.Normal,FontWeights.Normal,FontStretches.Normal),
             fontSize,
             Brushes.Black,
             VisualTreeHelper.GetDpi(this).PixelsPerDip);

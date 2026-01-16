@@ -31,13 +31,10 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.IO;
-using System.Reflection.Metadata.Ecma335;
 using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
-   internal partial class LexicalAnalyzer(CDL2 compiler, TokenList tokens) : CompilationPhase(compiler) {
+   internal partial class LexicalAnalyzer(CDL2 compiler,TokenList tokens) : CompilationPhase(compiler) {
 
       /// <summary>
       /// Break the input string into tokens.
@@ -69,7 +66,7 @@ namespace CDL2v1 {
          return true;
       }
 
-      [GeneratedRegex(@"^\s*(?:\p{Ll}+)|(?:\p{Lu}+)|(?:\d+)|(?:[\p{P}\p{S}])", RegexOptions.Compiled)]
+      [GeneratedRegex(@"^\s*(?:\p{Ll}+)|(?:\p{Lu}+)|(?:\d+)|(?:[\p{P}\p{S}])",RegexOptions.Compiled)]
       private static partial Regex InvalidTokenSkipRE();
    }
 }

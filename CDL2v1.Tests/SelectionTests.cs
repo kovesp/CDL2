@@ -1,5 +1,3 @@
-using Xunit;
-
 namespace CDL2v1.Tests {
    public class SelectionTests : IClassFixture<DatabaseFixture> {
       private readonly DatabaseFixture _fixture;
@@ -36,24 +34,24 @@ namespace CDL2v1.Tests {
       }
       [Fact]
       public void Selection_Correct_Named_Module_Selection() {
-         Selection selection = new ("Mod powershell");
+         Selection selection = new("Mod powershell");
          Assert.True(selection.IsValid);
          Assert.True(selection.Count == 1);
          Assert.IsType<Module>(selection.First().Object);
-         Assert.Equal("powershellkernel", selection.First().Object!.Id.CanonicalName);
+         Assert.Equal("powershellkernel",selection.First().Object!.Id.CanonicalName);
       }
       [Fact]
       public void Selection_Correct_Named_Program_Selection() {
-         Selection selection = new ("Prog so");
+         Selection selection = new("Prog so");
          Assert.True(selection.IsValid);
          Assert.True(selection.Count == 1);
          Assert.IsType<Program>(selection.First().Object);
-         Assert.Equal("sort", selection.First().Object!.Id.CanonicalName);
+         Assert.Equal("sort",selection.First().Object!.Id.CanonicalName);
       }
 
       [Fact]
       public void Selection_Omitted_Names() {
-         Selection selection = new ("Mod Sec");
+         Selection selection = new("Mod Sec");
          Assert.True(selection.IsValid);
          Assert.True(selection.Count > 0);
          foreach (SingleSelection item in selection) {

@@ -33,27 +33,9 @@
 
 // Ignore Spelling: CDL
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.CommandLine.Parsing;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.Intrinsics.X86;
-using System.Runtime.Serialization;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using System.Windows.Controls;
-using System.Windows.Markup;
-using System.Windows.Media;
 
 using static CDL2v1.Logger;
 
@@ -1089,7 +1071,7 @@ namespace CDL2v1 {
                         ReportProblem(Note.InvalidLude,$"{objectType} in {currentSection.FQDN()}");
                      }
 
-                  } else { 
+                  } else {
                      // Otherwise it is a Program or a Module
                      Container container = (context.Object as Container)!;
                      if (ParseLudeOfIDs(this,objectType,container,out List<ID> ludeIds)) {
@@ -1146,8 +1128,8 @@ namespace CDL2v1 {
       /// <param name="parsingContext">The parsing context in which the objects are to be moved.</param>
       /// <param name="context">The focus or target position to which each object will be moved.</param>
       /// <param name="objList">The list of objects to move. Cannot be null.</param>
-      public static void MoveObjectToPosition<T>(ParsingContext parsingContext, Focus context, List<T> objList) where T: CDL2Object {
-         foreach (T obj in objList.Reverse<T>()) MoveObjectToPosition(parsingContext, context, obj);
+      public static void MoveObjectToPosition<T>(ParsingContext parsingContext,Focus context,List<T> objList) where T : CDL2Object {
+         foreach (T obj in objList.Reverse<T>()) MoveObjectToPosition(parsingContext,context,obj);
       }
    }
 }

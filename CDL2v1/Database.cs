@@ -34,22 +34,11 @@
 // </auto-gen>
 
 #define SaveAsJSON
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Serialization;
-using System.Text.Json.Serialization;
-using System.Text.Json;
-using Microsoft.Win32;
-using System.Diagnostics.CodeAnalysis;
-using System.Collections;
-using System.Diagnostics;
-using System.Xml.Linq;
-using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Text.Json.Serialization;
 using System.Windows.Threading;
 
 namespace CDL2v1 {
@@ -83,7 +72,7 @@ namespace CDL2v1 {
       /// This is needed to support multiple instances used by unit testing.
       /// Note that this is thread-safe.
       /// </summary>
-      private static readonly ConcurrentDictionary<int,Database>  Instances = new();
+      private static readonly ConcurrentDictionary<int,Database> Instances = new();
       private static readonly int DefaultThreadId;
 
       public static Database Instance {
@@ -120,7 +109,7 @@ namespace CDL2v1 {
       /// Used by autosave when implemented.
       /// Set by Program.Modified and Module.Modified
       /// </summary>
-      public bool Modified { 
+      public bool Modified {
          get => ModificationCount > 0;
          set {
             if (value) {
@@ -139,12 +128,12 @@ namespace CDL2v1 {
       /// <param name="intervalSeconds">Auto-save interval in seconds. If 0, auto-save is disabled.</param>
       public void ConfigureAutoSave(int intervalSeconds) {
          StopAutoSave();
-         
+
          if (intervalSeconds > 0) {
             _autoSaveTimer = new DispatcherTimer {
                Interval = TimeSpan.FromSeconds(intervalSeconds)
             };
-            _autoSaveTimer.Tick += (s, e) => Autosave();
+            _autoSaveTimer.Tick += (s,e) => Autosave();
             _autoSaveTimer.Start();
          }
       }
@@ -267,7 +256,7 @@ namespace CDL2v1 {
       public readonly BoundedStack<Focus> FocusStack = new(DefaultFocusStackSize);
 
       [JsonIgnore]
-      private CommandInterpreter? _CLI; 
+      private CommandInterpreter? _CLI;
       [JsonIgnore]
       private bool _isCLISet = false;
 
@@ -276,8 +265,8 @@ namespace CDL2v1 {
       /// It will be set when the GUI is created to use the GUI for output.
       /// </summary>
       [JsonIgnore]
-      public CommandInterpreter CLI { 
-         get => _CLI ??= new(); 
+      public CommandInterpreter CLI {
+         get => _CLI ??= new();
          set {
             if (_isCLISet) {
                throw new InvalidOperationException("CLI has already been set. Cannot be changed.");
@@ -285,7 +274,7 @@ namespace CDL2v1 {
                _CLI = value;
                _isCLISet = true;
             }
-         }  
+         }
       }
 
       /// <summary>
@@ -346,34 +335,36 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(11)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
          [JsonIgnore] public NamedElement? ReplacementObject => Database.Instance.NamedElements.TryGetValue(ReplacementGuid,out NamedElement? obj) ? obj : null;
          [JsonInclude][JsonPropertyOrder(12)] public int Position { get; set; } = -1;
-         [JsonIgnore]public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
+         [JsonIgnore] public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
 
 
          public override string ToString() => $"UndoRecord: {Description()}";
          public string Description() => ChangeType switch {
-            ChangeType.Renamed          => $"Renamed          {OriginalName} ==> {NewName}",
+            ChangeType.Renamed => $"Renamed          {OriginalName} ==> {NewName}",
             ChangeType.InterfaceChanged => $"InterfaceChanged {Object!.FQDN()} {InterfaceStatus} ==> {(Object as CDL2Object)!.GetInterfaces()}",
-            ChangeType.Added            => $"Added            {Object!.FQDN()} at {Position}",
-            ChangeType.Removed          => $"Removed          {Object!.FQDN()} at {Position}",
-            ChangeType.Replaced         => $"Replaced         {Object!.FQDN()} ==> {ReplacementObject!.FQDN()}",
-            ChangeType.InterfaceAdded   => $"InterfaceAdded   {InterfaceStatus} {Id} in {Object!.FQDN()}",
+            ChangeType.Added => $"Added            {Object!.FQDN()} at {Position}",
+            ChangeType.Removed => $"Removed          {Object!.FQDN()} at {Position}",
+            ChangeType.Replaced => $"Replaced         {Object!.FQDN()} ==> {ReplacementObject!.FQDN()}",
+            ChangeType.InterfaceAdded => $"InterfaceAdded   {InterfaceStatus} {Id} in {Object!.FQDN()}",
             ChangeType.InterfaceRemoved => $"InterfaceRemoved {InterfaceStatus} {Id} in {Object!.FQDN()}",
-            ChangeType.LudeAdded        => $"LudeAdded        {LudeType} {(Object is Section ? "" : Id)} in {Object!.FQDN()}",
-            ChangeType.LudeRemoved      => $"LudeRemoved      {LudeType} {(Object is Section ? "" : $"{Id} at {Position}")} in {Object!.FQDN()}",
-            ChangeType.LudeReplaced     => $"LudeReplaced     in {Object!.FQDN()}",
-            _                           => $"{ChangeType} unknown",
+            ChangeType.LudeAdded => $"LudeAdded        {LudeType} {(Object is Section ? "" : Id)} in {Object!.FQDN()}",
+            ChangeType.LudeRemoved => $"LudeRemoved      {LudeType} {(Object is Section ? "" : $"{Id} at {Position}")} in {Object!.FQDN()}",
+            ChangeType.LudeReplaced => $"LudeReplaced     in {Object!.FQDN()}",
+            _ => $"{ChangeType} unknown",
          };
 
          /// <summary>
          /// Alias
          /// </summary>
-         [JsonIgnore] public Guid LudeProcGuid {
+         [JsonIgnore]
+         public Guid LudeProcGuid {
             get => ReplacementGuid;
             set => ReplacementGuid = value;
          }
 
 
-         [JsonIgnore] public ST InterfaceType => InterfaceStatus switch {
+         [JsonIgnore]
+         public ST InterfaceType => InterfaceStatus switch {
             InterfaceTypes.Abstr => ST.ABSTR,
             InterfaceTypes.Ext => ST.EXT,
             InterfaceTypes.Inv => ST.INV,
@@ -383,7 +374,7 @@ namespace CDL2v1 {
             _ => throw new InvalidOperationException($"InterfaceStatus contains multiple types or an invalid value: {InterfaceStatus}")
          };
 
-         public UndoRecord(CDL2Object? element, ChangeType changeType) {
+         public UndoRecord(CDL2Object? element,ChangeType changeType) {
             ObjectGuid = element?.GUID ?? Guid.Empty;
             InterfaceStatus = element?.GetInterfaces() ?? InterfaceTypes.None;
             ChangeType = changeType;
@@ -397,7 +388,7 @@ namespace CDL2v1 {
          /// <param name="element"></param>
          /// <param name="originalName"></param>
          /// <param name="newName"></param>
-         public UndoRecord(ID id,string originalName,string newName,bool updateReferences) : this (null,ChangeType.Renamed) {
+         public UndoRecord(ID id,string originalName,string newName,bool updateReferences) : this(null,ChangeType.Renamed) {
             Id = id;
             OriginalName = originalName;
             NewName = newName;
@@ -409,7 +400,7 @@ namespace CDL2v1 {
          }
 
          [JsonConstructor]
-         public UndoRecord() { } 
+         public UndoRecord() { }
 
          public void Dispose() {
             if (ObjectGuid == Guid.Empty) return;
@@ -480,7 +471,7 @@ namespace CDL2v1 {
                   ChangeType = changeType,
                });
                break;
-             default:
+            default:
                throw new ArgumentOutOfRangeException(nameof(elementType),elementType,null);
          }
       }
@@ -542,7 +533,7 @@ namespace CDL2v1 {
             action();
          }
       }
-      public static T WithSuspendedNamedElementRegistration<T>(bool iftrue,Func<T> func) 
+      public static T WithSuspendedNamedElementRegistration<T>(bool iftrue,Func<T> func)
          => iftrue ? WithSuspendedNamedElementRegistration(func) : func();
 
       /// <summary>

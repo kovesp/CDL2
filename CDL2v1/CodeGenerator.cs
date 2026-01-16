@@ -33,28 +33,14 @@
 
 // Ignore Spelling: CDL
 
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Collections.Specialized;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Runtime.CompilerServices;
-using System.Security.Principal;
-using System.Text;
-using System.Windows.Documents;
-
-using static System.Collections.Specialized.BitVector32;
-
-
 
 namespace CDL2v1 {
    /// <summary>
    /// 
    /// </summary>
    /// <param Id="cg"></param>
-   public class CodeGenerator(ICodeGenerator cg, CDL2 compiler) : CompilationPhase(compiler) {
+   public class CodeGenerator(ICodeGenerator cg,CDL2 compiler) : CompilationPhase(compiler) {
       /// <summary>
       /// Target specific code generator to use.
       /// </summary>
@@ -64,7 +50,7 @@ namespace CDL2v1 {
       /// Used to add the CDL2 code to each generated algorithm.
       /// Will <b>not</b> include the CDL2 comments and Notes associated with the algorithms.
       /// </summary>
-      private readonly PrettyPrinter sourceCommentPrinter = new(cg.SourceEmitter,includeComments:false);
+      private readonly PrettyPrinter sourceCommentPrinter = new(cg.SourceEmitter,includeComments: false);
 
       /// <summary>
       /// Generate code for the unit and all its modulesWithLudes.
@@ -73,17 +59,17 @@ namespace CDL2v1 {
       /// <param Id="modulesWithLudes"></param>
       /// <param Id="Emitter"></param>
       /// <param Id="isSeparate"></param>
-      public void GenerateCode(Program program, Emitter emitter, bool isSeparate = false) {
+      public void GenerateCode(Program program,Emitter emitter,bool isSeparate = false) {
          // CDL2.Compiler.SemanticAnalysis(program, Compiler.Reachable); // Ensure semantic analysis has been done.
          // Compiler.Reachable.CollectReachableObjects(program);
          foreach (Var var in Compiler.Reachable.Objects.OfType<Var>()) {
             if (Compiler.Reachable.AmbigousVars.Contains(var)) {
                // We know the variable was written to, but we can't tell whether it was read (because it was only referenced in an ACTION/PREDICATE macro).
-               var.AddNote("CodeGeneration", Note.VariableMayNotHaveBeenRead, var);
+               var.AddNote("CodeGeneration",Note.VariableMayNotHaveBeenRead,var);
                Logger.ReportError($"Variable {var} may not have been read. It was only referenced in an ACTION/PREDICATE macro.");
             } else if (!Compiler.Reachable.ReadVars.Contains(var)) {
                // It must have been written, but not read.
-               var.AddNote("CodeGeneration", Note.VariableNotRead, var);
+               var.AddNote("CodeGeneration",Note.VariableNotRead,var);
                Logger.ReportError($"Variable {var} was written to, but never read.");
             }
          }
@@ -91,35 +77,35 @@ namespace CDL2v1 {
 
          if (!isSeparate) {
             // Generate an integrated program ignoring module boundaries of all objects reachable from the program's ludes.
-            cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
+            cg.GenerateProgramStart(program,emitter);  // Generate the overall scaffolding
 
 
-            GenerateObjects<Const>(Compiler.Reachable.Objects.OfType<Const>(),                                        GenerateConstant);
-            GenerateObjects<Var>(Compiler.Reachable.Objects.OfType<Var>(),                                            GenerateVar);
-            GenerateObjects<LIST>(Compiler.Reachable.Objects.OfType<LIST>(),                                          GenerateList);
+            GenerateObjects<Const>(Compiler.Reachable.Objects.OfType<Const>(),GenerateConstant);
+            GenerateObjects<Var>(Compiler.Reachable.Objects.OfType<Var>(),GenerateVar);
+            GenerateObjects<LIST>(Compiler.Reachable.Objects.OfType<LIST>(),GenerateList);
 
-            GenerateObjects<Macro>(Compiler.Reachable.Objects.OfType<Macro>(),                                        GenerateMacro);
-            GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc=>!proc.IsSynthetic), GenerateProcedure);
-            GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc=> proc.IsSynthetic), GenerateProcedure, "Synthetic Procedure");
+            GenerateObjects<Macro>(Compiler.Reachable.Objects.OfType<Macro>(),GenerateMacro);
+            GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic),GenerateProcedure);
+            GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic),GenerateProcedure,"Synthetic Procedure");
             //GenerateObjects<Procedure>(section.LudeProcedures,          GenerateProcedure,"Lude Procedure"); // The above already generates these
 
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
             cg.GenerateProgramLudesStart();
             cg.GenerateComment("Program Ludes");
-            foreach (RW ludeType in Container.LudeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType, mod, wrapped: false);
+            foreach (RW ludeType in Container.LudeTypes) foreach (Module mod in program.Lude(ludeType)) GenerateModuleLude(ludeType,mod,wrapped: false);
             cg.GenerateProgramLudesEnd();
             cg.GenerateProgramEnd(program);
          } else {
             // TODO: Needs work to handle generating modules as separate units.
-            cg.GenerateProgramStart(program, emitter);  // Generate the overall scaffolding
+            cg.GenerateProgramStart(program,emitter);  // Generate the overall scaffolding
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
-            foreach (ID modId in program.Parts) cg.GenerateProgramPart(program, modId, isSeparate);
+            foreach (ID modId in program.Parts) cg.GenerateProgramPart(program,modId,isSeparate);
 
             GenerateProgramLudes(program);
             cg.GenerateProgramEnd(program);
-            foreach (Module mod in program.Modules) GenerateModule(mod, isSeparate: true);
+            foreach (Module mod in program.Modules) GenerateModule(mod,isSeparate: true);
          }
       }
 
@@ -131,9 +117,9 @@ namespace CDL2v1 {
          foreach (RW ludeType in Container.LudeTypes) {
             IEnumerable<Module> modulesWithLudes = program.Ludes[ludeType].Select(id => Database.Instance.ModuleByName(id)!).Where(mod => mod.Ludes[ludeType].Count > 0);
             if (modulesWithLudes.Any()) {
-               cg.GenerateProgramLudeStart(ludeType, program);
-               foreach (Module module in modulesWithLudes) cg.GenerateProgramLude(ludeType, program, module);
-               cg.GenerateProgramLudeEnd(ludeType, program);
+               cg.GenerateProgramLudeStart(ludeType,program);
+               foreach (Module module in modulesWithLudes) cg.GenerateProgramLude(ludeType,program,module);
+               cg.GenerateProgramLudeEnd(ludeType,program);
             }
          }
       }
@@ -142,25 +128,25 @@ namespace CDL2v1 {
       /// Generate code for module. It is up to the specific code generator to determine whether this code goes into a separate file or not.
       /// </summary>
       /// <param Id="module"></param>
-      private void GenerateModule(Module module, bool isSeparate) {
-         static void GenerateImpEx<T>(IDDictionary<T> impexList, Action<T> generateImpEx) {
-            foreach (T impex in impexList.Values) {               
-                generateImpEx(impex);
+      private void GenerateModule(Module module,bool isSeparate) {
+         static void GenerateImpEx<T>(IDDictionary<T> impexList,Action<T> generateImpEx) {
+            foreach (T impex in impexList.Values) {
+               generateImpEx(impex);
             }
          }
 
-         cg.GenerateModuleStart(module, isSeparate);
+         cg.GenerateModuleStart(module,isSeparate);
 
          cg.GenerateImpExStart(module);
-         GenerateImpEx(module.exports, cg.GenerateExport);
-         GenerateImpEx(module.imports, cg.GenerateImport);
+         GenerateImpEx(module.exports,cg.GenerateExport);
+         GenerateImpEx(module.imports,cg.GenerateImport);
          cg.GenerateImpExEnd(module);
 
          foreach (Layer layer in module.Layers) GenerateLayer(layer);
 
-         foreach (RW ludeType in Container.LudeTypes) GenerateModuleLude(ludeType, module, wrapped: true);
+         foreach (RW ludeType in Container.LudeTypes) GenerateModuleLude(ludeType,module,wrapped: true);
 
-         cg.GenerateModuleEnd(module, isSeparate);
+         cg.GenerateModuleEnd(module,isSeparate);
       }
       /// <summary>
       /// Generate code for the module ludes. There is one for each type if it exists.
@@ -168,12 +154,12 @@ namespace CDL2v1 {
       /// <param name="ludeType"></param>
       /// <param name="module"></param>
       /// <param name="wrapped"></param>
-      private void GenerateModuleLude(RW ludeType, Module module, bool wrapped) {
+      private void GenerateModuleLude(RW ludeType,Module module,bool wrapped) {
          IEnumerable<Section?> SectionsWithLudes = module.Ludes[ludeType].Select(id => module.SectionById(id)).Where(sec => sec?.Ludes[ludeType].Count > 0) ?? [];
          if (SectionsWithLudes.Any()) {
-            cg.GenerateModuleLudeStart(ludeType, module, wrapped: wrapped);
-            foreach (Section? section in SectionsWithLudes) cg.GenerateModuleLude(ludeType, module, section!);
-            cg.GenerateModuleLudeEnd(ludeType, module, wrapped: wrapped);
+            cg.GenerateModuleLudeStart(ludeType,module,wrapped: wrapped);
+            foreach (Section? section in SectionsWithLudes) cg.GenerateModuleLude(ludeType,module,section!);
+            cg.GenerateModuleLudeEnd(ludeType,module,wrapped: wrapped);
          }
       }
 
@@ -194,13 +180,13 @@ namespace CDL2v1 {
       /// <param Id="section"></param>
       private void GenerateSection(Section section) {
          cg.GenerateSectionStart(section);
-         GenerateObjects<Const>(section.Constants,                   GenerateConstant);
-         GenerateObjects<Var>(section.Variables,                     GenerateVar);
-         GenerateObjects<LIST>(section.Lists,                        GenerateList);
+         GenerateObjects<Const>(section.Constants,GenerateConstant);
+         GenerateObjects<Var>(section.Variables,GenerateVar);
+         GenerateObjects<LIST>(section.Lists,GenerateList);
 
-         GenerateObjects<Macro>(section.Macros,                      GenerateMacro);
-         GenerateObjects<Procedure>(section.NonSyntheticProcedures,  GenerateProcedure);
-         GenerateObjects<Procedure>(section.SyntheticProcedures,     GenerateProcedure, "Synthetic Procedure");
+         GenerateObjects<Macro>(section.Macros,GenerateMacro);
+         GenerateObjects<Procedure>(section.NonSyntheticProcedures,GenerateProcedure);
+         GenerateObjects<Procedure>(section.SyntheticProcedures,GenerateProcedure,"Synthetic Procedure");
          //GenerateObjects<Procedure>(section.LudeProcedures,          GenerateProcedure,"Lude Procedure"); // The above already generates these
 
          cg.GenerateSectionEnd(section);
@@ -211,10 +197,10 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="list"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateList(LIST list, int _) {
+      private void GenerateList(LIST list,int _) {
          Section section = list.ParentElement<Section>()!;
-         if (section.TryGetDeclaration(list.lwb, out Const? lwb) && section.TryGetDeclaration(list.upb, out Const? upb)) {
-            cg.GenerateList(list, lwb!, upb!);
+         if (section.TryGetDeclaration(list.lwb,out Const? lwb) && section.TryGetDeclaration(list.upb,out Const? upb)) {
+            cg.GenerateList(list,lwb!,upb!);
          } else {
             throw new NotImplementedException($"GenerateSection: Could not find lower or upper bound for {list}");
          }
@@ -233,16 +219,16 @@ namespace CDL2v1 {
       /// <param name="items"></param>
       /// <param name="generate"></param>
       /// <param name="specialType"></param>
-      private void GenerateObjects<T>(IEnumerable<NamedElement> items, Action<T,int> generate, string? specialType = null) where T : CDL2Object {
+      private void GenerateObjects<T>(IEnumerable<NamedElement> items,Action<T,int> generate,string? specialType = null) where T : CDL2Object {
          if (items.Any()) {
 #if AllignNames
             int maxNameLength = items.Select(item=>item.Id.InternalName.Length).Max();
 #else
             int maxNameLength = 0;
 #endif
-            cg.GenerateObjectSectionStart<T>(items, specialType ?? typeof(T).Name);
+            cg.GenerateObjectSectionStart<T>(items,specialType ?? typeof(T).Name);
             foreach (T item in items.Cast<T>()) generate(item,maxNameLength);
-            cg.GenerateObjectSectionEnd<T>(items, typeof(T).Name);
+            cg.GenerateObjectSectionEnd<T>(items,typeof(T).Name);
          }
       }
       /// <summary>
@@ -283,9 +269,9 @@ namespace CDL2v1 {
             Section section = macro.ParentElement<Section>()!;
             IEnumerable<Var> variables = macro.GetReferencedVariables();
             cg.GenerateMacroStart(macro);
-            GenerateAlgorithmHeader(macro, variables);
+            GenerateAlgorithmHeader(macro,variables);
             GenerateMacroBody(macro);
-            FinalizeAffixesAndVariables(macro, variables);
+            FinalizeAffixesAndVariables(macro,variables);
             cg.GenerateMacroEnd(macro);
          }
       }
@@ -304,7 +290,7 @@ namespace CDL2v1 {
       /// </remarks>
       /// <param name="inlining"></param>
       private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,List<IActualArg>? args = null,Parameters? parameters = null,bool inlining = false) {
-         parameters = new(parameters,macro.Affixes, args ?? []);
+         parameters = new(parameters,macro.Affixes,args ?? []);
          cg.GenerateMacroBodyStart(macro);
          if (inlining) GenerateLocalInitializers(macro);
          bool first = true;
@@ -342,7 +328,7 @@ namespace CDL2v1 {
          /// <param name="i">The ordinal of the argument. Not currently used.</param>
          /// <param name="affix"></param>
          /// <param name="arg"></param>
-         internal struct Parameter(int i,Affix affix, IActualArg arg) {
+         internal struct Parameter(int i,Affix affix,IActualArg arg) {
             public int argNo = i;
             public Affix affix = affix;
             public IActualArg arg = arg;
@@ -360,11 +346,11 @@ namespace CDL2v1 {
          /// <param name="parameters"></param>
          /// <param name="affixes"></param>
          /// <param name="args"></param>
-         public Parameters(Parameters? parameters,List<Affix> affixes, List<IActualArg> args) : base() {
+         public Parameters(Parameters? parameters,List<Affix> affixes,List<IActualArg> args) : base() {
             parameters ??= [];
-            int argCount = Math.Min(affixes.Count, args.Count);
-            for (int i = 0 ; i < argCount ; i++) {               
-               Add(new Parameter(i, affixes[i], args[i] is Affix aff && parameters.TryGetValue(aff,out IActualArg? arg) ? arg! : args[i]));
+            int argCount = Math.Min(affixes.Count,args.Count);
+            for (int i = 0 ; i < argCount ; i++) {
+               Add(new Parameter(i,affixes[i],args[i] is Affix aff && parameters.TryGetValue(aff,out IActualArg? arg) ? arg! : args[i]));
             }
          }
          /// <summary>
@@ -373,7 +359,7 @@ namespace CDL2v1 {
          /// <param name="affix"></param>
          /// <param name="arg"></param>
          /// <returns></returns>
-         public bool TryGetValue(Affix affix, out IActualArg? arg) {
+         public bool TryGetValue(Affix affix,out IActualArg? arg) {
             foreach (Parameter subst in this) {
                if (subst.affix == affix) {
                   arg = subst.arg;
@@ -383,7 +369,7 @@ namespace CDL2v1 {
             arg = null;
             return false;
          }
-         public bool TryGetValue(ID id, out IActualArg? arg) {
+         public bool TryGetValue(ID id,out IActualArg? arg) {
             foreach (Parameter subst in this) {
                if (subst.affix.Id == id) {
                   arg = subst.arg;
@@ -404,32 +390,32 @@ namespace CDL2v1 {
       /// <param name="first"></param>
       /// <param name="elem"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateMacroElement(Macro macro, Section section, Procedure? callingProc, Parameters parameters, bool first, IElement elem) {
+      private void GenerateMacroElement(Macro macro,Section section,Procedure? callingProc,Parameters parameters,bool first,IElement elem) {
          switch (elem) {
             case INT i: cg.GenerateMacroElementInt(i.value); break;
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
-            case STRING s: cg.GenerateMacroElementString(s.value, firstElement:first, quoted:false); break;
+            case STRING s: cg.GenerateMacroElementString(s.value,firstElement: first,quoted: false); break;
             case ID id:
                if (macro.TryGetAffix(id,out Affix aff)) {
-                  if (parameters.TryGetValue(aff, out IActualArg? arg)) {
-                     Debug.Assert(callingProc is not null, $"GenerateMacro: Calling procedure is null for inlined macro {macro}");
+                  if (parameters.TryGetValue(aff,out IActualArg? arg)) {
+                     Debug.Assert(callingProc is not null,$"GenerateMacro: Calling procedure is null for inlined macro {macro}");
                      switch (arg) {
-                        case Var vv: cg.GenerateMacroElementVar(vv, callingProc.CanFail, inlined: true); break;
+                        case Var vv: cg.GenerateMacroElementVar(vv,callingProc.CanFail,inlined: true); break;
                         case Const cc: cg.GenerateMacroElementConst(cc!); break;
                         case Local ll: cg.GenerateMacroElementLocal(ll); break;
-                        case Affix aa: cg.GenerateMacroElementAffix(aa, callingProc.CanFail); break;
-                        case STRING s: cg.GenerateMacroElementString(s.value, firstElement: false, quoted: true); break;
+                        case Affix aa: cg.GenerateMacroElementAffix(aa,callingProc.CanFail); break;
+                        case STRING s: cg.GenerateMacroElementString(s.value,firstElement: false,quoted: true); break;
                         default: Debugger.Break(); break;
                      }
                   } else {
-                     cg.GenerateMacroElementAffix(aff, macro.CanFail);
+                     cg.GenerateMacroElementAffix(aff,macro.CanFail);
                   }
                } else if (macro.TryGetLocal(id,out Local loc)) {
                   cg.GenerateMacroElementLocal(loc);
-               } else if (section.TryGetDeclaration(id, out CDL2Object? obj)) { // This should be a reference to an affix, local, Const, Var or List, so check which one
+               } else if (section.TryGetDeclaration(id,out CDL2Object? obj)) { // This should be a reference to an affix, local, Const, Var or List, so check which one
                   switch (obj) {
                      case Const c: cg.GenerateMacroElementConst(c); break;
-                     case Var v: cg.GenerateMacroElementVar(v, macro.CanFail); break;
+                     case Var v: cg.GenerateMacroElementVar(v,macro.CanFail); break;
                      case LIST l: cg.GenerateMacroElementList(l); break;
                      default:
                         throw new NotImplementedException($"GenerateMacro: Reference to wrong element type {obj}");
@@ -452,8 +438,8 @@ namespace CDL2v1 {
       private void FinalizeAffixesAndVariables(Algorithm algorithm,IEnumerable<Var> variables) {
          cg.GenerateAffixAndVariableFinalizationStart(algorithm);
          if (algorithm.NeedsFinalization) {
-            foreach (Affix affix in algorithm.Affixes) cg.GenerateAffixAndVariableFinalizer(algorithm, affix);
-            foreach (Var var in variables) cg.GenerateAffixAndVariableFinalizer(algorithm, var, isVar: true);
+            foreach (Affix affix in algorithm.Affixes) cg.GenerateAffixAndVariableFinalizer(algorithm,affix);
+            foreach (Var var in variables) cg.GenerateAffixAndVariableFinalizer(algorithm,var,isVar: true);
          }
          cg.GenerateAffixAndVariableFinalizationEnd(algorithm);
       }
@@ -509,23 +495,23 @@ namespace CDL2v1 {
       /// If the procedures is conditional compilation or it is inlined, only the algorithm comment is generated.
       /// </summary>
       /// <param name="proc"></param>
-      private void GenerateProcedure(Procedure proc, int _) {
+      private void GenerateProcedure(Procedure proc,int _) {
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
-         } else if (!proc.IsSynthetic &&  proc.IsInlinable(Compiler.Reachable)) { // TODO: Inline synthetics if applicable
+         } else if (!proc.IsSynthetic && proc.IsInlinable(Compiler.Reachable)) { // TODO: Inline synthetics if applicable
             GenerateAlgorithmComment(proc);
             cg.GenerateComment($"Procedure inlined");
-         //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Compiler.Reachable).NumberOfTimesCalled == 0) {
-         //   GenerateAlgorithmComment(proc);
-         //   cg.GenerateComment($"Procedure not invoked");
+            //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Compiler.Reachable).NumberOfTimesCalled == 0) {
+            //   GenerateAlgorithmComment(proc);
+            //   cg.GenerateComment($"Procedure not invoked");
          } else {
             IEnumerable<Var> variables = proc.GetReferencedVariables();
             cg.GenerateProcedureStart(proc);
-            GenerateAlgorithmHeader(proc, variables);
-            cg.GenerateProcedureBodyStart(proc, proc.ProcedureBodyType);
+            GenerateAlgorithmHeader(proc,variables);
+            cg.GenerateProcedureBodyStart(proc,proc.ProcedureBodyType);
             GenerateProcedureBody(proc);
-            cg.GenerateProcedureBodyEnd(proc, proc.ProcedureBodyType);
-            FinalizeAffixesAndVariables(proc, variables);
+            cg.GenerateProcedureBodyEnd(proc,proc.ProcedureBodyType);
+            FinalizeAffixesAndVariables(proc,variables);
             cg.GenerateProcedureEnd(proc);
          }
       }
@@ -534,7 +520,7 @@ namespace CDL2v1 {
       /// Generate the body of a procedure.
       /// </summary>
       /// <param name="proc"></param>
-      private void GenerateProcedureBody(Procedure proc) => GenerateAlternatives(proc, proc.group);
+      private void GenerateProcedureBody(Procedure proc) => GenerateAlternatives(proc,proc.group);
       /// <summary>
       /// Generate the alternatives for argAffix procedure.
       /// This method manages the conditional compilation of the alternatives based on whether the first call in the alternative is conditional compilation on or off.
@@ -544,13 +530,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      private void GenerateAlternatives(Procedure proc, Group group) {
+      private void GenerateAlternatives(Procedure proc,Group group) {
          bool suppressRest = false;
          bool removed;
-         
+
          int i = 1;
-         foreach (Alternative alternative in group.Alternatives) {   
-            cg.GenerateAlternativeStart(proc, group, i);
+         foreach (Alternative alternative in group.Alternatives) {
+            cg.GenerateAlternativeStart(proc,group,i);
             removed = false;
             if (suppressRest) {
                cg.GenerateComment($"Alternative suppressed by previous conditional compilation ON");
@@ -558,11 +544,11 @@ namespace CDL2v1 {
             } else if (alternative.IsConditionalCompilationOff) {           // Ignore this alternative
                cg.GenerateComment($"Alternative removed by conditional compilation OFF");
                removed = true;
-            } else {          
+            } else {
                suppressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
-               GenerateAlternative(proc, group, alternative, suppressRest || group.Alternatives.Count == i);
+               GenerateAlternative(proc,group,alternative,suppressRest || group.Alternatives.Count == i);
             }
-            cg.GenerateAlternativeEnd(proc, group, i, alternative, removed);
+            cg.GenerateAlternativeEnd(proc,group,i,alternative,removed);
 
             i++;
          }
@@ -576,20 +562,20 @@ namespace CDL2v1 {
       /// <param name="isLast"></param>
       /// <param name="parameters"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast, Parameters? parameters = null) {
+      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast,Parameters? parameters = null) {
          List<Call> calls = alternative.calls;
          bool canFail = false;
          foreach (Call call in calls) {
-            GenerateCall(proc, call, canFail,parameters:parameters);
+            GenerateCall(proc,call,canFail,parameters: parameters);
             canFail = canFail || call.CanFail;
          }
          switch (alternative.lastCall.type) {
-            case LCT.Standard: GenerateCall(proc, alternative.lastCall.call!, canFail,onlyCallInAlternative:calls.Count == 0,lastAlternative:isLast,parameters); break;
-            case LCT.Fail: cg.GenerateFail(proc, group); break;
-            case LCT.Succeed: cg.GenerateSucceed(proc, group); break;
-            case LCT.Abort: cg.GenerateAbort(proc, group); break;
-            case LCT.Repeat: cg.GenerateRepeat(proc, group, alternative.lastCall.label!,canFail); break;
-            case LCT.Group: GenerateGroup(proc, alternative.lastCall.group!); break;
+            case LCT.Standard: GenerateCall(proc,alternative.lastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,parameters); break;
+            case LCT.Fail: cg.GenerateFail(proc,group); break;
+            case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
+            case LCT.Abort: cg.GenerateAbort(proc,group); break;
+            case LCT.Repeat: cg.GenerateRepeat(proc,group,alternative.lastCall.label!,canFail); break;
+            case LCT.Group: GenerateGroup(proc,alternative.lastCall.group!); break;
             case LCT.None: break; // Used in the alternative generated for SectionById Ludes.
             default:
                throw new NotImplementedException($"GenerateAlternative: Unknown last call type {alternative.lastCall.type}");
@@ -602,7 +588,7 @@ namespace CDL2v1 {
       /// <param name="group"></param>
       private void GenerateGroup(Procedure proc,Group group) {
          cg.GenerateGroupStart(proc,group);
-         GenerateAlternatives(proc, group);
+         GenerateAlternatives(proc,group);
          cg.GenerateGroupEnd(proc,group);
       }
       /// <summary>
@@ -621,7 +607,7 @@ namespace CDL2v1 {
       /// <param name="lastAlternative"></param>
       /// <param name="parameters"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative=false,bool lastAlternative=false,Parameters? parameters = null) {
+      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative = false,bool lastAlternative = false,Parameters? parameters = null) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          Algorithm? called = call.Called;
          if (called is not null) {
@@ -650,29 +636,29 @@ namespace CDL2v1 {
          }
       }
 
-      private void GenerateActualArg(Procedure proc, Call call, Affix calledAffix, IActualArg arg) {
+      private void GenerateActualArg(Procedure proc,Call call,Affix calledAffix,IActualArg arg) {
          switch (arg) {
             case STRING s:
                Debug.Assert(calledAffix.affixType == AT.str,$"GenerateCallStart: String argument for non-string affix {calledAffix}");
                cg.GenerateCallArgString(s.value);
                break;
             case Const c:
-               cg.GenerateCallArgReferenceConst(calledAffix, proc.Section!.GetResolvedConstant(c)!);
+               cg.GenerateCallArgReferenceConst(calledAffix,proc.Section!.GetResolvedConstant(c)!);
                break;
             case Var v:
-               cg.GenerateCallArgReferenceVar(calledAffix, v, needFinalization: call.Called!.NeedsFinalization);
+               cg.GenerateCallArgReferenceVar(calledAffix,v,needFinalization: call.Called!.NeedsFinalization);
                break;
             case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
                if (proc.TryGetAffix(id,out Affix procAffix)) {
-                  cg.GenerateCallArgReferenceAffix(calledAffix, procAffix, needFinalization: call.CanFail);
+                  cg.GenerateCallArgReferenceAffix(calledAffix,procAffix,needFinalization: call.CanFail);
                } else if (proc.TryGetLocal(id,out Local local)) {
                   cg.GenerateCallArgReferenceLocal(calledAffix,local);
                } else if (proc.ParentElement<Section>()!.TryGetDeclaration(id,out CDL2Object? dataRef)) {
                   if (dataRef is Const c) {
                      Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");
-                     cg.GenerateCallArgReferenceConst(calledAffix, proc.Section!.GetResolvedConstant(c)!);
+                     cg.GenerateCallArgReferenceConst(calledAffix,proc.Section!.GetResolvedConstant(c)!);
                   } else if (dataRef is Var v) {
-                     cg.GenerateCallArgReferenceVar(calledAffix, v, needFinalization: call.Called!.NeedsFinalization);
+                     cg.GenerateCallArgReferenceVar(calledAffix,v,needFinalization: call.Called!.NeedsFinalization);
                   } else {
                      throw new NotImplementedException($"GenerateCallStart: Reference to wrong element type {dataRef}");
                   }
@@ -680,7 +666,7 @@ namespace CDL2v1 {
                   throw new NotImplementedException($"GenerateCallStart: Unresolved reference to {id}");
                }
                break;
-            case Affix argAffix:  cg.GenerateCallArgReferenceAffix(calledAffix, argAffix,proc.NeedsFinalization); break;
+            case Affix argAffix: cg.GenerateCallArgReferenceAffix(calledAffix,argAffix,proc.NeedsFinalization); break;
             case Local lo: cg.GenerateCallArgReferenceLocal(calledAffix,lo); break;
             default:
                throw new NotImplementedException($"GenerateCallStart: Unknown argument type {arg.GetType()}");

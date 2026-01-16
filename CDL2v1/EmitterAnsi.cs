@@ -44,9 +44,9 @@ namespace CDL2v1 {
 
          try {
             IntPtr handle = GetStdHandle(-11); // STD_OUTPUT_HANDLE
-            if (GetConsoleMode(handle, out uint mode)) {
+            if (GetConsoleMode(handle,out uint mode)) {
                mode |= 0x0004; // ENABLE_VIRTUAL_TERMINAL_PROCESSING
-               SetConsoleMode(handle, mode);
+               SetConsoleMode(handle,mode);
             }
          } catch {
             // Ignore if ANSI support cannot be enabled
@@ -69,7 +69,7 @@ namespace CDL2v1 {
             string style = match.Groups["style"].Value;
             string text = match.Groups["text"].Value;
 
-            string ansiCodes = BuildAnsiCodes(fg, bg, style);
+            string ansiCodes = BuildAnsiCodes(fg,bg,style);
             Console.Write($"{ansiCodes}{text}{RESET}");
 
             lastIndex = match.Index + match.Length;
@@ -82,7 +82,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Build ANSI escape codes for the given formatting
       /// </summary>
-      private string BuildAnsiCodes(string fg, string bg, string style) {
+      private string BuildAnsiCodes(string fg,string bg,string style) {
          string codes = "";
 
          if (!string.IsNullOrEmpty(fg)) {
@@ -96,9 +96,9 @@ namespace CDL2v1 {
          }
 
          if (!string.IsNullOrEmpty(style)) {
-            if (style.Contains("bold", StringComparison.OrdinalIgnoreCase)) codes += $"{ESC}[1m";
-            if (style.Contains("italic", StringComparison.OrdinalIgnoreCase)) codes += $"{ESC}[3m";
-            if (style.Contains("underline", StringComparison.OrdinalIgnoreCase)) codes += $"{ESC}[4m";
+            if (style.Contains("bold",StringComparison.OrdinalIgnoreCase)) codes += $"{ESC}[1m";
+            if (style.Contains("italic",StringComparison.OrdinalIgnoreCase)) codes += $"{ESC}[3m";
+            if (style.Contains("underline",StringComparison.OrdinalIgnoreCase)) codes += $"{ESC}[4m";
          }
 
          return codes;
@@ -112,9 +112,9 @@ namespace CDL2v1 {
 
          try {
             string hex = hexColor.TrimStart('#');
-            int r = Convert.ToInt32(hex.Substring(0, 2), 16);
-            int g = Convert.ToInt32(hex.Substring(2, 2), 16);
-            int b = Convert.ToInt32(hex.Substring(4, 2), 16);
+            int r = Convert.ToInt32(hex.Substring(0,2),16);
+            int g = Convert.ToInt32(hex.Substring(2,2),16);
+            int b = Convert.ToInt32(hex.Substring(4,2),16);
             return (r, g, b);
          } catch {
             return (255, 255, 255);
@@ -122,14 +122,14 @@ namespace CDL2v1 {
       }
 
       #region Windows Console API for ANSI support
-      [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+      [System.Runtime.InteropServices.DllImport("kernel32.dll",SetLastError = true)]
       private static extern IntPtr GetStdHandle(int nStdHandle);
 
       [System.Runtime.InteropServices.DllImport("kernel32.dll")]
-      private static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+      private static extern bool GetConsoleMode(IntPtr hConsoleHandle,out uint lpMode);
 
       [System.Runtime.InteropServices.DllImport("kernel32.dll")]
-      private static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+      private static extern bool SetConsoleMode(IntPtr hConsoleHandle,uint dwMode);
       #endregion
    }
 }

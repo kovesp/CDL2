@@ -32,14 +32,8 @@
 //=======================================================================
 // </auto-gen>
 
-using System.Collections.Immutable;
 using System.Diagnostics;
-using System.IO;
-using System.Linq.Expressions;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    /// <summary>
@@ -49,7 +43,7 @@ namespace CDL2v1 {
       [JsonInclude]
       public string CanonicalName = string.Empty;
       [JsonIgnore]
-      public string Name=> Database.Instance.DisplayName(CanonicalName);
+      public string Name => Database.Instance.DisplayName(CanonicalName);
 
       [JsonIgnore]
       public ID Id => this;
@@ -88,14 +82,14 @@ namespace CDL2v1 {
       internal void Rename(string newName) => CanonicalName = Database.Instance.RenameCanonicalName(CanonicalName,newName);
 
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
-      public static bool operator ==(ID left, string right) => left is null ? right is null : left.Equals(right);
-      public static bool operator ==(string left, ID right) => left is null ? right is null : right.Equals(left);
+      public static bool operator ==(ID left,string right) => left is null ? right is null : left.Equals(right);
+      public static bool operator ==(string left,ID right) => left is null ? right is null : right.Equals(left);
       public static bool operator !=(ID left,ID right) => !(left == right);
-      public static bool operator !=(ID left, string right) => !(left == right);
-      public static bool operator !=(string left, ID right) => !(left == right);
+      public static bool operator !=(ID left,string right) => !(left == right);
+      public static bool operator !=(string left,ID right) => !(left == right);
    }
 
-   public class IDDictionary<V> : Dictionary<ID, V> { }
+   public class IDDictionary<V> : Dictionary<ID,V> { }
    public class IDSet : Set<ID> { }
 
 }

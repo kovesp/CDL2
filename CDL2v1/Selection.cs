@@ -32,7 +32,6 @@
 //=======================================================================
 // </auto-gen>
 
-using System.Configuration;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -136,10 +135,10 @@ namespace CDL2v1 {
       [JsonInclude, JsonPropertyOrder(4)] public ID Id = ID.AnonID;
 
 
-      private static readonly Type[] NonFocusableTypes = [typeof(Affix), typeof(Local), typeof(Call)];
+      private static readonly Type[] NonFocusableTypes = [typeof(Affix),typeof(Local),typeof(Call)];
       [JsonIgnore]
-      public bool IsFocusable => ! NonFocusableTypes.Contains(Object?.GetType() ?? typeof(NamedElement));
-      public override string ToString() => $"SingleSelection<{Object}{(ListType != SelectorType.INVALID?" "+ListType:"")}{(Id is not null ? " " + Id : "")}>";
+      public bool IsFocusable => !NonFocusableTypes.Contains(Object?.GetType() ?? typeof(NamedElement));
+      public override string ToString() => $"SingleSelection<{Object}{(ListType != SelectorType.INVALID ? " " + ListType : "")}{(Id is not null ? " " + Id : "")}>";
    }
 
    /// <summary>
@@ -180,7 +179,7 @@ namespace CDL2v1 {
       /// </remarks>
       private class SelectionSegments : List<SelectionSegment> {
          public int Index = 0;
-         public override string ToString() => "SelectionSegments<" + (this.Aggregate("", (a, b) => $"{a} {b}")).TrimStart() + (Index > 0 ? $" : {Index}>" : ">");
+         public override string ToString() => "SelectionSegments<" + (this.Aggregate("",(a,b) => $"{a} {b}")).TrimStart() + (Index > 0 ? $" : {Index}>" : ">");
       }
       /// ================================================================================================================
       #endregion SelectionSegments
@@ -219,7 +218,7 @@ namespace CDL2v1 {
          }
 
          SelectionSegments segments = [];
-         if (! ParseSelectionSegments(selectionString,segments,out bool importedSeen)) return;
+         if (!ParseSelectionSegments(selectionString,segments,out bool importedSeen)) return;
 
          IEnumerable<NamedElement> candidateObjects;
          IEnumerable<NamedElement> selectedObjects = [];
@@ -240,7 +239,7 @@ namespace CDL2v1 {
          if (!candidateObjects.Any()) {
             // Nothing matches
             ErrorMessage = "No matches";
-            return;   
+            return;
          }
          // Use the segments to successively narrow down the selection.
          for (int segNo = 0 ; segNo < segments.Count ; segNo += 2) {
@@ -263,29 +262,29 @@ namespace CDL2v1 {
          string name = segments[segNo + 1].SegmentName;
          switch (segments[segNo].SegmentType) {
             // Generic types
-            case SelectorType.ANY      : selectedObjects = NarrowSelection<NamedElement>(candidateObjects,name,importedSeen); break; // Excludes ludes, parts and interfaces for now.
+            case SelectorType.ANY: selectedObjects = NarrowSelection<NamedElement>(candidateObjects,name,importedSeen); break; // Excludes ludes, parts and interfaces for now.
             case SelectorType.CONTAINER: selectedObjects = NarrowSelection<Container>(candidateObjects,name,importedSeen); break;
-            case SelectorType.DATA     : selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen,obj => obj is IDataElement); break;
-            case SelectorType.FACE     : selectedObjects = NarrowSelectionToList(); break;
-            case SelectorType.OBJECT   : selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen); break;
+            case SelectorType.DATA: selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen,obj => obj is IDataElement); break;
+            case SelectorType.FACE: selectedObjects = NarrowSelectionToList(); break;
+            case SelectorType.OBJECT: selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen); break;
 
             // Specific containers
-            case SelectorType.PROGRAM  : selectedObjects = NarrowSelection<Program>(candidateObjects,name,importedSeen); break;
-            case SelectorType.MODULE   : selectedObjects = NarrowSelection<Module>(candidateObjects,name,importedSeen); break;
-            case SelectorType.LAYER    : selectedObjects = NarrowSelection<Layer>(candidateObjects,name,importedSeen); break;
-            case SelectorType.SECTION  : selectedObjects = NarrowSelection<Section>(candidateObjects,name,importedSeen); break;
+            case SelectorType.PROGRAM: selectedObjects = NarrowSelection<Program>(candidateObjects,name,importedSeen); break;
+            case SelectorType.MODULE: selectedObjects = NarrowSelection<Module>(candidateObjects,name,importedSeen); break;
+            case SelectorType.LAYER: selectedObjects = NarrowSelection<Layer>(candidateObjects,name,importedSeen); break;
+            case SelectorType.SECTION: selectedObjects = NarrowSelection<Section>(candidateObjects,name,importedSeen); break;
 
             // Specific OBJECTS
             case SelectorType.ALGORITHM: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => !alg.IsSynthetic); break;
             case SelectorType.PROCEDURE: selectedObjects = NarrowSelection<Procedure>(candidateObjects,name,importedSeen,alg => !alg.IsSynthetic); break;
-            case SelectorType.MACRO    : selectedObjects = NarrowSelection<Macro>(candidateObjects,name,importedSeen); break;
-            case SelectorType.FUNCTION : selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsFunction && !alg.IsSynthetic); break;
-            case SelectorType.ACTION   : selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsAction && !alg.IsSynthetic); break;
-            case SelectorType.TEST     : selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsTest && !alg.IsSynthetic); break;
+            case SelectorType.MACRO: selectedObjects = NarrowSelection<Macro>(candidateObjects,name,importedSeen); break;
+            case SelectorType.FUNCTION: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsFunction && !alg.IsSynthetic); break;
+            case SelectorType.ACTION: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsAction && !alg.IsSynthetic); break;
+            case SelectorType.TEST: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsTest && !alg.IsSynthetic); break;
             case SelectorType.PREDICATE: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsPredicate && !alg.IsSynthetic); break;
-            case SelectorType.CONST    : selectedObjects = NarrowSelection<Const>(candidateObjects,name,importedSeen); break;
-            case SelectorType.VAR      : selectedObjects = NarrowSelection<Var>(candidateObjects,name,importedSeen); break;
-            case SelectorType.LIST     : selectedObjects = NarrowSelection<LIST>(candidateObjects,name,importedSeen); break;
+            case SelectorType.CONST: selectedObjects = NarrowSelection<Const>(candidateObjects,name,importedSeen); break;
+            case SelectorType.VAR: selectedObjects = NarrowSelection<Var>(candidateObjects,name,importedSeen); break;
+            case SelectorType.LIST: selectedObjects = NarrowSelection<LIST>(candidateObjects,name,importedSeen); break;
 
             // Lists where the selection is the entire list (for now)
             case SelectorType.ABSTR:
@@ -337,7 +336,7 @@ namespace CDL2v1 {
       private IEnumerable<NamedElement> NarrowSelectionToNonFocusable<T>(IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,bool importedSeen,SelectorType elementType) where T : Algorithm {
          // TODO: this implementaton should also work for CALLs in ludes since they are synthetic PROCEDUREs. Verification needed.
          IEnumerable<NamedElement> selectedObjects = NarrowSelection<T>(candidateObjects,segments[segNo + 1].SegmentName,importedSeen,null); // Narrow down to algorithms for AFFIX and LOCAL any, for CALL PROCEDUREs only.
-         
+
          switch (elementType) {
             case SelectorType.AFFIX:
                selectedObjects = NarrowToHeaderSubComponent<Affix>(selectedObjects,segments[segNo + 1].SegmentName);
@@ -431,7 +430,7 @@ namespace CDL2v1 {
       private const int SingleSelectionCount = 2;
       public override string ToString() {
          if (IsInvalid) return $"Selection(Invalid: {ErrorMessage})";
-         return "Selection<" + (this.Take(SingleSelectionCount).Aggregate("", (a, b) => $"{a} {b}")).TrimStart() + (this.Count > SingleSelectionCount ? "..." : "") + ">";
+         return "Selection<" + (this.Take(SingleSelectionCount).Aggregate("",(a,b) => $"{a} {b}")).TrimStart() + (this.Count > SingleSelectionCount ? "..." : "") + ">";
       }
    }
 
@@ -608,7 +607,7 @@ namespace CDL2v1 {
       /// <param name="msg"></param>
       /// <param name="severity"></param>
       internal bool Move(string args,FocusMoveDirection direction,out string msg,out Severity severity) {
-         (msg,severity) = ("Invalid command", Severity.Error);
+         (msg, severity) = ("Invalid command", Severity.Error);
          if (Object is null) return false; // Note that there is no need to check focusability here, as the focus is always on a focusable object.
          // TODO: Check if the object has siblings, if not, return false. Interface list do not have siblings.
          int newIndex;
@@ -621,16 +620,16 @@ namespace CDL2v1 {
                break;
             case FocusMoveDirection.Last:
                if (args.IsNotEmptyOrWhitespace) return false;
-               newIndex = Object.Siblings.Count -ludeCount - 1;
+               newIndex = Object.Siblings.Count - ludeCount - 1;
                break;
             default:
                int focusMoveCount = 1;
                if (args.IsNotEmptyOrWhitespace && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
-               newIndex = (currentIndex + focusMoveCount*(int)direction).ConstrainedTo(0,Object.Siblings.Count-ludeCount-1);
+               newIndex = (currentIndex + focusMoveCount * (int)direction).ConstrainedTo(0,Object.Siblings.Count - ludeCount - 1);
                break;
          }
          if (newIndex == currentIndex) {
-            (msg,severity) = ("Already there", Severity.Info);
+            (msg, severity) = ("Already there", Severity.Info);
             return false;
          } else {
             return Focus.SetFocus(Object.Siblings[newIndex]);

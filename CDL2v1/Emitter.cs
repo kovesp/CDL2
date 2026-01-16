@@ -52,12 +52,12 @@ namespace CDL2v1 {
       /// <summary>
       /// The number of spaces to use for each level of indentation.
       /// </summary>
-      public int IndentWidth { 
-         get => _indentWidth; 
+      public int IndentWidth {
+         get => _indentWidth;
          set {
             _indentWidth = value;
             IndentString = new(' ',value);
-         } 
+         }
       }
       private string IndentString = new(' ',3);
       /// <summary>
@@ -121,7 +121,7 @@ namespace CDL2v1 {
 
       public bool SupportsDecoration { get; set; } = false;
       public Regex spanRegex = SpanRegex();
-      protected string RemoveSpans(string text) => spanRegex.Replace(text, "${text}");
+      protected string RemoveSpans(string text) => spanRegex.Replace(text,"${text}");
 
       public void Indented(Action action) {
          IndentLevel++;
@@ -175,7 +175,7 @@ namespace CDL2v1 {
       /// <returns>True if a new line was written.</returns>
       public void Emitnl(params object[] code) => WriteWithIndent(nlbefore: false,nlafter: true,honorLineLength: true,extraSpace: false,code);
       public void EmitnlOption() {
-         if (CurrentLine.Trim().Length > 0) WriteWithIndent(nlbefore: false, nlafter: true, honorLineLength: true, extraSpace: false, []);
+         if (CurrentLine.Trim().Length > 0) WriteWithIndent(nlbefore: false,nlafter: true,honorLineLength: true,extraSpace: false,[]);
       }
 
       /// <summary>
@@ -227,7 +227,7 @@ namespace CDL2v1 {
          }
       }
 
-      public bool WillNotFitOnCurrentLine(string s) => GetLengthWithoutDecorations(CurrentLine) + GetLengthWithoutDecorations(s)> LineLength;
+      public bool WillNotFitOnCurrentLine(string s) => GetLengthWithoutDecorations(CurrentLine) + GetLengthWithoutDecorations(s) > LineLength;
       private int GetLengthWithoutDecorations(string str) => spanRegex.Replace(str,match => match.Groups["text"].Value).Length;
       public bool WillKeepTogetherNotFitOnCurrentLine() => WillNotFitOnCurrentLine(AggregateBuffer);
 
@@ -240,7 +240,7 @@ namespace CDL2v1 {
       // Write the current line to the target. Add a newline if requested and return the request.
       private void WriteNewLine(bool nl) {
          if (nl) {
-            WriteDebug(CurrentLine);            
+            WriteDebug(CurrentLine);
             WriteLine(CurrentLine);
             CurrentLine = "";
          }

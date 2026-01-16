@@ -73,7 +73,7 @@ namespace CDL2v1 {
       /// <param name="subject"></param>
       /// <param name="note"></param>
       /// <param name="insertions"></param>
-      protected Note AddNote(NamedElement subject, Note note, params object[] insertions) => subject.AddNote(PhaseName, note, insertions);
+      protected Note AddNote(NamedElement subject,Note note,params object[] insertions) => subject.AddNote(PhaseName,note,insertions);
       protected Note AddNote(Note note,params object[] insertions) {
          Note newNote = new Note(note,PhaseName,null,insertions);
          notes.Add(newNote);
@@ -112,13 +112,13 @@ namespace CDL2v1 {
       /// <param name="message">Optional termination message.</param>
       /// <returns></returns>
       public virtual void ReportNoteCounts(Reachable? reachable,string? message = null) {
-         Log(0, $"{PhaseName,-16}: {Errors.Count().Plural("error",",")} {Warnings.Count().Plural("warning",",")} {Infos.Count().Plural("info message")}");
-         if (message != null) Log(0, message);
+         Log(0,$"{PhaseName,-16}: {Errors.Count().Plural("error",",")} {Warnings.Count().Plural("warning",",")} {Infos.Count().Plural("info message")}");
+         if (message != null) Log(0,message);
 
          Severity messages = Settings.SettingValue<Severity>("Messages")!;
          bool all = messages == Severity.Info || Settings.SettingValue<bool>("ReportAll");
          ReportByType(Errors,all);
-         if (messages == Severity.Warning || messages == Severity.Info)  ReportByType(Warnings,all);
+         if (messages == Severity.Warning || messages == Severity.Info) ReportByType(Warnings,all);
          if (messages == Severity.Info) ReportByType(Infos,all);
 
          void ReportByType(IEnumerable<Note> list,bool all) {
@@ -127,7 +127,7 @@ namespace CDL2v1 {
                NamedElement? noteOwner = NamedElement.From<NamedElement>(note.Owner);
                if (all || reachable is null || note.Owner == Guid.Empty || noteOwner is Container _ || (noteOwner is CDL2Object obj && reachable.Objects.Contains(obj))) {
                   string head = $"{note.NoteType,7} {note.Number:D3}: ";
-                  Log(0, $"   {head} {noteOwner?.FQDN()??PhaseName}\n    {new string(' ', head.Length)}{note.Text}");
+                  Log(0,$"   {head} {noteOwner?.FQDN() ?? PhaseName}\n    {new string(' ',head.Length)}{note.Text}");
                }
             }
          }
@@ -139,25 +139,25 @@ namespace CDL2v1 {
    /// Processes command line options and compiles the source files.
    /// </summary>
    public partial class CDL2 {
-      #if WINDOWS
+#if WINDOWS
       [DllImport("kernel32.dll")]
       private static extern IntPtr GetConsoleWindow();
 
       [DllImport("user32.dll")]
-      private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+      private static extern bool ShowWindow(IntPtr hWnd,int nCmdShow);
 
       private const int SW_HIDE = 0;
-      #endif
+#endif
 
-      [DllImport("kernel32.dll", SetLastError = true)]
+      [DllImport("kernel32.dll",SetLastError = true)]
       [return: MarshalAs(UnmanagedType.Bool)]
       private static extern bool AllocConsole();
 
-      [DllImport("kernel32.dll", SetLastError = true)]
+      [DllImport("kernel32.dll",SetLastError = true)]
       [return: MarshalAs(UnmanagedType.Bool)]
       private static extern bool AttachConsole(int dwProcessId);
 
-      [DllImport("kernel32.dll", SetLastError = true)]
+      [DllImport("kernel32.dll",SetLastError = true)]
       private static extern IntPtr GetStdHandle(int nStdHandle);
 
       private const int ATTACH_PARENT_PROCESS = -1;
@@ -212,13 +212,13 @@ namespace CDL2v1 {
       public Reachable Reachable = new();
       public SemanticAnalyzer? SemanticAnalyzer;
 
-      
+
 
       public void CompileSources(string[] args) {
-         Log(Settings.AllSettings.First().ToTabularString(title: true, compact: true)!);
+         Log(Settings.AllSettings.First().ToTabularString(title: true,compact: true)!);
          foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.LongOption)) {
             string? settingString = setting.ToTabularString(compact: true);
-            if (settingString != null) Log(1, settingString);
+            if (settingString != null) Log(1,settingString);
          }
 
 
@@ -240,7 +240,7 @@ namespace CDL2v1 {
                   CommandPromptWindow commandWindow = new(guiToaster);
                   CommandInterpreter CLI = new(commandWindow,
                      new EmitterCommandWindow((CommandPromptWindow)commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },
-                     toaster=guiToaster);
+                     toaster = guiToaster);
                   Database.Instance.CLI = CLI;
 
                   // Handle commands
@@ -261,7 +261,7 @@ namespace CDL2v1 {
                ICLIREPL repl = new CommandConsole();
                Emitter emitter = Settings.SettingValue<bool>("ANSI") ? new EmitterAnsi() { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") }
                                                                      : new EmitterConsole() { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") };
-               CommandInterpreter CLI = new(repl, emitter, toaster);
+               CommandInterpreter CLI = new(repl,emitter,toaster);
                repl.SetInputProcessor(CLI.ProcessInput);
                Database.Instance.CLI = CLI;
                CLI.SetStatus();
@@ -272,7 +272,7 @@ namespace CDL2v1 {
             foreach (string arg in args) {
                string source = Path.GetFullPath(arg);
                if (File.Exists(source)) {
-                  Log(0, $"Compiling {source}");
+                  Log(0,$"Compiling {source}");
                   Parser.Parse(source);
                }
             }
@@ -281,7 +281,7 @@ namespace CDL2v1 {
 
             Program? MainProgram = GetMainProgram();
             if (MainProgram != null) {
-               SemanticAnalyzer = SemanticAnalysis(MainProgram, Reachable);
+               SemanticAnalyzer = SemanticAnalysis(MainProgram,Reachable);
                if (SemanticAnalyzer.AbortCompilation()) return;
 
                Database.Save();
@@ -291,14 +291,14 @@ namespace CDL2v1 {
                   Emitter emitter;
                   if (PrettyPrint == null) {
                      emitter = new EmitterDebug();
-                  } else if (Regex.IsMatch(PrettyPrint, @"^w(?:indow)$", RegexOptions.IgnoreCase)) {
+                  } else if (Regex.IsMatch(PrettyPrint,@"^w(?:indow)$",RegexOptions.IgnoreCase)) {
                      emitter = new EmitterWindow();
                   } else if (PrettyPrint.IsValidFileName) {
                      emitter = new EmitterFile(PrettyPrint);
                   } else {
                      emitter = new EmitterDebug();
                   }
-                  new PrettyPrinter(emitter).Print(Database.Instance.NamedElements.Values.OfType<Program>(), Database.Instance.NamedElements.Values.OfType<Module>());
+                  new PrettyPrinter(emitter).Print(Database.Instance.NamedElements.Values.OfType<Program>(),Database.Instance.NamedElements.Values.OfType<Module>());
                   emitter.Close();
                }
 
@@ -306,15 +306,15 @@ namespace CDL2v1 {
                   GenerateCode(out _,PrettyPrint,MainProgram);
                }
 
-               Log(0, "");
+               Log(0,"");
                Parser.ReportNoteCounts(Reachable);
-               Log(0, "");
+               Log(0,"");
                SemanticAnalyzer.ReportNoteCounts(Reachable);
             }
          }
       }
 
-      public static void GenerateCode(out string targetFileName,string? target=null,Program? MainProgram = null) {
+      public static void GenerateCode(out string targetFileName,string? target = null,Program? MainProgram = null) {
          MainProgram ??= CDL2.GetMainProgram();
          if (target == null) target = Settings.SettingValue<string>("Target");
          ICodeGenerator? cg = CreateCodeGenerator(target!);
@@ -325,11 +325,11 @@ namespace CDL2v1 {
             Emitter? emitter = null;
             try {
                targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name,cg.FileExtension));
-               emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = ! Settings.SettingValue<bool>("CGDebug") };
+               emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = !Settings.SettingValue<bool>("CGDebug") };
                Log(0,$"\nGenerating {Settings.SettingValue<string>("Target")!} code for {MainProgram}");
                CodeGenerator codeGenerator = new(cg,Compiler);
                codeGenerator.GenerateCode(MainProgram,emitter);
-               Log(0, $"Code generation complete. Output written to {targetFileName}");
+               Log(0,$"Code generation complete. Output written to {targetFileName}");
             } catch (Exception ex) {
                ReportError($"Error during code generation: {ex.Message} {ex.StackTrace}");
             } finally {
@@ -357,37 +357,37 @@ namespace CDL2v1 {
             }
          }
 
-         Settings.SettingValue<string>("ProgramName",program?.Id.Name??"");
+         Settings.SettingValue<string>("ProgramName",program?.Id.Name ?? "");
          return program;
       }
 
       public SemanticAnalyzer SemanticAnalysis(Program MainProgram,Reachable reachable) {
-         SemanticAnalyzer semanticAnalyzer = new (this);
+         SemanticAnalyzer semanticAnalyzer = new(this);
          semanticAnalyzer.Analyze(MainProgram);
          reachable.CollectAllObjects(MainProgram);
          reachable.CollectReachableObjects(MainProgram);
-         semanticAnalyzer.AnalyzeUnused(MainProgram, reachable);
+         semanticAnalyzer.AnalyzeUnused(MainProgram,reachable);
          return semanticAnalyzer;
       }
 
       private static readonly Dictionary<string,ICodeGenerator?> CodeGeneratorCache = [];
-      private static ICodeGenerator? CreateCodeGenerator(string target, string dataType = "long") {
+      private static ICodeGenerator? CreateCodeGenerator(string target,string dataType = "long") {
          if (CodeGeneratorCache.TryGetValue(target,out ICodeGenerator? cached)) return cached;
          try {
             if (AvailableCodeGenerators.TryGetValue(target,out Type? type)) {
-               return CodeGeneratorCache[target]=Activator.CreateInstance(type, dataType) as ICodeGenerator;
+               return CodeGeneratorCache[target] = Activator.CreateInstance(type,dataType) as ICodeGenerator;
             }
          } catch (Exception ex) {
             ReportError($"Error creating code generator for target {target} with Data type {dataType}: {ex.Message}");
          }
-         return CodeGeneratorCache[target]=null;
+         return CodeGeneratorCache[target] = null;
       }
 
       private static IEnumerable<Type> GetAvailableCodeGenerators() {
          Assembly currentAssembly = Assembly.GetExecutingAssembly();
          return currentAssembly.GetTypes()
-            .Where(t => 
-               t.IsClass && 
+            .Where(t =>
+               t.IsClass &&
                !t.IsAbstract &&
                typeof(ICodeGenerator).IsAssignableFrom(t) &&
                t.Name.StartsWith("CodeGenerator"));

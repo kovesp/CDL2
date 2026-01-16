@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace CDL2v1 {
+﻿namespace CDL2v1 {
    /// <summary>
    /// This emitter distributes emitted lines to multiple underlying emitters.
    /// </summary>

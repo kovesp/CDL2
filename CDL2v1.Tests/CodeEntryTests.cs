@@ -1,6 +1,4 @@
-﻿using Xunit;
-
-namespace CDL2v1.Tests {
+﻿namespace CDL2v1.Tests {
    public class CodeEntryTests(DatabaseFixture fixture) : IClassFixture<DatabaseFixture> {
       private readonly DatabaseFixture _fixture = fixture.SetName(typeof(CodeEntryTests));
       private readonly CommandInterpreter CLI = Database.Instance.CLI;
@@ -14,7 +12,7 @@ namespace CDL2v1.Tests {
          // Add some parts.
          Assert.True(CLI.EnterRawCode("Part aa,bb."));
          // Check that the part was added.
-         Assert.True(test1.Parts.Where(part => part.CanonicalName == "bb").Any()); 
+         Assert.True(test1.Parts.Where(part => part.CanonicalName == "bb").Any());
       }
    }
 }

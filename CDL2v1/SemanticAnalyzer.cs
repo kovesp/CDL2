@@ -33,20 +33,7 @@
 // </auto-gen>
 
 
-using Microsoft.VisualBasic;
-
-using System;
-using System.CodeDom;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Reflection.Metadata.Ecma335;
-using System.Security.Policy;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Documents;
-using System.Windows.Input;
 
 using static CDL2v1.Logger;
 
@@ -94,7 +81,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="program"></param>
       internal void Analyze(Program program) {
-         Log(0, $"Analyzing {program}");
+         Log(0,$"Analyzing {program}");
          //phase 1
          AnalyzeProgram(program);
          // Phase 2
@@ -105,7 +92,7 @@ namespace CDL2v1 {
          foreach (Module module in program.Modules) {
             AnalyzeModule(module);
          }
-      } 
+      }
 
       /// <summary>
       /// Analyze the imports of the given program.
@@ -174,7 +161,7 @@ namespace CDL2v1 {
       /// <param name="module"></param>
       private void AnalyzeModuleExports(Module module) {
          Log(2,$"Analyzing module {module} exports");
-         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section, RW.EXPORT, section.Interfaces[InterfaceTypes.Export], module.exports,logDepth:3);
+         foreach (Section section in module.Sections) AnalyzeProvidedInterfaces(section,RW.EXPORT,section.Interfaces[InterfaceTypes.Export],module.exports,logDepth: 3);
       }
       /// <summary>
       /// Verify the consistency of interface declarations.
@@ -182,11 +169,11 @@ namespace CDL2v1 {
       /// <param name="program"></param>
       private void AnalyzeProgramInterfaces(Program program) {
          foreach (Module module in program.Modules) {
-            Log(1, $"Analyzing internal interfaces of {module}");
+            Log(1,$"Analyzing internal interfaces of {module}");
             // Construct the Visible table of each layer in the module
             foreach (Section section in module.Sections) {
-               AnalyzeProvidedInterfaces(section, RW.EXT, section.Interfaces[InterfaceTypes.Ext], section.Layer!.Visible,logDepth:2);
-               AnalyzeProvidedInterfaces(section, RW.ABSTR, section.Interfaces[InterfaceTypes.Abstr], section.Layer?.Successor?.Visible,logDepth:2);
+               AnalyzeProvidedInterfaces(section,RW.EXT,section.Interfaces[InterfaceTypes.Ext],section.Layer!.Visible,logDepth: 2);
+               AnalyzeProvidedInterfaces(section,RW.ABSTR,section.Interfaces[InterfaceTypes.Abstr],section.Layer?.Successor?.Visible,logDepth: 2);
             }
             // At this point Visible of each layer contains all the objects that are visible in the layer, i.e., that have been extended in this layer's sections
             // or abstracted from below.
@@ -202,7 +189,7 @@ namespace CDL2v1 {
                      if (layer.Visible.TryGetValue(elemid,out IProvidable? elem)) {
                         section.Interfaces[InterfaceTypes.Inv].Add(elem.Id);
                      } else {
-                        AddNote(section, Note.MissingInvoke, elemid, layer);
+                        AddNote(section,Note.MissingInvoke,elemid,layer);
                      }
                   }
                }
@@ -216,25 +203,25 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="mainProgram"></param>
       /// <param name="Reachable"></param>
-      public void AnalyzeUnused(Program mainProgram, Reachable Reachable) {
+      public void AnalyzeUnused(Program mainProgram,Reachable Reachable) {
          int unused = 0;
          SortedList<string,CDL2Object> unusedObjects = [];
          foreach (CDL2Object obj in Reachable.AllObjects) {
             if (Reachable.Objects.Contains(obj) /*|| mainProgram.Exports.ContainsKey(obj.Id)*/) {
                obj.Notes.Remove(Note.UnreferenceObject);
             } else {
-               AddNote(obj, new Note(Note.UnreferenceObject,PhaseName,obj.ParentElement<CDL2Object>()!));
+               AddNote(obj,new Note(Note.UnreferenceObject,PhaseName,obj.ParentElement<CDL2Object>()!));
                unused++;
                unusedObjects.Add(obj.Id.Name,obj);
             }
          }
-         Log(0, $"There are {unused.Plural("unused object")} in the program");
-         if (Settings.AnyVerbosity(4)) foreach (CDL2Object obj in unusedObjects.Values) Log(1, $"  {obj}");
+         Log(0,$"There are {unused.Plural("unused object")} in the program");
+         if (Settings.AnyVerbosity(4)) foreach (CDL2Object obj in unusedObjects.Values) Log(1,$"  {obj}");
       }
 
       public void AnalyzeProgram(Program program) {
          IDDictionary<Module> validModules = [];
-         Log(1, $"Analyzing module presence of {program}");
+         Log(1,$"Analyzing module presence of {program}");
          // First verify that all modules in the parts list are present in the database.
          // Modules are found by name, and added to valid modules by their ID. Note that the ID object in Parts may not be the same as in the module itself
          foreach (ID modId in program.Parts) {
@@ -242,7 +229,7 @@ namespace CDL2v1 {
             if ((mod = Database.Instance.ModuleByName(modId)) is not null) {
                validModules[mod.Id] = mod;
             } else {
-               AddNote(program, Note.ModuleNotFound, modId);
+               AddNote(program,Note.ModuleNotFound,modId);
             }
          }
          // Now ensure that the parts list contains the actual module IDs.
@@ -251,13 +238,13 @@ namespace CDL2v1 {
 
          // Verify that all lude references are correct and replace the IDs in the lude with the actual ones.
          foreach (RW ludeType in Container.LudeTypes) {
-            Log(1, $"Analyzing program {ludeType}");
+            Log(1,$"Analyzing program {ludeType}");
             List<ID> progLudeEntries = [.. program.Ludes[ludeType]];
             program.Ludes[ludeType].Clear();
             foreach (ID modId in progLudeEntries) {
                if (validModules.TryGetValue(modId,out Module? mod)) {
                   if (mod.Ludes[ludeType].Count == 0) {
-                     AddNote(program, Note.LudeNotFound, RW.MODULE, modId, ludeType);
+                     AddNote(program,Note.LudeNotFound,RW.MODULE,modId,ludeType);
                   } else {
                      List<ID> modLudeEntries = [.. mod.Ludes[ludeType]];
                      mod.Ludes[ludeType].Clear();
@@ -277,7 +264,7 @@ namespace CDL2v1 {
                   }
                   program.Ludes[ludeType].Add(mod.Id);
                } else {
-                  AddNote(program, Note.LudeNotFound,RW.MODULE, modId, ludeType);
+                  AddNote(program,Note.LudeNotFound,RW.MODULE,modId,ludeType);
                }
                // Valid ludes are added to the program's lude table.
             }
@@ -308,7 +295,7 @@ namespace CDL2v1 {
          Log(3,$"Analyzing {section.ContainerName}");
 
          // Analyze Constants
-         Log(4, $"Analyzing constants");
+         Log(4,$"Analyzing constants");
          foreach (Const c in section.Constants) {
             if (c.IsImported) continue; // Imported constants are not analyzed.
             // Ensure that each CONST element in the constant is declared
@@ -318,18 +305,18 @@ namespace CDL2v1 {
             }
             List<IElement> originalelements = [.. c.elements];
             c.elements.Clear();
-            foreach (IElement elem in originalelements) c.elements.Add(elem is ID elemId ? resolvedIDs.GetActualValue(elemId) : elem);       
+            foreach (IElement elem in originalelements) c.elements.Add(elem is ID elemId ? resolvedIDs.GetActualValue(elemId) : elem);
          }
 
          // Analyze Lists
-         Log(4, $"Analyzing Lists");
+         Log(4,$"Analyzing Lists");
          foreach (LIST list in section.Lists) {
-            list.lwb = ResolveIdToDeclaringId<LIST,Const>(section, list, list.lwb, Note.UnresolvedListBound, Note.InvalidListBound, "lower bound");
-            list.upb = ResolveIdToDeclaringId<LIST,Const>(section, list, list.upb, Note.UnresolvedListBound, Note.InvalidListBound, "upper bound");
+            list.lwb = ResolveIdToDeclaringId<LIST,Const>(section,list,list.lwb,Note.UnresolvedListBound,Note.InvalidListBound,"lower bound");
+            list.upb = ResolveIdToDeclaringId<LIST,Const>(section,list,list.upb,Note.UnresolvedListBound,Note.InvalidListBound,"upper bound");
          }
 
          // Analyze procedures and macros.
-         Log(4, $"Analyzing Algorithms");
+         Log(4,$"Analyzing Algorithms");
          foreach (Algorithm algorithm in section.NonSyntheticAlgorithms) {
             if (algorithm.IsImported) continue; // Imported algorithms are not analyzed.
             Log(5,$"Analyzing {algorithm.GetType().Name} {algorithm.AlgorithmName}");
@@ -355,32 +342,32 @@ namespace CDL2v1 {
       ///   If the id is unresolved or does not resolve to the required type, return it. 
       ///   Otherwise return the id of the resolved object.
       /// </returns>
-      private ID ResolveIdToDeclaringId<S,T>(Section section, S subject, ID id,Note unresolved,Note wrongType,string? extra=null,
-            Predicate<CDL2Object>? ensure=null) where S : CDL2Object where T : CDL2Object {
+      private ID ResolveIdToDeclaringId<S, T>(Section section,S subject,ID id,Note unresolved,Note wrongType,string? extra = null,
+            Predicate<CDL2Object>? ensure = null) where S : CDL2Object where T : CDL2Object {
          CDL2Object? resolvedObject = section.GetResolvedObject(id);
-         switch (resolvedObject) {            
+         switch (resolvedObject) {
             case null:
                if (extra != null) {
-                  AddNote(subject, unresolved, extra, id);
+                  AddNote(subject,unresolved,extra,id);
                } else {
-                  AddNote(subject, unresolved, id);
+                  AddNote(subject,unresolved,id);
                }
                return id;
             case T:
                if (ensure != null && !ensure(resolvedObject)) {
                   if (extra != null) {
-                     AddNote(subject, wrongType, extra, resolvedObject);
+                     AddNote(subject,wrongType,extra,resolvedObject);
                   } else {
-                     AddNote(subject, wrongType, resolvedObject);
+                     AddNote(subject,wrongType,resolvedObject);
                   }
                   return id;
                }
                return resolvedObject.Id;
             default:
                if (extra != null) {
-                  AddNote(subject, wrongType, extra, resolvedObject);
+                  AddNote(subject,wrongType,extra,resolvedObject);
                } else {
-                  AddNote(subject, wrongType, resolvedObject);
+                  AddNote(subject,wrongType,resolvedObject);
                }
                return id;
          }
@@ -398,20 +385,20 @@ namespace CDL2v1 {
       /// <param name="obj1"></param>
       /// <param name="obj2"></param>
       /// <returns></returns>
-      private void  CheckImportConsistency(NamedElement problemObject, CDL2Object obj1, CDL2Object obj2) {
+      private void CheckImportConsistency(NamedElement problemObject,CDL2Object obj1,CDL2Object obj2) {
          if (obj1 is Const && obj2 is Const) {
          } else if (obj1 is Algorithm alg1 && obj2 is Algorithm alg2) {
             if (alg1.Affixes.Count != alg2.Affixes.Count) {
-               AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "Affix count mismatch");
+               AddNote(problemObject,Note.ImpexMismatch,obj1,obj2,"Affix count mismatch");
             } else {
                for (int i = 0 ; i < alg1.Affixes.Count ; i++) {
                   if (alg1.Affixes[i].affixDir != alg2.Affixes[i].affixDir) {
-                     AddNote(problemObject, Note.ImpexMismatch, alg1, alg2, $"Affix direction mismatch, {alg1.Affixes[i]} vs. {alg2.Affixes[i]}");
+                     AddNote(problemObject,Note.ImpexMismatch,alg1,alg2,$"Affix direction mismatch, {alg1.Affixes[i]} vs. {alg2.Affixes[i]}");
                   }
                }
             }
          } else {
-            AddNote(problemObject, Note.ImpexMismatch, obj1, obj2, "type mismatch, ALGORITHM vs. CONST");
+            AddNote(problemObject,Note.ImpexMismatch,obj1,obj2,"type mismatch, ALGORITHM vs. CONST");
          }
       }
 
@@ -430,7 +417,7 @@ namespace CDL2v1 {
       /// <param name="kind"></param>
       /// <param name="interfaceElements"></param>
       /// <param name="providables"></param>
-      private void AnalyzeProvidedInterfaces(Section section, RW kind, SortedSet<ID> interfaceElements, IDDictionary<IProvidable>? providables, int logDepth) {
+      private void AnalyzeProvidedInterfaces(Section section,RW kind,SortedSet<ID> interfaceElements,IDDictionary<IProvidable>? providables,int logDepth) {
          Log(logDepth,$"Analyzing section {section} {kind}");
          // Providables will be null in the top layer, hence there should be no abstractions in this section ... add a warning.
          if (providables == null) {
@@ -468,7 +455,7 @@ namespace CDL2v1 {
                   macro.elements.Add(local!.Id);
                } else {
                   macro.elements.Add(ResolveIdToDeclaringId<Macro,CDL2Object>(macro.Section!,macro,id,
-                     Note.UnresolvedMacroElement,Note.InvalidMacroElement,ensure:x=>x is IDataElement));
+                     Note.UnresolvedMacroElement,Note.InvalidMacroElement,ensure: x => x is IDataElement));
                }
             } else {
                macro.elements.Add(elem);
@@ -478,23 +465,23 @@ namespace CDL2v1 {
 
       private class DataFlowInfo {
          private readonly Procedure proc;
-         private readonly Set<Affix> readableAffixes     = [];
-         private readonly Set<Local> readableLocals      = [];
-         private readonly Set<Affix> writableAffixes     = [];
-         private readonly Set<Local> writableLocals      = [];
+         private readonly Set<Affix> readableAffixes = [];
+         private readonly Set<Local> readableLocals = [];
+         private readonly Set<Affix> writableAffixes = [];
+         private readonly Set<Local> writableLocals = [];
          private readonly Set<Affix> neverWrittenAffixes = [];
-         private readonly Set<Local> neverWrittenLocals  = [];
+         private readonly Set<Local> neverWrittenLocals = [];
          public DataFlowInfo(Procedure proc) { this.proc = proc; Reset(VarSet.all); }
 
          [Flags]
          public enum VarSet {
-            
-            readableAffixes     =1,
-            readableLocals      =2,
-            writableAffixes     =4,
-            writableLocals      =8,
-            neverWrittenAffixes =16,
-            neverWrittenLocals  =32,
+
+            readableAffixes = 1,
+            readableLocals = 2,
+            writableAffixes = 4,
+            writableLocals = 8,
+            neverWrittenAffixes = 16,
+            neverWrittenLocals = 32,
 
             all = readableAffixes | readableLocals | writableAffixes | writableLocals | neverWrittenAffixes | neverWrittenLocals,
          }
@@ -505,28 +492,28 @@ namespace CDL2v1 {
                   foreach (T value in values) set.Add(value);
                }
             }
-            reset(VarSet.readableAffixes    ,readableAffixes    ,proc.Affixes.Where(affix => affix.IsInput).ToSet);
-            reset(VarSet.readableLocals     ,readableLocals     ,[]);
-            reset(VarSet.writableAffixes    ,writableAffixes    ,proc.Affixes.Where(affix => affix.IsOutput).ToSet);
-            reset(VarSet.writableLocals     ,writableLocals     ,[.. proc.Locals]);
+            reset(VarSet.readableAffixes,readableAffixes,proc.Affixes.Where(affix => affix.IsInput).ToSet);
+            reset(VarSet.readableLocals,readableLocals,[]);
+            reset(VarSet.writableAffixes,writableAffixes,proc.Affixes.Where(affix => affix.IsOutput).ToSet);
+            reset(VarSet.writableLocals,writableLocals,[.. proc.Locals]);
             reset(VarSet.neverWrittenAffixes,neverWrittenAffixes,proc.Affixes.Where(affix => affix.IsOutputOnly).ToSet);
-            reset(VarSet.neverWrittenLocals ,neverWrittenLocals ,[.. proc.Locals]);
+            reset(VarSet.neverWrittenLocals,neverWrittenLocals,[.. proc.Locals]);
          }
 
-         public bool Readable(Affix affix)       => readableAffixes.Contains(affix);
-         public bool Readable(Local local)       => readableLocals.Contains(local);
-         public bool Writable(Affix affix)       => writableAffixes.Contains(affix);
-         public bool Writable(Local local)       => writableLocals.Contains(local);
-         public bool Unreadable(Affix affix)     => !readableAffixes.Contains(affix);
-         public bool Unreadable(Local local)     => !readableLocals.Contains(local);
-         public bool Unwritable(Affix affix)     => !writableAffixes.Contains(affix);
-         public bool Unwritable(Local local)     => !writableLocals.Contains(local);
-         public bool NeverWritten(Affix affix)   => neverWrittenAffixes.Contains(affix);
-         public bool NeverWritten(Local local)   => neverWrittenLocals.Contains(local);
-         public void MakeReadable(Affix affix)   { readableAffixes.Add(affix); neverWrittenAffixes.Remove(affix); }
-         public void MakeReadable(Local local)   { readableLocals.Add(local);  neverWrittenLocals.Remove(local); }
-         public void MakeWritable(Affix affix)   => writableAffixes.Add(affix);
-         public void MakeWritable(Local local)   => writableLocals.Add(local);
+         public bool Readable(Affix affix) => readableAffixes.Contains(affix);
+         public bool Readable(Local local) => readableLocals.Contains(local);
+         public bool Writable(Affix affix) => writableAffixes.Contains(affix);
+         public bool Writable(Local local) => writableLocals.Contains(local);
+         public bool Unreadable(Affix affix) => !readableAffixes.Contains(affix);
+         public bool Unreadable(Local local) => !readableLocals.Contains(local);
+         public bool Unwritable(Affix affix) => !writableAffixes.Contains(affix);
+         public bool Unwritable(Local local) => !writableLocals.Contains(local);
+         public bool NeverWritten(Affix affix) => neverWrittenAffixes.Contains(affix);
+         public bool NeverWritten(Local local) => neverWrittenLocals.Contains(local);
+         public void MakeReadable(Affix affix) { readableAffixes.Add(affix); neverWrittenAffixes.Remove(affix); }
+         public void MakeReadable(Local local) { readableLocals.Add(local); neverWrittenLocals.Remove(local); }
+         public void MakeWritable(Affix affix) => writableAffixes.Add(affix);
+         public void MakeWritable(Local local) => writableLocals.Add(local);
          public void MakeUnreadable(Affix affix) => readableAffixes.Remove(affix);
          public void MakeUnreadable(Local local) => readableLocals.Remove(local);
          public void MakeUnwritable(Affix affix) => writableAffixes.Remove(affix);
@@ -534,7 +521,7 @@ namespace CDL2v1 {
       }
       private void AnalyzeProcedure(Procedure proc,Section section) {
          DataFlowInfo info = new(proc);
-         if (AnalyzeGroup(proc, proc.group, info)) return;
+         if (AnalyzeGroup(proc,proc.group,info)) return;
 
          bool hasEffect = AnalyzeEffect(proc.group);
          if (proc.HasEffect && !hasEffect) {
@@ -545,14 +532,14 @@ namespace CDL2v1 {
             ReportError(section,$"Procedure {proc.AlgorithmName} has a defect. Should be {(proc.AlgorithmType == RW.TEST ? RW.PREDICATE : RW.ACTION)}?");
          }
 
-         if (! proc.IsConditionalCompilation()) {
-            bool canFail = AnalyzeCanFail(proc.group, section);
+         if (!proc.IsConditionalCompilation()) {
+            bool canFail = AnalyzeCanFail(proc.group,section);
             if (proc.CanFail && !canFail) {
-               AddNote(proc, Note.CannotFail, proc.AlgorithmType);
-               ReportError(section, $"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.AlgorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
+               AddNote(proc,Note.CannotFail,proc.AlgorithmType);
+               ReportError(section,$"Procedure {proc.AlgorithmName} cannot fail. Should be {(proc.AlgorithmType == RW.TEST ? RW.FUNCTION : RW.ACTION)}?");
             } else if (!proc.CanFail && canFail) {
-               AddNote(proc, Note.CanFail, proc.AlgorithmType);
-               ReportError(section, $"Procedure {proc.AlgorithmName} can fail. Should be {(proc.AlgorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
+               AddNote(proc,Note.CanFail,proc.AlgorithmType);
+               ReportError(section,$"Procedure {proc.AlgorithmName} can fail. Should be {(proc.AlgorithmType == RW.FUNCTION ? RW.TEST : RW.PREDICATE)}?");
             }
          }
       }
@@ -564,10 +551,10 @@ namespace CDL2v1 {
       /// <param name="group"></param>
       /// <param name="info"></param>
       /// <returns>true if there are any undefined calls.</returns>
-      private bool AnalyzeGroup(Procedure proc, Group group, DataFlowInfo info) {
+      private bool AnalyzeGroup(Procedure proc,Group group,DataFlowInfo info) {
          bool missingDefinitions = false;
          foreach (Alternative alt in group.Alternatives) {
-            missingDefinitions = AnalyzeAlternative(proc, alt, info) || missingDefinitions;
+            missingDefinitions = AnalyzeAlternative(proc,alt,info) || missingDefinitions;
             // info.Reset(DataFlowInfo.VarSet.neverWrittenLocals | DataFlowInfo.VarSet.writableLocals | DataFlowInfo.VarSet.readableLocals);
          }
          return missingDefinitions;
@@ -580,15 +567,15 @@ namespace CDL2v1 {
       /// <param name="alt"></param>
       /// <param name="info"></param>
       /// <returns>true if there are any undefined calls.</returns>
-      private bool AnalyzeAlternative(Procedure proc, Alternative alt, DataFlowInfo info) {
+      private bool AnalyzeAlternative(Procedure proc,Alternative alt,DataFlowInfo info) {
          bool missingDefinitions = false;
          foreach (Call call in alt.calls) {
-            missingDefinitions = AnalyzeCall(call, proc, info) || missingDefinitions;
+            missingDefinitions = AnalyzeCall(call,proc,info) || missingDefinitions;
          }
          if (alt.lastCall.type == LCT.Group) {
-            missingDefinitions = AnalyzeGroup(proc, alt.lastCall.group!, info) || missingDefinitions;
+            missingDefinitions = AnalyzeGroup(proc,alt.lastCall.group!,info) || missingDefinitions;
          } else if (alt.lastCall.type == LCT.Standard) {
-            missingDefinitions = AnalyzeCall(alt.lastCall.call!, proc, info) || missingDefinitions;
+            missingDefinitions = AnalyzeCall(alt.lastCall.call!,proc,info) || missingDefinitions;
          }
          return missingDefinitions;
       }
@@ -600,7 +587,7 @@ namespace CDL2v1 {
       /// <param name="proc"></param>
       /// <param name="info"></param>
       /// <returns>true if there call is undefined</returns>
-      private bool AnalyzeCall(Call call, Procedure proc, DataFlowInfo info) {
+      private bool AnalyzeCall(Call call,Procedure proc,DataFlowInfo info) {
          if (!call.IsBuiltin) {
             Algorithm? calledAlg = call.Called;
             if (calledAlg is null) {
@@ -609,28 +596,28 @@ namespace CDL2v1 {
             }
             call.Id = calledAlg.Id; // Normalize the id of the call to the declared algorithm's id.
             if (calledAlg.Affixes.Count != call.Args.Count) {
-               proc.AddNote(PhaseName, Note.ArgumentCountMismatch, call.id,call.Args.Count, calledAlg.Affixes.Count);
+               proc.AddNote(PhaseName,Note.ArgumentCountMismatch,call.id,call.Args.Count,calledAlg.Affixes.Count);
                return true;
             } else if (call.Args.Count == 0) {
                return false;
             } else {
                List<Affix> affix = calledAlg.Affixes;
                List<IActualArg> args = [.. call.Args];
-               for (int i = 0; i < args.Count; i++) { 
+               for (int i = 0 ; i < args.Count ; i++) {
                   if (args[i] is ID id) {
                      // ID that was not resolved during parsing
-                     if (proc.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {                           
+                     if (proc.Section!.TryGetDeclaration(id,out CDL2Object? obj)) {
                         switch (obj) {
                            case Var var:
                               args[i] = var; break;
                            case Const c:
                               args[i] = c; break;
                            default:
-                              proc.AddNote(PhaseName, Note.InvalidArgumentType, args[i],call);
+                              proc.AddNote(PhaseName,Note.InvalidArgumentType,args[i],call);
                               break;
-                        }               
+                        }
                      } else {
-                        proc.AddNote(PhaseName, Note.UnresolvedArgument, args[i],call);
+                        proc.AddNote(PhaseName,Note.UnresolvedArgument,args[i],call);
                         return true; // No point in continuing
                      }
                   }
@@ -643,7 +630,7 @@ namespace CDL2v1 {
                         case STRING _:
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidStringArg, args[i], call);
+                           proc.AddNote(PhaseName,Note.InvalidStringArg,args[i],call);
                            break;
                      }
                   } else if (affix[i].IsInputOnly) {
@@ -655,13 +642,13 @@ namespace CDL2v1 {
                         case Affix inputArg when inputArg.IsInput:   // Includes transput
                            break;
                         case Affix outputArg when outputArg.IsOutputOnly:
-                           if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
+                           if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName,Note.OutputAffixNotAssigned,outputArg.Id,call);
                            break;
                         case Local local:
-                           if (info.NeverWritten(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
+                           if (info.NeverWritten(local)) proc.AddNote(PhaseName,Note.LocalNotAssigned,local,call);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidInputArg, args[i], call);
+                           proc.AddNote(PhaseName,Note.InvalidInputArg,args[i],call);
                            break;
                      }
                   } else if (affix[i].IsOutputOnly) {
@@ -671,21 +658,21 @@ namespace CDL2v1 {
                         case Var _:
                            break;
                         case Affix outputArg when outputArg.IsOutput:   // Includes transput
-                           if (info.Unwritable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg, call);
+                           if (info.Unwritable(outputArg)) proc.AddNote(PhaseName,Note.OutputAffixOverwritten,outputArg,call);
                            info.MakeReadable(outputArg);
                            info.MakeUnwritable(outputArg);
                            break;
                         case Local local:
-                           if (!info.NeverWritten(local) && info.Unwritable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local, call);
+                           if (!info.NeverWritten(local) && info.Unwritable(local)) proc.AddNote(PhaseName,Note.LocalOverwritten,local,call);
                            info.MakeReadable(local);
                            info.MakeUnwritable(local);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidOutputArg, args[i], call);
+                           proc.AddNote(PhaseName,Note.InvalidOutputArg,args[i],call);
                            break;
                      }
                   } else {
-                     Debug.Assert(affix[i].IsTransput, "Transput affix expected");
+                     Debug.Assert(affix[i].IsTransput,"Transput affix expected");
                      // The actual argument must be a variable, a transput affix or a local or an output affix which has already been assigned a value of the containing procedure.
                      switch (args[i]) {
                         case Var _:
@@ -696,19 +683,19 @@ namespace CDL2v1 {
                            break;
                         case Affix outputArg when outputArg.IsOutputOnly:
                            // TODO: Differentiate between output never assigned and output assigned but not read. Same for local. But how? Another interfaceElements in info?
-                           if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixNotAssigned, outputArg.Id,call);
-                           else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName, Note.OutputAffixOverwritten, outputArg,call);
+                           if (info.NeverWritten(outputArg)) proc.AddNote(PhaseName,Note.OutputAffixNotAssigned,outputArg.Id,call);
+                           else if (info.Unreadable(outputArg)) proc.AddNote(PhaseName,Note.OutputAffixOverwritten,outputArg,call);
                            info.MakeReadable(outputArg);
                            info.MakeUnwritable(outputArg);
                            break;
                         case Local local:
-                           if (info.NeverWritten(local) || info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalNotAssigned, local, call);
-                           if (info.Unreadable(local)) proc.AddNote(PhaseName, Note.LocalOverwritten, local,call);
+                           if (info.NeverWritten(local) || info.Unreadable(local)) proc.AddNote(PhaseName,Note.LocalNotAssigned,local,call);
+                           if (info.Unreadable(local)) proc.AddNote(PhaseName,Note.LocalOverwritten,local,call);
                            info.MakeReadable(local);
                            info.MakeUnwritable(local);
                            break;
                         default:
-                           proc.AddNote(PhaseName, Note.InvalidTransputArg, args[i], call);
+                           proc.AddNote(PhaseName,Note.InvalidTransputArg,args[i],call);
                            break;
                      }
                   }

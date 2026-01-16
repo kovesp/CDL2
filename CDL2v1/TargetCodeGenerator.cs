@@ -31,12 +31,7 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace CDL2v1 {
    internal abstract partial class TargetCodeGenerator {
@@ -50,7 +45,7 @@ namespace CDL2v1 {
       protected void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName}");
       protected void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName}");
       protected void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl("# ", line);
+         foreach (string line in comment.Split('\n')) emitter.Emitnl("# ",line);
       }
 
       protected (string Start, string End) NestedComment = ("/*", "*/");
@@ -64,7 +59,7 @@ namespace CDL2v1 {
       /// <param name="macro"></param>
       /// <param name="separator"></param>
       /// <returns></returns>
-      protected static bool HasMultipleStatments(Macro macro, string separator = ";") {
+      protected static bool HasMultipleStatments(Macro macro,string separator = ";") {
          Regex regex = BuildSeparatorRegex(separator);
          return macro.elements.OfType<STRING>().Any(str => regex.IsMatch(str.value));
       }
@@ -79,44 +74,44 @@ namespace CDL2v1 {
       /// <returns>A tuple containing two lists: the first list includes all elements up to and including the last separator, and
       /// the second list contains all elements following the last separator. If no separator is found, the first list
       /// is empty and the second contains all elements.</returns>
-      public static (List<IElement> beforeLast, List<IElement> lastExpression) SplitMacroBody(Macro macro, string separator = ";") {
-         if (macro.elements.Count == 0) return ([], []);
-         
+      public static (List<IElement> beforeLast, List<IElement> lastExpression) SplitMacroBody(Macro macro,string separator = ";") {
+         if (macro.elements.Count == 0) return ([],[]);
+
          Regex regex = BuildSeparatorRegex(separator);
-         
+
          int lastSeparatorIndex = -1;
-         for (int i = macro.elements.Count - 1; i >= 0; i--) {
+         for (int i = macro.elements.Count - 1 ; i >= 0 ; i--) {
             if (macro.elements[i] is STRING str && regex.IsMatch(str.value)) {
                lastSeparatorIndex = i;
                break;
             }
          }
-         
+
          List<IElement> beforeLast = [];
          List<IElement> lastExpression = [];
-         
+
          if (lastSeparatorIndex == -1) {
             lastExpression.AddRange(macro.elements);
          } else {
-            for (int i = 0; i <= lastSeparatorIndex; i++) {
+            for (int i = 0 ; i <= lastSeparatorIndex ; i++) {
                beforeLast.Add(macro.elements[i]);
             }
-            
-            for (int i = lastSeparatorIndex + 1; i < macro.elements.Count; i++) {
+
+            for (int i = lastSeparatorIndex + 1 ; i < macro.elements.Count ; i++) {
                lastExpression.Add(macro.elements[i]);
             }
          }
-         
+
          return (beforeLast, lastExpression);
       }
 
       private static Regex BuildSeparatorRegex(string separator) {
          string pattern = $@"(?<!['""])(?:\n|{Regex.Escape(separator)})(?![^'""]*['""])";
-         return new Regex(pattern, RegexOptions.Compiled);
+         return new Regex(pattern,RegexOptions.Compiled);
       }
 
-      protected static readonly Random Random =  new();
-      protected string RandomInitialValue => Random.Next(0, int.MaxValue).ToString() 
+      protected static readonly Random Random = new();
+      protected string RandomInitialValue => Random.Next(0,int.MaxValue).ToString()
          + $"  {NestedComment.Start} Random value to catch uninitialized VARs, LOCALs, and output AFFIXes {NestedComment.End}";
       #endregion Helpers
 

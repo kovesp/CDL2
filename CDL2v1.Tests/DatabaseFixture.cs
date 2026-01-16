@@ -1,9 +1,4 @@
-using CDL2v1;
-
-using Microsoft.VisualStudio.TestPlatform.ObjectModel;
-
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
 namespace CDL2v1.Tests {
    public class DatabaseFixture : IDisposable {

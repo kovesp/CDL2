@@ -47,13 +47,13 @@ namespace CDL2v1 {
       /// <param name="message">The message to display.</param>
       /// <param name="timeoutMs">Timeout in milliseconds (ignored in console mode).</param>
       /// <param name="delay">If true, adds a brief pause after displaying.</param>
-      public void ShowToast(string message, int timeoutMs = 0, bool delay = false,bool setOwner = false) {
+      public void ShowToast(string message,int timeoutMs = 0,bool delay = false,bool setOwner = false) {
          lock (lockObject) {
             ConsoleColor previousColor = Console.ForegroundColor;
             try {
                Console.ForegroundColor = ConsoleColor.Cyan;
                Console.WriteLine($"[TOAST] {message}");
-               if (delay && timeoutMs > 0) Thread.Sleep(Math.Min(timeoutMs, 2000));
+               if (delay && timeoutMs > 0) Thread.Sleep(Math.Min(timeoutMs,2000));
             } finally {
                Console.ForegroundColor = previousColor;
             }
@@ -66,14 +66,14 @@ namespace CDL2v1 {
       /// <param name="message">The message to display.</param>
       /// <param name="action">Action to execute while toast is displayed.</param>
       /// <param name="minShowInterval">Minimum show interval in milliseconds (ignored in console mode).</param>
-      public void ShowToast(string message, Action action, int _) {
+      public void ShowToast(string message,Action action,int _) {
          lock (lockObject) {
             ConsoleColor previousColor = Console.ForegroundColor;
             try {
                Console.ForegroundColor = ConsoleColor.Cyan;
                Console.WriteLine($"[TOAST] {message}");
                Console.ForegroundColor = previousColor;
-               
+
                action?.Invoke();
             } catch (Exception ex) {
                Console.ForegroundColor = ConsoleColor.Red;

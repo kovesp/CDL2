@@ -43,7 +43,7 @@ namespace CDL2v1 {
    /// </summary>
    internal partial class EmitterCommandWindow : Emitter {
       private readonly CommandPromptWindow commandWindow;
-      private readonly Dictionary<string, Brush> colorMap = new();
+      private readonly Dictionary<string,Brush> colorMap = new();
       private FontFamily? textFont;
       private bool isRenderingSuspended = false;
       private int batchDepth = 0;
@@ -69,7 +69,7 @@ namespace CDL2v1 {
          this.commandWindow = commandWindow;
 
          SupportsDecoration = true;
-         
+
          // Create brushes for each color used by the pretty printer
          foreach (string color in PrettyPrinter.UsedColors()) {
             colorMap[color] = new BrushConverter().ConvertFromString(color) as Brush ?? Brushes.Black;
@@ -78,7 +78,7 @@ namespace CDL2v1 {
 
          // Override default background to use window background
          colorMap["Background"] = windowBackground;
-         
+
          // Use the Other foreground but our window background
          colorMap["Foreground"] = colorMap[PrettyPrinter.Decorators[SE.Other].FG];
 
@@ -99,7 +99,7 @@ namespace CDL2v1 {
 
          foreach (Match match in spanRegex.Matches(item)) {
             if (match.Index > lastIndex) {
-               AppendText(item[lastIndex..match.Index], colorMap["Foreground"], windowBackground);
+               AppendText(item[lastIndex..match.Index],colorMap["Foreground"],windowBackground);
             }
 
             string fg = match.Groups["fg"].Value;
@@ -108,11 +108,11 @@ namespace CDL2v1 {
             string text = match.Groups["text"].Value;
 
             Brush fgBrush = string.IsNullOrEmpty(fg) ? colorMap["Foreground"] : colorMap[fg];
-            
+
             // Always use windowBackground unless explicitly overridden
-            Brush bgBrush = string.IsNullOrEmpty(bg) ? windowBackground : 
+            Brush bgBrush = string.IsNullOrEmpty(bg) ? windowBackground :
                             (bg == "Background" ? windowBackground : colorMap[bg]);
-            
+
             FontWeight fontWeight = FontWeights.Normal;
             FontStyle fontStyle = FontStyles.Normal;
             TextDecorationCollection? textDecorations = null;
@@ -153,29 +153,29 @@ namespace CDL2v1 {
                }
             }
 
-            AppendText(text, fgBrush, bgBrush, fontWeight, fontStyle, textDecorations);
+            AppendText(text,fgBrush,bgBrush,fontWeight,fontStyle,textDecorations);
             lastIndex = match.Index + match.Length;
          }
 
-         if (lastIndex < item.Length) AppendText(item[lastIndex..], colorMap["Foreground"], windowBackground);
-         AppendText("", colorMap["Foreground"], windowBackground, lineBreak: true);
+         if (lastIndex < item.Length) AppendText(item[lastIndex..],colorMap["Foreground"],windowBackground);
+         AppendText("",colorMap["Foreground"],windowBackground,lineBreak: true);
       }
 
-      private void AppendText(string text, Brush fg, Brush bg,
-                           FontWeight fontWeight = default, FontStyle fontStyle = default,
+      private void AppendText(string text,Brush fg,Brush bg,
+                           FontWeight fontWeight = default,FontStyle fontStyle = default,
                            TextDecorationCollection? textDecorations = null,
                            bool lineBreak = false) {
          if (isRenderingSuspended) {
             // When rendering is suspended, just add to the buffer
             textSegmentBuffer.Add(new FormattedTextSegment(
-               text, fg, bg, fontWeight, fontStyle, textDecorations, lineBreak
+               text,fg,bg,fontWeight,fontStyle,textDecorations,lineBreak
             ));
             return;
          }
 
          // Normal (non-buffered) rendering - use background priority to avoid UI blocking
-         Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => {
-            commandWindow.AddFormattedText(text, fg, bg, fontWeight, fontStyle, textDecorations, lineBreak);
+         Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background,new Action(() => {
+            commandWindow.AddFormattedText(text,fg,bg,fontWeight,fontStyle,textDecorations,lineBreak);
          }));
       }
 
@@ -240,10 +240,10 @@ namespace CDL2v1 {
 
       // Add this to EmitterCommandWindow
       private const char SeparatorSpace = (char)SpaceCharacters.ThreePerEm;
-      private static string FormatAlgorithmBodySeparators(string text) => 
-          BodySeparatorRE().Replace(text, $"{SeparatorSpace}$1{SeparatorSpace}");
+      private static string FormatAlgorithmBodySeparators(string text) =>
+          BodySeparatorRE().Replace(text,$"{SeparatorSpace}$1{SeparatorSpace}");
 
-      [GeneratedRegex(@"\s*( := | =: | = | : )\s*$", RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
+      [GeneratedRegex(@"\s*( := | =: | = | : )\s*$",RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace)]
       private static partial Regex BodySeparatorRE();
    }
 }

@@ -102,7 +102,7 @@ namespace CDL2v1 {
          new ("vsdebug" , 7,"vsdebug:                     break into the VS debugger when running under Visual Studio"),
 #endif
       ];
-      public readonly static Set<string> ExitCommands = new (["exit","quit","bye","abort"]);
+      public readonly static Set<string> ExitCommands = new(["exit","quit","bye","abort"]);
 
       private static readonly List<SelectorType> AlgorithmTypes = [
          SelectorType.ALGORITHM, SelectorType.PROCEDURE, SelectorType.ACTION, SelectorType.FUNCTION, SelectorType.PREDICATE, SelectorType.TEST
@@ -188,7 +188,7 @@ namespace CDL2v1 {
          IsFocusable = focusable;
       }
 
-      public Abbreviation(string name,int minLength,T nesting,string help = "",bool focusable = true) : this(name,minLength,[nesting],help,focusable:focusable) { }
+      public Abbreviation(string name,int minLength,T nesting,string help = "",bool focusable = true) : this(name,minLength,[nesting],help,focusable: focusable) { }
       public Abbreviation(string name,int minLength,string help = "") : this(name,minLength,[],help) { }
 
       /// <summary>
@@ -217,7 +217,7 @@ namespace CDL2v1 {
          if (cmd is not null) {
             return SingleCommandHelp(cmd.HelpText,cmd.NameWithAbbreviation);
          } else {
-            return string.Join("\n",Abbreviation<CommandType>.Commands.Select(cmd=> SingleCommandHelp(cmd.HelpText,cmd.NameWithAbbreviation)));
+            return string.Join("\n",Abbreviation<CommandType>.Commands.Select(cmd => SingleCommandHelp(cmd.HelpText,cmd.NameWithAbbreviation)));
          }
 
       }

@@ -31,8 +31,7 @@
 //=======================================================================
 // </auto-gen>
 
-using System.Diagnostics;
-using System.Formats.Tar;
+
 using System.IO;
 
 namespace CDL2v1 {
@@ -51,8 +50,8 @@ namespace CDL2v1 {
          set {
             (string fileName, string fileOption) = value.Trim('"').Split("::",2);  // :: is used to avoid conflict with NTFS streams (given by single :).
 
-            bool appending   = fileOption == "append";
-            bool closing     = writer is not null;
+            bool appending = fileOption == "append";
+            bool closing = writer is not null;
             bool overwriting = false;
 
             if (target == "" && fileName == "") {
@@ -79,7 +78,7 @@ namespace CDL2v1 {
             if (target != "") {
                writer = new StreamWriter(target,append: appending);
                targetInfo = overwriting ? $"Overwriting existing file '{target}'." : (appending ? $"Appending to file '{target}'." : $"Writing to new file '{target}'.");
-            } else { 
+            } else {
                targetInfo = "No target file.";
             }
          }

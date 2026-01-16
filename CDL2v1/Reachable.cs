@@ -31,15 +31,8 @@
 //=======================================================================
 // </auto-gen>
 
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Diagnostics.Contracts;
-using System.Diagnostics.Eventing.Reader;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CDL2v1 {
    public class Reachable {
@@ -54,7 +47,7 @@ namespace CDL2v1 {
       private bool collected = false;
       public Set<CDL2Object> Objects {
          get {
-            Debug.Assert(collecting || collected, "Must call CollectReachableObjects(program/module)  before accessing Objects");
+            Debug.Assert(collecting || collected,"Must call CollectReachableObjects(program/module)  before accessing Objects");
             return field;
          }
          private set;
@@ -64,12 +57,12 @@ namespace CDL2v1 {
       public IDDictionary<int> ProcedureCalls = []; // The number of times a procedure is called
 
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
-      public Set<ITrackedVar> ReadVars { get;  private set; } = [];
+      public Set<ITrackedVar> ReadVars { get; private set; } = [];
       public Set<ITrackedVar> AmbigousVars { get; private set; } = [];
-      
+
       public void CollectAllObjects(Program? program) {
          // Collect all objects in DB
-         AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => ! elem.IsImported,e=>e.ToSet);
+         AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => !elem.IsImported,e => e.ToSet);
          int moduleCount = Database.Instance.Modules.Count;
          if (program is not null) {
             // Keep only objects that are defined in one of the modules of the program
@@ -77,7 +70,7 @@ namespace CDL2v1 {
             moduleCount = program.Parts.Count;
             AllObjects = AllObjects.Where(obj => !obj.IsImported && programModules.Contains(obj.Module)).ToSet;
          }
-         LogObjectCount(AllObjects, $"in {moduleCount.Plural("module")}");
+         LogObjectCount(AllObjects,$"in {moduleCount.Plural("module")}");
       }
 
       public void CollectReachableObjects(Program prog) {
@@ -92,29 +85,29 @@ namespace CDL2v1 {
             foreach (ID id in prog.Ludes[ludeType]) {
                Module? module = Database.Instance.ModuleByName(id);
                if (module is not null) {
-                  CollectReachableObjects(ludeType, module);
+                  CollectReachableObjects(ludeType,module);
                }
             }
          }
          collecting = false;
          collected = true;
-         LogObjectCount(Objects, $"reachable from {prog}");
+         LogObjectCount(Objects,$"reachable from {prog}");
       }
 
-      public static void LogObjectCount(Set<CDL2Object> objects, string sort,Action<string>? logger=null) {
+      public static void LogObjectCount(Set<CDL2Object> objects,string sort,Action<string>? logger = null) {
          logger ??= str => Logger.Log(0,str);
-         string CountObjects(Type type, Set<CDL2Object> objects,bool noComma = false) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name,noComma?null:",");
+         string CountObjects(Type type,Set<CDL2Object> objects,bool noComma = false) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name,noComma ? null : ",");
          logger($"{objects.Count.Plural("object")} {sort} ...");
-         logger($"   {CountObjects(typeof(Const),objects)} {CountObjects(typeof(Var),objects)} {CountObjects(typeof(LIST),objects)} {CountObjects(typeof(Macro),objects)} {CountObjects(typeof(Procedure),objects,noComma:true)}.");
+         logger($"   {CountObjects(typeof(Const),objects)} {CountObjects(typeof(Var),objects)} {CountObjects(typeof(LIST),objects)} {CountObjects(typeof(Macro),objects)} {CountObjects(typeof(Procedure),objects,noComma: true)}.");
       }
 
       public void CollectReachableObjects(Module module) => throw new NotImplementedException($"CollectReachableObjects: Not yet implemented for modules.");
-      private void CollectReachableObjects(RW LudeType, Module module) {
+      private void CollectReachableObjects(RW LudeType,Module module) {
          foreach (Section? section in module.Ludes[LudeType].Select(id => module.SectionById(id))) {
-            if (section is not null) CollectReachableObjects(LudeType, section);
+            if (section is not null) CollectReachableObjects(LudeType,section);
          }
       }
-      private void CollectReachableObjects(RW ludeType, Section section) {
+      private void CollectReachableObjects(RW ludeType,Section section) {
          // Section ludes contain the single entry of a synthetic procedure that is the lude.
          // So we need to collect all the objects in the section that are reachable from this lude.
          List<ID> ds = section.Ludes[ludeType];
@@ -171,7 +164,7 @@ namespace CDL2v1 {
             }
 
             if (called is Procedure calledProc) {
-               if (ProcedureCalls.TryGetValue(calledProc.Id, out int count)) {
+               if (ProcedureCalls.TryGetValue(calledProc.Id,out int count)) {
                   ProcedureCalls[calledProc.Id] = count + 1;
                } else {
                   ProcedureCalls[calledProc.Id] = 1;
@@ -191,10 +184,10 @@ namespace CDL2v1 {
                      if (affix.IsInput) ReadVars.Add(v);
                      break;
                   case ID id:
-                     if (call.Called.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {
+                     if (call.Called.Section!.TryGetDeclaration(id,out CDL2Object? obj)) {
                         if (obj is Const c) {
                            CollectReachableObjects(c);
-                        } else if (obj is ImportedConst ic1 && ic1.Module!.resolvedImports.TryGetValue(ic1.Id, out IImportable? elem1) && elem1 is Const rc1) {
+                        } else if (obj is ImportedConst ic1 && ic1.Module!.resolvedImports.TryGetValue(ic1.Id,out IImportable? elem1) && elem1 is Const rc1) {
                            CollectReachableObjects(rc1);
                         } else if (obj is Var v) {
                            Objects.Add(v);
@@ -221,7 +214,7 @@ namespace CDL2v1 {
             foreach (IElement elem in constant.elements) {
                switch (elem) {
                   case ID id:
-                     if (constant.ParentElement<Section>()!.TryGetDeclaration(id, out CDL2Object? obj)) {
+                     if (constant.ParentElement<Section>()!.TryGetDeclaration(id,out CDL2Object? obj)) {
                         if (obj is Const c) CollectReachableObjects(c);
                      } else {
                         throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
@@ -238,7 +231,7 @@ namespace CDL2v1 {
                case Local:
                   break;
                case ID id:
-                  if (macro.Section!.TryGetDeclaration(id, out CDL2Object? obj)) {
+                  if (macro.Section!.TryGetDeclaration(id,out CDL2Object? obj)) {
                      switch (obj) {
                         case Const c:
                            CollectReachableObjects(c);
@@ -247,7 +240,7 @@ namespace CDL2v1 {
                            Objects.Add(v);
                            break;
                         case LIST l:
-                           CollectReachableObjects(macro, l);
+                           CollectReachableObjects(macro,l);
                            break;
                      }
                   }
@@ -267,15 +260,15 @@ namespace CDL2v1 {
                   }
                   break;
                case LIST l:
-                  CollectReachableObjects(macro, l);
+                  CollectReachableObjects(macro,l);
                   break;
             }
          }
       }
-      private void CollectReachableObjects(Macro macro, LIST list) {
+      private void CollectReachableObjects(Macro macro,LIST list) {
          if (Objects.Add(list)) {
-            if (macro.Section!.TryGetDeclaration(list.lwb, out Const? lwb)) CollectReachableObjects(lwb!);
-            if (macro.Section.TryGetDeclaration(list.upb, out Const? upb)) CollectReachableObjects(upb!);
+            if (macro.Section!.TryGetDeclaration(list.lwb,out Const? lwb)) CollectReachableObjects(lwb!);
+            if (macro.Section.TryGetDeclaration(list.upb,out Const? upb)) CollectReachableObjects(upb!);
          }
       }
    }
