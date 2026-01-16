@@ -45,6 +45,12 @@ namespace CDL2v1 {
       Emitter? Emitter { get; set; }
 
       /// <summary>
+      /// Gets or sets the command history associated with the current context.
+      /// </summary>
+      IEnumerable<string> CommandHistory { get; set; }
+
+
+      /// <summary>
       /// Writes a line of text with optional severity indication.
       /// </summary>
       /// <param name="text">The text to write.</param>

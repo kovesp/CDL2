@@ -34,11 +34,11 @@
 // </auto-gen>
 
 using System.Collections.Immutable;
-using System.CommandLine;
 using System.ComponentModel;
 using System.Data;
 using System.IO;
 using System.Text.Json;
+using System.CommandLine;
 
 namespace CDL2v1 {
    public interface ISetting {
@@ -403,7 +403,7 @@ namespace CDL2v1 {
       private const string SettingsFileName = "cdl2settings.json";
 
       // Save settings to a file
-      public static void SaveSettings(CommandPromptWindow? commandWindow = null) {
+      public static void SaveSettings(ICLIREPL? repl = null) {
          try {
             var settingsToSave = new Dictionary<string,object>();
             foreach (ISetting setting in Instance.SettingsDict.Values) {
@@ -426,8 +426,8 @@ namespace CDL2v1 {
             }
 
             // Save command history if CommandWindow is available
-            if (commandWindow?.CommandHistory != null) {
-               string[] history = commandWindow.CommandHistory.ToArray();
+            if (repl?.CommandHistory != null) {
+               string[] history = repl.CommandHistory.ToArray();
                string lastCommand = history.Length > 0 ? history[^1] : "";
                if (Abbreviation<CommandType>.ExitCommands.Contains(lastCommand)) {
                   history[^1] = $"! {lastCommand} at {DateTime.Now:yyyy-MM-dd HH:mm:ss}";

@@ -46,7 +46,6 @@ namespace CDL2v1 {
    /// Interaction logic for CommandWindow.xaml
    /// </summary>
    public partial class CommandPromptWindow : Window, ICLIREPL {
-      private readonly History _commandHistory = new();
       private readonly FontFamily _textFont = new("Cascadia Mono");
 
       // Store the last height of the output area for restore functionality
@@ -56,6 +55,7 @@ namespace CDL2v1 {
       // Event raised when a command is entered
       public event EventHandler<string>? CommandEntered;
 
+      private readonly History _commandHistory = new();
       public IEnumerable<string> CommandHistory {
          get => _commandHistory.Commands;
          set => _commandHistory.Commands = value;

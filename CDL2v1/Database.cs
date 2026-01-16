@@ -39,7 +39,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json.Serialization;
-using System.Windows.Threading;
 
 namespace CDL2v1 {
    /// <summary>
@@ -103,7 +102,7 @@ namespace CDL2v1 {
       /// Timer for auto-save functionality
       /// </summary>
       [JsonIgnore]
-      private DispatcherTimer? _autoSaveTimer = null;
+      private System.Timers.Timer? _autoSaveTimer = null;
 
       /// <summary>
       /// Used by autosave when implemented.
@@ -123,17 +122,17 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Configures the auto-save timer based on the AutoSaveInterval setting.
-      /// If interval is 0 or negative, auto-save is disabled.
       /// </summary>
       /// <param name="intervalSeconds">Auto-save interval in seconds. If 0, auto-save is disabled.</param>
       public void ConfigureAutoSave(int intervalSeconds) {
          StopAutoSave();
 
          if (intervalSeconds > 0) {
-            _autoSaveTimer = new DispatcherTimer {
-               Interval = TimeSpan.FromSeconds(intervalSeconds)
+            _autoSaveTimer = new System.Timers.Timer {
+               Interval = intervalSeconds * 1000, // Timer uses milliseconds
+               AutoReset = true
             };
-            _autoSaveTimer.Tick += (s,e) => Autosave();
+            _autoSaveTimer.Elapsed += (s, e) => Autosave();
             _autoSaveTimer.Start();
          }
       }
@@ -144,6 +143,7 @@ namespace CDL2v1 {
       public void StopAutoSave() {
          if (_autoSaveTimer is not null) {
             _autoSaveTimer.Stop();
+            _autoSaveTimer.Dispose();
             _autoSaveTimer = null;
          }
       }

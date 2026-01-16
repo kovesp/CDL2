@@ -37,7 +37,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Windows;
 
 
 namespace CDL2v1 {
@@ -93,12 +92,9 @@ namespace CDL2v1 {
       /// <param name="buttons"></param>
       /// <param name="icon"></param>
       /// <returns></returns>
-      public bool QueryBox(string message,MessageBoxButton buttons = MessageBoxButton.OKCancel,MessageBoxImage icon = MessageBoxImage.Question) {
-         if (REPL is not null) { // Must be in interactive mode
-            return MessageBox.Show(message,CDL2.LabName,buttons,icon) == MessageBoxResult.OK;
-         }
-         return false;
-      }
+      
+      public bool QueryBox(string message) => REPL?.QueryBox(message) ?? false;
+
 
       public bool CanReplace() {
          if (IsEditing) return true; // We are in edit mode, so we can replace
