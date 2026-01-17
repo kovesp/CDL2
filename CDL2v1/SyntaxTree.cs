@@ -1115,12 +1115,12 @@ namespace CDL2v1 {
       /// Not removing the subcomponents works because subcomponents are never reused, i.e., only this object
       /// references their GUID.
       /// </remarks>
-      public void RemoveOrReplace(CDL2Object? replacement,ChangeType changeType) {
+      public void RemoveOrReplace(CDL2Object? replacement,ChangeType changeType,bool record=true) {
          Database.Instance.ElementsWithNotes.Remove(GUID);
          if (changeType == ChangeType.Removed) {
             Section?.Declarations.Remove(Id);
             Siblings.Remove(GUID);
-            Database.Instance.RecordUndo(this,ChangeType.Removed); // Must be done before clearing interfaces so the current interface status is recorded.
+            if (record) Database.Instance.RecordUndo(this,ChangeType.Removed); // Must be done before clearing interfaces so the current interface status is recorded.
             ClearInterfaces();
          } else if (changeType == ChangeType.Replaced) {
             // Swap the GUID of this object with the GUID of the replacement object. Also swap them in NamedElements.
@@ -1129,11 +1129,11 @@ namespace CDL2v1 {
             Database.Instance.NamedElements[replacement.GUID] = replacement;
 
             if (replacement.Notes is not null && replacement.Notes.Count > 0) Database.Instance.ElementsWithNotes.Add(replacement.GUID);
-            Database.Instance.RecordUndo(this.GUID,replacement.GUID);
+            if (record) Database.Instance.RecordUndo(this.GUID,replacement.GUID);
          }
       }
       public void Remove() => RemoveOrReplace(null,ChangeType.Removed);
-      public void Replace(CDL2Object replacement) => RemoveOrReplace(replacement,ChangeType.Replaced);
+      public void Replace(CDL2Object replacement,bool record=true) => RemoveOrReplace(replacement,ChangeType.Replaced,record);
 
       /// <summary>
       /// Reverses the action of RemoveOrReplace by adding this object back to the section declarations and siblings (if removed) or swaping

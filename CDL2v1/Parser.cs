@@ -301,15 +301,14 @@ namespace CDL2v1 {
       }
 
       private static readonly List<TT> bodyTypes = [TT.INLINEPROCBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
-      private bool ParseAlgorithm(Notes notes,[NotNullWhen(true)] out Algorithm? algorithm,ParseMode mode = ParseMode.Full,Func<bool>? canReplace = null,NamedElement? contextObj=null) {
+      private bool ParseAlgorithm(Notes notes,[NotNullWhen(true)] out Algorithm? algorithm,ParseMode mode = ParseMode.Full,
+            Func<NamedElement,bool>? canReplace = null,NamedElement? contextObj=null) {
          Debug.Assert(currentSection != null);
          algorithm = null;
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
             Logger.Log(4,$"Parsing {algType} {id}");
             RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
             currentObject.Object = (algTypeRW, id);
-            bool duplicate = DuplicateDeclaration(id,algTypeRW);
-            if (mode == ParseMode.Full && duplicate && !canReplace?.Invoke() == false) return false;
             if (!ParseAffixes(mode,out List<Affix> affixes)) return false;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the imports list.
@@ -353,14 +352,18 @@ namespace CDL2v1 {
                }
             }
             if (mode == ParseMode.Full) {
+               bool duplicate = DuplicateDeclaration(id,algTypeRW,report:contextObj is null); // Do not report the problem in Lab mode
                if (duplicate) {
+                  Guid currentGuid = currentSection.Declarations[id];
+                  CDL2Object currentObject = currentGuid.ToCDL2Object<CDL2Object>()!;
+                  if (canReplace?.Invoke(currentObject) == false) return false;
                   // Replace the existing declaration, but record an undo
-                  if (contextObj is not null) Database.Instance.RecordUndo(currentSection.Declarations[id],algorithm.GUID);
+                  if (contextObj is not null) currentObject.Replace(algorithm);
                } else {
                   // Record an add
                   Database.Instance.RecordUndo(algorithm,contextObj);
+                  currentSection.Declarations[id] = algorithm.GUID;
                }
-               currentSection.Declarations[id] = algorithm.GUID;
             }
          } else {
             if (mode == ParseMode.Full) ReportError("Expected FUNCTION, ACTION, TEST, or PREDICATE (this should be impossible");
@@ -369,10 +372,12 @@ namespace CDL2v1 {
          return algorithm != null;
       }
 
-      private bool DuplicateDeclaration(ID id,RW type) {
+      private bool DuplicateDeclaration(ID id,RW type,bool report=true) {
          if (currentSection!.Declarations.TryGetValue(id,out CDL2Object? value)) {
-            AddNote(currentSection,Note.DuplicateDeclaration,$"{type} {id}",value!);
-            ReportProblem(Note.DuplicateDeclaration,$"{type} {id}",value?.ToString() ?? "");
+            if (report) {
+               AddNote(currentSection,Note.DuplicateDeclaration,$"{type} {id}",value!);
+               ReportProblem(Note.DuplicateDeclaration,$"{type} {id}",value?.ToString() ?? "");
+            }
             return true;
          }
          return false;
@@ -908,7 +913,7 @@ namespace CDL2v1 {
       /// <param>The original input string. Used only as debug aid dureing development.</param>
       /// <returns></returns>
       /// <param name="replace"></param>
-      internal bool Parse(ParsingContext parsingContext,out NamedElement? element,Func<bool> canReplace,string input,ParseMode mode = ParseMode.Full) {
+      internal bool Parse(ParsingContext parsingContext,out NamedElement? element,Func<NamedElement,bool> canReplace,string input,ParseMode mode = ParseMode.Full) {
          element = null;
          if (tokens.Peek().type != TokenType.RESWORD) {
             if (mode == ParseMode.Full) ReportError($"Expected a reserved word at the start of input, not \"{tokens.Peek()}\".");

@@ -340,17 +340,17 @@ namespace CDL2v1 {
 
          public override string ToString() => $"UndoRecord: {Description()}";
          public string Description() => ChangeType switch {
-            ChangeType.Renamed => $"Renamed          {OriginalName} ==> {NewName}",
+            ChangeType.Renamed          => $"Renamed          {OriginalName} ==> {NewName}",
             ChangeType.InterfaceChanged => $"InterfaceChanged {Object!.FQDN()} {InterfaceStatus} ==> {(Object as CDL2Object)!.GetInterfaces()}",
-            ChangeType.Added => $"Added            {Object!.FQDN()} at {Position}",
-            ChangeType.Removed => $"Removed          {Object!.FQDN()} at {Position}",
-            ChangeType.Replaced => $"Replaced         {Object!.FQDN()} ==> {ReplacementObject!.FQDN()}",
-            ChangeType.InterfaceAdded => $"InterfaceAdded   {InterfaceStatus} {Id} in {Object!.FQDN()}",
+            ChangeType.Added            => $"Added            {Object!.FQDN()} at {Position}",
+            ChangeType.Removed          => $"Removed          {Object!.FQDN()} at {Position}",
+            ChangeType.Replaced         => $"Replaced         {Object!.FQDN()}",
+            ChangeType.InterfaceAdded   => $"InterfaceAdded   {InterfaceStatus} {Id} in {Object!.FQDN()}",
             ChangeType.InterfaceRemoved => $"InterfaceRemoved {InterfaceStatus} {Id} in {Object!.FQDN()}",
-            ChangeType.LudeAdded => $"LudeAdded        {LudeType} {(Object is Section ? "" : Id)} in {Object!.FQDN()}",
-            ChangeType.LudeRemoved => $"LudeRemoved      {LudeType} {(Object is Section ? "" : $"{Id} at {Position}")} in {Object!.FQDN()}",
-            ChangeType.LudeReplaced => $"LudeReplaced     in {Object!.FQDN()}",
-            _ => $"{ChangeType} unknown",
+            ChangeType.LudeAdded        => $"LudeAdded        {LudeType} {(Object is Section ? "" : Id)} in {Object!.FQDN()}",
+            ChangeType.LudeRemoved      => $"LudeRemoved      {LudeType} {(Object is Section ? "" : $"{Id} at {Position}")} in {Object!.FQDN()}",
+            ChangeType.LudeReplaced     => $"LudeReplaced     in {Object!.FQDN()}",
+            _                           => $"{ChangeType} unknown",
          };
 
          /// <summary>

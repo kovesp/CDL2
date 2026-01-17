@@ -95,10 +95,15 @@ namespace CDL2v1 {
       
       public bool QueryBox(string message) => REPL?.QueryBox(message) ?? false;
 
-
-      public bool CanReplace() {
+      /// <summary>
+      /// Called to determine whether an existing object can be replaced.
+      /// </summary>
+      /// <param name="element"></param>
+      /// <returns></returns>
+      public bool CanReplace(NamedElement element) {
          if (IsEditing) return true; // We are in edit mode, so we can replace
-         return QueryBox("The current object will be replaced. Continue?");
+         string objName = element is null ? "object" : element.FQDN();
+         return QueryBox($"The current {objName} will be replaced. Continue?");
       }
 
       /// <summary>
@@ -232,7 +237,7 @@ namespace CDL2v1 {
          if (input.Length > 0 && input[^1] != '.') input += '.';
          if (parser.Tokenize(input,ParseMode.Check)) {
             return Database.WithSuspendedNamedElementRegistration(true,
-               () => parser.Parse(ParsingContext.AsParsingContext,out _,() => false,input,ParseMode.Check));
+               () => parser.Parse(ParsingContext.AsParsingContext,out _,_ => false,input,ParseMode.Check));
          }
          return false;
       }
@@ -491,8 +496,8 @@ namespace CDL2v1 {
                      return;
 
                   case CommandType.focus:
-                     if ( !Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage);
-                     if (!Settings.SettingValue<bool>("Console") || !Settings.SettingValue<bool>("LongConsolePrompt")) WriteLine(Focus.Current.ToString());
+                     if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage);
+                     if (args.IsEmptyOrWhitespace || !Settings.SettingValue<bool>("LongConsolePrompt")) WriteLine(Focus.Current.ToString());
                      break;
                   case CommandType.next:
                   case CommandType.previous:
@@ -843,7 +848,10 @@ namespace CDL2v1 {
                }
                break;
             case ChangeType.Replaced:
-               done = false; break;
+               // Sufficient to swap the objects and their guids in the record
+               ((CDL2Object)record.ReplacementObject!).Replace((CDL2Object)record.Object!,record:false);
+               (record.ObjectGuid,record.ReplacementGuid) = (record.ReplacementGuid,record.ObjectGuid);
+               break;
             case ChangeType.Renamed:
                done = false; break;
             case ChangeType.InterfaceChanged:

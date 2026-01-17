@@ -585,8 +585,8 @@ F1    | Show this help message.
       // Implement ICommandInterface.QueryBox with simplified signature
       bool ICLIREPL.QueryBox(string message) =>
          MessageBox.Show(this,message,CDL2.LabName,
-                              MessageBoxButton.OKCancel,
-                              MessageBoxImage.Question) == MessageBoxResult.OK;
+                              MessageBoxButton.YesNo,
+                              MessageBoxImage.Question) == MessageBoxResult.Yes;
       #endregion
 
       #region UI Controls
