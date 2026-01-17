@@ -77,10 +77,8 @@ namespace CDL2v1 {
                   lines.Clear();
                   multiline = false;
                   inputProcessor!(line);
-                  return;
-               } else {
-                  continue;
                }
+               continue;
             } else {
                if (char.IsAsciiLetterLower(line[0])) {
                   // Command

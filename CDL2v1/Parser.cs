@@ -286,7 +286,7 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.VAR)) {
                cont = ParseVar(internalNotes,mode,out _);
             } else if (tokens.IsNext(RW.CONST)) {
-               cont = ParseConstants(internalNotes,mode,out _);
+               cont = ParseConstants(internalNotes,mode,out _,null,null);
             } else {
                if (mode == ParseMode.Full) ReportError($"Expected FUNCTION, ACTION, TEST, PREDICATE, LIST, VAR, or CONST. Seeing {tokens.Peek()}");
                cont = false;
@@ -663,11 +663,11 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a constant declaration.
       /// </summary>
-      private bool ParseConstants(Notes notes,ParseMode mode,out List<Const> consts) {
+      private bool ParseConstants(Notes notes,ParseMode mode,out List<Const> consts,Func<NamedElement,bool>? canReplace,CDL2Object? contextObj) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST,out string? comments)) {
             Debug.Assert(currentSection != null);
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,id => ParseConstBody(id,mode),notes,mode,out consts);
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,id => ParseConstBody(id,mode,canReplace,contextObj),notes,mode,out consts);
          } else {
             consts = [];
             return false;
@@ -680,7 +680,7 @@ namespace CDL2v1 {
       /// The terminator will be consumed by <see cref="ParseIDList(ICollection{ID}, ICollection{ID}?, Action{ID}?)
       /// </summary>
       /// <param Id="token">The token of the constant.</param>
-      private Const? ParseConstBody(ID id,ParseMode mode) {
+      private Const? ParseConstBody(ID id,ParseMode mode,Func<NamedElement,bool>? canReplace,CDL2Object? contextObj) {
          Debug.Assert(currentSection != null);
          if (DuplicateDeclaration(id,RW.CONST))
             return null;
@@ -689,7 +689,16 @@ namespace CDL2v1 {
                ReportProblem(Note.ObjectImportedButHasBody,$"CONST {id}");
                return null;
             } else {
-               Const c = new(id,currentSection);
+               Const c;
+               if (DuplicateDeclaration(id,RW.CONST,report: canReplace is null)) {
+                  CDL2Object currentConst = currentSection.Declarations[id].ToCDL2Object<CDL2Object>()!;
+                  if (!canReplace?.Invoke(currentConst) == false) return null;
+                  c = new(id,currentSection);
+                  currentConst.Replace(c);
+               } else {
+                  c = new(id,currentSection);
+                  Database.Instance.RecordUndo(c,context: contextObj);
+               }
                ParseElementList(c,c.elements,"ID, STRING, INT, or FLOAT",mode,secondaryTerminator: TT.SEP);
                return c;
             }
@@ -1011,10 +1020,9 @@ namespace CDL2v1 {
                section = context.Section;
                if (section is not null) {
                   currentSection = section;
-                  if (ParseConstants(Notes.Empty,mode,out List<Const> consts)) {
+                  if (ParseConstants(Notes.Empty,mode,out List<Const> consts,canReplace,(CDL2Object?)context.Object)) {
                      MoveObjectToPosition(parsingContext,context,consts);
                      element = consts.LastOrDefault();
-                     foreach (Const c in consts) Database.Instance.RecordUndo(c,ChangeType.Added); // TODO Fix in ParseConstants
                   }
                } else {
                   if (mode == ParseMode.Full) {
