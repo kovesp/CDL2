@@ -32,7 +32,7 @@
 //=======================================================================
 // </auto-gen>
 
-
+#define SUPRESS_CONSOLE_TOAST
 namespace CDL2v1 {
    /// <summary>
    /// Console-based toast notification implementation.
@@ -48,6 +48,8 @@ namespace CDL2v1 {
       /// <param name="timeoutMs">Timeout in milliseconds (ignored in console mode).</param>
       /// <param name="delay">If true, adds a brief pause after displaying.</param>
       public void ShowToast(string message,int timeoutMs = 0,bool delay = false,bool setOwner = false) {
+#if SUPRESS_CONSOLE_TOAST
+#else
          lock (lockObject) {
             ConsoleColor previousColor = Console.ForegroundColor;
             try {
@@ -58,6 +60,7 @@ namespace CDL2v1 {
                Console.ForegroundColor = previousColor;
             }
          }
+#endif
       }
 
       /// <summary>
@@ -67,6 +70,9 @@ namespace CDL2v1 {
       /// <param name="action">Action to execute while toast is displayed.</param>
       /// <param name="minShowInterval">Minimum show interval in milliseconds (ignored in console mode).</param>
       public void ShowToast(string message,Action action,int _) {
+#if SUPRESS_CONSOLE_TOAST
+         action?.Invoke();
+#else
          lock (lockObject) {
             ConsoleColor previousColor = Console.ForegroundColor;
             try {
@@ -82,6 +88,7 @@ namespace CDL2v1 {
                Console.ForegroundColor = previousColor;
             }
          }
+#endif
       }
    }
 }

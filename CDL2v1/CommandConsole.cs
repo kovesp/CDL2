@@ -1,12 +1,12 @@
-// <auto-gen>
+ï»¿// <auto-gen>
 //=======================================================================
-// <copyright file="CommandPromptConsole.cs" company="Peter Köves">
-//     Copyright (c) Peter Köves, 2025. All rights reserved.
+// <copyright file="CommandPromptConsole.cs" company="Peter KÃ¶ves">
+//     Copyright (c) Peter KÃ¶ves, 2025. All rights reserved.
 //     Licensed under the MIT License. See _LICENSE file in the project root
 //     for full license information.
 // </copyright>
 //=======================================================================
-// <author>Peter Köves</author>
+// <author>Peter KÃ¶ves</author>
 // <creation-date>2025-01-15</creation-date>
 // 
 // <summary>
@@ -25,6 +25,36 @@ namespace CDL2v1 {
    public class CommandConsole : ICLIREPL {
       private readonly History _commandHistory = new();
       private bool _isRunning = false;
+      private bool _statusLineEnabled = false;
+      private int _terminalHeight = 0;
+
+      private const string _editModeHelp = """
+Editing keys
+
+Key | Action
+---
+Enter       | Insert a new line, but submit when caret
+            | is at end and line ends with period ('.').
+Ctrl-Enter  | Submit the CDL2 construct (last line must end with '.').
+Esc         | Cancel editing.
+Arrows      | Navigate within the text. With Shift, select text.
+Home        | Move to beginning of current line.
+End         | Move to end of current line.
+Backspace   | Delete character before cursor or merge
+            | with previous line at start of line.
+Delete      | Delete character at cursor or merge with
+            | next line at end of line.
+Ctrl-C      | Copy selected text
+Ctrl-X      | Cut selected text
+Ctrl-V      | Paste text from
+Ctrl-Z      | Undo last change (up to 100 levels).
+Ctrl-Y      | Redo last undone change.
+F1          | Show this help message.
+
+Background color indicates syntax validity:
+  White  = Valid syntax
+  Yellow = Syntax errors detected
+""";
 
       private Action<string>? inputProcessor;
 
@@ -41,6 +71,10 @@ namespace CDL2v1 {
       public void Open() {
          _isRunning = true;
          Settings.LoadSettings(this);
+         
+         // Set up status line and scrolling region
+         SetupStatusLine();
+         
          WriteLine($"\n{CDL2.LabName} v{CDL2.Version}");
          WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.",severity:Severity.Info);
 
@@ -76,6 +110,7 @@ namespace CDL2v1 {
 
       public void Close() {
          _isRunning = false;
+         CleanupStatusLine();
          Settings.SaveSettings(this);
       }
 
@@ -141,13 +176,56 @@ namespace CDL2v1 {
       public void SetInputProcessor(Action<string> processor) => inputProcessor = processor;
 
       /// <summary>
-      /// Set status bar text (displays in console title)
+      /// Set status bar text using ANSI scrolling region
       /// </summary>
       public void SetStatus(string message) {
-         try {
-            Console.Title = $"{CDL2.LabName} - {message}";
-         } catch {
-            // Ignore if console title cannot be set (e.g., in some environments)
+         if (_statusLineEnabled) {
+            // Build right-side status (same as GUI version)
+            string programName = Settings.SettingValue<string>("ProgramName")!;
+            string marker = programName.IsNotEmptyOrWhitespace && Database.Instance.ProgramByName(programName)!.Modified ? "*" : "";
+            string rightStatus = $"[{Database.Instance.GetModificationCount()}/{Settings.SettingValue<int>("AutosaveCount")}] {marker}Prog {programName}";
+            
+            // Save cursor position
+            Console.Write("\x1b[s");
+            
+            // Move to line 1 (status line)
+            Console.Write("\x1b[1;1H");
+            
+            // Clear the line and write status
+            Console.Write("\x1b[2K");
+            Console.ForegroundColor = ConsoleColor.Black;
+            Console.BackgroundColor = ConsoleColor.Gray;
+            
+            // Calculate spacing to right-justify the right portion
+            int width = Console.WindowWidth;
+            int leftLen = message.Length;
+            int rightLen = rightStatus.Length;
+            int spacesNeeded = Math.Max(1, width - leftLen - rightLen);
+            
+            // Write left part, spaces, then right part
+            string statusLine = (message + new string(' ', spacesNeeded) + rightStatus);
+            
+            // Truncate or pad to exact width
+            if (statusLine.Length > width) {
+               statusLine = statusLine[..(width - 3)] + "...";
+            } else if (statusLine.Length < width) {
+               statusLine = statusLine.PadRight(width);
+            }
+            
+            Console.Write(statusLine);
+            
+            // Reset colors
+            Console.ResetColor();
+            
+            // Restore cursor position
+            Console.Write("\x1b[u");
+         } else {
+            // Fallback: set console title
+            try {
+               Console.Title = $"{CDL2.LabName}";
+            } catch {
+               // Ignore if console title cannot be set
+            }
          }
       }
 
@@ -156,12 +234,62 @@ namespace CDL2v1 {
       /////////////////////
 
       /// <summary>
+      /// Setup status line with scrolling region
+      /// </summary>
+      private void SetupStatusLine() {
+         try {
+            _terminalHeight = Console.WindowHeight;
+
+            // Clear screen
+            Console.Write("\x1b[2J");
+
+            // Initialize status line (line 1) with blank content
+            Console.Write("\x1b[1;1H");
+            Console.ForegroundColor = ConsoleColor.Black;
+            Console.BackgroundColor = ConsoleColor.Gray;
+            Console.Write(new string(' ',Console.WindowWidth));
+            Console.ResetColor();
+
+            // Set scrolling region to lines 2 through bottom
+            Console.Write($"\x1b[2;{_terminalHeight}r");
+
+            // Move cursor to line 2 (start of scrolling region)
+            Console.Write("\x1b[2;1H");
+
+            _statusLineEnabled = true;
+
+            // Initialize status line with right-side content
+            SetStatus("Nothing");
+         } catch {
+            // If anything fails, disable status line
+            _statusLineEnabled = false;
+         }
+      }
+
+      /// <summary>
+      /// Cleanup status line and restore normal scrolling
+      /// </summary>
+      private void CleanupStatusLine() {
+         if (_statusLineEnabled) {
+            // Reset scrolling region
+            Console.Write("\x1b[r");
+            
+            // Move cursor to bottom of screen
+            Console.Write($"\x1b[{_terminalHeight};1H");
+            
+            Console.WriteLine();
+            _statusLineEnabled = false;
+         }
+      }
+
+      /// <summary>
       /// Get the appropriate prompt string
       /// </summary>
       private string GetPrompt(bool multiline) {
          if (multiline) return "... ";
 
-         if (!Settings.SettingValue<bool>("LongConsolePrompt")) return "> ";
+         // When status line is enabled, always use short prompt (FQDN is in status line)
+         if (_statusLineEnabled || !Settings.SettingValue<bool>("LongConsolePrompt")) return "> ";
 
          string fqdn = Focus.Current.Object?.FQDN() ?? "";
          if (Settings.SettingValue<bool>("ANSI")) return $"\x1b[93m{fqdn}\x1b[0m> ";
@@ -196,6 +324,13 @@ namespace CDL2v1 {
             if (keyInfo.Key == ConsoleKey.Enter) {
                Console.WriteLine();
                return new string(buffer.ToArray());
+            } else if (keyInfo.Key == ConsoleKey.Delete && keyInfo.Modifiers == ConsoleModifiers.Alt) {
+               // Alt+Delete: Clear the console
+               ClearConsole();
+               // Redraw the prompt and current buffer
+               Console.Write(prompt);
+               Console.Write(new string(buffer.ToArray()));
+               Console.SetCursorPosition(promptVisualLength + cursorPosition, Console.CursorTop);
             } else if (keyInfo.Key == ConsoleKey.UpArrow) {
                string? previous = _commandHistory.Previous();
                if (previous != null) {
@@ -250,6 +385,13 @@ namespace CDL2v1 {
          ConsoleColor savedBackground = Console.BackgroundColor;
 
          try {
+            // Set edit mode colors to black on white
+            Console.ForegroundColor = ConsoleColor.Black;
+            Console.BackgroundColor = ConsoleColor.White;
+            
+            // Display header line
+            Console.WriteLine("[Edit text, F1 for help]");
+            
             // Trim trailing whitespace and split into lines
             string trimmedText = initialText.TrimEnd();
             List<string> lines = string.IsNullOrEmpty(trimmedText) 
@@ -259,18 +401,65 @@ namespace CDL2v1 {
             int currentLine = lines.Count - 1;
             int cursorPosition = lines[currentLine].Length;
             int linesDisplayed = 0;
-            int lastCursorLine = 0; // Track which line the cursor was on in last redraw
+            int lastCursorLine = 0;
+
+            // Undo/Redo stacks
+            Stack<EditState> undoStack = new();
+            Stack<EditState> redoStack = new();
+            const int maxUndoLevels = 100;
+
+            // Save initial state
+            SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
 
             RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
 
             while (true) {
                ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
 
-               if (keyInfo.Key == ConsoleKey.Enter) {
+               if (keyInfo.Key == ConsoleKey.F1) {
+                  // Show help message
+                  ShowEditModeHelp(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine, savedForeground, savedBackground);
+               } else if (keyInfo.Key == ConsoleKey.Z && keyInfo.Modifiers == ConsoleModifiers.Control) {
+                  // Ctrl-Z: Undo
+                  if (undoStack.Count > 1) { // Keep at least the initial state
+                     EditState currentState = new(lines, currentLine, cursorPosition);
+                     redoStack.Push(currentState);
+                     if (redoStack.Count > maxUndoLevels) {
+                        // Remove oldest redo entry
+                        Stack<EditState> temp = new(redoStack.Reverse().Skip(1));
+                        redoStack.Clear();
+                        foreach (EditState state in temp.Reverse()) redoStack.Push(state);
+                     }
+                     
+                     undoStack.Pop(); // Remove current state
+                     EditState prevState = undoStack.Peek();
+                     lines = prevState.Lines.Select(s => s).ToList(); // Deep copy
+                     currentLine = prevState.CurrentLine;
+                     cursorPosition = prevState.CursorPosition;
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.Y && keyInfo.Modifiers == ConsoleModifiers.Control) {
+                  // Ctrl-Y: Redo
+                  if (redoStack.Count > 0) {
+                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                     EditState nextState = redoStack.Pop();
+                     lines = nextState.Lines.Select(s => s).ToList(); // Deep copy
+                     currentLine = nextState.CurrentLine;
+                     cursorPosition = nextState.CursorPosition;
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.Enter && keyInfo.Modifiers == ConsoleModifiers.Control) {
+                  // Ctrl+Enter: Submit regardless of cursor position if text ends with period
+                  string fullText = string.Join("\n", lines).TrimEnd();
+                  if (fullText.Length > 0 && fullText[^1] == '.') {
+                     ClearEditAreaWithHeader(linesDisplayed, lastCursorLine, savedForeground, savedBackground);
+                     return string.Join("\n", lines);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.Enter) {
                   // Only terminate if on last line, at end, and ends with period
                   if (IsAtTerminationPoint(lines, currentLine, cursorPosition)) {
-                     // Move down past all lines
-                     Console.Write($"\x1b[{linesDisplayed - 1 - currentLine}B\n");
+                     // Clear the edit area and move to next line
+                     ClearEditAreaWithHeader(linesDisplayed, lastCursorLine, savedForeground, savedBackground);
                      return string.Join("\n", lines);
                   } else {
                      // Insert new line
@@ -279,12 +468,14 @@ namespace CDL2v1 {
                      lines.Insert(currentLine + 1, currentLineText[cursorPosition..]);
                      currentLine++;
                      cursorPosition = 0;
+                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                     redoStack.Clear(); // Clear redo stack on new change
                      RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Escape) {
-                  // Move down past all lines
-                  Console.Write($"\x1b[{linesDisplayed - 1 - currentLine}B");
-                  Console.WriteLine("\n[Editing cancelled]");
+                  // Clear the edit area and show cancellation message
+                  ClearEditAreaWithHeader(linesDisplayed, lastCursorLine, savedForeground, savedBackground);
+                  Console.WriteLine("[Editing cancelled]");
                   return null;
                } else if (keyInfo.Key == ConsoleKey.UpArrow) {
                   if (currentLine > 0) {
@@ -326,6 +517,8 @@ namespace CDL2v1 {
                   if (cursorPosition > 0) {
                      lines[currentLine] = lines[currentLine].Remove(cursorPosition - 1, 1);
                      cursorPosition--;
+                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                     redoStack.Clear(); // Clear redo stack on new change
                      RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   } else if (currentLine > 0) {
                      // Merge with previous line
@@ -334,21 +527,29 @@ namespace CDL2v1 {
                      lines.RemoveAt(currentLine);
                      currentLine--;
                      lines[currentLine] = mergedLine;
+                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                     redoStack.Clear(); // Clear redo stack on new change
                      RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Delete) {
                   if (cursorPosition < lines[currentLine].Length) {
                      lines[currentLine] = lines[currentLine].Remove(cursorPosition, 1);
+                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                     redoStack.Clear(); // Clear redo stack on new change
                      RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   } else if (currentLine < lines.Count - 1) {
                      // Merge with next line
                      lines[currentLine] += lines[currentLine + 1];
                      lines.RemoveAt(currentLine + 1);
+                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                     redoStack.Clear(); // Clear redo stack on new change
                      RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (!char.IsControl(keyInfo.KeyChar)) {
                   lines[currentLine] = lines[currentLine].Insert(cursorPosition, keyInfo.KeyChar.ToString());
                   cursorPosition++;
+                  SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                  redoStack.Clear(); // Clear redo stack on new change
                   RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                }
             }
@@ -357,6 +558,78 @@ namespace CDL2v1 {
             Console.ForegroundColor = savedForeground;
             Console.BackgroundColor = savedBackground;
          }
+      }
+
+      /// <summary>
+      /// Clear the console screen
+      /// </summary>
+      private void ClearConsole() {
+         if (_statusLineEnabled) {
+            // Move to line 2 (first line of scrolling region)
+            Console.Write("\x1b[2;1H");
+
+            // Clear from cursor to end of screen
+            Console.Write("\x1b[J");
+         } else {
+            // Use ANSI clear screen sequence
+            Console.Write("\x1b[2J\x1b[H");
+         }
+      }
+
+      /// <summary>
+      /// Show help message in edit mode
+      /// </summary>
+      private void ShowEditModeHelp(List<string> lines,int currentLine,int cursorPosition,
+                                     ref int linesDisplayed,ref int lastCursorLine,
+                                     ConsoleColor savedForeground,ConsoleColor savedBackground) {
+         // Switch to alternate screen buffer
+         Console.Write("\x1b[?1049h");
+
+         // Clear alternate screen and move to top
+         Console.Write("\x1b[2J\x1b[H");
+
+         // Display help
+         WriteLine("\n" + _editModeHelp,Severity.Info);
+         WriteLine("\nPress any key to continue editing...");
+
+         // Wait for key press
+         Console.ReadKey(intercept: true);
+
+         // Switch back to main screen buffer (restores everything exactly as it was)
+         Console.Write("\x1b[?1049l");
+      }
+
+      /// <summary>
+      /// Clear the edit area including header line and reset cursor position
+      /// </summary>
+      private static void ClearEditAreaWithHeader(int linesDisplayed, int lastCursorLine, ConsoleColor foreground, ConsoleColor background) {
+         // First restore the original colors BEFORE clearing
+         Console.ForegroundColor = foreground;
+         Console.BackgroundColor = background;
+         
+         // Move cursor back to first edit line
+         if (lastCursorLine > 0) {
+            Console.Write($"\x1b[{lastCursorLine}A");
+         }
+         Console.Write("\r");
+         
+         // Clear all edit lines
+         for (int i = 0; i < linesDisplayed; i++) {
+            Console.Write("\x1b[2K"); // Clear line
+            if (i < linesDisplayed - 1) {
+               Console.WriteLine();
+               Console.Write("\r");
+            }
+         }
+         
+         // Move back to first edit line
+         if (linesDisplayed > 1) {
+            Console.Write($"\x1b[{linesDisplayed - 1}A");
+         }
+         Console.Write("\r");
+         
+         // Move up one more line to the header and clear it
+         Console.Write("\x1b[A\r\x1b[2K");
       }
 
       /// <summary>
@@ -453,6 +726,27 @@ namespace CDL2v1 {
          
          // Position cursor at the correct location using visual length
          Console.SetCursorPosition(promptVisualLength + cursorPosition, currentTop);
+      }
+
+      /// <summary>
+      /// Save the current state for undo/redo functionality
+      /// </summary>
+      private record EditState(List<string> Lines, int CurrentLine, int CursorPosition) {
+         public List<string> Lines { get; init; } = Lines.Select(s => s).ToList(); // Deep copy
+      }
+
+      /// <summary>
+      /// Save the current state to the undo stack
+      /// </summary>
+      private static void SaveState(Stack<EditState> stack, List<string> lines, int currentLine, int cursorPosition, int maxLevels) {
+         EditState state = new(lines, currentLine, cursorPosition);
+         stack.Push(state);
+         if (stack.Count > maxLevels) {
+            // Remove oldest entry
+            Stack<EditState> temp = new(stack.Reverse().Skip(1));
+            stack.Clear();
+            foreach (EditState s in temp.Reverse()) stack.Push(s);
+         }
       }
    }
 }
