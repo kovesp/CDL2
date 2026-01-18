@@ -44,11 +44,9 @@ namespace CDL2v1 {
          WriteLine($"\n{CDL2.LabName} v{CDL2.Version}");
          WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.",severity:Severity.Info);
 
-         bool multiline = false;
-         List<string> lines = [];
          while (_isRunning) {
-            string prompt = GetPrompt(multiline);
-            string? line = ReadLineWithHistory(prompt, !multiline);
+            string prompt = GetPrompt(false);
+            string? line = ReadLineWithHistory(prompt, true);
 
             if (line == null) break;
 
@@ -59,30 +57,19 @@ namespace CDL2v1 {
             // Skip comment lines (starting with !)
             if (line[0] == '!') continue;
 
-            if (multiline) {
-               lines.Add(line);
-               if (line.EndsWith('.')) {                  
-                  // End of multiline input
-                  line = string.Join("\n", lines).Trim();
-                  lines.Clear();
-                  multiline = false;
-                  inputProcessor!(line);
+            if (char.IsAsciiLetterLower(line[0])) {
+               // Command
+               _commandHistory.Add(line);
+               inputProcessor!(line);
+            } else if (!line.EndsWith('.')) {
+               // Start of multiline code snippet - enter edit mode
+               string? editedText = ReadMultilineText(line);
+               if (editedText != null) {
+                  inputProcessor!(editedText);
                }
-               continue;
             } else {
-               if (char.IsAsciiLetterLower(line[0])) {
-                  // Command
-                  _commandHistory.Add(line);
-                  inputProcessor!(line);
-               } else if (!line.EndsWith('.')) {
-                  // Start of multiline code snippet
-                  multiline = true;
-                  lines.Add(line);
-                  continue;
-               } else {
-                  // Single line code snippet
-                  inputProcessor!(line);
-               }
+               // Single line code snippet
+               inputProcessor!(line);
             }
          }
       }
@@ -142,17 +129,12 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Edit text in console (simple line input)
+      /// Edit text in console with multi-line support
       /// </summary>
       public void EditText(string text = "") {
-         Console.Write(": ");
-         if (!string.IsNullOrEmpty(text)) {
-            Console.Write(text);
-         }
-
-         string? input = Console.ReadLine();
-         if (input != null) {
-            inputProcessor!(input);
+         string? result = ReadMultilineText(text);
+         if (result != null) {
+            inputProcessor!(result);
          }
       }
 
@@ -260,6 +242,161 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// Read multi-line text with pre-loaded content and full editing support
+      /// </summary>
+      private string? ReadMultilineText(string initialText = "") {
+         // Save current console colors
+         ConsoleColor savedForeground = Console.ForegroundColor;
+         ConsoleColor savedBackground = Console.BackgroundColor;
+
+         // Set edit mode colors to black on white
+         Console.ForegroundColor = ConsoleColor.Black;
+         Console.BackgroundColor = ConsoleColor.White;
+
+         try {
+            // Trim trailing whitespace and split into lines
+            string trimmedText = initialText.TrimEnd();
+            List<string> lines = string.IsNullOrEmpty(trimmedText) 
+               ? [""] 
+               : trimmedText.Split('\n').ToList();
+            
+            int currentLine = lines.Count - 1;
+            int cursorPosition = lines[currentLine].Length;
+            int startTop = Console.CursorTop;
+            int maxLinesDisplayed = lines.Count;
+
+            RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+
+            while (true) {
+               ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
+
+               if (keyInfo.Key == ConsoleKey.Enter) {
+                  // Only terminate if on last line, at end, and ends with period
+                  if (IsAtTerminationPoint(lines, currentLine, cursorPosition)) {
+                     Console.SetCursorPosition(0, startTop + lines.Count);
+                     Console.WriteLine();
+                     return string.Join("\n", lines);
+                  } else {
+                     // Insert new line
+                     string currentLineText = lines[currentLine];
+                     lines[currentLine] = currentLineText[..cursorPosition];
+                     lines.Insert(currentLine + 1, currentLineText[cursorPosition..]);
+                     currentLine++;
+                     cursorPosition = 0;
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.Escape) {
+                  Console.SetCursorPosition(0, startTop + Math.Max(lines.Count, maxLinesDisplayed));
+                  Console.WriteLine("\n[Editing cancelled]");
+                  return null;
+               } else if (keyInfo.Key == ConsoleKey.UpArrow) {
+                  if (currentLine > 0) {
+                     currentLine--;
+                     cursorPosition = Math.Min(cursorPosition, lines[currentLine].Length);
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.DownArrow) {
+                  if (currentLine < lines.Count - 1) {
+                     currentLine++;
+                     cursorPosition = Math.Min(cursorPosition, lines[currentLine].Length);
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.LeftArrow) {
+                  if (cursorPosition > 0) {
+                     cursorPosition--;
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  } else if (currentLine > 0) {
+                     currentLine--;
+                     cursorPosition = lines[currentLine].Length;
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.RightArrow) {
+                  if (cursorPosition < lines[currentLine].Length) {
+                     cursorPosition++;
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  } else if (currentLine < lines.Count - 1) {
+                     currentLine++;
+                     cursorPosition = 0;
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.Home) {
+                  cursorPosition = 0;
+                  RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+               } else if (keyInfo.Key == ConsoleKey.End) {
+                  cursorPosition = lines[currentLine].Length;
+                  RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+               } else if (keyInfo.Key == ConsoleKey.Backspace) {
+                  if (cursorPosition > 0) {
+                     lines[currentLine] = lines[currentLine].Remove(cursorPosition - 1, 1);
+                     cursorPosition--;
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  } else if (currentLine > 0) {
+                     // Merge with previous line
+                     string mergedLine = lines[currentLine - 1] + lines[currentLine];
+                     cursorPosition = lines[currentLine - 1].Length;
+                     lines.RemoveAt(currentLine);
+                     currentLine--;
+                     lines[currentLine] = mergedLine;
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  }
+               } else if (keyInfo.Key == ConsoleKey.Delete) {
+                  if (cursorPosition < lines[currentLine].Length) {
+                     lines[currentLine] = lines[currentLine].Remove(cursorPosition, 1);
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  } else if (currentLine < lines.Count - 1) {
+                     // Merge with next line
+                     lines[currentLine] += lines[currentLine + 1];
+                     lines.RemoveAt(currentLine + 1);
+                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  }
+               } else if (!char.IsControl(keyInfo.KeyChar)) {
+                  lines[currentLine] = lines[currentLine].Insert(cursorPosition, keyInfo.KeyChar.ToString());
+                  cursorPosition++;
+                  RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+               }
+            }
+         } finally {
+            // Restore original console colors
+            Console.ForegroundColor = savedForeground;
+            Console.BackgroundColor = savedBackground;
+         }
+      }
+
+      /// <summary>
+      /// Check if cursor is at termination point (last line, at end, ends with period)
+      /// </summary>
+      private static bool IsAtTerminationPoint(List<string> lines, int currentLine, int cursorPosition) {
+         if (currentLine != lines.Count - 1) return false;
+         if (cursorPosition != lines[currentLine].Length) return false;
+         
+         string fullText = string.Join("\n", lines).TrimEnd();
+         return fullText.Length > 0 && fullText[^1] == '.';
+      }
+
+      /// <summary>
+      /// Redraw all lines in the multi-line editor
+      /// </summary>
+      private static void RedrawAllLines(List<string> lines, int currentLine, int cursorPosition, int startTop, ref int maxLinesDisplayed) {
+         int windowWidth = Console.WindowWidth;
+         
+         // Update the maximum number of lines we've displayed
+         if (lines.Count > maxLinesDisplayed) maxLinesDisplayed = lines.Count;
+         
+         // Clear and redraw all lines
+         for (int i = 0; i < maxLinesDisplayed; i++) {
+            Console.SetCursorPosition(0, startTop + i);
+            Console.Write(new string(' ', windowWidth - 1));
+            Console.SetCursorPosition(0, startTop + i);
+            if (i < lines.Count) {
+               Console.Write(": " + lines[i]);
+            }
+         }
+         
+         // Position cursor
+         Console.SetCursorPosition(2 + cursorPosition, startTop + currentLine);
+      }
+
+      /// <summary>
       /// Replace the current buffer with history content
       /// </summary>
       private static void ReplaceBuffer(List<char> buffer, string text, ref int cursorPosition, string prompt, int promptVisualLength) {
@@ -276,7 +413,7 @@ namespace CDL2v1 {
          int currentTop = Console.CursorTop;
          int windowWidth = Console.WindowWidth;
          
-         // Clear the entire line by overwriting with spaces
+         // Clear the entire line by overwriting with spaces (with background color in ANSI mode)
          Console.SetCursorPosition(0, currentTop);
          Console.Write(new string(' ', windowWidth - 1));
          

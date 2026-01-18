@@ -269,6 +269,7 @@ namespace CDL2v1 {
                repl.SetInputProcessor(CLI.ProcessInput);
                Database.Instance.CLI = CLI;
                CLI.SetStatus();
+               Settings.LoadSettings(repl);  // Add this line to load command history
                repl.Open();
             }
          } else if (args.Length > 0) {
