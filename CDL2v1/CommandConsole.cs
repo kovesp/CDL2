@@ -258,10 +258,10 @@ namespace CDL2v1 {
             
             int currentLine = lines.Count - 1;
             int cursorPosition = lines[currentLine].Length;
-            int startTop = Console.CursorTop;
-            int maxLinesDisplayed = lines.Count;
+            int linesDisplayed = 0;
+            int lastCursorLine = 0; // Track which line the cursor was on in last redraw
 
-            RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+            RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
 
             while (true) {
                ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
@@ -269,8 +269,8 @@ namespace CDL2v1 {
                if (keyInfo.Key == ConsoleKey.Enter) {
                   // Only terminate if on last line, at end, and ends with period
                   if (IsAtTerminationPoint(lines, currentLine, cursorPosition)) {
-                     Console.SetCursorPosition(0, startTop + lines.Count);
-                     Console.WriteLine();
+                     // Move down past all lines
+                     Console.Write($"\x1b[{linesDisplayed - 1 - currentLine}B\n");
                      return string.Join("\n", lines);
                   } else {
                      // Insert new line
@@ -279,53 +279,54 @@ namespace CDL2v1 {
                      lines.Insert(currentLine + 1, currentLineText[cursorPosition..]);
                      currentLine++;
                      cursorPosition = 0;
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Escape) {
-                  Console.SetCursorPosition(0, startTop + Math.Max(lines.Count, maxLinesDisplayed));
+                  // Move down past all lines
+                  Console.Write($"\x1b[{linesDisplayed - 1 - currentLine}B");
                   Console.WriteLine("\n[Editing cancelled]");
                   return null;
                } else if (keyInfo.Key == ConsoleKey.UpArrow) {
                   if (currentLine > 0) {
                      currentLine--;
                      cursorPosition = Math.Min(cursorPosition, lines[currentLine].Length);
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.DownArrow) {
                   if (currentLine < lines.Count - 1) {
                      currentLine++;
                      cursorPosition = Math.Min(cursorPosition, lines[currentLine].Length);
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.LeftArrow) {
                   if (cursorPosition > 0) {
                      cursorPosition--;
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   } else if (currentLine > 0) {
                      currentLine--;
                      cursorPosition = lines[currentLine].Length;
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.RightArrow) {
                   if (cursorPosition < lines[currentLine].Length) {
                      cursorPosition++;
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   } else if (currentLine < lines.Count - 1) {
                      currentLine++;
                      cursorPosition = 0;
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Home) {
                   cursorPosition = 0;
-                  RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                } else if (keyInfo.Key == ConsoleKey.End) {
                   cursorPosition = lines[currentLine].Length;
-                  RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                } else if (keyInfo.Key == ConsoleKey.Backspace) {
                   if (cursorPosition > 0) {
                      lines[currentLine] = lines[currentLine].Remove(cursorPosition - 1, 1);
                      cursorPosition--;
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   } else if (currentLine > 0) {
                      // Merge with previous line
                      string mergedLine = lines[currentLine - 1] + lines[currentLine];
@@ -333,22 +334,22 @@ namespace CDL2v1 {
                      lines.RemoveAt(currentLine);
                      currentLine--;
                      lines[currentLine] = mergedLine;
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Delete) {
                   if (cursorPosition < lines[currentLine].Length) {
                      lines[currentLine] = lines[currentLine].Remove(cursorPosition, 1);
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   } else if (currentLine < lines.Count - 1) {
                      // Merge with next line
                      lines[currentLine] += lines[currentLine + 1];
                      lines.RemoveAt(currentLine + 1);
-                     RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                   }
                } else if (!char.IsControl(keyInfo.KeyChar)) {
                   lines[currentLine] = lines[currentLine].Insert(cursorPosition, keyInfo.KeyChar.ToString());
                   cursorPosition++;
-                  RedrawAllLines(lines, currentLine, cursorPosition, startTop, ref maxLinesDisplayed);
+                  RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
                }
             }
          } finally {
@@ -378,31 +379,51 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Redraw all lines in the multi-line editor with syntax-based background color
+      /// Redraw all lines in the multi-line editor with syntax-based background color using ANSI codes
       /// </summary>
-      private static void RedrawAllLines(List<string> lines, int currentLine, int cursorPosition, int startTop, ref int maxLinesDisplayed) {
+      private static void RedrawAllLines(List<string> lines, int currentLine, int cursorPosition, ref int linesDisplayed, ref int lastCursorLine) {
          int windowWidth = Console.WindowWidth;
-         
-         // Update the maximum number of lines we've displayed
-         if (lines.Count > maxLinesDisplayed) maxLinesDisplayed = lines.Count;
          
          // Verify syntax and set background color accordingly
          bool syntaxValid = VerifySyntax(lines);
          Console.BackgroundColor = syntaxValid ? ConsoleColor.White : ConsoleColor.Yellow;
          Console.ForegroundColor = ConsoleColor.Black;
          
-         // Clear and redraw all lines
-         for (int i = 0; i < maxLinesDisplayed; i++) {
-            Console.SetCursorPosition(0, startTop + i);
-            Console.Write(new string(' ', windowWidth - 1));
-            Console.SetCursorPosition(0, startTop + i);
+         // Move cursor back to the first line of the edit area
+         // The cursor is currently at lastCursorLine, so move up that many lines
+         if (linesDisplayed > 0 && lastCursorLine > 0) {
+            Console.Write($"\x1b[{lastCursorLine}A");
+         }
+         Console.Write("\r"); // Move to start of line
+         
+         // Determine how many lines to display (max of current and previous)
+         int linesToDisplay = Math.Max(lines.Count, linesDisplayed);
+         
+         // Write all lines
+         for (int i = 0; i < linesToDisplay; i++) {
+            Console.Write("\x1b[2K"); // Clear entire line
             if (i < lines.Count) {
                Console.Write(": " + lines[i]);
             }
+            if (i < linesToDisplay - 1) {
+               Console.WriteLine();
+               Console.Write("\r"); // Ensure we're at start of new line
+            }
          }
          
-         // Position cursor
-         Console.SetCursorPosition(2 + cursorPosition, startTop + currentLine);
+         // Update the number of lines displayed
+         linesDisplayed = lines.Count;
+         
+         // Position cursor at the correct line and column
+         // We're at the end of line (linesToDisplay - 1), move up to currentLine
+         if (currentLine < linesToDisplay - 1) {
+            int linesToMoveUp = linesToDisplay - 1 - currentLine;
+            Console.Write($"\x1b[{linesToMoveUp}A");
+         }
+         Console.Write($"\r\x1b[{2 + cursorPosition}C"); // Move to column position
+         
+         // Remember where we left the cursor for next time
+         lastCursorLine = currentLine;
       }
 
       /// <summary>
