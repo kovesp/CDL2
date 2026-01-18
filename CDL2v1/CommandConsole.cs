@@ -249,10 +249,6 @@ namespace CDL2v1 {
          ConsoleColor savedForeground = Console.ForegroundColor;
          ConsoleColor savedBackground = Console.BackgroundColor;
 
-         // Set edit mode colors to black on white
-         Console.ForegroundColor = ConsoleColor.Black;
-         Console.BackgroundColor = ConsoleColor.White;
-
          try {
             // Trim trailing whitespace and split into lines
             string trimmedText = initialText.TrimEnd();
@@ -374,13 +370,26 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Redraw all lines in the multi-line editor
+      /// Verify the syntax of the current text
+      /// </summary>
+      private static bool VerifySyntax(List<string> lines) {
+         string text = string.Join("\n", lines);
+         return Database.Instance.CLI?.VerifySyntax(text) ?? false;
+      }
+
+      /// <summary>
+      /// Redraw all lines in the multi-line editor with syntax-based background color
       /// </summary>
       private static void RedrawAllLines(List<string> lines, int currentLine, int cursorPosition, int startTop, ref int maxLinesDisplayed) {
          int windowWidth = Console.WindowWidth;
          
          // Update the maximum number of lines we've displayed
          if (lines.Count > maxLinesDisplayed) maxLinesDisplayed = lines.Count;
+         
+         // Verify syntax and set background color accordingly
+         bool syntaxValid = VerifySyntax(lines);
+         Console.BackgroundColor = syntaxValid ? ConsoleColor.White : ConsoleColor.Yellow;
+         Console.ForegroundColor = ConsoleColor.Black;
          
          // Clear and redraw all lines
          for (int i = 0; i < maxLinesDisplayed; i++) {
@@ -413,7 +422,7 @@ namespace CDL2v1 {
          int currentTop = Console.CursorTop;
          int windowWidth = Console.WindowWidth;
          
-         // Clear the entire line by overwriting with spaces (with background color in ANSI mode)
+         // Clear the entire line by overwriting with spaces
          Console.SetCursorPosition(0, currentTop);
          Console.Write(new string(' ', windowWidth - 1));
          
