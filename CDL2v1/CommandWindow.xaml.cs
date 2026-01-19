@@ -45,7 +45,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Interaction logic for CommandWindow.xaml
    /// </summary>
-   public partial class CommandPromptWindow : Window, ICLIREPL {
+   public partial class CommandWindow : Window, ICLIREPL {
       private readonly FontFamily _textFont = new("Cascadia Mono");
 
       // Store the last height of the output area for restore functionality
@@ -122,7 +122,7 @@ F1    | Show this help message.
       public Emitter? Emitter { get; set; }
       public IToaster Toaster { get; init; }
 
-      public CommandPromptWindow(IToaster toaster) {
+      public CommandWindow(IToaster toaster) {
          this.Toaster = toaster;
 
          Settings.LoadSettings(this);
@@ -424,10 +424,10 @@ F1    | Show this help message.
          } else if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None) {
             InsertIndentation();
             e.Handled = true;
-         } else if (e.Key == Key.Up) {
+         } else if (e.Key == Key.Up && !_multilineMode) {
             HandleHistoryNavigation(true);
             e.Handled = true;
-         } else if (e.Key == Key.Down) {
+         } else if (e.Key == Key.Down && !_multilineMode) {
             HandleHistoryNavigation(false);
             e.Handled = true;
          } else if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control) {
@@ -524,7 +524,6 @@ F1    | Show this help message.
          }
 
          void HandleHistoryNavigation(bool previous) {
-            if (_multilineMode) return;
             string? history = previous ? _commandHistory.Previous() : _commandHistory.Next();
             if (history is null) {
                FlashInputError();

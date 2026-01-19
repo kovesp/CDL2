@@ -599,6 +599,9 @@ shell command : shell token, GLYPH sequence.
 
 Executes the given command line in the host operating system shell. 
 For example, on Windows: `shell dir C:\CDL2`.
+If you need to pass switches to the shell command escape the minus sign with a backslash.
+For example, `shell --shell=bash ls \-l` will execute `ls -l` in bash.
+
 
 ##### Quit/Exit/Bye/Abort
 ```

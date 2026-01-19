@@ -42,7 +42,7 @@ namespace CDL2v1 {
    /// An Emitter that outputs to the CommandPromptWindow output area
    /// </summary>
    internal partial class EmitterCommandWindow : Emitter {
-      private readonly CommandPromptWindow commandWindow;
+      private readonly CommandWindow commandWindow;
       private readonly Dictionary<string,Brush> colorMap = new();
       private FontFamily? textFont;
       private bool isRenderingSuspended = false;
@@ -64,7 +64,7 @@ namespace CDL2v1 {
          bool LineBreak = false
       );
 
-      public EmitterCommandWindow(CommandPromptWindow commandWindow) {
+      public EmitterCommandWindow(CommandWindow commandWindow) {
          SuppressDebug = true;
          this.commandWindow = commandWindow;
 

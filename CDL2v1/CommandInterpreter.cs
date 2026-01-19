@@ -33,6 +33,7 @@
 // </auto-gen>
 
 using System.Collections.Immutable;
+using System.Data.Common;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -122,10 +123,12 @@ namespace CDL2v1 {
             if (lines.Count() > 1) {
                foreach (string line in lines.SkipLast(1)) EnterSourceSentence(line,setFocus: false);
                EnterSourceSentence(lines.Last());
+               SetStatus();
                return;
             }
          }
          EnterSourceSentence(input,setFocus);
+         SetStatus();
       }
 
       /// <summary>
@@ -148,6 +151,7 @@ namespace CDL2v1 {
                ParsingContext parsingContext = ParsingContext.AsParsingContext;
                if (parser.Parse(parsingContext,out NamedElement? element,CanReplace,input)) {
                   if (setFocus && element is not null) Focus.SetFocus(element);
+                  element?.Module?.Modified = true;
                   if (Container.LudeSelectors.Contains(type)) {
                      Container container = parsingContext.Focus.FocusType switch {
                         ST.PROGRAM => (parsingContext.Focus.Object as Program)!,
@@ -592,11 +596,43 @@ namespace CDL2v1 {
          SetStatus();
       }
 
+      /// <summary>
+      /// Return the platform dependent name of the progam to invoke for the supported shells
+      /// </summary>
+      /// <param name="shellName"></param>
+      /// <returns></returns>
+      private static string? SupportedShellCommand(string shellName) {
+         if (Settings.OnWindows) {
+            return shellName switch {
+               "cmd" => "cmd.exe",
+               "pwsh" => "pwsh.exe",
+               "powershell" => "pwsh.exe",
+               "bash" => "bash.exe",
+               _ => null
+            };
+         } else if (Settings.OnLinux || Settings.OnMacOS) {
+            return shellName switch {
+               "bash" => "bash",
+               "pwsh" => "pwsh",
+               "powershell" => "pwsh",
+               _ => null
+            };
+         } else {
+            return null;
+         }
+      }
+      private static readonly string[] SupportedShells = [ "cmd", "pwsh", "bash" ];
+
       private void InterpretCommandShell(string args) {
          string shell = Settings.SettingValue<string>("Shell")!.ToLower();
+         string? shellCommand = SupportedShellCommand(shell)!;
+         if (shellCommand is null) {
+            WriteError($"Unsupported shell: {shell}. Valid values are: {string.Join(", ",SupportedShells)}");
+            return;
+         }
          ProcessStartInfo startInfo = shell switch {
             "cmd" => new ProcessStartInfo {
-               FileName = "cmd.exe",
+               FileName = shellCommand,
                Arguments = "/c " + args,
                RedirectStandardOutput = true,
                RedirectStandardError = true,
@@ -604,7 +640,7 @@ namespace CDL2v1 {
                CreateNoWindow = true
             },
             "pwsh" or "powershell" => new ProcessStartInfo {
-               FileName = "pwsh.exe",
+               FileName = shellCommand,
                Arguments = "-NoLogo -NoProfile -Command \"$PSStyle.OutputRendering = 'PlainText'; " + args.Replace("\"","`\"") + "\"",
                RedirectStandardOutput = true,
                RedirectStandardError = true,
@@ -612,7 +648,7 @@ namespace CDL2v1 {
                CreateNoWindow = true
             },
             "bash" => new ProcessStartInfo {
-               FileName = "bash",
+               FileName = shellCommand,
                Arguments = "-c \"" + args.Replace("\"","\\\"") + "\"",
                RedirectStandardOutput = true,
                RedirectStandardError = true,

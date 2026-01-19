@@ -39,7 +39,7 @@
 
 -->
 <!-- CommandPromptWindow.xaml -->
-<Window x:Class="CDL2v1.CommandPromptWindow"
+<Window x:Class="CDL2v1.CommandWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="CDL2 Laboratory" Height="1200" Width="800"

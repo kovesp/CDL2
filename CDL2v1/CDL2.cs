@@ -147,7 +147,6 @@ namespace CDL2v1 {
       private static extern bool ShowWindow(IntPtr hWnd,int nCmdShow);
 
       private const int SW_HIDE = 0;
-#endif
 
       [DllImport("kernel32.dll",SetLastError = true)]
       [return: MarshalAs(UnmanagedType.Bool)]
@@ -163,6 +162,7 @@ namespace CDL2v1 {
       private const int ATTACH_PARENT_PROCESS = -1;
       private const int STD_OUTPUT_HANDLE = -11;
       private const int STD_INPUT_HANDLE = -10;
+#endif
 
       public static readonly string Version = "1.0.0";
       public static readonly Dictionary<string,Type> AvailableCodeGenerators = [];
@@ -241,9 +241,9 @@ namespace CDL2v1 {
                   Application app = new();
                   // Create and show the window
                   ToastWindow guiToaster = new();
-                  CommandPromptWindow commandWindow = new(guiToaster);
+                  CommandWindow commandWindow = new(guiToaster);
                   CommandInterpreter CLI = new(commandWindow,
-                     new EmitterCommandWindow((CommandPromptWindow)commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },
+                     new EmitterCommandWindow((CommandWindow)commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },
                      toaster = guiToaster);
                   Database.Instance.CLI = CLI;
 
