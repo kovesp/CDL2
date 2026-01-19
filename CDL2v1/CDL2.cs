@@ -241,9 +241,9 @@ namespace CDL2v1 {
                   Application app = new();
                   // Create and show the window
                   ToastWindow guiToaster = new();
-                  CommandPromptWindow commandWindow = new(guiToaster);
+                  CommandWindow commandWindow = new(guiToaster);
                   CommandInterpreter CLI = new(commandWindow,
-                     new EmitterCommandWindow((CommandPromptWindow)commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },
+                     new EmitterCommandWindow((CommandWindow)commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },
                      toaster = guiToaster);
                   Database.Instance.CLI = CLI;
 

@@ -129,16 +129,24 @@ string element: letter ALPHA token ; digit DIGIT token ; other glyph token excep
 string escape: string escape token, escaped item.
 escaped item: letter l token ; letter t token ; string escape token ; quote token.
 
-comment: inline comment ; line comment ; block comment.
-inline comment: hash token, comment body, hash token.
-line comment: hash token, comment body, eol token.
-block comment: hash token, hash token, hash token, comment body, eol token.
+comment: line comment ; block comment.
+line comment: line comment mark, comment body, line comment mark or eol token.
+block comment: block comment mark, comment body, block comment mark or eol token.
 comment body: any GLYPH except hash or eol sequence.
+line comment mark: hash token.
+block comment mark: hash token, hash token, hash token.
 note: note token sentence. 
 ```
 
-The pretty-printer will display a set of adjacent block comments
-in a box.
+Comments can be placed almost anywhere between tokens. However they are collected and attched
+to the nearest subsequent allowed attachment point.
+They are also normalized during lexical analysis as follows:
+
+- Adjacent line comments have the trailing # added if missing and their width is adjusted
+  by inserting spaces to the longest comment in the group.
+- Block comments are adjusted in a similar way, using ###. As well a line of #-s is
+  added before and after. The lexical analyzer is careful to recognize already
+  formatted block comments and to leave them unchanged.
 
 # Representation
 ```
