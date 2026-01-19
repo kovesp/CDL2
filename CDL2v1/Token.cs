@@ -70,7 +70,7 @@ namespace CDL2v1 {
       private static readonly Regex StringEscapeRE_;
 
       [GeneratedRegex(@"^"".*?(?:\$"".*?)*""",RegexOptions.Compiled)] private static partial Regex StringRE();
-      [GeneratedRegex(@"^(?m:#((?:##)?.*?)?(?:#|$))",RegexOptions.Compiled)] private static partial Regex CommentRE();
+      [GeneratedRegex(@"^(#(?:##)?(?:#+|[^#]*)(?:###|#|$))",RegexOptions.Compiled)] private static partial Regex CommentRE();
       [GeneratedRegex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",RegexOptions.Compiled)] private static partial Regex IntRE();
       [GeneratedRegex(@"^[+-]?\d+\.\d(?:\d*(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled)] private static partial Regex FloatRE();
       [GeneratedRegex(@"\s+",RegexOptions.Compiled)] private static partial Regex ReduceWhitespaceRE();
@@ -178,13 +178,26 @@ namespace CDL2v1 {
                reservedWordValue = Enum.Parse<ReservedWord>(text);
                // Attach comments encountered before reserved words that can have comments.
                if (CommentableReservedWords.Contains(reservedWordValue.Value) && collectedComments.Count > 0) {
-                  bool blockComment = collectedComments[0].StartsWith("##");
-                  IEnumerable<string> trimmedComments = collectedComments.Select(c => c.Trim('#',' '));
+                  bool blockCommentStarter(string s) => s.StartsWith("###");
+                  bool blockCommentTerminator(string s) => s.EndsWith("###");
+                  bool isBlockComment(string s) => blockCommentStarter(s) && blockCommentTerminator(s);
+                  bool blockComment = blockCommentStarter(collectedComments[0]) && !blockCommentTerminator(collectedComments[0]);
+                  IEnumerable<string> trimmedComments = collectedComments.Select(c => isBlockComment(c) ? c :c.Trim('#',' '));
                   int width = trimmedComments.Select(c => c.Length).Max();
                   string mark = blockComment ? "###" : "#";
                   StringBuilder sb = new();
                   if (blockComment) sb.AppendLine(new string('#',width + 8));
-                  foreach (string comment in trimmedComments) sb.AppendLine(string.Format("{0} {1} {0}",mark,comment.Trim().PadRight(width)));
+                  foreach (string comment in trimmedComments) {
+                     string formattedComment;
+                     if (comment.All(c => c == '#')) {
+                        formattedComment = comment;
+                     } else  if (isBlockComment(comment)) {
+                        formattedComment = string.Format("{0} {1} {0}",mark * 3,comment.Trim("# ").ToString().PadRight(width-9));
+                     } else {
+                        formattedComment = string.Format("{0} {1} {0}",mark,comment.Trim().PadRight(width));
+                     }
+                     sb.AppendLine(formattedComment);
+                  }
                   if (blockComment) sb.AppendLine(new string('#',width + 8));
                   Comments = sb.ToString();
                }

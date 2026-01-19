@@ -129,10 +129,17 @@ string element: letter ALPHA token ; digit DIGIT token ; other glyph token excep
 string escape: string escape token, escaped item.
 escaped item: letter l token ; letter t token ; string escape token ; quote token.
 
-comment: hash token, comment body, hash token or eol token.
+comment: inline comment ; line comment ; block comment.
+inline comment: hash token, comment body, hash token.
+line comment: hash token, comment body, eol token.
+block comment: hash token, hash token, hash token, comment body, eol token.
 comment body: any GLYPH except hash or eol sequence.
 note: note token sentence. 
 ```
+
+The pretty-printer will display a set of adjacent block comments
+in a box.
+
 # Representation
 ```
 space token: ' '.
