@@ -36,11 +36,12 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Text.RegularExpressions;
 
 using static CDL2v1.Logger;
 
 namespace CDL2v1 {
-   public class Parser : CompilationPhase {
+   public partial class Parser : CompilationPhase {
       /// <summary>
       /// The object being compiled. Used mainly for error reporting.
       /// </summary>
@@ -136,7 +137,10 @@ namespace CDL2v1 {
       /// <param Id="tokens"></param>
       /// <exception cref="Exception"></exception>
       internal void Parse(string filePath) => ParseString(File.ReadAllText(filePath));
-      public List<ITopLevelContainer> ParseString(string input) => Tokenize(input,ParseMode.Full) ? ParseTokens() : [];
+      public List<ITopLevelContainer> ParseString(string input) {
+         input = NormalizeLineEndRE().Replace(input,"\n");
+         return Tokenize(input,ParseMode.Full) ? ParseTokens() : [];
+      }
 
       public bool Tokenize(string input,ParseMode mode) {
          tokens = new TokenList(ReportInvalidToken);
@@ -310,16 +314,34 @@ namespace CDL2v1 {
             RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
             currentObject.Object = (algTypeRW, id);
             if (!ParseAffixes(mode,out List<Affix> affixes)) return false;
+            bool isImported = currentSection.Interfaces[InterfaceTypes.Import].Contains(id);
+            bool importAdded = false;
             if (tokens.Optional(TT.END)) {
                // IMPORT declaration. Check if it is in the imports list.
+               if (!isImported && mode == ParseMode.Full) {
+                  if (contextObj is not null) {
+                     // We are in Lab mode and the object is not imported but this is an import declaration
+                     importAdded = Database.Instance.CLI.QueryBox($"You have entered an import declaration for {algType} {id}, but it is not imported. Add to IMPORT list?");
+                     if (importAdded){
+                        currentSection.Interfaces[InterfaceTypes.Import].Add(id);
+                     } else {
+                        // this OK, user can add it later, or semantic analyzer will catch it.
+                        AddNote(currentSection,Note.ObjectNotImported,$"{algType} {id}");
+                     }
+                  } else {
+                     // We are in compiler mode, so just report the error
+                     AddNote(currentSection,Note.ObjectNotImported,id);
+                     return false;
+                  }
+               }
                algorithm = new ImportedAlgorithm(id,affixes,algType,currentSection);
                algorithm.AddNotes(PhaseName,notes);
-               if (mode == ParseMode.Full && !currentSection.Interfaces[InterfaceTypes.Import].Contains(id)) {
-                  AddNote(currentSection,Note.ObjectNotImported,algorithm);
-                  ReportProblem(Note.ObjectNotImported,algorithm.ToString());
-                  return false;
+               if (importAdded) {
+                  Database.Instance.RecordUndo(algorithm,ChangeType.InterfaceChanged);
+                  Database.Instance.RecordUndoSetSwap(); // Because the import must be undone first.
                }
             } else {
+               // Full declaration with body
                if (!ParseLocals(mode,out Set<Local> locals)) return false;
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
                   if (bodyType.type == TT.PROCBODY || bodyType.type == TT.INLINEPROCBODY) {
@@ -345,7 +367,7 @@ namespace CDL2v1 {
                   }
                }
                Debug.Assert(algorithm != null);
-               if (mode == ParseMode.Full && currentSection.Interfaces[InterfaceTypes.Import].Contains(id)) {
+               if (mode == ParseMode.Full && isImported) {
                   AddNote(currentSection,Note.ObjectImportedButHasBody,algorithm);
                   ReportProblem(Note.ObjectImportedButHasBody,algorithm);
                   return false;
@@ -1153,5 +1175,8 @@ namespace CDL2v1 {
       public static void MoveObjectToPosition<T>(ParsingContext parsingContext,Focus context,List<T> objList) where T : CDL2Object {
          foreach (T obj in objList.Reverse<T>()) MoveObjectToPosition(parsingContext,context,obj);
       }
+
+      [GeneratedRegex(@"\r\n?|\n\r")]
+      private static partial Regex NormalizeLineEndRE();
    }
 }

@@ -188,7 +188,7 @@ namespace CDL2v1 {
       private const int UndoStackDefaultSize = 100;
       [JsonInclude]
       [JsonPropertyOrder(3)]
-      public BoundedStack<UndoRecord> UndoStack = new(UndoStackDefaultSize);
+      public SwapableTopStack<UndoRecord> UndoStack = new(UndoStackDefaultSize);
       [JsonInclude]
       [JsonPropertyOrder(4)]
       public BoundedStack<UndoRecord> RedoStack = new(UndoStackDefaultSize);
@@ -308,6 +308,26 @@ namespace CDL2v1 {
       /// <param name="name"></param>
       /// <returns></returns>
       public string DisplayName(string name) => CanonicalNames.TryGetValue(name.Replace(" ",""),out string? displayName) ? displayName : name;
+
+      public class SwapableTopStack<T>(int maxSize) : BoundedStack<T>(maxSize) {
+         private bool _swap = false;
+         public bool Swap { 
+            get => _swap;
+            set { 
+               if (value && _swap) throw new InvalidOperationException("SwapableTopStack Swap is already set to true.");
+               _swap = value;
+            }
+         }
+         public override bool Push(T item) {
+            T top = item;
+            if (_swap && Count > 0) {
+               top = Pop();
+               base.Push(item);
+            }
+            _swap = false;
+            return base.Push(top);
+         }
+      }
 
       /// <summary>
       /// Contains the information required to resurect a removed object. Editing an object is
@@ -441,6 +461,10 @@ namespace CDL2v1 {
          if (context is not null) UndoStack.Push(new UndoRecord(element,context));
       }
 
+      /// <summary>
+      /// The next push to the undo stack will swap the top two elements.
+      /// </summary>
+      public void RecordUndoSetSwap() => UndoStack.Swap = true;
 
       /// <summary>
       /// Create an undo record for a rename operation. Renames are performed on IDs so have to be recorded like that.

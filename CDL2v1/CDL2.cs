@@ -273,6 +273,7 @@ namespace CDL2v1 {
                repl.Open();
             }
          } else if (args.Length > 0) {
+            // Compiler mode
             Parser = new Parser(this);
             foreach (string arg in args) {
                string source = Path.GetFullPath(arg);

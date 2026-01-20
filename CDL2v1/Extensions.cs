@@ -318,7 +318,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="item">The item to push onto the stack.</param>
       /// <returns>True if an item was removed from the bottom of the stack, otherwise false.</returns>
-      public bool Push(T item) {
+      public virtual bool Push(T item) {
          bool itemRemoved = false;
 
          if (IsFull) {

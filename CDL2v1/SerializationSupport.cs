@@ -65,6 +65,7 @@ namespace CDL2v1 {
             new IDJsonConverter(),
             new BoundedStackJsonConverter<Focus>(),
             new BoundedStackJsonConverter<Database.UndoRecord>(),
+            new SwapableTopStackJsonConverter<Database.UndoRecord>(),
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
          },
          IncludeFields = true,
@@ -488,6 +489,65 @@ namespace CDL2v1 {
          writer.WriteEndObject();
       }
    }
+   /// <summary>
+   /// Provides custom JSON serialization and deserialization for <see cref="Database.SwapableTopStack{T}"/>.
+   /// Serializes as an object with "Capacity", "Items" (top-to-bottom order), and "Swap" state.
+   /// </summary>
+   public class SwapableTopStackJsonConverter<T> : JsonConverter<Database.SwapableTopStack<T>> {
+      public override Database.SwapableTopStack<T>? Read(ref Utf8JsonReader reader,Type typeToConvert,JsonSerializerOptions options) {
+         if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException("Expected start of object for SwapableTopStack<T>.");
+
+         int capacity = 0;
+         List<T> items = [];
+         bool swap = false;
+
+         while (reader.Read()) {
+            if (reader.TokenType == JsonTokenType.EndObject) break;
+            if (reader.TokenType != JsonTokenType.PropertyName)
+               throw new JsonException("Expected property name in SwapableTopStack<T> object.");
+
+            string propertyName = reader.GetString()!;
+            reader.Read();
+
+            if (propertyName == "Capacity") {
+               capacity = reader.GetInt32();
+            } else if (propertyName == "Items") {
+               if (reader.TokenType != JsonTokenType.StartArray)
+                  throw new JsonException("Expected start of array for Items in SwapableTopStack<T>.");
+               while (reader.Read()) {
+                  if (reader.TokenType == JsonTokenType.EndArray) break;
+                  T item = JsonSerializer.Deserialize<T>(ref reader,options)!;
+                  items.Add(item);
+               }
+            } else if (propertyName == "Swap") {
+               swap = reader.GetBoolean();
+            } else {
+               reader.Skip();
+            }
+         }
+
+         if (capacity < 1)
+            throw new JsonException("SwapableTopStack<T> must have positive Capacity.");
+
+         Database.SwapableTopStack<T> stack = new(capacity);
+         foreach (T item in items.Reverse<T>())
+            stack.Push(item);
+         stack.Swap = swap;
+
+         return stack;
+      }
+
+      public override void Write(Utf8JsonWriter writer,Database.SwapableTopStack<T> value,JsonSerializerOptions options) {
+         writer.WriteStartObject();
+         writer.WriteNumber("Capacity",value.Capacity);
+         writer.WriteBoolean("Swap",value.Swap);
+         writer.WritePropertyName("Items");
+         writer.WriteStartArray();
+         foreach (T item in value)
+            JsonSerializer.Serialize(writer,item,options);
+         writer.WriteEndArray();
+         writer.WriteEndObject();
+      }
+   }
 }
-
-

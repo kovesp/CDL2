@@ -69,8 +69,20 @@ namespace CDL2v1 {
       private static readonly Regex IdRE_;
       private static readonly Regex StringEscapeRE_;
 
+      /// <summary>
+      /// Matches comments of the forms:
+      /// <list type="number">
+      /// <item>### comment ###</item>
+      /// <item>############</item>
+      /// <item># comment</item>
+      /// <item># comment #</item>
+      /// </list>
+      /// All forms except the last can have nothing else on the line except possibly leading or trailing whitespace.
+      /// </summary>
+      /// <returns></returns>
+      [GeneratedRegex(@"^(###[^#\n]*###(?=\n|$)|#+(?=\n|$)|#[^#\n]*?(?=\n|$)|#[^#\n]*?#)",RegexOptions.Compiled)] private static partial Regex CommentRE();
+
       [GeneratedRegex(@"^"".*?(?:\$"".*?)*""",RegexOptions.Compiled)] private static partial Regex StringRE();
-      [GeneratedRegex(@"^(#(?:##)?(?:#+|[^#]*)(?:###|#|$))",RegexOptions.Compiled)] private static partial Regex CommentRE();
       [GeneratedRegex(@"^(?:0x[\dA-Fa-f]+|[+-]?[_\d]+)",RegexOptions.Compiled)] private static partial Regex IntRE();
       [GeneratedRegex(@"^[+-]?\d+\.\d(?:\d*(?:[eE][+-]?\d+)?)?",RegexOptions.Compiled)] private static partial Regex FloatRE();
       [GeneratedRegex(@"\s+",RegexOptions.Compiled)] private static partial Regex ReduceWhitespaceRE();
@@ -257,12 +269,12 @@ namespace CDL2v1 {
       /// <param Id="token">The token that was found.</param>
       /// <returns>true if the staring started with a valid token.</returns>
       public static bool TryCreateToken(ref string input,out Token token) {
+         input = input.TrimStart();
+         token = ErrorToken;
          while (true) {
-            input = input.TrimStart();
-            token = ErrorToken;
             if (string.IsNullOrEmpty(input)) return false;
 
-            // Collect comments into a list
+            // Collect comments into a list to be added to the current token if applicable.
             Match match = CommentRE().Match(input);
             if (match.Success) {
                input = input[match.Length..].TrimStart();
