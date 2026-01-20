@@ -322,9 +322,7 @@ namespace CDL2v1 {
                   if (contextObj is not null) {
                      // We are in Lab mode and the object is not imported but this is an import declaration
                      importAdded = Database.Instance.CLI.QueryBox($"You have entered an import declaration for {algType} {id}, but it is not imported. Add to IMPORT list?");
-                     if (importAdded){
-                        currentSection.Interfaces[InterfaceTypes.Import].Add(id);
-                     } else {
+                     if (!importAdded){
                         // this OK, user can add it later, or semantic analyzer will catch it.
                         AddNote(currentSection,Note.ObjectNotImported,$"{algType} {id}");
                      }
@@ -337,7 +335,8 @@ namespace CDL2v1 {
                algorithm = new ImportedAlgorithm(id,affixes,algType,currentSection);
                algorithm.AddNotes(PhaseName,notes);
                if (importAdded) {
-                  Database.Instance.RecordUndo(algorithm,ChangeType.InterfaceChanged);
+                  Database.Instance.RecordUndo(algorithm,ChangeType.InterfaceChanged); // Record unimported state
+                  currentSection.Interfaces[InterfaceTypes.Import].Add(id);
                   Database.Instance.RecordUndoSetSwap(); // Because the import must be undone first.
                }
             } else {
