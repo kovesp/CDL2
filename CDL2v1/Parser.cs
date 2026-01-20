@@ -93,17 +93,17 @@ namespace CDL2v1 {
       private LexicalAnalyzer? Lexer = null;       // The lexical analyzer used to parse the input file.
 
       public static readonly Dictionary<RW,Type> RW2Type = new() {
-         [RW.PROGRAM] = typeof(Program),
-         [RW.MODULE] = typeof(Module),
-         [RW.LAYER] = typeof(Layer),
-         [RW.SECTION] = typeof(Section),
-         [RW.CONST] = typeof(Const),
-         [RW.LIST] = typeof(LIST),
-         [RW.VAR] = typeof(Var),
-         [RW.TEST] = typeof(Algorithm),
+         [RW.PROGRAM]   = typeof(Program),
+         [RW.MODULE]    = typeof(Module),
+         [RW.LAYER]     = typeof(Layer),
+         [RW.SECTION]   = typeof(Section),
+         [RW.CONST]     = typeof(Const),
+         [RW.LIST]      = typeof(LIST),
+         [RW.VAR]       = typeof(Var),
+         [RW.TEST]      = typeof(Algorithm),
          [RW.PREDICATE] = typeof(Algorithm),
-         [RW.FUNCTION] = typeof(Algorithm),
-         [RW.ACTION] = typeof(Algorithm),
+         [RW.FUNCTION]  = typeof(Algorithm),
+         [RW.ACTION]    = typeof(Algorithm),
       };
 
       private readonly Action<Severity,string,bool> ErrorReporter;
@@ -322,9 +322,7 @@ namespace CDL2v1 {
                   if (contextObj is not null) {
                      // We are in Lab mode and the object is not imported but this is an import declaration
                      importAdded = Database.Instance.CLI.QueryBox($"You have entered an import declaration for {algType} {id}, but it is not imported. Add to IMPORT list?");
-                     if (importAdded){
-                        currentSection.Interfaces[InterfaceTypes.Import].Add(id);
-                     } else {
+                     if (!importAdded){
                         // this OK, user can add it later, or semantic analyzer will catch it.
                         AddNote(currentSection,Note.ObjectNotImported,$"{algType} {id}");
                      }
@@ -337,7 +335,8 @@ namespace CDL2v1 {
                algorithm = new ImportedAlgorithm(id,affixes,algType,currentSection);
                algorithm.AddNotes(PhaseName,notes);
                if (importAdded) {
-                  Database.Instance.RecordUndo(algorithm,ChangeType.InterfaceChanged);
+                  Database.Instance.RecordUndo(algorithm,ChangeType.InterfaceChanged); // Record unimported state
+                  currentSection.Interfaces[InterfaceTypes.Import].Add(id);
                   Database.Instance.RecordUndoSetSwap(); // Because the import must be undone first.
                }
             } else {
@@ -685,11 +684,12 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a constant declaration.
       /// </summary>
-      private bool ParseConstants(Notes notes,ParseMode mode,out List<Const> consts,Func<NamedElement,bool>? canReplace,CDL2Object? contextObj) {
+      private bool ParseConstants(Notes notes,ParseMode mode,out List<Const> consts,Func<NamedElement,bool>? canReplace,ParsingContext context) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST,out string? comments)) {
             Debug.Assert(currentSection != null);
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,id => ParseConstBody(id,mode,canReplace,contextObj),notes,mode,out consts);
+            
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,id => ParseConstBody(id,mode,canReplace,context),notes,mode,out consts);
          } else {
             consts = [];
             return false;
@@ -702,7 +702,7 @@ namespace CDL2v1 {
       /// The terminator will be consumed by <see cref="ParseIDList(ICollection{ID}, ICollection{ID}?, Action{ID}?)
       /// </summary>
       /// <param Id="token">The token of the constant.</param>
-      private Const? ParseConstBody(ID id,ParseMode mode,Func<NamedElement,bool>? canReplace,CDL2Object? contextObj) {
+      private Const? ParseConstBody(ID id,ParseMode mode,Func<NamedElement,bool>? canReplace,ParsingContext? context) {
          Debug.Assert(currentSection != null);
          if (DuplicateDeclaration(id,RW.CONST))
             return null;
@@ -719,7 +719,7 @@ namespace CDL2v1 {
                   currentConst.Replace(c);
                } else {
                   c = new(id,currentSection);
-                  Database.Instance.RecordUndo(c,context: contextObj);
+                  Database.Instance.RecordUndo(c,context: context?.Focus.Object);
                }
                ParseElementList(c,c.elements,"ID, STRING, INT, or FLOAT",mode,secondaryTerminator: TT.SEP);
                return c;
@@ -1042,7 +1042,7 @@ namespace CDL2v1 {
                section = context.Section;
                if (section is not null) {
                   currentSection = section;
-                  if (ParseConstants(Notes.Empty,mode,out List<Const> consts,canReplace,(CDL2Object?)context.Object)) {
+                  if (ParseConstants(Notes.Empty,mode,out List<Const> consts,canReplace,parsingContext)) {
                      MoveObjectToPosition(parsingContext,context,consts);
                      element = consts.LastOrDefault();
                   }
@@ -1147,7 +1147,8 @@ namespace CDL2v1 {
       /// <param name="obj"></param>
       public static void MoveObjectToPosition(ParsingContext parsingContext,Focus context,CDL2Object? obj) {
          if (context.FocusType != SelectorType.SECTION) {
-            // The context is either the section (in which case the postion is correct) or an object inside it.
+            // The context is either the section (in which case the position is correct) or an object inside it.
+            if (context.Object?.GUID == obj?.GUID) return;  // May happen when an object is replaced
             int pos = context.IndexFor();
             switch (parsingContext.Location) {
                case InsertLocation.Before:

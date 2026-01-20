@@ -112,11 +112,11 @@ namespace CDL2v1 {
       Guid GUID { get; }
 
       void MoveSiblingTo(int index) {
-         if (index < 0 || index >= Siblings.Count) {
+         if (index < 0 || index > Siblings.Count) {
             throw new ArgumentOutOfRangeException(nameof(index),"Index must be within the range of siblings.");
          }
          Siblings.Remove(GUID);
-         Siblings.Insert(index,GUID);
+         Siblings.Insert(index-1,GUID); // -1 because after removal the list is shorter by one.
       }
       void InsertSiblingAt(int index,ISibling sibling) {
          if (index < 0 || index > Siblings.Count) {
@@ -1127,13 +1127,12 @@ namespace CDL2v1 {
             (GUID, replacement!.GUID) = (replacement.GUID, GUID);
             Database.Instance.NamedElements[GUID] = this;
             Database.Instance.NamedElements[replacement.GUID] = replacement;
-
             if (replacement.Notes is not null && replacement.Notes.Count > 0) Database.Instance.ElementsWithNotes.Add(replacement.GUID);
             if (record) Database.Instance.RecordUndo(this.GUID,replacement.GUID);
          }
       }
       public void Remove() => RemoveOrReplace(null,ChangeType.Removed);
-      public void Replace(CDL2Object replacement,bool record=true) => RemoveOrReplace(replacement,ChangeType.Replaced,record);
+      public virtual void Replace(CDL2Object replacement,bool record=true) => RemoveOrReplace(replacement,ChangeType.Replaced,record);
 
       /// <summary>
       /// Reverses the action of RemoveOrReplace by adding this object back to the section declarations and siblings (if removed) or swaping
@@ -1334,6 +1333,34 @@ namespace CDL2v1 {
       public virtual IEnumerable<Var> GetReferencedVariables() => [];
       [JsonIgnore]
       override public string TypeShortName => $"{AlgorithmType}";
+
+      /// <summary>
+      /// In a procedure, calls have a reference to the enclosing procedure so they must be updated
+      /// </summary>
+      /// <param name="replacement"></param>
+      /// <param name="record"></param>
+      public override void Replace(CDL2Object replacement,bool record = true) {
+         Debug.Assert(replacement is Algorithm,$"Cannot replace algorithm {this} with non-algorithm {replacement}.");
+
+         // Now fix the call references in both procedures.
+         static void ReplaceCallReferences(Group group,Guid guid) {
+            foreach (Alternative alternative in group.Alternatives) {
+               foreach (Call call in alternative.calls) call.containingProc = guid;
+               if (alternative.lastCall.type == LCT.Standard) {
+                  alternative.lastCall!.call!.containingProc = guid;
+               } else if (alternative.lastCall.type == LCT.Group) {
+                  ReplaceCallReferences(alternative.lastCall.group!,guid);
+               }
+            }
+         }
+
+         // Fix call references in both procedures first. Note that eithr could both be a macro or an ImportedProcedure.
+         // Works for ImportedProcedures too because they have a group with no alternatives.
+         if (this is Procedure proc1)        ReplaceCallReferences(proc1.group,replacement.GUID);
+         if (replacement is Procedure proc2) ReplaceCallReferences(proc2.group,GUID);
+
+         base.Replace(replacement,record); // do the standard guid swap
+      }
 
       /// <summary>
       /// Will be called when this Algorithm is being discarded from the undo stack.

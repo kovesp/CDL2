@@ -753,7 +753,8 @@ namespace CDL2v1 {
 
       private void InterpretCommandHelp(string args) {
          if (args == "") {
-            WriteInfo("Capital letters denote the minimum abbreviation of the command.");
+            WriteInfo("Commands must start with a lower case letter.");
+            WriteInfo("Capital letters in the following only denote the minimum abbreviation of the command.");
             foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
                WriteLine(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
             }
