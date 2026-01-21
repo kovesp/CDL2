@@ -252,17 +252,52 @@ to `n 2` and `f -1` is equivalent to `p 1`.
 
 
 
-#### Next and Previous
+#### Focus Movement
 
 ```
-next command : next token, setting sequence option, selector option.
-previous command : previous token, setting sequence option, selector option.
+next command : next token, selector option.
+previous command : previous token, selector option.
+first command : first token, selector option.
+last command : last token, selector option.
 ```
 
-Moves the focus in a relative way. If the command is given without a slector, then the
+The `next` and `previous` commands move the focus in a relative way. If the command is given without a selector, then the
 focus moves by one object in the given direction. If the selector is given, then
 the focus moves the the first object that matches the selector in the given direction.
 
+The `first` and `last` commands move the focus to the first or last object that matches the selector. For
+example, `first ALG` moves the focus to the first algorithm in the current section. `next Object /^n`
+moves the focus to the next object that whose name starts with `n`.
+
+#### Object Movement
+
+```
+up command : up token, number option.
+down command : down token, number option.
+top command : top token.
+bottom command : bottom token.
+move command : move token, setting sequence option, selector.
+```
+
+The `up` and `down` commands move the focused object up or down in the list of sibling objects.
+The `top` and `bottom` commands move the focused object to the first or last position among its siblings.
+
+The `move` command moves the focused object before or after the object selected by the selector. The `before`
+and `-after` (default) settings may be used to specify the position relative to the selected object.
+What happens depends on what the current selection is as well as the selector:
+
+    * If the focus is on a module or program, then the selector must select a module or program.
+      The focused module/program is moved before or after the selected module/program.
+    * If the focus is on a layer, then the selector must select 
+        * A layer in the current or another module ... the selected layer is moved there. 
+        * A layer in another module ... the selected layerr is moved there.
+        * Another module ... the focused layer is moved to the module as the last layer.
+    * If the focus is on a section, then the selector must select a module, layer or section.
+      The section is moved similarly to the layer case above.       
+    * If the focus is on an algorithm, constant, variable, or list, then the selector must select
+      a section or an object in a section in a module (including the current one). the selected
+      object is moved there as eithe the last object in the layer or adjacent to the object.
+        
 ### Listing and Printing Commands
 
 #### List
@@ -625,11 +660,15 @@ the minimal apreviation is given in ***bold italic***.
 
 ***a***dd
 
+***bot***tom
+
 ***bye***
 
 ***c***onsult
 
 ***del***ete
+
+***down***
 
 ***e***dit
 
@@ -646,6 +685,8 @@ the minimal apreviation is given in ***bold italic***.
 ***last***
 
 ***l***ist
+
+***m***ove
  
 ***n***ext 
 
@@ -678,8 +719,12 @@ the minimal apreviation is given in ***bold italic***.
 ***stat***us
 
 ***t***ype
+
+***top***
   
 ***u***ndo
+
+***up***
 
  
  

@@ -637,6 +637,9 @@ namespace CDL2v1 {
             return Focus.SetFocus(Object.Siblings[newIndex]);
          }
       }
+
+      internal bool MoveObject(string args,FocusMoveDirection focusMoveDirection,out string msg,out Severity severity) => throw new NotImplementedException();
+      internal bool MoveObjectTo(string args,out string msg,out Severity severity) => throw new NotImplementedException();
    }
 
    /// <summary>

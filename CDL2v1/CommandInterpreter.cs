@@ -410,12 +410,16 @@ namespace CDL2v1 {
          }
       }
 
-      private static readonly ImmutableDictionary<CommandType,FocusMoveDirection> commandAsFocusMoveDirection =
+      private static readonly ImmutableDictionary<CommandType,FocusMoveDirection> commandAsDirection =
           new Dictionary<CommandType,FocusMoveDirection> {
-             [CommandType.next] = FocusMoveDirection.Forward,
+             [CommandType.next]     = FocusMoveDirection.Forward,
              [CommandType.previous] = FocusMoveDirection.Backward,
-             [CommandType.first] = FocusMoveDirection.First,
-             [CommandType.last] = FocusMoveDirection.Last,
+             [CommandType.first]    = FocusMoveDirection.First,
+             [CommandType.last]     = FocusMoveDirection.Last,
+             [CommandType.down]     = FocusMoveDirection.Forward,
+             [CommandType.up]       = FocusMoveDirection.Backward,
+             [CommandType.top]      = FocusMoveDirection.First,
+             [CommandType.bottom]   = FocusMoveDirection.Last,
           }.ToImmutableDictionary();
 
       /// <summary>
@@ -518,7 +522,15 @@ namespace CDL2v1 {
                   case CommandType.previous:
                   case CommandType.first:
                   case CommandType.last:
-                     if (!Focus.Current.Move(args,commandAsFocusMoveDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
+                     if (!Focus.Current.Move(args,commandAsDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
+
+                  case CommandType.down:
+                  case CommandType.up:
+                  case CommandType.top:
+                  case CommandType.bottom:
+                     if (!Focus.Current.MoveObject(args,commandAsDirection[commandType],out msg,out severity)) WriteLine(msg,severity); break;
+                  case CommandType.move:
+                     if (!Focus.Current.MoveObjectTo(args,out msg,out severity)) WriteLine(msg,severity); break;
 
                   case CommandType.list:
                      InterpretCommandList(args); break;
