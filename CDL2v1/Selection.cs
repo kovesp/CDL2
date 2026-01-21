@@ -239,7 +239,7 @@ namespace CDL2v1 {
 
          if (!candidateObjects.Any()) {
             // Nothing matches
-            ErrorMessage = "No matches";
+            ErrorMessage = "Info:No matches";
             return;
          }
          // Use the segments to successively narrow down the selection.
@@ -316,12 +316,12 @@ namespace CDL2v1 {
 
             // Special prefix that is used to selected imported CONSTs and ALGORITHMs. Handled during segment construction above
             case SelectorType.IMPORTED:
-               errorMessage = $"Fapipa: Unfiltered IMPORTED which is not possible"; // Hommage à Mihályi Kati 
+               errorMessage = $"Fapipa Unfiltered IMPORTED which is not possible"; // Hommage à Mihályi Kati 
                break;
-            case SelectorType.INVALID: errorMessage = $"Unrecognized selection type"; break;
-            default: errorMessage = $"Unimplemented selection type: {segments[segNo].SegmentType}"; break;
+            case SelectorType.INVALID: errorMessage = $"Unrecognized selector type"; break;
+            default: errorMessage = $"Unimplemented selector type: {segments[segNo].SegmentType}"; break;
          }
-
+         if (!selectedObjects.Any()) errorMessage = "Info:No matches";
          return selectedObjects;
       }
 

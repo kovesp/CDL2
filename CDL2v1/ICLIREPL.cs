@@ -32,6 +32,8 @@
 //=======================================================================
 // </auto-gen>
 
+using System.Text.RegularExpressions;
+
 namespace CDL2v1 {
    /// <summary>
    /// Interface for command-line interfaces (GUI or text-based).
@@ -56,6 +58,14 @@ namespace CDL2v1 {
       /// <param name="text">The text to write.</param>
       /// <param name="severity">Severity level for formatting/coloring.</param>
       void WriteLine(string text,Severity severity = Severity.NONE);
+
+      void WriteLineParsed(string msg) {
+         if (SeverityParsing.TryGetSeverity(ref msg,out Severity severity)) {
+            WriteLine($"{severity}: {msg}",severity);
+         } else {
+            WriteLine(msg,Severity.Error);
+         }
+      }
 
       /// <summary>
       /// Updates the status display with the given message.

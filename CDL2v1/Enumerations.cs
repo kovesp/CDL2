@@ -46,6 +46,7 @@ global using ST = CDL2v1.SelectorType;
 global using TT = CDL2v1.TokenType;
 
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    /// Central place for enumerations that are used across the Compiler as well as their abbreviations.
@@ -275,6 +276,42 @@ namespace CDL2v1 {
       Note,
       NONE,
    }
+   /// <summary>
+   /// Used to parse severity-prefixed messages.
+   /// </summary>
+   public static partial class SeverityParsing {
+      /// <summary>
+      /// Extract the severity and message from a string of the form "Severity:Message".
+      /// </summary>
+      /// <param name="input"></param>
+      /// <param name="severity"></param>
+      /// <param name="message"></param>
+      /// <returns></returns>
+      public static bool TryGetSeverity(ref string message, out Severity severity) {
+         severity = Severity.NONE;
+         Match match = SeverityParsingRE().Match(message);
+         if (match.Success) {
+            severity = Enum.Parse<Severity>(match.Groups[1].Value);
+            message = match.Groups[2].Value;
+            return true;
+         }
+         return false;
+      }
+
+      /// <summary>
+      /// Creates a compiled regular expression that matches lines beginning with "Error:", "Warning:", "Info:", or
+      /// "Note:", followed by any text.
+      /// </summary>
+      /// <remarks>The returned regular expression uses the pattern ^(Error|Warning|Info|Note):(.*)$ and is
+      /// compiled for improved performance. The first capturing group contains the severity level, and the second group
+      /// contains the associated message text.
+      /// Ensure that the alternatives match the Severity Enum values. For GeneratedRegex to work can't use Enum methods to extract the names.</remarks>
+      /// <returns>A compiled <see cref="Regex"/> instance that matches lines starting with a log level prefix ("Error:",
+      /// "Warning:", "Info:", or "Note:") and captures the remainder of the line.</returns>
+      [GeneratedRegex("^(Error|Warning|Info|Note):(.*)$",RegexOptions.Compiled)]
+      private static partial Regex SeverityParsingRE();
+   }
+
 
    public enum SettingType {
       Boolean,

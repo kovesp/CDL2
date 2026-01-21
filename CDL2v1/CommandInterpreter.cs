@@ -269,6 +269,14 @@ namespace CDL2v1 {
             Debug.WriteLine(message);
          }
       }
+      private void WriteLineParsed(string message) {
+         if (REPL is not null) {
+            REPL.WriteLineParsed(message);
+         } else {
+            Debug.WriteLine(message);
+         }
+      }
+
       private void WriteError(string message) => WriteLine("Error: " + message,Severity.Error);
       private void WriteInfo(string message) => WriteLine("Info: " + message,Severity.Info);
       private void WriteWarning(string message) => WriteLine("Warning: " + message,Severity.Warning);
@@ -500,8 +508,11 @@ namespace CDL2v1 {
                      return;
 
                   case CommandType.focus:
-                     if (!Focus.SetFocus(args,out string errorMessage)) WriteError(errorMessage);
-                     if (args.IsEmptyOrWhitespace || !Settings.SettingValue<bool>("LongConsolePrompt")) WriteLine(Focus.Current.ToString());
+                     if (!Focus.SetFocus(args,out string errorMessage)) {
+                        WriteLineParsed(errorMessage);
+                     } else if (args.IsEmptyOrWhitespace || !Settings.SettingValue<bool>("LongConsolePrompt")) {
+                        WriteLine(Focus.Current.ToString());
+                     }
                      break;
                   case CommandType.next:
                   case CommandType.previous:

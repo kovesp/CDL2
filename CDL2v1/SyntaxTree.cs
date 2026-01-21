@@ -111,13 +111,25 @@ namespace CDL2v1 {
       List<Guid> Siblings { get; }
       Guid GUID { get; }
 
+      /// <summary>
+      /// Move the sibling to the given index in the sibling list.
+      /// </summary>
+      /// <param name="index"></param>
+      /// <exception cref="ArgumentOutOfRangeException"></exception>
       void MoveSiblingTo(int index) {
          if (index < 0 || index > Siblings.Count) {
             throw new ArgumentOutOfRangeException(nameof(index),"Index must be within the range of siblings.");
          }
          Siblings.Remove(GUID);
-         Siblings.Insert(index-1,GUID); // -1 because after removal the list is shorter by one.
+         Siblings.Insert(Math.Min(index,Siblings.Count), GUID);
       }
+      /// <summary>
+      /// Insert the sibling at the given index in the sibling list.
+      /// </summary>
+      /// <param name="index"></param>
+      /// <param name="sibling"></param>
+      /// <exception cref="ArgumentOutOfRangeException"></exception>
+      /// <exception cref="ArgumentException"></exception>
       void InsertSiblingAt(int index,ISibling sibling) {
          if (index < 0 || index > Siblings.Count) {
             throw new ArgumentOutOfRangeException(nameof(index),"Index must be within the range of siblings.");
@@ -127,6 +139,11 @@ namespace CDL2v1 {
          }
          Siblings.Insert(index,sibling.GUID);
       }
+      /// <summary>
+      /// Insert the sibling after this sibling in the sibling list.
+      /// </summary>
+      /// <param name="sibling"></param>
+      /// <exception cref="ArgumentException"></exception>
       void InsertSiblingAfter(ISibling sibling) {
          int index = Siblings.IndexOf(sibling.GUID);
          if (index < 0) {
@@ -134,6 +151,11 @@ namespace CDL2v1 {
          }
          InsertSiblingAt(index + 1,sibling);
       }
+      /// <summary>
+      /// Insert the sibling before this sibling in the sibling list.
+      /// </summary>
+      /// <param name="sibling"></param>
+      /// <exception cref="ArgumentException"></exception>
       void InsertSiblingBefore(ISibling sibling) {
          int index = Siblings.IndexOf(sibling.GUID);
          if (index < 0) {
@@ -141,6 +163,11 @@ namespace CDL2v1 {
          }
          InsertSiblingAt(index,sibling);
       }
+      /// <summary>
+      /// Move this sibling after the specified sibling in the sibling list.
+      /// </summary>
+      /// <param name="other"></param>
+      /// <exception cref="ArgumentException"></exception>
       void MoveSiblingAfter(ISibling other) {
          int index = Siblings.IndexOf(other.GUID);
          if (index < 0) {
@@ -148,6 +175,11 @@ namespace CDL2v1 {
          }
          MoveSiblingTo(index + 1);
       }
+      /// <summary>
+      /// Move this sibling before the specified sibling in the sibling list.
+      /// </summary>
+      /// <param name="other"></param>
+      /// <exception cref="ArgumentException"></exception>
       void MoveSiblingBefore(ISibling other) {
          int index = Siblings.IndexOf(other.GUID);
          if (index < 0) {
@@ -155,6 +187,10 @@ namespace CDL2v1 {
          }
          MoveSiblingTo(index);
       }
+      /// <summary>
+      /// Remove this sibling from the sibling list.
+      /// </summary>
+      /// <exception cref="ArgumentException"></exception>
       void RemoveSibling() {
          if (Siblings.Contains(GUID)) {
             Siblings.Remove(GUID);

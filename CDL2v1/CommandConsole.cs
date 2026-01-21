@@ -222,7 +222,7 @@ Background color indicates syntax validity:
          } else {
             // Fallback: set console title
             try {
-               Console.Title = $"{CDL2.LabName}";
+               Console.Title = $"{CDL2.LabName} - {Settings.LabDBName}";
             } catch {
                // Ignore if console title cannot be set
             }
