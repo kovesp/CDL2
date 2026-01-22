@@ -288,7 +288,7 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.LIST)) {
                cont = ParseList(internalNotes,out _,mode);
             } else if (tokens.IsNext(RW.VAR)) {
-               cont = ParseVar(internalNotes,mode,out _);
+               cont = ParseVar(internalNotes,mode,out _,null);
             } else if (tokens.IsNext(RW.CONST)) {
                cont = ParseConstants(internalNotes,mode,out _,null,null);
             } else {
@@ -382,7 +382,7 @@ namespace CDL2v1 {
                   if (contextObj is not null) currentObject.Replace(algorithm);
                } else {
                   // Record an add
-                  Database.Instance.RecordUndo(algorithm,contextObj);
+                  Database.Instance.RecordUndo(algorithm,contextObj,ChangeType.Added);
                   currentSection.Declarations[id] = algorithm.GUID;
                }
             }
@@ -644,7 +644,7 @@ namespace CDL2v1 {
       private bool ParseList(Notes notes,out List<LIST> lists,ParseMode mode = ParseMode.Full,Func<NamedElement,bool>? canReplace=null,ParsingContext? context=null) {
          if (tokens.CanConsume(RW.LIST,out string? comments)) {
             Debug.Assert(currentSection != null);
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,id => ParseListBody(id,mode,canReplace,context),notes,mode,out lists);
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id) => ParseListBody(id,mode,canReplace,context),notes,mode,out lists);
          }
          lists = [];
          return true;
@@ -671,9 +671,9 @@ namespace CDL2v1 {
             if (isDuplicate) {
                if (context is not null && canReplace?.Invoke(list) == false) return null;
                currentSection.Declarations[id].ToCDL2Object<LIST>()?.Replace(list);
-               Database.Instance.RecordUndo(currentSection.Declarations[id],list.GUID);
+               Database.Instance.RecordUndo(currentSection.Declarations[id],list.GUID,ChangeType.Replaced);
             } else {
-               Database.Instance.RecordUndo(list,context: context?.Focus.Object);
+               Database.Instance.RecordUndo(list,context: context?.Focus.Object,changeType: ChangeType.Added);
                currentSection.Declarations[id] = list.GUID;
             }
          } else if (mode == ParseMode.Full) {
@@ -686,12 +686,10 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a var declaration.
       /// </summary>
-      private bool ParseVar(Notes notes,ParseMode mode,out List<Var> vars) {
+      private bool ParseVar(Notes notes,ParseMode mode,out List<Var> vars,ParsingContext? context) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.VAR,out string? comments)) {
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,
-               id => mode == ParseMode.Full && DuplicateDeclaration(id,RW.VAR) ? null : new Var(id,currentSection)
-            ,notes,mode,out vars);
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id)=>ParseSingleVar(mode,id,context),notes,mode,out vars);
          } else {
             ReportProblem(Note.ExpectedId);
             vars = [];
@@ -700,14 +698,28 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="mode"></param>
+      /// <param name="id"></param>
+      /// <returns></returns>
+      private Var? ParseSingleVar(ParseMode mode,ID id,ParsingContext? context) {
+         Debug.Assert(currentSection != null);
+         if (mode == ParseMode.Full && DuplicateDeclaration(id,RW.VAR)) return null;
+         Var v = new(id,currentSection);
+         currentSection.Declarations[id] = v.GUID;
+         Database.Instance.RecordUndo(v,context?.Focus.Object,ChangeType.Added);
+         return v;
+      }
+
+      /// <summary>
       /// Parse a constant declaration.
       /// </summary>
-      private bool ParseConstants(Notes notes,ParseMode mode,out List<Const> consts,Func<NamedElement,bool>? canReplace,ParsingContext context) {
+      private bool ParseConstants(Notes notes,ParseMode mode,out List<Const> consts,Func<NamedElement,bool>? canReplace,ParsingContext? context) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST,out string? comments)) {
-            Debug.Assert(currentSection != null);
-            
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,id => ParseConstBody(id,mode,canReplace,context),notes,mode,out consts);
+            Debug.Assert(currentSection != null);            
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id) => ParseConstBody(id,mode,canReplace,context),notes,mode,out consts);
          } else {
             consts = [];
             return false;
@@ -737,7 +749,7 @@ namespace CDL2v1 {
                   currentConst.Replace(c);
                } else {
                   c = new(id,currentSection);
-                  Database.Instance.RecordUndo(c,context: context?.Focus.Object);
+                  Database.Instance.RecordUndo(c,context: context?.Focus.Object,changeType: ChangeType.Added);
                }
                ParseElementList(c,c.elements,"ID, STRING, INT, or FLOAT",mode,secondaryTerminator: TT.SEP);
                return c;
@@ -892,13 +904,13 @@ namespace CDL2v1 {
       /// <param Id="idList2"></param>
       /// <param Id="processID"></param>
       private bool ParseIDDeclarationList<T>(Section.DeclarationDictionary declarations,string comments,
-            Func<ID,T?> getObject,Notes notes,ParseMode mode,out List<T> objectList) where T : CDL2Object {
+            Func<ParseMode,ID,T?> parseItem,Notes notes,ParseMode mode,out List<T> objectList) where T : CDL2Object {
          objectList = [];
          NamedElement? firstObject = null;
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
-            T? CDL2Object = getObject(id);
-            if (mode == ParseMode.Full && CDL2Object != null && declarations.TryAdd(id,CDL2Object)) {
+            T? CDL2Object = parseItem(mode,id);
+            if (mode == ParseMode.Full && CDL2Object != null) {
                firstObject ??= (NamedElement)CDL2Object;
                objectList.Add(CDL2Object);
             }
@@ -1075,10 +1087,9 @@ namespace CDL2v1 {
                section = context.Section;
                if (section is not null) {
                   currentSection = section;
-                  if (ParseVar(Notes.Empty,mode,out List<Var> vars)) {
+                  if (ParseVar(Notes.Empty,mode,out List<Var> vars,parsingContext)) {
                      MoveObjectToPosition(parsingContext,context,vars);
                      element = vars.LastOrDefault();
-                     foreach (Var v in vars) Database.Instance.RecordUndo(v,ChangeType.Added); // TODO Fix in ParseVar
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1094,7 +1105,6 @@ namespace CDL2v1 {
                   if (ParseList(Notes.Empty,out List<LIST> lists,mode,canReplace,parsingContext)) {
                      MoveObjectToPosition(parsingContext,context,lists);
                      element = lists.LastOrDefault();
-                     foreach (LIST l in lists) Database.Instance.RecordUndo(l,ChangeType.Added); // TODO Fix in ParseList
                   }
                } else {
                   if (mode == ParseMode.Full) {

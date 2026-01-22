@@ -354,7 +354,7 @@ namespace CDL2v1 {
 
          [JsonInclude][JsonPropertyOrder(11)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
          [JsonIgnore] public NamedElement? ReplacementObject => Database.Instance.NamedElements.TryGetValue(ReplacementGuid,out NamedElement? obj) ? obj : null;
-         [JsonInclude][JsonPropertyOrder(12)] public int Position { get; set; } = -1;
+         [JsonInclude][JsonPropertyOrder(12)] public int Position { get; set; } = int.MaxValue;
          [JsonIgnore] public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
 
 
@@ -398,7 +398,7 @@ namespace CDL2v1 {
             ObjectGuid = element?.GUID ?? Guid.Empty;
             InterfaceStatus = element?.GetInterfaces() ?? InterfaceTypes.None;
             ChangeType = changeType;
-            Position = element?.Siblings.IndexOf(element.GUID) ?? -1;
+            Position = element?.Siblings.IndexOf(element.GUID)+1 ?? int.MaxValue;
          }
 
          /// <summary>
@@ -406,15 +406,13 @@ namespace CDL2v1 {
          /// </summary>
          /// <param name="element"></param>
          /// <param name="context"></param>
-         public UndoRecord(CDL2Object? element,NamedElement? context) {
-            ObjectGuid = element?.GUID ?? Guid.Empty;
-            ChangeType = ChangeType.Added;
-            Position = context is CDL2Object contextElement ? contextElement.Siblings.IndexOf(contextElement.GUID) : -1;
+         /// <param name="changeType"></param>
+         public UndoRecord(CDL2Object? element,NamedElement? context,ChangeType changeType) : this(element,changeType) {
+            Position = context is CDL2Object contextElement ? contextElement.Siblings.IndexOf(contextElement.GUID)+1 : int.MaxValue;
          }
 
-         public UndoRecord(Guid replaced,Guid replacement) {
+         public UndoRecord(Guid replaced,Guid replacement,ChangeType changeType) : this(null,changeType) {
             ObjectGuid = replaced;
-            ChangeType = ChangeType.Replaced;
             ReplacementGuid = replacement;
          }
 
@@ -424,16 +422,16 @@ namespace CDL2v1 {
          /// <param name="element"></param>
          /// <param name="originalName"></param>
          /// <param name="newName"></param>
-         public UndoRecord(ID id,string originalName,string newName,bool updateReferences) : this(null,ChangeType.Renamed) {
+         public UndoRecord(ID id,string originalName,string newName,bool updateReferences,ChangeType changeType) : this(null,changeType) {
             Id = id;
             OriginalName = originalName;
             NewName = newName;
             UpdateReferences = updateReferences;
          }
 
-         public UndoRecord(CDL2Object element,InterfaceTypes interfaceType) : this(element,ChangeType.InterfaceChanged) {
-            InterfaceStatus = interfaceType;
-         }
+         //public UndoRecord(CDL2Object element,InterfaceTypes interfaceType,ChangeType changeType) : this(element,changeType) {
+         //   InterfaceStatus = interfaceType;
+         //}
 
          [JsonConstructor]
          public UndoRecord() { }
@@ -453,18 +451,19 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// The next push to the undo stack will swap the top two elements.
+      /// </summary>
+      public void RecordUndoSetSwap() => UndoStack.Swap = true;
+
+      /// <summary>
       /// Create an undo record for the given element. Used for InterfaceChanged, Added, and Removed change types.
       /// </summary>
       /// <param name="element"></param>
       public void RecordUndo(CDL2Object element,ChangeType changeType) => UndoStack.Push(new UndoRecord(element,changeType));
-      public void RecordUndo(CDL2Object element,NamedElement? context) {
-         if (context is not null) UndoStack.Push(new UndoRecord(element,context));
-      }
 
-      /// <summary>
-      /// The next push to the undo stack will swap the top two elements.
-      /// </summary>
-      public void RecordUndoSetSwap() => UndoStack.Swap = true;
+      public void RecordUndo(CDL2Object element,NamedElement? context,ChangeType changeType) {
+         if (context is not null) UndoStack.Push(new UndoRecord(element,context,changeType));
+      }
 
       /// <summary>
       /// Create an undo record for a rename operation. Renames are performed on IDs so have to be recorded like that.
@@ -472,7 +471,8 @@ namespace CDL2v1 {
       /// <param name="id"></param>
       /// <param name="originalName"></param>
       /// <param name="newName"></param>
-      public void RecordUndo(ID id,string originalName,string newName,bool updateReferences) => UndoStack.Push(new UndoRecord(id,originalName,newName,updateReferences: updateReferences));
+      public void RecordUndo(ID id,string originalName,string newName,bool updateReferences,ChangeType changeType) 
+         => UndoStack.Push(new UndoRecord(id,originalName,newName,updateReferences: updateReferences,changeType: changeType));
 
       /// <summary>
       /// Records an undo operation for the specified element, indicating it has been replaced.
@@ -481,7 +481,7 @@ namespace CDL2v1 {
       /// reversed if needed.</remarks>
       /// <param name="replacedGuid">The object for which the undo operation is being recorded. Cannot be null.</param>
       /// <param name="replacementGuid">The unique identifier of the replacement element. This is the now live guid.</param>
-      public void RecordUndo(Guid replaced,Guid replacement) => UndoStack.Push(new UndoRecord(replaced,replacement));
+      public void RecordUndo(Guid replaced,Guid replacement,ChangeType changeType) => UndoStack.Push(new UndoRecord(replaced,replacement,changeType));
 
       /// <summary>
       /// Used to record adding or deleting an interface declaration or ludes from a section.
@@ -497,22 +497,20 @@ namespace CDL2v1 {
             case RW.EXT:
             case RW.ABSTR:
             case RW.INV:
-               UndoStack.Push(new UndoRecord() {
+               UndoStack.Push(new UndoRecord(null,changeType) {
                   ObjectGuid = container.GUID,
                   InterfaceStatus = Container.InterfaceEnumByType[elementType],
                   Id = id,
-                  ChangeType = changeType,
                });
                break;
             case RW.PRELUDE:
             case RW.ROOT:
             case RW.POSTLUDE:
-               UndoStack.Push(new UndoRecord() {
+               UndoStack.Push(new UndoRecord(null,changeType) {
                   ObjectGuid = container.GUID,
                   LudeType = elementType,
                   Id = id,
                   Position = container.Ludes[elementType].IndexOf(id),
-                  ChangeType = changeType,
                });
                break;
             default:
@@ -520,12 +518,11 @@ namespace CDL2v1 {
          }
       }
       public void RecordUndo(Container container,RW elementType,ID ludeId,Guid ludeGuid,ChangeType changeType) {
-         UndoStack.Push(new UndoRecord() {
+         UndoStack.Push(new UndoRecord(null,changeType) {
             ObjectGuid = container.GUID,
             LudeType = elementType,
             LudeProcGuid = ludeGuid,
             Id = ludeId,
-            ChangeType = changeType,
          });
       }
 

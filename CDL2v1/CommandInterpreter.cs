@@ -1306,7 +1306,7 @@ namespace CDL2v1 {
             }
 
             modifiedContainer.Modified = true;
-            Database.Instance.RecordUndo(obj.Id,Database.Instance.DisplayName(obj.Id.CanonicalName),newName,updateReferences: refs);
+            Database.Instance.RecordUndo(obj.Id,Database.Instance.DisplayName(obj.Id.CanonicalName),newName,updateReferences: refs,changeType: ChangeType.Renamed);
             obj.Rename(newName,updateReferences: refs);
             if (mainProgramBeingRenamed) Settings.SettingValue<string>("ProgramName",newName);
          }

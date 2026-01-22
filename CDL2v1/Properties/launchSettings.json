@@ -12,7 +12,7 @@
     },
     "LAB": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5 --allow-errors\r\n--messages Warning --lab --console:false\r\n--pretty-print-debug --cg-debug\r\n--program \"csharp sort\"",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5 --allow-errors\r\n--messages Warning --lab --console:false\r\n--cg-debug --pretty-print-debug:false\r\n--program \"csharp sort\"",
       "workingDirectory": "$(ProjectDir)\\CDL2"
     },
     "Parse & Save": {
@@ -22,7 +22,7 @@
     },
     "LAB Console": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d0 --allow-errors\r\n--messages Warning --lab\r\n--program \"csharp sort\"\r\n--console --ansi",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d0 --allow-errors\r\n--messages Warning --lab\r\n--program \"csharp sort\" --pretty-print-debug:false\r\n--console --ansi",
       "workingDirectory": "$(ProjectDir)\\CDL2"
     }
   }
