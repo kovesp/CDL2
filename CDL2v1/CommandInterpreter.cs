@@ -35,6 +35,7 @@
 using System.Collections.Immutable;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -1111,14 +1112,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="args"></param>
       private void InterpretCommandEdit(string args) {
-         if (REPL == null) return; // Ignore the command if there is no command window
+         if (REPL == null) return; // Ignore the command if there is no REPL
          Selection? selection = GetMultiContext(args);
          if (selection is null || selection.Count != 1) {
             WriteError("Only a single object can be edited.");
             return;
          }
          SingleSelection? context = selection.First();
-         // if (context.)
          if (context == null || context.Object == null || !context.IsFocusable) {
             WriteError("Can't edit.");
          } else if (context.Object is Container && context.ListType == ST.INVALID) {
@@ -1135,7 +1135,10 @@ namespace CDL2v1 {
             IsEditing = true; // Set the editing flag so that we can handle the edited text later. Can be used to supress a prompt for object being replaced.
             ppEdit.Emitter.Clear();
             ParsingContext = new(new Focus(context),InsertLocation.Replace); // Set the parsing context to the current focus, so that the parser can use it.
-            if (context.Object is Section sec && context.ListType != ST.INVALID) {
+            if (context.Object is Const or LIST or Algorithm) {
+               // Only Vars cannot be edited
+               REPL.EditText(ppEdit.Print(context.Object));
+            } else if (context.Object is Section sec && context.ListType != ST.INVALID) {
                // Special case: editing the prelude of a section.
                RW ludeType = context.ListType switch {
                   ST.PRELUDE => RW.PRELUDE,
@@ -1153,14 +1156,8 @@ namespace CDL2v1 {
                      REPL.EditText(ppEdit.PrintLude(ludeType,sec,asString: true)!);
                   }
                }
-            } else if (context.Object is CDL2Object) {
-               REPL.EditText(ppEdit.Print(context.Object));
             } else {
-               if (context.Object is Layer lay) {
-                  WriteError($"{RW.LAYER}s do not have ludes: {lay}.");
-               } else {
-                  WriteError($"{context.Object} ${context.ListType} cannot be edited.");
-               }
+               WriteError("Can't edit");
                IsEditing = false;
                ParsingContext = null;
                return;
