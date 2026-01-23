@@ -355,6 +355,7 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(11)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
          [JsonIgnore] public NamedElement? ReplacementObject => Database.Instance.NamedElements.TryGetValue(ReplacementGuid,out NamedElement? obj) ? obj : null;
          [JsonInclude][JsonPropertyOrder(12)] public int Position { get; set; } = int.MaxValue;
+         [JsonIgnore] public string DisplayPosition => "at "+(Position == int.MaxValue ? "bottom" : Position == 0 ? "top" : "position "+Position);
          [JsonIgnore] public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
 
 
@@ -362,13 +363,13 @@ namespace CDL2v1 {
          public string Description() => ChangeType switch {
             ChangeType.Renamed          => $"Renamed          {OriginalName} ==> {NewName}",
             ChangeType.InterfaceChanged => $"InterfaceChanged {Object!.FQDN()} {InterfaceStatus} ==> {(Object as CDL2Object)!.GetInterfaces()}",
-            ChangeType.Added            => $"Added            {Object!.FQDN()} at {Position}",
-            ChangeType.Removed          => $"Removed          {Object!.FQDN()} at {Position}",
+            ChangeType.Added            => $"Added            {Object!.FQDN()} {DisplayPosition}",
+            ChangeType.Removed          => $"Removed          {Object!.FQDN()} {DisplayPosition}",
             ChangeType.Replaced         => $"Replaced         {Object!.FQDN()}",
             ChangeType.InterfaceAdded   => $"InterfaceAdded   {InterfaceStatus} {Id} in {Object!.FQDN()}",
             ChangeType.InterfaceRemoved => $"InterfaceRemoved {InterfaceStatus} {Id} in {Object!.FQDN()}",
             ChangeType.LudeAdded        => $"LudeAdded        {LudeType} {(Object is Section ? "" : Id)} in {Object!.FQDN()}",
-            ChangeType.LudeRemoved      => $"LudeRemoved      {LudeType} {(Object is Section ? "" : $"{Id} at {Position}")} in {Object!.FQDN()}",
+            ChangeType.LudeRemoved      => $"LudeRemoved      {LudeType} {(Object is Section ? "" : $"{Id} {DisplayPosition}")} in {Object!.FQDN()}",
             ChangeType.LudeReplaced     => $"LudeReplaced     in {Object!.FQDN()}",
             _                           => $"{ChangeType} unknown",
          };

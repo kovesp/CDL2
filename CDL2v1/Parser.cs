@@ -288,7 +288,7 @@ namespace CDL2v1 {
             } else if (tokens.IsNext(RW.LIST)) {
                cont = ParseList(internalNotes,out _,mode);
             } else if (tokens.IsNext(RW.VAR)) {
-               cont = ParseVar(internalNotes,mode,out _,null);
+               cont = ParseVariables(internalNotes,mode,out _,null);
             } else if (tokens.IsNext(RW.CONST)) {
                cont = ParseConstants(internalNotes,mode,out _,null,null);
             } else {
@@ -322,7 +322,7 @@ namespace CDL2v1 {
                   if (contextObj is not null) {
                      // We are in Lab mode and the object is not imported but this is an import declaration
                      importAdded = Database.Instance.CLI.QueryBox($"You have entered an import declaration for {algType} {id}, but it is not imported. Add to IMPORT list?");
-                     if (!importAdded){
+                     if (!importAdded) {
                         // this OK, user can add it later, or semantic analyzer will catch it.
                         AddNote(currentSection,Note.ObjectNotImported,$"{algType} {id}");
                      }
@@ -367,9 +367,16 @@ namespace CDL2v1 {
                }
                Debug.Assert(algorithm != null);
                if (mode == ParseMode.Full && isImported) {
-                  AddNote(currentSection,Note.ObjectImportedButHasBody,algorithm);
-                  ReportProblem(Note.ObjectImportedButHasBody,algorithm);
-                  return false;
+                  if (contextObj is not null) {
+                     // We are in Lab mode and the object is imported but has a body ... silently remove the import
+                     Database.Instance.RecordUndo(algorithm,ChangeType.InterfaceChanged);
+                     currentSection.Interfaces[InterfaceTypes.Import].Remove(id);
+                  } else {
+                     // We are in compiler mode, so just report the error
+                     AddNote(currentSection,Note.ObjectImportedButHasBody,algorithm);
+                     ReportProblem(Note.ObjectImportedButHasBody,algorithm);
+                     return false;
+                  }
                }
             }
             if (mode == ParseMode.Full) {
@@ -686,10 +693,10 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a var declaration.
       /// </summary>
-      private bool ParseVar(Notes notes,ParseMode mode,out List<Var> vars,ParsingContext? context) {
+      private bool ParseVariables(Notes notes,ParseMode mode,out List<Var> vars,ParsingContext? context) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.VAR,out string? comments)) {
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id)=>ParseSingleVar(mode,id,context),notes,mode,out vars);
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id)=>ParseVar(mode,id,context),notes,mode,out vars);
          } else {
             ReportProblem(Note.ExpectedId);
             vars = [];
@@ -703,7 +710,7 @@ namespace CDL2v1 {
       /// <param name="mode"></param>
       /// <param name="id"></param>
       /// <returns></returns>
-      private Var? ParseSingleVar(ParseMode mode,ID id,ParsingContext? context) {
+      private Var? ParseVar(ParseMode mode,ID id,ParsingContext? context) {
          Debug.Assert(currentSection != null);
          if (mode == ParseMode.Full && DuplicateDeclaration(id,RW.VAR)) return null;
          Var v = new(id,currentSection);
@@ -734,32 +741,58 @@ namespace CDL2v1 {
       /// <param Id="token">The token of the constant.</param>
       private Const? ParseConstBody(ID id,ParseMode mode,Func<NamedElement,bool>? canReplace,ParsingContext? context) {
          Debug.Assert(currentSection != null);
-         if (DuplicateDeclaration(id,RW.CONST))
-            return null;
+         bool isDuplicate = DuplicateDeclaration(id,RW.LIST,report: context is null);
+         bool isImported = currentSection.Interfaces[InterfaceTypes.Import].Contains(id);
+
+         Const c;
          if (tokens.Optional(TT.EQUALS)) {
-            if (mode == ParseMode.Full && currentSection.Interfaces[InterfaceTypes.Import].Contains(id)) {
-               ReportProblem(Note.ObjectImportedButHasBody,$"CONST {id}");
-               return null;
-            } else {
-               Const c;
-               if (DuplicateDeclaration(id,RW.CONST,report: canReplace is null)) {
-                  CDL2Object currentConst = currentSection.Declarations[id].ToCDL2Object<CDL2Object>()!;
-                  if (!canReplace?.Invoke(currentConst) == false) return null;
-                  c = new(id,currentSection);
-                  currentConst.Replace(c);
-               } else {
-                  c = new(id,currentSection);
-                  Database.Instance.RecordUndo(c,context: context?.Focus.Object,changeType: ChangeType.Added);
-               }
-               ParseElementList(c,c.elements,"ID, STRING, INT, or FLOAT",mode,secondaryTerminator: TT.SEP);
-               return c;
-            }
-         } else if (mode == ParseMode.Full && !currentSection.Interfaces[InterfaceTypes.Import].Contains(id)) {
-            ReportProblem(Note.ObjectNotImported,$"CONST {id}");
-            return null;
+            c = new(id,currentSection);
+            ParseElementList(c,c.elements,"ID, STRING, INT, or FLOAT",mode,secondaryTerminator: TT.SEP);
          } else {
-            return new ImportedConst(id,currentSection);
+            c = new ImportedConst(id,currentSection);
          }
+         if (isDuplicate) {
+            if (context is not null && canReplace?.Invoke(c) == false) return null;
+            currentSection.Declarations[id].ToCDL2Object<Const>()?.Replace(c); // replace takes car of undo
+         } else {
+            Database.Instance.RecordUndo(c,context: context?.Focus.Object,changeType: ChangeType.Added);
+         }
+         currentSection.Declarations[id] = c.GUID;
+         if (isImported) {
+            if (c is ImportedConst) {
+               // OK
+            } else {
+               if (context is not null) {
+                  // We are in Lab mode and the object is imported but has a body ... silently remove the import
+                  Database.Instance.RecordUndo(c,ChangeType.InterfaceChanged);
+                  currentSection.Interfaces[InterfaceTypes.Import].Remove(id);
+               } else {
+                  // We are in compiler mode, so just report the error
+                  AddNote(currentSection,Note.ObjectImportedButHasBody,c);
+                  ReportProblem(Note.ObjectImportedButHasBody,c);
+                  return null;
+               }
+            }
+         } else if (c is ImportedConst) {
+            if (context is not null) {
+               // We are in Lab mode and the object is not imported but this is an import declaration
+               bool importAdded = Database.Instance.CLI.QueryBox($"You have entered an import declaration for {RW.CONST} {id}, but it is not imported. Add to IMPORT list?");
+               if (importAdded) {
+                  Database.Instance.RecordUndo(c,ChangeType.InterfaceChanged); // Record unimported state
+                  currentSection.Interfaces[InterfaceTypes.Import].Add(id);
+                  Database.Instance.RecordUndoSetSwap(); // Because the import must be undone first.
+               } else {
+                  // this OK, user can add it later, or semantic analyzer will catch it.
+                  AddNote(currentSection,Note.ObjectNotImported,$"{RW.CONST} {id}");
+               }  
+            } else {
+               // We are in compiler mode, so just report the error
+               AddNote(currentSection,Note.ObjectNotImported,c);
+               ReportProblem(Note.ObjectNotImported,c);
+               return null;
+            }
+         }
+         return c;
       }
 
       /// <summary>
@@ -1087,7 +1120,7 @@ namespace CDL2v1 {
                section = context.Section;
                if (section is not null) {
                   currentSection = section;
-                  if (ParseVar(Notes.Empty,mode,out List<Var> vars,parsingContext)) {
+                  if (ParseVariables(Notes.Empty,mode,out List<Var> vars,parsingContext)) {
                      MoveObjectToPosition(parsingContext,context,vars);
                      element = vars.LastOrDefault();
                   }
