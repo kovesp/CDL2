@@ -339,7 +339,9 @@ namespace CDL2v1 {
       InterfaceRemoved,    // Used when an interface is removed from a section when the object may not be declared yet.
       LudeAdded,           // Section, Module and Program ludes can be added
       LudeRemoved,         // ... or removed
-      LudeReplaced,        // Section ludes can be edited ans so replaced.
+      LudeReplaced,        // Section ludes can be edited and so replaced.
+      MovedRelative,       // Used for the relative move commands Up, Down, Top, Bottom
+      MovedAbsolute,       // Used for the absolute move command
    }
 
    /// <summary>

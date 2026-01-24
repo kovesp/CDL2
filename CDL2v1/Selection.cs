@@ -139,7 +139,7 @@ namespace CDL2v1 {
       private static readonly Type[] NonFocusableTypes = [typeof(Affix),typeof(Local),typeof(Call)];
       [JsonIgnore]
       public bool IsFocusable => !NonFocusableTypes.Contains(Object?.GetType() ?? typeof(NamedElement));
-      public override string ToString() => $"SingleSelection<{Object}{(ListType != SelectorType.INVALID ? " " + ListType : "")}{(Id is not null ? " " + Id : "")}>";
+      public override string ToString() => $"SingleSelection<{Object}{(ListType != SelectorType.INVALID ? " " + ListType : "")}{(Id.IsAnonymous ? "" : " " + Id)}>";
    }
 
    /// <summary>

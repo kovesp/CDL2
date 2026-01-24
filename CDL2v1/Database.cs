@@ -341,7 +341,6 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(1)] public DateTime Timestamp { get; } = DateTime.Now;
          [JsonInclude][JsonPropertyOrder(2)] public string Tag { get; set; } = "";
          [JsonInclude][JsonPropertyOrder(3)] public Guid ObjectGuid { get; set; } = Guid.Empty;
-         [JsonIgnore] public NamedElement? Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj : null;
          [JsonInclude][JsonPropertyOrder(4)] public InterfaceTypes InterfaceStatus { get; set; } = InterfaceTypes.None;
          [JsonInclude][JsonPropertyOrder(5)] public RW LudeType { get; set; } = RW.NONE;
          [JsonInclude][JsonPropertyOrder(6)] public ChangeType ChangeType { get; set; }
@@ -352,25 +351,33 @@ namespace CDL2v1 {
          [JsonInclude][JsonPropertyOrder(9)] public bool UpdateReferences { get; private set; }
          [JsonInclude][JsonPropertyOrder(10)] public ID Id { get; set; } = ID.AnonID;
 
+         // For replace operations
          [JsonInclude][JsonPropertyOrder(11)] public Guid ReplacementGuid { get; set; } = Guid.Empty;
-         [JsonIgnore] public NamedElement? ReplacementObject => Database.Instance.NamedElements.TryGetValue(ReplacementGuid,out NamedElement? obj) ? obj : null;
          [JsonInclude][JsonPropertyOrder(12)] public int Position { get; set; } = int.MaxValue;
-         [JsonIgnore] public string DisplayPosition => "at "+(Position == int.MaxValue ? "bottom" : Position == 0 ? "top" : "position "+Position);
-         [JsonIgnore] public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
+         [JsonInclude][JsonPropertyOrder(13)] public int OriginalPosition { get; set; } = int.MaxValue;
 
+         // Derived values
+         [JsonIgnore] public NamedElement? Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj : null;
+         [JsonIgnore] public NamedElement? ReplacementObject => Database.Instance.NamedElements.TryGetValue(ReplacementGuid,out NamedElement? obj) ? obj : null;
+         [JsonIgnore] public CDL2Object? CDL2Object => Database.Instance.NamedElements.TryGetValue(ObjectGuid,out NamedElement? obj) ? obj as CDL2Object : null;
+         [JsonIgnore] public NamedElement? MoveTarget { get => ReplacementObject; set => ReplacementGuid = value?.GUID ?? Guid.Empty; }
+
+         public static string DisplayPosition(int pos,string qual="at") => $"{qual} {(pos == int.MaxValue ? "bottom" : pos == 0 ? "top" : "position "+ pos)}";
 
          public override string ToString() => $"UndoRecord: {Description()}";
          public string Description() => ChangeType switch {
             ChangeType.Renamed          => $"Renamed          {OriginalName} ==> {NewName}",
             ChangeType.InterfaceChanged => $"InterfaceChanged {Object!.FQDN()} {InterfaceStatus} ==> {(Object as CDL2Object)!.GetInterfaces()}",
-            ChangeType.Added            => $"Added            {Object!.FQDN()} {DisplayPosition}",
-            ChangeType.Removed          => $"Removed          {Object!.FQDN()} {DisplayPosition}",
+            ChangeType.Added            => $"Added            {Object!.FQDN()} {DisplayPosition(Position)}",
+            ChangeType.Removed          => $"Removed          {Object!.FQDN()} {DisplayPosition(Position)}",
             ChangeType.Replaced         => $"Replaced         {Object!.FQDN()}",
             ChangeType.InterfaceAdded   => $"InterfaceAdded   {InterfaceStatus} {Id} in {Object!.FQDN()}",
             ChangeType.InterfaceRemoved => $"InterfaceRemoved {InterfaceStatus} {Id} in {Object!.FQDN()}",
             ChangeType.LudeAdded        => $"LudeAdded        {LudeType} {(Object is Section ? "" : Id)} in {Object!.FQDN()}",
-            ChangeType.LudeRemoved      => $"LudeRemoved      {LudeType} {(Object is Section ? "" : $"{Id} {DisplayPosition}")} in {Object!.FQDN()}",
+            ChangeType.LudeRemoved      => $"LudeRemoved      {LudeType} {(Object is Section ? "" : $"{Id} {DisplayPosition(Position)}")} in {Object!.FQDN()}",
             ChangeType.LudeReplaced     => $"LudeReplaced     in {Object!.FQDN()}",
+            ChangeType.MovedRelative    => $"MovedRelative    {Object!.FQDN()} {DisplayPosition(OriginalPosition,"from")} {DisplayPosition(Position,"to")}",
+            ChangeType.MovedAbsolute    => $"MovedAbsolute    {Object!.FQDN()} {DisplayPosition(Position,"to")} in {MoveTarget!.Container.FQDN()}",
             _                           => $"{ChangeType} unknown",
          };
 
@@ -395,11 +402,24 @@ namespace CDL2v1 {
             _ => throw new InvalidOperationException($"InterfaceStatus contains multiple types or an invalid value: {InterfaceStatus}")
          };
 
-         public UndoRecord(CDL2Object? element,ChangeType changeType) {
+         public UndoRecord(NamedElement? element,ChangeType changeType) {
             ObjectGuid = element?.GUID ?? Guid.Empty;
             InterfaceStatus = element?.GetInterfaces() ?? InterfaceTypes.None;
             ChangeType = changeType;
             Position = element?.Siblings.IndexOf(element.GUID)+1 ?? int.MaxValue;
+         }
+         /// <summary>
+         /// Records relative moves of objects and old positions to their new positions
+         /// </summary>
+         /// <param name="element"></param>
+         /// <param name="position"></param>
+         /// <param name="changeType"></param>
+         public UndoRecord(NamedElement? element,int position,ChangeType changeType) : this(element,changeType) {
+            Position = position;
+            if (element is not null) {
+               int pos = element.Siblings.IndexOf(element.GUID);
+               OriginalPosition = pos < element.Siblings.Count ? pos : int.MaxValue;
+            }
          }
 
          /// <summary>
@@ -518,14 +538,28 @@ namespace CDL2v1 {
                throw new ArgumentOutOfRangeException(nameof(elementType),elementType,null);
          }
       }
-      public void RecordUndo(Container container,RW elementType,ID ludeId,Guid ludeGuid,ChangeType changeType) {
-         UndoStack.Push(new UndoRecord(null,changeType) {
-            ObjectGuid = container.GUID,
-            LudeType = elementType,
-            LudeProcGuid = ludeGuid,
-            Id = ludeId,
-         });
-      }
+      /// <summary>
+      /// Used for recording changes to ludes.
+      /// </summary>
+      /// <param name="container"></param>
+      /// <param name="elementType"></param>
+      /// <param name="ludeId"></param>
+      /// <param name="ludeGuid"></param>
+      /// <param name="changeType"></param>
+      public void RecordUndo(Container container,RW elementType,ID ludeId,Guid ludeGuid,ChangeType changeType) => UndoStack.Push(new UndoRecord(null,changeType) {
+         ObjectGuid = container.GUID,
+         LudeType = elementType,
+         LudeProcGuid = ludeGuid,
+         Id = ludeId,
+      });
+
+      /// <summary>
+      /// Records an undo operation for a relative move of the specified element.
+      /// </summary>
+      /// <param name="element">The element for which the undo operation is being recorded. Cannot be null.</param>
+      /// <param name="position">The position within the element where the change occurred.</param>
+      /// <param name="changeType">The type of change that was made to the element.</param>
+      public void RecordUndo(NamedElement element,int position,ChangeType changeType) => UndoStack.Push(new UndoRecord(element,position,changeType));
 
 
 

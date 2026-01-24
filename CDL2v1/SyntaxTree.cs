@@ -117,8 +117,8 @@ namespace CDL2v1 {
       /// <param name="index"></param>
       /// <exception cref="ArgumentOutOfRangeException"></exception>
       void MoveSiblingTo(int index) {
-         if (index < 0 || index > Siblings.Count) {
-            throw new ArgumentOutOfRangeException(nameof(index),"Index must be within the range of siblings.");
+         if (index < 0) {
+            throw new ArgumentOutOfRangeException(nameof(index),"Less than 0.");
          }
          Siblings.Remove(GUID);
          Siblings.Insert(Math.Min(index,Siblings.Count), GUID);
@@ -199,17 +199,18 @@ namespace CDL2v1 {
             MoveSiblingAfter(other);
          }
       }
-      void MoveSiblingBy(int offset,MoveDirection direction) {
+      void MoveSiblingBy(int offset,MoveDirection direction,bool recordUndo = false) {
          if (offset == 0) return;
          int currentIndex = Siblings.IndexOf(GUID);
          if (currentIndex < 0) throw new ArgumentException($"Internal Error: The {this} is not one of its siblings.");
          int newIndex = direction switch {
-            MoveDirection.Forward => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex - offset)),
-            MoveDirection.Backward => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex + offset)),
+            MoveDirection.Forward => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex + offset)),
+            MoveDirection.Backward => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex - offset)),
             MoveDirection.First => 0,
-            MoveDirection.Last => Siblings.Count - 1,
+            MoveDirection.Last => int.MaxValue,
             _ => throw new NotImplementedException(),
          };
+         if (recordUndo) Database.Instance.RecordUndo((NamedElement)this, newIndex, ChangeType.MovedRelative);
          MoveSiblingTo(newIndex);
       }
       /// <summary>
@@ -443,6 +444,9 @@ namespace CDL2v1 {
 
       [JsonIgnore]
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
+
+      public Container Container => ParentElement<Container>()!;
+
       public Note AddNote(string phase,Note note,params object[] insertions) {
          Note newNote = new Note(note,phase,this,insertions);
          Notes.Add(newNote);
@@ -539,6 +543,12 @@ namespace CDL2v1 {
             Id = new ID(newName);
          }
       }
+
+      /// <summary>
+      /// Return the interfaces of this element. Only CDL2Objects have interfaces, others return None.
+      /// </summary>
+      /// <returns></returns>
+      virtual internal InterfaceTypes GetInterfaces() => InterfaceTypes.None;
    }
 
    /// <summary>
@@ -1106,7 +1116,7 @@ namespace CDL2v1 {
       /// Get the interface status of this object as a bitwise combination of InterfaceType values.
       /// </summary>
       /// <returns></returns>
-      public InterfaceTypes GetInterfaces() {
+      internal override InterfaceTypes GetInterfaces() {
          InterfaceTypes status = InterfaceTypes.None;
          foreach (InterfaceTypes type in Enum.GetValues(typeof(InterfaceTypes))) {
             if (type != InterfaceTypes.None && HasInterfaces(type)) status |= type;

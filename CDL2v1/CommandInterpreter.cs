@@ -746,12 +746,12 @@ namespace CDL2v1 {
       /// its value is undefined.</param>
       /// <param name="severity">When this method returns, contains the severity level associated with the result of the operation.</param>
       /// <returns>true if the object was successfully moved; otherwise, false.</returns>
-      internal bool InterpretCommandMoveObject(string args,MoveDirection focusMoveDirection,out string msg,out Severity severity) {
+      internal static bool InterpretCommandMoveObject(string args,MoveDirection focusMoveDirection,out string msg,out Severity severity) {
          (msg,severity) = ("Immovable",Severity.Error);
          SingleSelection context = Focus.Current.Selection;
          if (context.Object is not null && context.Object is NamedElement obj && obj is Container or CDL2Object && context.ListType == SelectorType.INVALID) {
             int n = int.TryParse(args,out int a) ? a: 1;
-            ((ISibling)obj).MoveSiblingBy(n,focusMoveDirection);
+            ((ISibling)obj).MoveSiblingBy(n,focusMoveDirection,recordUndo:true);
             return true;
          }
          return false;
