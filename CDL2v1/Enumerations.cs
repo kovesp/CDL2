@@ -229,6 +229,7 @@ namespace CDL2v1 {
       CONST,
       EXPORT,
       EXT,
+      FULL,       // Opposite of IMPORTED/STUB, i.e., declared locally in module
       FUNCTION,
       IMPORT,
       IMPORTED,
@@ -246,6 +247,7 @@ namespace CDL2v1 {
       PROGRAM,
       ROOT,
       SECTION,
+      STUB,       // Synonym of IMPORTED
       TEST,
       VAR,
       // Non-focusable types.
@@ -344,7 +346,12 @@ namespace CDL2v1 {
    /// Specifies the direction in which focus should move within an object list.
    /// </summary>
    /// <remarks>Use this enumeration to indicate how focus navigation should proceed: Forward, Backward,First,Last</remarks>
-   public enum FocusMoveDirection { Forward = 1, Backward = -1, First = 2, Last = 3 };
+   public enum MoveDirection { 
+      Forward = 1, 
+      Backward = -1, 
+      First = 2, 
+      Last = 3 
+   };
 
    /// <summary>
    /// Formal parameter directions of procedures.

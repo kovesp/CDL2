@@ -171,7 +171,8 @@ namespace CDL2v1 {
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each
          new Setting<bool>(    "list",                NoOption,             false,         "Modify a command to list available objects. Used by Undo and redo."),
-         new Setting<bool>(    "before",              NoOption,             false,         "Used in the add command to make the addtion before the selection."),
+         new Setting<bool>(    "before",              NoOption,             false,         "Used in commands to specify a postioning location before a target."),
+         new Setting<bool>(    "after",               NoOption,             false,         "Used in commands to specify a postioning location after a target. Default adn redundant"),
          new Setting<bool>(    "inv",                 NoOption,             false,         "Modify the command to affect only the INV list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "ext",                 NoOption,             false,         "Modify the command to affect only the EXT list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "abstr",               NoOption,             false,         "Modify the command to affect only the ABSTR list entry of the object if any. Applies to delete and add."),
@@ -218,6 +219,9 @@ namespace CDL2v1 {
       public static bool OnWindows => System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows);
       public static bool OnLinux => System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux);
       public static bool OnMacOS => System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX);
+
+      public static bool Before => SettingValue<bool>("before");
+      public static bool After => !Before;
 
       public static bool Verbosity(int level) => SettingValue<int>("VerbosityLevel") >= level;
       public static bool DebugVerbosity(int level) => SettingValue<int>("DebugVerbosityLevel") >= level;

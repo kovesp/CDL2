@@ -188,6 +188,31 @@ namespace CDL2v1 {
          MoveSiblingTo(index);
       }
       /// <summary>
+      /// Move this sibling before or after the specified sibling in the sibling list.
+      /// </summary>
+      /// <param name="other"></param>
+      /// <param name="before"></param>
+      void MoveSibling(ISibling other,bool? before = null) {
+         if (before??Settings.Before) {
+            MoveSiblingBefore(other);
+         } else {
+            MoveSiblingAfter(other);
+         }
+      }
+      void MoveSiblingBy(int offset,MoveDirection direction) {
+         if (offset == 0) return;
+         int currentIndex = Siblings.IndexOf(GUID);
+         if (currentIndex < 0) throw new ArgumentException($"Internal Error: The {this} is not one of its siblings.");
+         int newIndex = direction switch {
+            MoveDirection.Forward => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex - offset)),
+            MoveDirection.Backward => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex + offset)),
+            MoveDirection.First => 0,
+            MoveDirection.Last => Siblings.Count - 1,
+            _ => throw new NotImplementedException(),
+         };
+         MoveSiblingTo(newIndex);
+      }
+      /// <summary>
       /// Remove this sibling from the sibling list.
       /// </summary>
       /// <exception cref="ArgumentException"></exception>

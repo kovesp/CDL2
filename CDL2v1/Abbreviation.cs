@@ -125,17 +125,19 @@ namespace CDL2v1 {
          // Matched by FACE and ANY
          new ("ABSTR"      ,5,SelectorType.SECTION,focusable:false),
          new ("EXT"        ,3,SelectorType.SECTION,focusable:false),
+         new ("INV"        ,3,SelectorType.SECTION,focusable:false),
          new ("EXPORT"     ,3,SelectorType.SECTION,focusable:false),
          new ("IMPORT"     ,3,SelectorType.SECTION,focusable:false),
-         new ("IMPORTED"   ,8,SelectorType.SECTION,focusable:false),
-         new ("INV"        ,3,SelectorType.SECTION,focusable:false),
+         // Prefixes for other selectors
+         new ("IMPORTED"   ,8,SelectorType.SECTION,focusable:false,help:"Prefix to another selector to limit to imported algorithms and constants (same as STUB)"),
+         new ("STUB"       ,4,SelectorType.SECTION,focusable:false,help:"Prefix to another selector to limit to imported algorithms and constants (same as IMPORTED)"),
+         new ("FULL"       ,4,SelectorType.SECTION,focusable:false,help:"Prefix to another selector to limit to non-imported algorithms and constants"),
          // Matched by DATA, OBJECT and ANY
          new ("CONST"      ,3,SelectorType.SECTION),
          new ("LIST"       ,4,SelectorType.SECTION),
          new ("VAR"        ,3,SelectorType.SECTION),
          // Matched by ALGORITHM, OBJECT and ANY
          new ("ACTION"     ,2,SelectorType.SECTION),
-         new ("ALGORITHM"  ,3,SelectorType.SECTION),
          new ("FUNCTION"   ,2,SelectorType.SECTION),
          new ("MACRO"      ,3,SelectorType.SECTION),
          new ("PROCEDURE"  ,4,SelectorType.SECTION),
@@ -147,17 +149,18 @@ namespace CDL2v1 {
          new ("POSTLUDE"   ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
          new ("PRELUDE"    ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
          new ("ROOT"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
-         new ("FACE"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
-         new ("LUDE"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false),
          // Non focusable types, matched by ANY
          new ("AFFIX"      ,3,AlgorithmTypesWithMacro,focusable:false),
          new ("CALL"       ,1,SelectorType.PROCEDURE,focusable:false), // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
          new ("LOCAL"      ,3,AlgorithmTypesWithMacro,focusable:false),
          // Generic types
+         new ("ALGORITHM"  ,3,SelectorType.SECTION,help:"Selects any algorithm (macro, procedure, imported)"),
          new ("ANY"        ,3),
-         new ("DATA"       ,4,SelectorType.SECTION),
-         new ("CONTAINER"  ,9,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.LAYER]),
-         new ("OBJECT"     ,3,SelectorType.SECTION),
+         new ("CONTAINER"  ,9,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.LAYER],help:"Selects program, module, layer, or section"),
+         new ("DATA"       ,4,SelectorType.SECTION,help:"Selects any const, var, or list"),
+         new ("FACE"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false,help:"Selects any interface list"),
+         new ("LUDE"       ,4,[SelectorType.PROGRAM,SelectorType.MODULE,SelectorType.SECTION],focusable:false,help:"Selects prelude, root, or postlude"),
+         new ("OBJECT"     ,3,SelectorType.SECTION,help:"Selects any DATA or ALGORITHM"),
       ];
 
       private readonly static Dictionary<SelectorType,Abbreviation<SelectorType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type,abbrev => abbrev);

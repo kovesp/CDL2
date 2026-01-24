@@ -36,6 +36,7 @@ using System.Collections.Immutable;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
+using System.DirectoryServices;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -411,16 +412,16 @@ namespace CDL2v1 {
          }
       }
 
-      private static readonly ImmutableDictionary<CommandType,FocusMoveDirection> commandAsDirection =
-          new Dictionary<CommandType,FocusMoveDirection> {
-             [CommandType.next]     = FocusMoveDirection.Forward,
-             [CommandType.previous] = FocusMoveDirection.Backward,
-             [CommandType.first]    = FocusMoveDirection.First,
-             [CommandType.last]     = FocusMoveDirection.Last,
-             [CommandType.down]     = FocusMoveDirection.Forward,
-             [CommandType.up]       = FocusMoveDirection.Backward,
-             [CommandType.top]      = FocusMoveDirection.First,
-             [CommandType.bottom]   = FocusMoveDirection.Last,
+      private static readonly ImmutableDictionary<CommandType,MoveDirection> commandAsDirection =
+          new Dictionary<CommandType,MoveDirection> {
+             [CommandType.next]     = MoveDirection.Forward,
+             [CommandType.previous] = MoveDirection.Backward,
+             [CommandType.first]    = MoveDirection.First,
+             [CommandType.last]     = MoveDirection.Last,
+             [CommandType.down]     = MoveDirection.Forward,
+             [CommandType.up]       = MoveDirection.Backward,
+             [CommandType.top]      = MoveDirection.First,
+             [CommandType.bottom]   = MoveDirection.Last,
           }.ToImmutableDictionary();
 
       /// <summary>
@@ -523,15 +524,15 @@ namespace CDL2v1 {
                   case CommandType.previous:
                   case CommandType.first:
                   case CommandType.last:
-                     if (!Focus.Current.Move(args,commandAsDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
+                     if (!Focus.Current.MoveFocus(args,commandAsDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
 
                   case CommandType.down:
                   case CommandType.up:
                   case CommandType.top:
                   case CommandType.bottom:
-                     if (!Focus.Current.MoveObject(args,commandAsDirection[commandType],out msg,out severity)) WriteLine(msg,severity); break;
+                     if (!InterpretCommandMoveObject(args,commandAsDirection[commandType],out msg,out severity)) WriteLine(msg,severity); break;
                   case CommandType.move:
-                     if (!Focus.Current.MoveObjectTo(args,out msg,out severity)) WriteLine(msg,severity); break;
+                     if (!InterpretCommandMoveObjectTo(args,out msg,out severity)) WriteLine(msg,severity); break;
 
                   case CommandType.list:
                      InterpretCommandList(args); break;
@@ -731,6 +732,80 @@ namespace CDL2v1 {
          return true;
       }
 
+      /// <summary>
+      /// Attempts to move the currently selected object by the specified amount and direction based on the provided
+      /// arguments.
+      /// </summary>
+      /// <remarks>The move operation is only performed if the current selection is a movable object of the
+      /// appropriate type and the selection context is valid. If the operation cannot be performed, an error message
+      /// and severity are set accordingly.</remarks>
+      /// <param name="args">A string representing the number of positions to move the object. If not a valid integer, a default value of 1
+      /// is used.</param>
+      /// <param name="focusMoveDirection">The direction in which to move the selected object.</param>
+      /// <param name="msg">When this method returns, contains an error message if the move operation could not be performed; otherwise,
+      /// its value is undefined.</param>
+      /// <param name="severity">When this method returns, contains the severity level associated with the result of the operation.</param>
+      /// <returns>true if the object was successfully moved; otherwise, false.</returns>
+      internal bool InterpretCommandMoveObject(string args,MoveDirection focusMoveDirection,out string msg,out Severity severity) {
+         (msg,severity) = ("Immovable",Severity.Error);
+         SingleSelection context = Focus.Current.Selection;
+         if (context.Object is not null && context.Object is NamedElement obj && obj is Container or CDL2Object && context.ListType == SelectorType.INVALID) {
+            int n = int.TryParse(args,out int a) ? a: 1;
+            ((ISibling)obj).MoveSiblingBy(n,focusMoveDirection);
+            return true;
+         }
+         return false;
+      }
+      internal bool InterpretCommandMoveObjectTo(string args,out string msg,out Severity severity) {
+         (msg, severity) = ("Immovable", Severity.Error);
+         SingleSelection context = Focus.Current.Selection;
+         SingleSelection? target = GetContext(args);
+         if (!context.IsFocusable || target?.IsFocusable!=true || context.Object is null || target.Object is null || context.ObjectGuid == target.ObjectGuid) return false;
+         ISibling src = context.Object;
+         ISibling dst = target.Object;
+         switch (dst) {
+            case Program:
+               if (src is not Program) return false;
+               src.MoveSibling(dst);
+               break;
+            case Module:
+               if (src is Module) {
+                  src.MoveSibling(dst);
+               } else if (src is Layer) {
+                  msg = "Moving a Layer to another Module not implemented";
+                  return false;
+               } else {
+                  return false;
+               }
+               break;
+            case Layer dstLayer:
+               if (src is Layer srcLayer && srcLayer.Module == dstLayer.Module) {
+                  src.MoveSibling(dst);
+               } else if (src is Section) {
+                  msg = "Moving a Section to another Layer in the current or another Module not implemented";
+               } else {
+                  return false;
+               }
+               break;
+            case Section dstSection:
+               if (src is Section srcSection && srcSection.Layer == dstSection.Layer) {
+                  src.MoveSibling(dst);
+               } else if (src is Section) {
+                  msg = "Moving a Section to another Layer in the current or another Module not implemented";
+               } else {
+                  return false;
+               }
+               break;
+            case CDL2Object dstObj:
+               msg = "Moving object is not yert implemented";
+
+               break;
+            default:
+               return false;
+         }
+         return true;
+      }
+
       private void InterpretCommandAnalyze(string args) => throw new NotImplementedException();
 
       private static readonly Regex ModuleOrProgramStart = new(@"(?m)^\s*(?:#.*?(?:#|$)\s*)*\s*(?:MODULE|PROGRAM)(?=\s)",RegexOptions.Compiled);
@@ -788,7 +863,7 @@ namespace CDL2v1 {
             WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
             WriteInfo("Only the first letter of the selector must be capitalized.\n");
             foreach (Abbreviation<SelectorType> sel in Abbreviation<SelectorType>.FocusTypes) {
-               WriteLine($"   {sel.NameWithAbbreviation}");
+               WriteLine($"   {sel.NameWithAbbreviation,-10}   {sel.HelpText}");
             }
          } else if (args == "setting") {
             foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
@@ -1199,7 +1274,7 @@ namespace CDL2v1 {
          } else {
             // Swich to edit mode in the input field with empty content.
             IsEditing = false; // Ensure a prompt is given if the object exists.
-            InsertLocation insertLocation = Settings.SettingValue<bool>("before") ? InsertLocation.Before : InsertLocation.After; // This will of coruse be ignored if the object exists and is replaced.
+            InsertLocation insertLocation = Settings.Before ? InsertLocation.Before : InsertLocation.After; // This will of coruse be ignored if the object exists and is replaced.
             ppEdit.Emitter.Clear();
             ParsingContext = new(new Focus(context),insertLocation);
             REPL.EditText();

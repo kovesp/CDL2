@@ -145,7 +145,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents the objects selected by a selector. A valid selector will always select at least one object.
    /// </summary>
-   public class Selection : List<SingleSelection> {
+   public partial class Selection : List<SingleSelection> {
       #region SelectionSegments
       /// ================================================================================================================
       /// <summary>
@@ -219,7 +219,7 @@ namespace CDL2v1 {
          }
 
          SelectionSegments segments = [];
-         if (!ParseSelectionSegments(selectionString,segments,out bool importedSeen)) return;
+         if (!ParseSelectionSegments(selectionString,segments,out bool importedSeen,out bool fullSeen)) return;
 
          IEnumerable<NamedElement> candidateObjects;
          IEnumerable<NamedElement> selectedObjects = [];
@@ -244,7 +244,7 @@ namespace CDL2v1 {
          }
          // Use the segments to successively narrow down the selection.
          for (int segNo = 0 ; segNo < segments.Count ; segNo += 2) {
-            selectedObjects = NarrowSelectionByType(candidateObjects,segments,segNo,importedSeen,ref ErrorMessage);
+            selectedObjects = NarrowSelectionByType(candidateObjects,segments,segNo,importedSeen,fullSeen,ref ErrorMessage);
             if (ErrorMessage != string.Empty) return;
             if (segNo < segments.Count - 2) candidateObjects = selectedObjects.SelectMany(e => e.DescendantElements());
          }
@@ -257,35 +257,35 @@ namespace CDL2v1 {
          }
       }
 
-      private IEnumerable<NamedElement> NarrowSelectionByType(IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,bool importedSeen,ref string errorMessage) {
+      private IEnumerable<NamedElement> NarrowSelectionByType(IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,bool importedSeen,bool fullSeen,ref string errorMessage) {
          IEnumerable<NamedElement> selectedObjects = [];
 
          string name = segments[segNo + 1].SegmentName;
          switch (segments[segNo].SegmentType) {
             // Generic types
-            case SelectorType.ANY: selectedObjects = NarrowSelection<NamedElement>(candidateObjects,name,importedSeen); break; // Excludes ludes, parts and interfaces for now.
-            case SelectorType.CONTAINER: selectedObjects = NarrowSelection<Container>(candidateObjects,name,importedSeen); break;
-            case SelectorType.DATA: selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen,obj => obj is IDataElement); break;
+            case SelectorType.ANY: selectedObjects = NarrowSelection<NamedElement>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.CONTAINER: selectedObjects = NarrowSelection<Container>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.DATA: selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen,fullSeen,obj => obj is IDataElement); break;
             case SelectorType.FACE: selectedObjects = NarrowSelectionToList(); break;
-            case SelectorType.OBJECT: selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen); break;
+            case SelectorType.OBJECT: selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen,fullSeen); break;
 
             // Specific containers
-            case SelectorType.PROGRAM: selectedObjects = NarrowSelection<Program>(candidateObjects,name,importedSeen); break;
-            case SelectorType.MODULE: selectedObjects = NarrowSelection<Module>(candidateObjects,name,importedSeen); break;
-            case SelectorType.LAYER: selectedObjects = NarrowSelection<Layer>(candidateObjects,name,importedSeen); break;
-            case SelectorType.SECTION: selectedObjects = NarrowSelection<Section>(candidateObjects,name,importedSeen); break;
+            case SelectorType.PROGRAM: selectedObjects = NarrowSelection<Program>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.MODULE: selectedObjects = NarrowSelection<Module>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.LAYER: selectedObjects = NarrowSelection<Layer>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.SECTION: selectedObjects = NarrowSelection<Section>(candidateObjects,name,importedSeen,fullSeen); break;
 
             // Specific OBJECTS
-            case SelectorType.ALGORITHM: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => !alg.IsSynthetic); break;
-            case SelectorType.PROCEDURE: selectedObjects = NarrowSelection<Procedure>(candidateObjects,name,importedSeen,alg => !alg.IsSynthetic); break;
-            case SelectorType.MACRO: selectedObjects = NarrowSelection<Macro>(candidateObjects,name,importedSeen); break;
-            case SelectorType.FUNCTION: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsFunction && !alg.IsSynthetic); break;
-            case SelectorType.ACTION: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsAction && !alg.IsSynthetic); break;
-            case SelectorType.TEST: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsTest && !alg.IsSynthetic); break;
-            case SelectorType.PREDICATE: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,alg => alg.IsPredicate && !alg.IsSynthetic); break;
-            case SelectorType.CONST: selectedObjects = NarrowSelection<Const>(candidateObjects,name,importedSeen); break;
-            case SelectorType.VAR: selectedObjects = NarrowSelection<Var>(candidateObjects,name,importedSeen); break;
-            case SelectorType.LIST: selectedObjects = NarrowSelection<LIST>(candidateObjects,name,importedSeen); break;
+            case SelectorType.ALGORITHM: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,fullSeen,alg => !alg.IsSynthetic); break;
+            case SelectorType.PROCEDURE: selectedObjects = NarrowSelection<Procedure>(candidateObjects,name,importedSeen,fullSeen,alg => !alg.IsSynthetic); break;
+            case SelectorType.MACRO: selectedObjects = NarrowSelection<Macro>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.FUNCTION: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,fullSeen,alg => alg.IsFunction && !alg.IsSynthetic); break;
+            case SelectorType.ACTION: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,fullSeen,alg => alg.IsAction && !alg.IsSynthetic); break;
+            case SelectorType.TEST: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,fullSeen,alg => alg.IsTest && !alg.IsSynthetic); break;
+            case SelectorType.PREDICATE: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,fullSeen,alg => alg.IsPredicate && !alg.IsSynthetic); break;
+            case SelectorType.CONST: selectedObjects = NarrowSelection<Const>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.VAR: selectedObjects = NarrowSelection<Var>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.LIST: selectedObjects = NarrowSelection<LIST>(candidateObjects,name,importedSeen,fullSeen); break;
 
             // Lists where the selection is the entire list (for now)
             case SelectorType.ABSTR:
@@ -297,24 +297,16 @@ namespace CDL2v1 {
                selectedObjects = NarrowSelectionToList();
                break;
 
-            // Non-focusable types
-            //case SelectorType.AFFIX:
-            //case SelectorType.LOCAL:
-            //   selectedObjects = NarrowSelectionToNonFocusable<Algorithm>(candidateObjects,segments,segNo,importedSeen,segments[segNo].SegmentType);
-            //   break;
-            //case SelectorType.CALL:
-            //   selectedObjects = NarrowSelectionToNonFocusable<Procedure>(candidateObjects,segments,segNo,importedSeen,SelectorType.CALL);
-            //   break;
-
             // Ludes
             case SelectorType.PRELUDE: selectedObjects = NarrowSelectionToLude(); break;
             case SelectorType.ROOT: selectedObjects = NarrowSelectionToLude(); break;
             case SelectorType.POSTLUDE: selectedObjects = NarrowSelectionToLude(); break;
+            case SelectorType.LUDE: selectedObjects = NarrowSelectionToLude(); break;
 
             // NOTE selection. Not clear yet whether this should be supported.
             case SelectorType.NOTE: goto default;
 
-            // Special prefix that is used to selected imported CONSTs and ALGORITHMs. Handled during segment construction above
+            // Special prefix that is used to select imported CONSTs and ALGORITHMs. Handled during segment construction above
             case SelectorType.IMPORTED:
                errorMessage = $"Fapipa Unfiltered IMPORTED which is not possible"; // Hommage à Mihályi Kati 
                break;
@@ -325,10 +317,11 @@ namespace CDL2v1 {
          return selectedObjects;
       }
 
-      private IEnumerable<NamedElement> NarrowSelection<T>(IEnumerable<NamedElement> candidateObjects,string name,bool importedSeen,Func<T,bool>? pred = null) where T : NamedElement {
+      private IEnumerable<NamedElement> NarrowSelection<T>(IEnumerable<NamedElement> candidateObjects,string name,bool importedSeen,bool fullSeen,Func<T,bool>? pred = null) where T : NamedElement {
          if (Database.TryGetNamedElements<T>(candidateObjects,name,out IEnumerable<T>? elements) && elements is not null) {
             if (pred is not null) elements = elements.Where(e => pred((T)e));
-            elements = elements.Where(e => importedSeen == e.IsImported);
+            if (importedSeen) elements = elements.Where(e => e.IsImported);
+            if (fullSeen)     elements = elements.Where(e => ! e.IsImported);
             return elements;
          }
          return [];
@@ -336,7 +329,7 @@ namespace CDL2v1 {
 
       private IEnumerable<NamedElement> NarrowSelectionToNonFocusable<T>(IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,bool importedSeen,SelectorType elementType) where T : Algorithm {
          // TODO: this implementaton should also work for CALLs in ludes since they are synthetic PROCEDUREs. Verification needed.
-         IEnumerable<NamedElement> selectedObjects = NarrowSelection<T>(candidateObjects,segments[segNo + 1].SegmentName,importedSeen,null); // Narrow down to algorithms for AFFIX and LOCAL any, for CALL PROCEDUREs only.
+         IEnumerable<NamedElement> selectedObjects = NarrowSelection<T>(candidateObjects,segments[segNo + 1].SegmentName,importedSeen,importedSeen,null); // Narrow down to algorithms for AFFIX and LOCAL any, for CALL PROCEDUREs only.
 
          switch (elementType) {
             case SelectorType.AFFIX:
@@ -364,14 +357,13 @@ namespace CDL2v1 {
 
       private IEnumerable<NamedElement> NarrowSelectionToList() => throw new NotImplementedException();
 
-      private bool ParseSelectionSegments(string selectionString,SelectionSegments segments,out bool importedSeen) {
-         Regex regex = new(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z0-9\s]*)",RegexOptions.Compiled);
-
+      private bool ParseSelectionSegments(string selectionString,SelectionSegments segments,out bool importedSeen, out bool fullSeen) {
          bool previousSegmentWasUnit = false;
          bool previousSegmentWasNameOrOffset = false;
          importedSeen = false;
+         fullSeen = false;
          while (selectionString.Length > 0) {
-            Match match = regex.Match(selectionString);
+            Match match = SelectorSegmentRE().Match(selectionString);
             if (!match.Success) break; // No more matches, exit loop
             selectionString = selectionString[match.Length..].Trim(); // Remove the matched segment from the string
             string segment = match.Value.Trim();
@@ -381,12 +373,27 @@ namespace CDL2v1 {
                if (type == SelectorType.INVALID) {
                   ErrorMessage = $"Invalid selector type: {segment}";
                   return false;
-               } else if (type == SelectorType.IMPORTED) {
+               } else if (type == SelectorType.IMPORTED || type == SelectorType.STUB) {
                   if (importedSeen) {
-                     ErrorMessage = $"Invalid selection: multiple IMPORTED segments are not allowed";
-                     return false; // Multiple IMPORTED segments are not allowed
+                     if (fullSeen) {
+                        ErrorMessage = $"Invalid selection: IMPORTED/STUB cannot be used with FULL";
+                     } else {
+                        ErrorMessage = $"Invalid selection: multiple IMPORTED/STUBs are not allowed";
+                     }
+                     return false;
                   } else {
                      importedSeen = true; // Mark that an IMPORTED segment was seen
+                  }
+               } else if (type == SelectorType.FULL) {
+                  if (fullSeen) {
+                     if (importedSeen) {
+                        ErrorMessage = $"Invalid selection: IMPORTED/STUB cannot be used with FULL";
+                     } else {
+                        ErrorMessage = $"Invalid selection: multiple FULLs are not allowed";
+                     }
+                     return false;
+                  } else {
+                     fullSeen = true; // Mark that a FULL segment was seen
                   }
                } else {
                   if (previousSegmentWasUnit) segments.Add(new NameSegment("")); // Add empty name segment if previous was uppercase
@@ -433,6 +440,9 @@ namespace CDL2v1 {
          if (IsInvalid) return $"Selection(Invalid: {ErrorMessage})";
          return "Selection<" + (this.Take(SingleSelectionCount).Aggregate("",(a,b) => $"{a} {b}")).TrimStart() + (this.Count > SingleSelectionCount ? "..." : "") + ">";
       }
+
+      [GeneratedRegex(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z0-9\s]*)",RegexOptions.Compiled)]
+      private static partial Regex SelectorSegmentRE();
    }
 
    /// <summary>
@@ -608,7 +618,7 @@ namespace CDL2v1 {
       /// <exception cref="NotImplementedException"></exception>
       /// <param name="msg"></param>
       /// <param name="severity"></param>
-      internal bool Move(string args,FocusMoveDirection direction,out string msg,out Severity severity) {
+      internal bool MoveFocus(string args,MoveDirection direction,out string msg,out Severity severity) {
          (msg, severity) = ("Invalid command", Severity.Error);
          if (Object is null) return false; // Note that there is no need to check focusability here, as the focus is always on a focusable object.
          // TODO: Check if the object has siblings, if not, return false. Interface list do not have siblings.
@@ -616,11 +626,11 @@ namespace CDL2v1 {
          int currentIndex = Object.Siblings.IndexOf(Object.GUID);
          int ludeCount = Object.Siblings.ToSyntheticCDL2Objects().Count();
          switch (direction) {
-            case FocusMoveDirection.First:
+            case MoveDirection.First:
                if (args.IsNotEmptyOrWhitespace) return false;
                newIndex = 0;
                break;
-            case FocusMoveDirection.Last:
+            case MoveDirection.Last:
                if (args.IsNotEmptyOrWhitespace) return false;
                newIndex = Object.Siblings.Count - ludeCount - 1;
                break;
@@ -637,9 +647,6 @@ namespace CDL2v1 {
             return Focus.SetFocus(Object.Siblings[newIndex]);
          }
       }
-
-      internal bool MoveObject(string args,FocusMoveDirection focusMoveDirection,out string msg,out Severity severity) => throw new NotImplementedException();
-      internal bool MoveObjectTo(string args,out string msg,out Severity severity) => throw new NotImplementedException();
    }
 
    /// <summary>

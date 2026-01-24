@@ -1197,9 +1197,6 @@ namespace CDL2v1 {
          return element != null;
       }
 
-
-      //public static void MoveObjectToPosition(ParsingContext parsingContext,Focus context,CDL2Object? obj) { }
-
       /// <summary>
       /// 
       /// </summary>
