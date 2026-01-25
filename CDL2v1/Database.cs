@@ -418,7 +418,7 @@ namespace CDL2v1 {
             Position = position;
             if (element is not null) {
                int pos = element.Siblings.IndexOf(element.GUID);
-               OriginalPosition = pos < element.Siblings.Count ? pos : int.MaxValue;
+               OriginalPosition = pos < element.Siblings.Count-1 ? pos : int.MaxValue;
             }
          }
 
