@@ -245,7 +245,7 @@ namespace CDL2v1 {
          // Use the segments to successively narrow down the selection.
          SelectorType listType = ST.INVALID;
          for (int segNo = 0 ; segNo < segments.Count ; segNo += 2) {
-            selectedObjects = NarrowSelectionByType(selectedObjects,candidateObjects,segments,segNo,importedSeen,fullSeen,out listType,ref ErrorMessage);
+            selectedObjects = NarrowSelectionByType(candidateObjects,selectedObjects,segments,segNo,importedSeen,fullSeen,out listType,ref ErrorMessage);
             if (ErrorMessage != string.Empty) return;
             if (segNo < segments.Count - 2) candidateObjects = selectedObjects.SelectMany(e => e.DescendantElements());
          }
@@ -305,7 +305,7 @@ namespace CDL2v1 {
             case SelectorType.ROOT:
             case SelectorType.POSTLUDE:
             case SelectorType.LUDE: 
-               selectedObjects = NarrowSelectionToLude(segments[segNo].SegmentType,selectedObjects,candidateObjects);
+               selectedObjects = NarrowSelectionToLude(segments[segNo].SegmentType,selectedObjects,currentSelectedObjects);
                listType = segments[segNo].SegmentType;
                break;
 
@@ -375,7 +375,11 @@ namespace CDL2v1 {
       private IEnumerable<NamedElement> NarrowSelectionToLude(ST type,IEnumerable<NamedElement> selectedObjects,IEnumerable<NamedElement> currentSelectedObjects) {
          IEnumerable<Container> candidates = selectedObjects.OfType<Container>();
          if (!candidates.Any()) candidates = currentSelectedObjects.OfType<Container>();
-         return candidates.Where(c => ((type == ST.LUDE && c.Ludes.Values.Sum(v => v.Count) > 0) || c.Ludes[Container.LudeTypeBySelector[type]].Count > 0));
+         static bool HasLudesOfType(Container c,ST t) {
+            if (t == ST.LUDE) return c.Ludes.Values.Sum(v => v.Count) > 0;
+            return c.Ludes[Container.LudeTypeBySelector[t]].Count > 0;
+         }
+         return candidates.Where(c => HasLudesOfType(c,type));
       }
 
       private IEnumerable<NamedElement> NarrowSelectionToList() => throw new NotImplementedException();

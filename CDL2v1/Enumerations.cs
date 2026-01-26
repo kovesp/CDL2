@@ -111,6 +111,7 @@ namespace CDL2v1 {
       LISTBOUNDEND = 19,  // Alias for GRPCLOSE
       COMMENT = 20,
       NOBODY = 21,  // IMPORTed ALGORITHMs have no body
+      BUILTIN =22,
    }
 #pragma warning restore CA1069 // Enums values should not be duplicated
 #pragma warning restore IDE0079 // Remove unnecessary suppression
@@ -226,6 +227,7 @@ namespace CDL2v1 {
       ABSTR,
       ACTION,
       ALGORITHM,
+      BUILTIN,
       CONST,
       EXPORT,
       EXT,

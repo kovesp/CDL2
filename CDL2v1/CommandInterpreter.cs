@@ -1482,7 +1482,19 @@ namespace CDL2v1 {
                WriteInfo("No matches for selector");
             } else {
                foreach (SingleSelection sel in selection) {
-                  WriteWithInterface(sel.Object!);
+                  switch (sel.ListType) {
+                     case SelectorType.PRELUDE or SelectorType.ROOT or SelectorType.POSTLUDE:
+                        ListLude(sel,sel.ListType);
+                        break;
+                     case SelectorType.LUDE:
+                        ListLude(sel,SelectorType.PRELUDE);
+                        ListLude(sel,SelectorType.ROOT);
+                        ListLude(sel,SelectorType.POSTLUDE);                        
+                        break;
+                     default:
+                        WriteWithInterface(sel.Object!);
+                     break;
+                  }
                }
             }
          }
@@ -1492,6 +1504,12 @@ namespace CDL2v1 {
          /// </summary>
          /// <param name="elem">The named element to write.</param>
          void WriteWithInterface(NamedElement elem) => WriteLine(elem.FQDN(WithInterface: true));
+
+         void ListLude(SingleSelection sel,SelectorType listType) {
+            if (sel.Object is Container c1) {
+               if (c1.Ludes[Container.LudeTypeBySelector[listType]].Count > 0) WriteLine($"{c1.FQDN()} {listType}");
+            }
+         }
       }
 
       /// <summary>
