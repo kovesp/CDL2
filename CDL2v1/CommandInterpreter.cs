@@ -746,12 +746,14 @@ namespace CDL2v1 {
       /// its value is undefined.</param>
       /// <param name="severity">When this method returns, contains the severity level associated with the result of the operation.</param>
       /// <returns>true if the object was successfully moved; otherwise, false.</returns>
-      internal static bool InterpretCommandMoveObject(string args,MoveDirection focusMoveDirection,out string msg,out Severity severity) {
+      internal bool InterpretCommandMoveObject(string args,MoveDirection focusMoveDirection,out string msg,out Severity severity) {
          (msg,severity) = ("Immovable",Severity.Error);
          SingleSelection context = Focus.Current.Selection;
          if (context.Object is not null && context.Object is NamedElement obj && obj is Container or CDL2Object && context.ListType == SelectorType.INVALID) {
             int n = int.TryParse(args,out int a) ? a: 1;
-            ((ISibling)obj).MoveSiblingBy(n,focusMoveDirection,recordUndo:true);
+            if (obj is not Layer || REPL!.QueryBox("Moving a layer will almost certainly mess up interfaces. Continue?")) {
+               ((ISibling)obj).MoveSiblingBy(n,focusMoveDirection,recordUndo: true);
+            }
             return true;
          }
          return false;
@@ -1182,6 +1184,19 @@ namespace CDL2v1 {
       }
 
       /// <summary>
+      /// Selects the single available lude from the specified section if no lude is currently selected; otherwise,
+      /// returns the provided lude value.
+      /// </summary>
+      /// <remarks>If the section contains exactly one lude with a count greater than zero and the current
+      /// selection is RW.NONE, this method returns that lude. In all other cases, it returns the original
+      /// selection.</remarks>
+      /// <param name="rw">The current lude selection. If set to RW.NONE, the method may select a lude from the section.</param>
+      /// <param name="sec">The section from which to select a lude if only one is available.</param>
+      /// <returns>The selected lude if exactly one lude is available in the section and no lude is currently selected;
+      /// otherwise, returns the original lude value.</returns>
+      private static RW SelectSingleSectionLude(RW rw,Section sec) => rw == RW.NONE && sec.Ludes.Values.Sum(v => v.Count) == 1 ? sec.Ludes.Keys.Where(v => sec.Ludes[v].Count > 0).First() : rw;
+
+      /// <summary>
       /// Edit the selected object.
       /// Currently only a single section, algorithm or constant can be edited.
       /// </summary>
@@ -1215,12 +1230,17 @@ namespace CDL2v1 {
                REPL.EditText(ppEdit.Print(context.Object));
             } else if (context.Object is Section sec && context.ListType != ST.INVALID) {
                // Special case: editing the prelude of a section.
-               RW ludeType = context.ListType switch {
+               RW ludeType = SelectSingleSectionLude(context.ListType switch {
                   ST.PRELUDE => RW.PRELUDE,
                   ST.ROOT => RW.ROOT,
                   ST.POSTLUDE => RW.POSTLUDE,
+                  ST.LUDE => RW.NONE,
                   _ => RW.NONE
-               };
+               },sec);
+               if (context.ListType == ST.LUDE && sec.Ludes.Values.Sum(v=>v.Count) == 1) {
+                  // There is only one lude, so select that
+                  ludeType = sec.Ludes.Keys.Where(v => sec.Ludes[v].Count > 0).First();
+               }
                if (ludeType != RW.NONE) {
                   if (sec.Ludes[ludeType].Count == 0) {
                      WriteError($"{sec} does not have a {ludeType}.");
@@ -1230,6 +1250,10 @@ namespace CDL2v1 {
                   } else {
                      REPL.EditText(ppEdit.PrintLude(ludeType,sec,asString: true)!);
                   }
+               } else if (context.ListType == ST.LUDE) {
+                  WriteError("Can't edit. Specify the specific lude instead of LUDE");
+               } else { 
+                  WriteError("Can't edit.");
                }
             } else {
                WriteError("Can't edit");

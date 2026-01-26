@@ -243,21 +243,24 @@ namespace CDL2v1 {
             return;
          }
          // Use the segments to successively narrow down the selection.
+         SelectorType listType = ST.INVALID;
          for (int segNo = 0 ; segNo < segments.Count ; segNo += 2) {
-            selectedObjects = NarrowSelectionByType(candidateObjects,segments,segNo,importedSeen,fullSeen,ref ErrorMessage);
+            selectedObjects = NarrowSelectionByType(selectedObjects,candidateObjects,segments,segNo,importedSeen,fullSeen,out listType,ref ErrorMessage);
             if (ErrorMessage != string.Empty) return;
             if (segNo < segments.Count - 2) candidateObjects = selectedObjects.SelectMany(e => e.DescendantElements());
          }
 
          if (segments.Index < 1) {
             // If the selectedObjects are all siblings, add them in sibling order, otherwise OrderedAsSiblings leaves the order unchanged.
-            AddRange(selectedObjects.OrderedAsSiblings.Select(obj => new SingleSelection(obj)));
+            AddRange(selectedObjects.OrderedAsSiblings.Select(obj => new SingleSelection(obj,listType)));
          } else {
-            Add(new SingleSelection(selectedObjects.ElementAt(Math.Min(segments.Index,segments.Count) - 1)));
+            Add(new SingleSelection(selectedObjects.ElementAt(Math.Min(segments.Index,segments.Count) - 1),listType));
          }
       }
 
-      private IEnumerable<NamedElement> NarrowSelectionByType(IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,bool importedSeen,bool fullSeen,ref string errorMessage) {
+      private IEnumerable<NamedElement> NarrowSelectionByType(IEnumerable<NamedElement> candidateObjects,IEnumerable<NamedElement> currentSelectedObjects,SelectionSegments segments,int segNo,
+            bool importedSeen,bool fullSeen,out ST listType,ref string errorMessage) {
+         listType = ST.INVALID;
          IEnumerable<NamedElement> selectedObjects = [];
 
          string name = segments[segNo + 1].SegmentName;
@@ -298,20 +301,29 @@ namespace CDL2v1 {
                break;
 
             // Ludes
-            case SelectorType.PRELUDE: selectedObjects = NarrowSelectionToLude(); break;
-            case SelectorType.ROOT: selectedObjects = NarrowSelectionToLude(); break;
-            case SelectorType.POSTLUDE: selectedObjects = NarrowSelectionToLude(); break;
-            case SelectorType.LUDE: selectedObjects = NarrowSelectionToLude(); break;
+            case SelectorType.PRELUDE:
+            case SelectorType.ROOT:
+            case SelectorType.POSTLUDE:
+            case SelectorType.LUDE: 
+               selectedObjects = NarrowSelectionToLude(segments[segNo].SegmentType,selectedObjects,candidateObjects);
+               listType = segments[segNo].SegmentType;
+               break;
 
             // NOTE selection. Not clear yet whether this should be supported.
             case SelectorType.NOTE: goto default;
 
-            // Special prefix that is used to select imported CONSTs and ALGORITHMs. Handled during segment construction above
+            // Special prefixes that are used to select imported or non-imported CONSTs and ALGORITHMs. Handled during segment construction above
             case SelectorType.IMPORTED:
-               errorMessage = $"Fapipa Unfiltered IMPORTED which is not possible"; // Hommage à Mihályi Kati 
+            case SelectorType.STUB:
+            case SelectorType.FULL:
+               errorMessage = $"Fapipa Unfiltered IMPORTED/STUB/FULL which should not be possible"; // Hommage à Mihályi Kati 
                break;
-            case SelectorType.INVALID: errorMessage = $"Unrecognized selector type"; break;
-            default: errorMessage = $"Unimplemented selector type: {segments[segNo].SegmentType}"; break;
+            case SelectorType.INVALID: 
+               errorMessage = $"Unrecognized selector type";
+               break;
+            default:
+               errorMessage = $"Unimplemented selector type: {segments[segNo].SegmentType}"; 
+               break;
          }
          if (!selectedObjects.Any()) errorMessage = "Info:No matches";
          return selectedObjects;
@@ -353,7 +365,18 @@ namespace CDL2v1 {
             => Database.TryGetNamedElements<U>(((Algorithm)obj).Affixes,segmentName,out IEnumerable<U>? affixes) ? affixes : []);
       }
 
-      private IEnumerable<NamedElement> NarrowSelectionToLude() => throw new NotImplementedException();
+      /// <summary>
+      /// Selects containers that have ludes of the specified type.
+      /// </summary>
+      /// <param name="type"></param>
+      /// <param name="currentSelectedObjects"></param>
+      /// <returns></returns>
+      /// <param name="listType"></param>
+      private IEnumerable<NamedElement> NarrowSelectionToLude(ST type,IEnumerable<NamedElement> selectedObjects,IEnumerable<NamedElement> currentSelectedObjects) {
+         IEnumerable<Container> candidates = selectedObjects.OfType<Container>();
+         if (!candidates.Any()) candidates = currentSelectedObjects.OfType<Container>();
+         return candidates.Where(c => ((type == ST.LUDE && c.Ludes.Values.Sum(v => v.Count) > 0) || c.Ludes[Container.LudeTypeBySelector[type]].Count > 0));
+      }
 
       private IEnumerable<NamedElement> NarrowSelectionToList() => throw new NotImplementedException();
 

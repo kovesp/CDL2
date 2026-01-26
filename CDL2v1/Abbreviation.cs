@@ -153,6 +153,7 @@ namespace CDL2v1 {
          new ("AFFIX"      ,3,AlgorithmTypesWithMacro,focusable:false),
          new ("CALL"       ,1,SelectorType.PROCEDURE,focusable:false), // Calls occur also in section ludes, however the ludes are represented in the syntax tree as procedures
          new ("LOCAL"      ,3,AlgorithmTypesWithMacro,focusable:false),
+         new ("BUILTIN"    ,7,SelectorType.PROCEDURE,focusable:false),
          // Generic types
          new ("ALGORITHM"  ,3,SelectorType.SECTION,help:"Selects any algorithm (macro, procedure, imported)"),
          new ("ANY"        ,3),

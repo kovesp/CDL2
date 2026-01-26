@@ -81,6 +81,7 @@ namespace CDL2v1 {
    public interface IActualArg {
       ID Id { get; }
    }
+
    public interface IParameter { // affixes and locals
       Algorithm? ContainingAlgorithm { get; set; }
    }
@@ -210,6 +211,7 @@ namespace CDL2v1 {
             MoveDirection.Last => int.MaxValue,
             _ => throw new NotImplementedException(),
          };
+         if (newIndex == currentIndex || (newIndex == int.MaxValue && currentIndex == Siblings.Count-1)) return; // The position would not change
          if (recordUndo) Database.Instance.RecordUndo((NamedElement)this, newIndex, ChangeType.MovedRelative);
          MoveSiblingTo(newIndex);
       }
@@ -1686,6 +1688,26 @@ namespace CDL2v1 {
       // override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}{id.Name}/{argRefs.Count}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
+
+      /// <summary>
+      /// Return the actual argument at position argno if it is of type T.
+      /// T currently can only be STRING, but perhaps something else in future.
+      /// This is foruse in evaluating arguments of built-in calls.
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="argno"></param>
+      /// <param name="value"></param>
+      /// <returns></returns>
+      public bool TryGetActual<T>([NotNullWhen(true)] out T? value,int argno = 0) where T : STRING {
+         if (argno < Args.Count && Args.ElementAt(argno) is T actual) {
+            value = actual;
+            return true;
+         } else {
+            value = null;
+            return false;
+         }
+      }
+
       [JsonIgnore]
       public Algorithm? Called {
          get {
@@ -1947,6 +1969,7 @@ namespace CDL2v1 {
       override public string ToString() => value.ToString();
    }
    public class STRING : IElement, IActualArg {
+      public static readonly STRING Empty = new("");
       [JsonInclude] public string value;
       public STRING(Token str) {
          Debug.Assert(str.type == TT.STRING && str.StringValue != null);

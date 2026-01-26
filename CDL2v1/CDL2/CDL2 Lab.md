@@ -726,7 +726,98 @@ the minimal apreviation is given in ***bold italic***.
 
 ***up***
 
- 
- 
+## Supported Builtin Procedures
 
+The CDL2 Lab supports the following builtin procedures that may
+be used in CDL2 code. 
 
+* Tests. These succeed or fail like other tests and their name conventionally
+  starts with `is`. They serve as conditional compilation tests. Example: the test
+  `BUILTIN is target+"CSharp"` tests whether the current code generation
+  target is `C#`. This could be used to conditionally select code
+  depending on the target language. These tests are evaluated when
+  semantic analysis is performed in compiler mode or when generating code.
+
+* Functions. These return values in an output affix. Example:
+  `BUILTIN date+date string` sets the output affix to the current date
+  as a string. These functions are evaluated when code is generated.
+  **NOT YET IMPLEMENTED**.
+
+#### Notes
+   * All input arguments are specified as `*arg` ans must be passed as literal strings.
+   * The functions return their result in the last argument as an output affix. Accordingly, the
+     actual argument must be an output or transput affix, a local, or a variable. The output
+     affix must be of the appropriate type (string, int, etc.)
+
+```
+TEST is option*name
+```
+Succeeds if the given setting is true. `name` must be a valid boolean setting.
+```
+TEST is option value*name*value
+```
+Succeeds if the given setting has the given value. `name` must be a valid string
+or numeric setting.
+```
+TEST is environment variable*name
+```
+Succeeds if the given environment variable is defined in the host operating system.
+```
+TEST is environment variable value*name*value
+```
+Succeeds if the given environment variable is defined in the host operating system
+and has the given value.
+```
+TEST is target*target
+```
+Succeeds if the current code generation target is `target`.
+
+### Functions
+```
+FUNCTION date+date>
+```
+The output affix is set to the current date as a string in the format `YYYY-MM-DD`.
+```
+FUNCTION time+time>.
+```
+The output affix is set to the current time as a string in the format `HH:MM:SS`.
+```
+FUNCTION version+version>.
+```
+The output affix is set to the current version of the CDL2 Lab as a string.
+```
+FUNCTION option*name+value>.
+```
+The output affix is set to the value of the given setting. `name` must be a valid
+setting name. If the setting is
+
+boolean
+... the value is 0 or 1. Example:
+```
+FUNCTION print compilation option -stop:
+   BUILTIN option+"StopOnWarnings"+stop,
+     (equal+stop+one, print+"Stop on Warnings was on.";
+      print+"Stop on Warnings was off.").
+```
+int
+... the value is the integer value of the setting.
+```
+FUNCTION print compilation option -verb:
+   BUILTIN option+"VerbosityLevel"+verb,
+     (gt+verb+five, print+"High verbosity was enabled: ",print number+verb;
+      print+"Low verbosity was set.").
+```
+
+string
+... the value is the string value of the setting.
+```
+FUNCTION print compilation target directory -dir: 
+   BUILTIN option+"OutputDirectory"+dir,print+dir).
+```
+
+```
+FUNCTION environment variable*name+value>.
+```
+The output affix is set to the value of the given environment variable. If the variable is not defined,
+the output affix is set to the empty string. The builtin `is option` can be used
+to distinguish between a variable being undefined or set to the empty string.

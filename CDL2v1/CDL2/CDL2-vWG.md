@@ -92,7 +92,7 @@ procedure body: code body ; macro body.
 code body: code body delimiter, alternatives separated by semicolons sentence.
 code body delimiter: colon token, equal token option.
 alternative: calls separated by commas ending with last call.
-call: procedure identifier, actual parameter sequence option.
+call: builtin token option,procedure identifier, actual parameter sequence option.
 actual parameter: plus token, actual argument.
 actual argument: const identifier ; list identifier ; var identifier ; argument identifier ; local identifier ; string.
 last call: call ; group pack ; plus token ; minus token ; question mark token ; star token, group identifier option.
@@ -103,6 +103,22 @@ macro body: macro body delimiter, macro elements separated by optional semicolon
 macro body delimiter: equal token, colon token option.
 macro element: string ; actual argument.
 ```
+
+Note: The keyword `BUILTIN` is used to indicate calls to builtin procedures.
+This is an extension of the original CDL2 language.
+The token must be followed by the name of a known builtin procedure; these are
+documented in the CDL2 Lab Manual. There are two types of builtin procedures:
+
+* Tests. These succeed or fail like other tests and their name conventionally
+  starts with `is`. They serve as conditional compilation tests. Example: the test
+  `BUILTIN is target+"CSharp"` tests whether the current code gneration
+  target is `C#`. This could be used to conditionally select code
+  depending on the target language. These tests are evaluated when
+  semantic analysis is performed in compiler mode or when generating code.
+* Functions. These return values in an output affix. Example:
+  `BUILTIN date+date string` sets the output affix to the current date
+  as a string. These functions are evaluated when code is generated.
+
 
 # Lexical units
 A not completely accurate syntax of where comments or NOTEs can be placed.
@@ -191,6 +207,7 @@ function token: 'FUNCTION'.
 action token: 'ACTION'
 test token: 'TEST'.
 predicate token: 'PREDICATE'.
+builtin token: 'BUILTIN'.
 prelude token: 'PRELUDE'.
 root token: 'ROOT'.
 postlude token: 'POSTLUDE'.

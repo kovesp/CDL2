@@ -263,18 +263,22 @@ namespace CDL2v1 {
          }
       }
       public static bool IsValidSetting(string name) => Instance.SettingsDict.ContainsKey(name);
-      public static bool TryGetSettingValue(string name,out string value) {
+      public static bool TryGetSettingValue(string name,out object value) {
          if (Instance.SettingsDict.TryGetValue(name,out ISetting? setting)) {
             if (setting is Setting<string> sSetting) {
                value = sSetting.Value!;
                return true;
             }
             if (setting is Setting<bool> bSetting) {
-               value = bSetting.Value.ToString();
+               value = bSetting.Value;
                return true;
             }
             if (setting is Setting<int> iSetting) {
-               value = iSetting.Value.ToString();
+               value = iSetting.Value;
+               return true;
+            }
+            if (setting is Setting<double> dSetting) {
+               value = dSetting.Value;
                return true;
             }
          }
