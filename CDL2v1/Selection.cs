@@ -245,7 +245,7 @@ namespace CDL2v1 {
          // Use the segments to successively narrow down the selection.
          SelectorType listType = ST.INVALID;
          for (int segNo = 0 ; segNo < segments.Count ; segNo += 2) {
-            selectedObjects = NarrowSelectionByType(candidateObjects,selectedObjects,segments,segNo,importedSeen,fullSeen,out listType,ref ErrorMessage);
+            selectedObjects = NarrowSelectionByType(candidateObjects,selectedObjects,segments,segNo,isRooted,importedSeen,fullSeen,out listType,ref ErrorMessage);
             if (ErrorMessage != string.Empty) return;
             if (segNo < segments.Count - 2) candidateObjects = selectedObjects.SelectMany(e => e.DescendantElements());
          }
@@ -259,24 +259,24 @@ namespace CDL2v1 {
       }
 
       private IEnumerable<NamedElement> NarrowSelectionByType(IEnumerable<NamedElement> candidateObjects,IEnumerable<NamedElement> currentSelectedObjects,SelectionSegments segments,int segNo,
-            bool importedSeen,bool fullSeen,out ST listType,ref string errorMessage) {
+            bool isRooted,bool importedSeen,bool fullSeen,out ST listType,ref string errorMessage) {
          listType = ST.INVALID;
          IEnumerable<NamedElement> selectedObjects = [];
 
          string name = segments[segNo + 1].SegmentName;
+
          switch (segments[segNo].SegmentType) {
             // Generic types
             case SelectorType.ANY: selectedObjects = NarrowSelection<NamedElement>(candidateObjects,name,importedSeen,fullSeen); break;
             case SelectorType.CONTAINER: selectedObjects = NarrowSelection<Container>(candidateObjects,name,importedSeen,fullSeen); break;
             case SelectorType.DATA: selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen,fullSeen,obj => obj is IDataElement); break;
-            case SelectorType.FACE: selectedObjects = NarrowSelectionToList(); break;
             case SelectorType.OBJECT: selectedObjects = NarrowSelection<CDL2Object>(candidateObjects,name,importedSeen,fullSeen); break;
 
-            // Specific containers
+            // Containers
             case SelectorType.PROGRAM: selectedObjects = NarrowSelection<Program>(candidateObjects,name,importedSeen,fullSeen); break;
-            case SelectorType.MODULE: selectedObjects = NarrowSelection<Module>(candidateObjects,name,importedSeen,fullSeen); break;
-            case SelectorType.LAYER: selectedObjects = NarrowSelection<Layer>(candidateObjects,name,importedSeen,fullSeen); break;
-            case SelectorType.SECTION: selectedObjects = NarrowSelection<Section>(candidateObjects,name,importedSeen,fullSeen); break;
+            case SelectorType.MODULE: selectedObjects = NarrowContainerSelection(typeof(Module),candidateObjects,segments,segNo,importedSeen,fullSeen,isRooted); break;
+            case SelectorType.LAYER: selectedObjects = NarrowContainerSelection(typeof(Layer),candidateObjects,segments,segNo,importedSeen,fullSeen,isRooted); break;
+            case SelectorType.SECTION: selectedObjects = NarrowContainerSelection(typeof(Section),candidateObjects,segments,segNo,importedSeen,fullSeen,isRooted); break;
 
             // Specific OBJECTS
             case SelectorType.ALGORITHM: selectedObjects = NarrowSelection<Algorithm>(candidateObjects,name,importedSeen,fullSeen,alg => !alg.IsSynthetic); break;
@@ -290,37 +290,32 @@ namespace CDL2v1 {
             case SelectorType.VAR: selectedObjects = NarrowSelection<Var>(candidateObjects,name,importedSeen,fullSeen); break;
             case SelectorType.LIST: selectedObjects = NarrowSelection<LIST>(candidateObjects,name,importedSeen,fullSeen); break;
 
-            // Lists where the selection is the entire list (for now)
-            case SelectorType.ABSTR:
-            case SelectorType.EXT:
-            case SelectorType.INV:
-            case SelectorType.IMPORT:
-            case SelectorType.EXPORT:
-            case SelectorType.PART:
-               selectedObjects = NarrowSelectionToList();
+            // Lists where the selection is the entire list  
+            case SelectorType.ABSTR or SelectorType.EXT or SelectorType.INV or SelectorType.IMPORT or SelectorType.EXPORT or SelectorType.FACE:
+               selectedObjects = NarrowSelectionToInterface();
                break;
 
             // Ludes
-            case SelectorType.PRELUDE:
-            case SelectorType.ROOT:
-            case SelectorType.POSTLUDE:
-            case SelectorType.LUDE: 
+            case SelectorType.PRELUDE or SelectorType.ROOT or SelectorType.POSTLUDE or SelectorType.LUDE: 
                selectedObjects = NarrowSelectionToLude(segments[segNo].SegmentType,selectedObjects,currentSelectedObjects);
                listType = segments[segNo].SegmentType;
                break;
 
-            // NOTE selection. Not clear yet whether this should be supported.
-            case SelectorType.NOTE: goto default;
+            // NOTE and PART. Not clear yet whether these should be supported.
+            case SelectorType.PART:
+            case SelectorType.NOTE: 
+               goto default;
 
             // Special prefixes that are used to select imported or non-imported CONSTs and ALGORITHMs. Handled during segment construction above
-            case SelectorType.IMPORTED:
-            case SelectorType.STUB:
-            case SelectorType.FULL:
+            case SelectorType.IMPORTED or SelectorType.STUB or SelectorType.FULL:
                errorMessage = $"Fapipa Unfiltered IMPORTED/STUB/FULL which should not be possible"; // Hommage à Mihályi Kati 
                break;
+
+            // A selector type that may have been missed
             case SelectorType.INVALID: 
                errorMessage = $"Unrecognized selector type";
                break;
+            // A selector type that may have been missed
             default:
                errorMessage = $"Unimplemented selector type: {segments[segNo].SegmentType}"; 
                break;
@@ -329,7 +324,41 @@ namespace CDL2v1 {
          return selectedObjects;
       }
 
-      private IEnumerable<NamedElement> NarrowSelection<T>(IEnumerable<NamedElement> candidateObjects,string name,bool importedSeen,bool fullSeen,Func<T,bool>? pred = null) where T : NamedElement {
+      /// <summary>
+      /// Narrowing to a container must support sticking to ancestors of the focus unless the selector is rooted
+      /// </summary>
+      /// <example>
+      /// Assume the focus is Mod m Lay l Sec s Fu f.
+      /// Then the selector "Mod Sec" selects all section in m. The selector "^Mod Sec t" selects all sections whose name contains a t in all modules.
+      /// </example>
+      /// <param name="type"></param>
+      /// <param name="candidateObjects"></param>
+      /// <param name="segments"></param>
+      /// <param name="segNo"></param>
+      /// <param name="importedSeen"></param>
+      /// <param name="fullSeen"></param>
+      /// <param name="isRooted"></param>
+      /// <returns></returns>
+      private static IEnumerable<NamedElement> NarrowContainerSelection(Type type,IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,
+            bool importedSeen,bool fullSeen,bool isRooted) {
+         string name = segments[segNo].SegmentName;
+         // If the subselector is not the last and the current focus is on a "smaller" unit then a blank name should be treated as the coontainer containing the focus.
+         // Otherwise it should match anything.
+         if (!isRooted && segNo < segments.Count - 2 && name == "" && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: segments[segNo].SegmentType,child: Focus.Current.FocusType)) {
+            NamedElement? ancestor = Focus.Current.Object!.GetAncestorOfType(segments[segNo].SegmentType);
+            if (ancestor is not null) name = ancestor.Id.Name;
+         }
+
+         return type switch {
+            Type t when t == typeof(Module) => NarrowSelection<Module>(candidateObjects,name,importedSeen,fullSeen),
+            Type t when t == typeof(Layer) => NarrowSelection<Layer>(candidateObjects,name,importedSeen,fullSeen),
+            Type t when t == typeof(Section) => NarrowSelection<Section>(candidateObjects,name,importedSeen,fullSeen),
+            _ => [],
+         };
+      }
+
+      private static IEnumerable<NamedElement> NarrowSelection<T>(IEnumerable<NamedElement> candidateObjects,string name,
+            bool importedSeen,bool fullSeen,Func<T,bool>? pred = null) where T : NamedElement {
          if (Database.TryGetNamedElements<T>(candidateObjects,name,out IEnumerable<T>? elements) && elements is not null) {
             if (pred is not null) elements = elements.Where(e => pred((T)e));
             if (importedSeen) elements = elements.Where(e => e.IsImported);
@@ -382,7 +411,7 @@ namespace CDL2v1 {
          return candidates.Where(c => HasLudesOfType(c,type));
       }
 
-      private IEnumerable<NamedElement> NarrowSelectionToList() => throw new NotImplementedException();
+      private IEnumerable<NamedElement> NarrowSelectionToInterface() => throw new NotImplementedException();
 
       private bool ParseSelectionSegments(string selectionString,SelectionSegments segments,out bool importedSeen, out bool fullSeen) {
          bool previousSegmentWasUnit = false;
