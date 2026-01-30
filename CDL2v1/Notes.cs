@@ -168,6 +168,7 @@ namespace CDL2v1 {
 
 #if DEBUG
       static Note() {
+         // Verify that there are no duplicate Note numbers
          HashSet<int> noteIds = [];
          foreach (FieldInfo field in typeof(Note).GetFields(BindingFlags.Public | BindingFlags.Static)) {
             if (field.FieldType == typeof(Note)) {

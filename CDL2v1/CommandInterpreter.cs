@@ -147,6 +147,9 @@ namespace CDL2v1 {
             if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
                // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
                // Must also take care of adding an undo record if something is replaced.
+               // Notice that it the edited element had notes attached, these will be lost becasue we will have a new object.
+               // When the element was inserted into the edit buffer, it will only have had the user notes, Lab generated ones are not output.
+               // This is the desired behaviour, later semantic analysis will regenerate those notes that still applied to the modified object.
                ParsingContext parsingContext = ParsingContext.AsParsingContext;
                if (parser.Parse(parsingContext,out NamedElement? element,CanReplace,input)) {
                   if (setFocus && element is not null) Focus.SetFocus(element);
@@ -1224,7 +1227,9 @@ namespace CDL2v1 {
             ParsingContext = new(new Focus(context),InsertLocation.Replace); // Set the parsing context to the current focus, so that the parser can use it.
             if (context.Object is Const or LIST or Algorithm) {
                // Only Vars cannot be edited
+               ppEdit.SupressNotes = true;   // Klude to omott printing of notes.
                REPL.EditText(ppEdit.Print(context.Object));
+               ppEdit.SupressNotes = true;
             } else if (context.Object is Section sec && context.ListType != ST.INVALID) {
                // Special case: editing the prelude of a section.
                RW ludeType = SelectSingleSectionLude(context.ListType switch {
@@ -1245,7 +1250,9 @@ namespace CDL2v1 {
                      ParsingContext = null;
                      return;
                   } else {
+                     ppEdit.SupressNotes = true;
                      REPL.EditText(ppEdit.PrintLude(ludeType,sec,asString: true)!);
+                     ppEdit.SupressNotes = false;
                   }
                } else if (context.ListType == ST.LUDE) {
                   WriteError("Can't edit. Specify the specific lude instead of LUDE");

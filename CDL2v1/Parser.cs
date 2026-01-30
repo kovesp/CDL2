@@ -995,6 +995,12 @@ namespace CDL2v1 {
          return result;
       }
 
+      /// <summary>
+      /// Report a problem using a Note. The ErrorReporter used is specific to the compiler and the lab.
+      /// <remark>This does NOT attach the note to anything, that has to be done separatly if required.</remark>
+      /// </summary>
+      /// <param name="note"></param>
+      /// <param name="args"></param>
       private void ReportProblem(Note note,params object[] args) => ErrorReporter(note.NoteType,note.FormattedText(args),false);
       private void ReportError(string message,bool suppressErrorAction = false) => ErrorReporter(Severity.Error,message,suppressErrorAction);
 

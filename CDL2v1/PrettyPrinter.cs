@@ -53,6 +53,7 @@ namespace CDL2v1 {
       private int LineLength { get; set; } = DEFAULT_LINE_LENGTH;              // Line length for wrapping        
       private int IndentMultiplier { get; set; } = DEFAULT_INDENT_MULTIPLIER;        // The indent multiplier
       private int MaxIndentIncrement { get; set; } = DEFAULT_MAX_INDENT_INCREMENT;     // The maximum number of times the indent can be incremented for wrapping.
+      public bool SupressNotes { get; internal set; }
 
       public readonly Emitter Emitter;
 
@@ -996,8 +997,11 @@ namespace CDL2v1 {
       /// Emits the specified comment text and associated notes to the output, applying formatting and optional line
       /// breaks as specified.
       /// </summary>
-      /// <remarks>Comments and notes are only emitted if the IncludeComments property is set to true. Notes
-      /// with different severities are formatted distinctly to indicate their type.</remarks>
+      /// <remarks>
+      /// Comments and notes are only emitted if the IncludeComments property is set to true. Notes
+      /// with different severities are formatted distinctly to indicate their type.
+      /// When the SuppressNotes flag is set, then only comments and user notes are emitted.
+      /// </remarks>
       /// <param name="comments">The comment text to emit. If null, empty, or whitespace, no comment is emitted.</param>
       /// <param name="notes">A collection of notes to emit after the comment. Each note is formatted according to its severity.</param>
       /// <param name="nl">true to insert a new line before emitting the comment; otherwise, false. The default is true.</param>
@@ -1005,6 +1009,7 @@ namespace CDL2v1 {
       private void PrintComment(string comments,Notes? notes = null,bool nl = true,bool needsEnd = true) {
          if (IncludeComments) {
             if (comments.IsNotEmptyOrWhitespace) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter,SE.Comment));
+
             foreach (Note note in notes ?? Notes.Empty) {
                if (note.NoteType == Severity.Note) {
                   NlEmitnl(note.Text.TrimEnd().Decorate(Emitter,SE.Comment));
@@ -1013,13 +1018,12 @@ namespace CDL2v1 {
                   } else {
                      Emitnl(RW.NOTE);
                   }
-               } else {
+               } else if (!SupressNotes) {
                   Emitnl(string.Concat("#",Note.Marker,(note.NoteType.ToString().ToUpper().PadRight(7)[..7] + " " + note.Number.ToString("D3") + ": "),note.Text)
                      .Decorate(Emitter,note.NoteType switch {
                         Severity.Error => SE.NoteError,
                         Severity.Warning => SE.NoteWarning,
                         Severity.Info => SE.NoteInfo,
-                        Severity.Note => SE.Comment,
                         _ => SE.Comment
                      }));
                }
