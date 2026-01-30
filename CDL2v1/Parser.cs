@@ -448,32 +448,36 @@ namespace CDL2v1 {
 
       private bool ParseAlternative(Procedure proc,Group group,Notes notes,ParseMode mode,out Alternative alternative) {
          alternative = new(notes,group);
+         
          do {
             if (alternative.lastCall.type != LCT.None) {
                // If we have a last call, then we should NOT have seen a separator
-               if (mode == ParseMode.Full) ReportError("Unexpected ,");
+               if (mode == ParseMode.Full) ReportProblem(Note.UnexpectedSeparator);
                return false;
             } else if (tokens.Optional(RW.BUILTIN) && tokens.Optional(out ID id)) {
                if (ParseCall(id,proc,alternative,mode,out Call? call,builtin: true)) {
                   alternative.calls.Add(call);
                } else {
-                  if (mode == ParseMode.Full) ReportError("Expected built-in ID");
+                  if (mode == ParseMode.Full) ReportProblem(Note.ExpectedBuiltinId);
                   return false;
                }
             } else if (tokens.Optional(out id)) {
                if (ParseCall(id,proc,alternative,mode,out Call? call)) {
                   alternative.calls.Add(call);
                } else {
-                  if (mode == ParseMode.Full) ReportError("Expected built-in ID");
+                  if (mode == ParseMode.Full) ReportProblem(Note.ExpectedCall);
                   return false;
                }
             } else if (tokens.Optional(TT.SUCCEED)) {
                alternative.lastCall = new LastCall(LCT.Succeed,alternative);
             } else if (tokens.Optional(TT.FAIL)) {
                alternative.lastCall = new LastCall(LCT.Fail,alternative);
-               if (mode == ParseMode.Full && !proc.CanFail) {
-                  AddNote(proc,Note.IllegalFailOperator,proc.AlgorithmType);
-                  ReportError($"{proc} contains fail operator",suppressErrorAction: true);
+               if (!proc.CanFail) {
+                  if (mode == ParseMode.Full) {
+                     AddNote(proc,Note.IllegalFailOperator,proc.AlgorithmType);
+                     ReportProblem(Note.TestContainsFail,proc);
+                  }
+                  return false;
                }
             } else if (tokens.Optional(TT.ABORT)) {
                alternative.lastCall = new LastCall(LCT.Abort,alternative);
@@ -489,15 +493,12 @@ namespace CDL2v1 {
                }
             } else if (tokens.Optional(TT.GRPOPEN)) {
                if (!ParseGroup(proc,containingGroup: group,containingAlternative: alternative,mode,out LastCall? grp)) {
-                  if (mode == ParseMode.Full) ReportError($"Expected group",suppressErrorAction: true);
+                  if (mode == ParseMode.Full) ReportProblem(Note.ExpectedGroup);
                   return false;
                }
                alternative.lastCall = grp;
-            } else if (tokens.IsNext(TT.END) || tokens.IsNext(TT.ALTSEP)) {
-               // The last item in an alternative can be empty which is equivalent to a succeed and is represented as such.
-               alternative.lastCall = new LastCall(LCT.Succeed,alternative);
             } else {
-               if (mode == ParseMode.Full) ReportError("Expected ID, +, -, ?, or *");
+               if (mode == ParseMode.Full) ReportProblem(Note.ExpectedLastCall);
                return false;
             }
          } while (tokens.Optional(TT.CALLSEP));
@@ -889,7 +890,7 @@ namespace CDL2v1 {
       /// <param Id="parser"></param>
       /// <param Id="LudeType"></param>
       /// <param Id="container"></param>
-      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container,out ID ludeId,out Guid ludeGuid) {
+      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container,ParseMode mode,out ID ludeId,out Guid ludeGuid) {
          ludeId = ID.AnonID;
          ludeGuid = Guid.Empty;
          if (parser.tokens.Optional(ludeType)) {
@@ -898,18 +899,26 @@ namespace CDL2v1 {
             Procedure lude = new(ludeType,section);
 
             Alternative alternative = new(parser.ParseNotes(),lude.group);
-
-            while (parser.tokens.Optional(TT.ID,out Token id)) {
+            if (!parser.tokens.Optional(TT.ID,out Token id)) {
+               if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedCall);
+               return false;
+            }
+            for (; ;) {
                if (ParseCall(parser,ID.From(id),lude,alternative,ParseMode.Full,out Call? call)) {
                   alternative.calls.Add(call);
                } else {
-                  parser.ReportProblem(Note.ExpectedCall);
+                  if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedCall);
                   return false;
                }
                if (!parser.tokens.CanConsumeSep()) break;
-            }
+               if (!parser.tokens.Optional(TT.ID,out id)) { // Must have a call start, so an ID
+                  if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedCall);
+                  return false;
+               }
+            } 
+
             if (!parser.tokens.CanConsumeEnd()) {
-               parser.ReportProblem(Note.ExpectedPeriod);
+               if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedPeriod);
                return false;
             }
             if (alternative.calls.Count >= 1) {
@@ -926,7 +935,7 @@ namespace CDL2v1 {
          }
          return true;
       }
-      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container) => ParseLudeOfCalls(parser,ludeType,container,out ID _,out Guid _);
+      internal static bool ParseLudeOfCalls(Parser parser,RW ludeType,Container container) => ParseLudeOfCalls(parser,ludeType,container,ParseMode.Full,out ID _,out Guid _);
 
 
       /// <summary>
@@ -988,8 +997,7 @@ namespace CDL2v1 {
 
       private void ReportProblem(Note note,params object[] args) => ErrorReporter(note.NoteType,note.FormattedText(args),false);
       private void ReportError(string message,bool suppressErrorAction = false) => ErrorReporter(Severity.Error,message,suppressErrorAction);
-      private void ReportWarning(string message) => ErrorReporter(Severity.Warning,message,false);
-      private void ReportInfo(string message) => ErrorReporter(Severity.Info,message,false);
+
 
       internal void SkipToNextEnd() {
          while (!tokens.IsNext(TT.END))
@@ -1164,26 +1172,27 @@ namespace CDL2v1 {
             case RW.PRELUDE:
             case RW.POSTLUDE:
                if (context.FocusType == SelectorType.LAYER) {
-                  ReportProblem(Note.InvalidLudeContext,objectType.ToString(),context.ToString());
-               } else {
-                  if (context.FocusType == SelectorType.SECTION) {
-                     // Either the context is a Section or it is inside a section.
-                     currentSection = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
-                     Debug.Assert(currentSection != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
-                     if (ParseLudeOfCalls(this,objectType,currentSection,out ID ludeProcId,out Guid ludeGuid)) {
-                        Database.Instance.RecordUndo(currentSection,objectType,ludeProcId,ludeGuid,ChangeType.LudeAdded);
-                     } else {
-                        ReportProblem(Note.InvalidLude,$"{objectType} in {currentSection.FQDN()}");
-                     }
-
+                  if (mode == ParseMode.Full) ReportProblem(Note.InvalidLudeContext,objectType.ToString(),context.ToString());
+                  return false;
+               } else if (context.FocusType == SelectorType.SECTION) {
+                  // Either the context is a Section or it is inside a section.
+                  currentSection = context.Object as Section ?? (context.Object as CDL2Object)?.Section;
+                  Debug.Assert(currentSection != null,"Expected a section context for ROOT, PRELUDE, or POSTLUDE.");
+                  if (ParseLudeOfCalls(this,objectType,currentSection,mode,out ID ludeProcId,out Guid ludeGuid)) {
+                     if (mode == ParseMode.Full) Database.Instance.RecordUndo(currentSection,objectType,ludeProcId,ludeGuid,ChangeType.LudeAdded);
                   } else {
-                     // Otherwise it is a Program or a Module
-                     Container container = (context.Object as Container)!;
-                     if (ParseLudeOfIDs(this,objectType,container,out List<ID> ludeIds)) {
-                        foreach (ID ludeId in ludeIds) Database.Instance.RecordUndo(container,objectType,ludeId,ChangeType.LudeAdded);
-                     } else {
-                        ReportProblem(Note.InvalidLude,$"{objectType} in {context.Object!.FQDN()}");
-                     }
+                     if (mode == ParseMode.Full) ReportProblem(Note.InvalidLude,$"{objectType} in {currentSection.FQDN()}");
+                     return false;
+                  }
+                  return true;
+               } else {
+                  // Otherwise it is a Program or a Module
+                  Container container = (context.Object as Container)!;
+                  if (ParseLudeOfIDs(this,objectType,container,out List<ID> ludeIds)) {
+                     if (mode == ParseMode.Full) foreach (ID ludeId in ludeIds) Database.Instance.RecordUndo(container,objectType,ludeId,ChangeType.LudeAdded);
+                  } else {
+                     if (mode == ParseMode.Full) ReportProblem(Note.InvalidLude,$"{objectType} in {context.Object!.FQDN()}");
+                     return false;
                   }
                }
                break;

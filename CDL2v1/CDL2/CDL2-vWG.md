@@ -96,7 +96,7 @@ call: builtin token option,procedure identifier, actual parameter sequence optio
 actual parameter: plus token, actual argument.
 actual argument: const identifier ; list identifier ; var identifier ; argument identifier ; local identifier ; string.
 last call: call ; group pack ; plus token ; minus token ; question mark token ; star token, group identifier option.
-group: group label option, alternatives separated by semicolon.
+group: group label option, alternatives separated by semicolons.
 group label: group identifier, colon token.
 
 macro body: macro body delimiter, macro elements separated by optional semicolons sentence.

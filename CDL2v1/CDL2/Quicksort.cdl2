@@ -595,7 +595,6 @@ MODULE quicksort.
             show msg+"Running .NET sort on list.",
             start timer, sort data, stop timer, get elapsed time+builtin elapsed, show elapsed time,
             divide+cdl2 elapsed+builtin elapsed+ratio, show msg no newline+"Ratio: ", show number+ratio, show msg+".".
-
       ENDSEC sorter.
       ROOT run demo.
    ENDLAY sort.

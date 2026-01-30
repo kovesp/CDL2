@@ -301,6 +301,10 @@ namespace CDL2v1 {
                listType = segments[segNo].SegmentType;
                break;
 
+            case SelectorType.AFFIX or SelectorType.CALL or SelectorType.LOCAL:
+               selectedObjects = NarrowSelectionToNonFocusable<Algorithm>(candidateObjects,segments,segNo,importedSeen,segments[segNo].SegmentType);
+               break;
+
             // NOTE and PART. Not clear yet whether these should be supported.
             case SelectorType.PART:
             case SelectorType.NOTE: 
@@ -341,7 +345,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       private static IEnumerable<NamedElement> NarrowContainerSelection(Type type,IEnumerable<NamedElement> candidateObjects,SelectionSegments segments,int segNo,
             bool importedSeen,bool fullSeen,bool isRooted) {
-         string name = segments[segNo].SegmentName;
+         string name = segments[segNo+1].SegmentName;
          // If the subselector is not the last and the current focus is on a "smaller" unit then a blank name should be treated as the coontainer containing the focus.
          // Otherwise it should match anything.
          if (!isRooted && segNo < segments.Count - 2 && name == "" && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: segments[segNo].SegmentType,child: Focus.Current.FocusType)) {

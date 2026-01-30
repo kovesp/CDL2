@@ -37,6 +37,7 @@
 
 
 
+using System.Reflection;
 using System.Text.Json.Serialization;
 
 namespace CDL2v1 {
@@ -142,7 +143,11 @@ namespace CDL2v1 {
       public static readonly Note NotImplemented = new(Severity.Error,057,"Not implemented: {0}");
       public static readonly Note CannotDelete = new(Severity.Error,058,"Cannot remove {0} from {1}");
       public static readonly Note InvalidLude = new(Severity.Error,059,"Invalid lude {0}");
-
+      public static readonly Note TestContainsFail = new(Severity.Error,060,"{0} contains a fail operator");
+      public static readonly Note UnexpectedSeparator = new(Severity.Error,061,"Unexpected comma");
+      public static readonly Note ExpectedBuiltinId = new(Severity.Error,062,"Expected built-in ID");
+      public static readonly Note ExpectedGroup = new(Severity.Error,063,"Expected group");
+      public static readonly Note ExpectedLastCall = new(Severity.Error,064,"Expected last call: ID, +, -, ?, or *");
 
       public static readonly Note NoEffect = new(Severity.Warning,101,"Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten = new(Severity.Warning,102,"Output affix {0} whose value has not been read passed to output in {1}");
@@ -151,7 +156,6 @@ namespace CDL2v1 {
       public static readonly Note VariableNotWritten = new(Severity.Warning,105,"Variable {0} was read, but never assigned a action");
       public static readonly Note VariableMayNotHaveBeenRead = new(Severity.Warning,106,"Variable {0} was assigned a action, but may not have been read");
       public static readonly Note AbstractionsInTopLayer = new(Severity.Warning,107,"There are abstractions in the top layer of the module");
-
       public static readonly Note UninitializedOutputPassedAsInput = new(Severity.Warning,110,"Output affix {0} that has not been set passed as input or transput in call {1}");
       public static readonly Note InputAffixPassedToOutput = new(Severity.Warning,111,"Input affix {0} passed to output or transput in call {0}");
       public static readonly Note OutputAffixNotAssigned = new(Severity.Warning,112,"Output affix {0} that has not been set passed as input in call {1}");
@@ -162,6 +166,19 @@ namespace CDL2v1 {
       public static readonly Note LocalNotReferenced = new(Severity.Info,202,"Local {0} was not used in procedure {1}");
       public static readonly Note UnreferenceObject = new(Severity.Info,203,"Object is defined but not used in program. This may be due to conditional compilation");
 
+#if DEBUG
+      static Note() {
+         HashSet<int> noteIds = [];
+         foreach (FieldInfo field in typeof(Note).GetFields(BindingFlags.Public | BindingFlags.Static)) {
+            if (field.FieldType == typeof(Note)) {
+               Note note = (Note)field.GetValue(null)!;
+               if (!noteIds.Add(note.Number)) {
+                  throw new Exception($"Duplicate Note number in: {note}");
+               }
+            }
+         }
+      }
+#endif 
 
       public override string ToString() => $"{NoteType} {Number}: {Text}";
       public override bool Equals(object? obj) => Equals(obj as Note);
