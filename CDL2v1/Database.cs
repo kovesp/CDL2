@@ -703,10 +703,19 @@ namespace CDL2v1 {
       public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Id == name);
       public bool IsNamedElement<T>(ID id) where T : NamedElement => IsNamedElement<T>(id.CanonicalName);
 
-      public Program? ProgramByName(string programName) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == programName);
+      public Program? ProgramByName(string programName) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id.Matches(programName));
       public Program? ProgramByName(ID ProgramId) => NamedElements.Values.OfType<Program>().FirstOrDefault(p => p.Id == ProgramId);
-      public Module? ModuleByName(string moduleName) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleName);
+      public IEnumerable<Module> ModulesByName(string moduleName) => NamedElements.Values.OfType<Module>().Where(m => m.Id.Matches(moduleName));
+      public Module? ModuleByName(string moduleName) => ModulesByName(moduleName).FirstOrDefault();
       public Module? ModuleByName(ID moduleId) => NamedElements.Values.OfType<Module>().FirstOrDefault(m => m.Id == moduleId);
+
+      // Some convinience method for use in the debugger.
+      public IEnumerable<Section> SectionsByName(string section,string module="*") => ModulesByName(module).SelectMany(m => m.Sections).Where(s => s.Id.Matches(section));
+      public Section? SectionByName(string section,string module="*") => SectionsByName(section,module).FirstOrDefault();
+      public IEnumerable<Guid> SiblingsByName(string obj,string section = "*",string module = "*")
+         => (SectionsByName(section,module).FirstOrDefault()?.ChildElements().FirstOrDefault(e=>e.Id.Matches(obj)) as CDL2Object)?.Siblings ?? [];
+      public static IEnumerable<Section> Secs(string sec,string mod = "*") => Instance.SectionsByName(sec,mod);
+      public static Section? Sec(string sec,string mod = "*") => Instance.SectionByName(sec,mod);
 
 
       public static string Save(string? filePath = null) => Serializer.SaveDB(filePath);

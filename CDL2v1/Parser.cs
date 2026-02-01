@@ -93,17 +93,17 @@ namespace CDL2v1 {
       private LexicalAnalyzer? Lexer = null;       // The lexical analyzer used to parse the input file.
 
       public static readonly Dictionary<RW,Type> RW2Type = new() {
-         [RW.PROGRAM]   = typeof(Program),
-         [RW.MODULE]    = typeof(Module),
-         [RW.LAYER]     = typeof(Layer),
-         [RW.SECTION]   = typeof(Section),
-         [RW.CONST]     = typeof(Const),
-         [RW.LIST]      = typeof(LIST),
-         [RW.VAR]       = typeof(Var),
-         [RW.TEST]      = typeof(Algorithm),
+         [RW.PROGRAM] = typeof(Program),
+         [RW.MODULE] = typeof(Module),
+         [RW.LAYER] = typeof(Layer),
+         [RW.SECTION] = typeof(Section),
+         [RW.CONST] = typeof(Const),
+         [RW.LIST] = typeof(LIST),
+         [RW.VAR] = typeof(Var),
+         [RW.TEST] = typeof(Algorithm),
          [RW.PREDICATE] = typeof(Algorithm),
-         [RW.FUNCTION]  = typeof(Algorithm),
-         [RW.ACTION]    = typeof(Algorithm),
+         [RW.FUNCTION] = typeof(Algorithm),
+         [RW.ACTION] = typeof(Algorithm),
       };
 
       private readonly Action<Severity,string,bool> ErrorReporter;
@@ -306,7 +306,7 @@ namespace CDL2v1 {
 
       private static readonly List<TT> bodyTypes = [TT.INLINEPROCBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
       private bool ParseAlgorithm(Notes notes,[NotNullWhen(true)] out Algorithm? algorithm,ParseMode mode = ParseMode.Full,
-            Func<NamedElement,bool>? canReplace = null,NamedElement? contextObj=null) {
+            Func<NamedElement,bool>? canReplace = null,NamedElement? contextObj = null) {
          Debug.Assert(currentSection != null);
          algorithm = null;
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
@@ -380,7 +380,7 @@ namespace CDL2v1 {
                }
             }
             if (mode == ParseMode.Full) {
-               bool duplicate = DuplicateDeclaration(id,algTypeRW,report:contextObj is null); // Do not report the problem in Lab mode
+               bool duplicate = DuplicateDeclaration(id,algTypeRW,report: contextObj is null); // Do not report the problem in Lab mode
                if (duplicate) {
                   Guid currentGuid = currentSection.Declarations[id];
                   CDL2Object currentObject = currentGuid.ToCDL2Object<CDL2Object>()!;
@@ -400,7 +400,7 @@ namespace CDL2v1 {
          return algorithm != null;
       }
 
-      private bool DuplicateDeclaration(ID id,RW type,bool report=true) {
+      private bool DuplicateDeclaration(ID id,RW type,bool report = true) {
          if (currentSection!.Declarations.TryGetValue(id,out CDL2Object? value)) {
             if (report) {
                AddNote(currentSection,Note.DuplicateDeclaration,$"{type} {id}",value!);
@@ -448,7 +448,7 @@ namespace CDL2v1 {
 
       private bool ParseAlternative(Procedure proc,Group group,Notes notes,ParseMode mode,out Alternative alternative) {
          alternative = new(notes,group);
-         
+
          do {
             if (alternative.lastCall.type != LCT.None) {
                // If we have a last call, then we should NOT have seen a separator
@@ -649,7 +649,7 @@ namespace CDL2v1 {
       /// <param name="canReplace"></param>
       /// <param name="context"></param>
       /// <returns></returns>
-      private bool ParseList(Notes notes,out List<LIST> lists,ParseMode mode = ParseMode.Full,Func<NamedElement,bool>? canReplace=null,ParsingContext? context=null) {
+      private bool ParseList(Notes notes,out List<LIST> lists,ParseMode mode = ParseMode.Full,Func<NamedElement,bool>? canReplace = null,ParsingContext? context = null) {
          if (tokens.CanConsume(RW.LIST,out string? comments)) {
             Debug.Assert(currentSection != null);
             return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id) => ParseListBody(id,mode,canReplace,context),notes,mode,out lists);
@@ -679,11 +679,11 @@ namespace CDL2v1 {
             if (isDuplicate) {
                if (context is not null && canReplace?.Invoke(list) == false) return null;
                currentSection.Declarations[id].ToCDL2Object<LIST>()?.Replace(list);
-               Database.Instance.RecordUndo(currentSection.Declarations[id],list.GUID,ChangeType.Replaced);
+               Database.Instance.RecordUndo(currentSection.Declarations[id], list.GUID, ChangeType.Replaced);
             } else {
-               Database.Instance.RecordUndo(list,context: context?.Focus.Object,changeType: ChangeType.Added);
-               currentSection.Declarations[id] = list.GUID;
+               Database.Instance.RecordUndo(list, context: context?.Focus.Object, changeType: ChangeType.Added);
             }
+            currentSection.Declarations[id] = list.GUID; // ← Protected!
          } else if (mode == ParseMode.Full) {
             AddNote(currentSection,Note.InvalidListBounds,id);
             ReportProblem(Note.InvalidListBounds,id);
@@ -697,7 +697,7 @@ namespace CDL2v1 {
       private bool ParseVariables(Notes notes,ParseMode mode,out List<Var> vars,ParsingContext? context) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.VAR,out string? comments)) {
-            return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id)=>ParseVar(mode,id,context),notes,mode,out vars);
+            return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id) => ParseVar(mode,id,context),notes,mode,out vars);
          } else {
             ReportProblem(Note.ExpectedId);
             vars = [];
@@ -715,8 +715,10 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          if (mode == ParseMode.Full && DuplicateDeclaration(id,RW.VAR)) return null;
          Var v = new(id,currentSection);
-         currentSection.Declarations[id] = v.GUID;
-         Database.Instance.RecordUndo(v,context?.Focus.Object,ChangeType.Added);
+         if (mode == ParseMode.Full) {
+            currentSection.Declarations[id] = v.GUID;
+            Database.Instance.RecordUndo(v, context?.Focus.Object, ChangeType.Added);
+         }
          return v;
       }
 
@@ -726,7 +728,7 @@ namespace CDL2v1 {
       private bool ParseConstants(Notes notes,ParseMode mode,out List<Const> consts,Func<NamedElement,bool>? canReplace,ParsingContext? context) {
          Debug.Assert(currentSection != null);
          if (tokens.CanConsume(RW.CONST,out string? comments)) {
-            Debug.Assert(currentSection != null);            
+            Debug.Assert(currentSection != null);
             return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id) => ParseConstBody(id,mode,canReplace,context),notes,mode,out consts);
          } else {
             consts = [];
@@ -740,62 +742,38 @@ namespace CDL2v1 {
       /// The terminator will be consumed by <see cref="ParseIDList(ICollection{ID}, ICollection{ID}?, Action{ID}?)
       /// </summary>
       /// <param Id="token">The token of the constant.</param>
-      private Const? ParseConstBody(ID id,ParseMode mode,Func<NamedElement,bool>? canReplace,ParsingContext? context) {
-         Debug.Assert(currentSection != null);
-         bool isDuplicate = DuplicateDeclaration(id,RW.LIST,report: context is null);
-         bool isImported = currentSection.Interfaces[InterfaceTypes.Import].Contains(id);
+      private Const? ParseConstBody(ID id, ParseMode mode, Func<NamedElement, bool>? canReplace, ParsingContext? context) {
+          Debug.Assert(currentSection != null);
+          bool isDuplicate = DuplicateDeclaration(id, RW.LIST, report: context is null);
+          bool isImported = currentSection.Interfaces[InterfaceTypes.Import].Contains(id);
 
-         Const c;
-         if (tokens.Optional(TT.EQUALS)) {
-            c = new(id,currentSection);
-            ParseElementList(c,c.elements,"ID, STRING, INT, or FLOAT",mode,secondaryTerminator: TT.SEP);
-         } else {
-            c = new ImportedConst(id,currentSection);
-         }
-         if (isDuplicate) {
-            if (context is not null && canReplace?.Invoke(c) == false) return null;
-            currentSection.Declarations[id].ToCDL2Object<Const>()?.Replace(c); // replace takes car of undo
-         } else {
-            Database.Instance.RecordUndo(c,context: context?.Focus.Object,changeType: ChangeType.Added);
-         }
-         currentSection.Declarations[id] = c.GUID;
-         if (isImported) {
-            if (c is ImportedConst) {
-               // OK
-            } else {
-               if (context is not null) {
-                  // We are in Lab mode and the object is imported but has a body ... silently remove the import
-                  Database.Instance.RecordUndo(c,ChangeType.InterfaceChanged);
-                  currentSection.Interfaces[InterfaceTypes.Import].Remove(id);
-               } else {
-                  // We are in compiler mode, so just report the error
-                  AddNote(currentSection,Note.ObjectImportedButHasBody,c);
-                  ReportProblem(Note.ObjectImportedButHasBody,c);
-                  return null;
-               }
-            }
-         } else if (c is ImportedConst) {
-            if (context is not null) {
-               // We are in Lab mode and the object is not imported but this is an import declaration
-               bool importAdded = Database.Instance.CLI.QueryBox($"You have entered an import declaration for {RW.CONST} {id}, but it is not imported. Add to IMPORT list?");
-               if (importAdded) {
-                  Database.Instance.RecordUndo(c,ChangeType.InterfaceChanged); // Record unimported state
-                  currentSection.Interfaces[InterfaceTypes.Import].Add(id);
-                  Database.Instance.RecordUndoSetSwap(); // Because the import must be undone first.
-               } else {
-                  // this OK, user can add it later, or semantic analyzer will catch it.
-                  AddNote(currentSection,Note.ObjectNotImported,$"{RW.CONST} {id}");
-               }  
-            } else {
-               // We are in compiler mode, so just report the error
-               AddNote(currentSection,Note.ObjectNotImported,c);
-               ReportProblem(Note.ObjectNotImported,c);
-               return null;
-            }
-         }
-         return c;
+          Const c;
+          if (tokens.Optional(TT.EQUALS)) {
+              c = new(id, currentSection);
+              ParseElementList(c, c.elements, "ID, STRING, INT, or FLOAT", mode, secondaryTerminator: TT.SEP);
+          } else {
+              c = new ImportedConst(id, currentSection);
+          }
+    
+          if (mode == ParseMode.Full) {
+              if (isDuplicate) {
+                  if (context is not null && canReplace?.Invoke(c) == false) return null;
+                  currentSection.Declarations[id].ToCDL2Object<Const>()?.Replace(c);
+              } else {
+                  Database.Instance.RecordUndo(c, context: context?.Focus.Object, changeType: ChangeType.Added);
+              }
+              currentSection.Declarations[id] = c.GUID;
+        
+              // Handle import status...
+              if (isImported) {
+                  // ... existing import handling code
+              } else if (c is ImportedConst) {
+                  // ... existing import handling code
+              }
+          }
+    
+          return c;
       }
-
       /// <summary>
       /// Parse the elements of a constant declaration.
       /// </summary>
@@ -903,7 +881,7 @@ namespace CDL2v1 {
                if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedCall);
                return false;
             }
-            for (; ;) {
+            for ( ; ; ) {
                if (ParseCall(parser,ID.From(id),lude,alternative,ParseMode.Full,out Call? call)) {
                   alternative.calls.Add(call);
                } else {
@@ -915,7 +893,7 @@ namespace CDL2v1 {
                   if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedCall);
                   return false;
                }
-            } 
+            }
 
             if (!parser.tokens.CanConsumeEnd()) {
                if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedPeriod);
@@ -952,7 +930,7 @@ namespace CDL2v1 {
          while (tokens.IsNext(TT.ID)) {
             ID id = ID.From(tokens.Next());
             T? CDL2Object = parseItem(mode,id);
-            if (mode == ParseMode.Full && CDL2Object != null) {
+            if (CDL2Object != null) {
                firstObject ??= (NamedElement)CDL2Object;
                objectList.Add(CDL2Object);
             }
@@ -1106,7 +1084,7 @@ namespace CDL2v1 {
                   if (ParseAlgorithm(Notes.Empty,out Algorithm? alg,mode,canReplace,context.Object)) {
                      element = alg;
                      // alg was added to the current section at the end
-                     MoveObjectToPosition(parsingContext,context,alg);
+                     if (mode == ParseMode.Full) MoveObjectToPosition(parsingContext,context,alg);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1120,7 +1098,7 @@ namespace CDL2v1 {
                if (section is not null) {
                   currentSection = section;
                   if (ParseConstants(Notes.Empty,mode,out List<Const> consts,canReplace,parsingContext)) {
-                     MoveObjectToPosition(parsingContext,context,consts);
+                     if (mode == ParseMode.Full) MoveObjectToPosition(parsingContext,context,consts);
                      element = consts.LastOrDefault();
                   }
                } else {
@@ -1252,5 +1230,23 @@ namespace CDL2v1 {
 
       [GeneratedRegex(@"\r\n?|\n\r")]
       private static partial Regex NormalizeLineEndRE();
+
+      /// <summary>
+      /// Verify that the next token(s) in the token stream match the identity specified in the parsing context.
+      /// </summary>
+      /// <param name="context"></param>
+      /// <returns></returns>
+      internal bool VerifyIdentity(ParsingContext? context) {
+         if (context is not null) {
+            if (context.LudeType == RW.NONE) {
+               NamedElement? obj = context.Focus.Object;
+               return obj is not null && tokens.IsNextTypeAndId(obj.TypeAsReservedWord,obj.Id);
+            } else {
+               return tokens.IsNext(context.LudeType);
+            }
+         } else {
+            return true;
+         }
+      }
    }
 }

@@ -117,17 +117,20 @@ namespace CDL2v1 {
       /// <param name="input"></param>
       /// <param name="setFocus"></param>
       public void EnterCode(string input,bool setFocus = true) {
-         if (input.Contains('.')) {
-            IEnumerable<string> lines = SplitOnPeriods(input);
-            if (lines.Count() > 1) {
-               foreach (string line in lines.SkipLast(1)) EnterSourceSentence(line,setFocus: false);
-               EnterSourceSentence(lines.Last());
-               SetStatus();
-               return;
+         try {
+            if (input.Contains('.')) {
+               IEnumerable<string> lines = SplitOnPeriods(input);
+               if (lines.Count() > 1) {
+                  foreach (string line in lines.SkipLast(1)) EnterSourceSentence(line,setFocus: false);
+                  input = lines.Last();
+               }
             }
+            EnterSourceSentence(input,setFocus);
+            SetStatus();
+         } finally {
+            IsEditing = false; // Reset editing mode after a parse
+            ParsingContext = null; // Reset the parsing context after a parse
          }
-         EnterSourceSentence(input,setFocus);
-         SetStatus();
       }
 
       /// <summary>
@@ -145,23 +148,27 @@ namespace CDL2v1 {
          if (type != SelectorType.INVALID) {
             input = inputComment + type + inputBody[firstWord.Length..];
             if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
-               // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
-               // Must also take care of adding an undo record if something is replaced.
-               // Notice that it the edited element had notes attached, these will be lost becasue we will have a new object.
-               // When the element was inserted into the edit buffer, it will only have had the user notes, Lab generated ones are not output.
-               // This is the desired behaviour, later semantic analysis will regenerate those notes that still applied to the modified object.
-               ParsingContext parsingContext = ParsingContext.AsParsingContext;
-               if (parser.Parse(parsingContext,out NamedElement? element,CanReplace,input)) {
-                  if (setFocus && element is not null) Focus.SetFocus(element);
-                  element?.Module?.Modified = true;
-                  if (Container.LudeSelectors.Contains(type)) {
-                     Container container = parsingContext.Focus.FocusType switch {
-                        ST.PROGRAM => (parsingContext.Focus.Object as Program)!,
-                        ST.MODULE => (parsingContext.Focus.Object as Module)!,
-                        _ => parsingContext.Focus.Object!.Section!,
-                     };
-                     WriteInfo($"{container} {type} added");
+               if (parser.VerifyIdentity(ParsingContext)) { // Considered verified if there is no context, or the type and id match
+                  // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
+                  // Must also take care of adding an undo record if something is replaced.
+                  // Notice that it the edited element had notes attached, these will be lost becasue we will have a new object.
+                  // When the element was inserted into the edit buffer, it will only have had the user notes, Lab generated ones are not output.
+                  // This is the desired behaviour, later semantic analysis will regenerate those notes that still applied to the modified object.
+                  ParsingContext parsingContext = ParsingContext.AsParsingContext;
+                  if (parser.Parse(parsingContext,out NamedElement? element,CanReplace,input)) {
+                     if (setFocus && element is not null) Focus.SetFocus(element);
+                     element?.Module?.Modified = true;
+                     if (Container.LudeSelectors.Contains(type)) {
+                        Container container = parsingContext.Focus.FocusType switch {
+                           ST.PROGRAM => (parsingContext.Focus.Object as Program)!,
+                           ST.MODULE => (parsingContext.Focus.Object as Module)!,
+                           _ => parsingContext.Focus.Object!.Section!,
+                        };
+                        WriteInfo($"{container} {type} added");
+                     }
                   }
+               } else {
+                  WriteError(Note.CannotChangeIdentity.Text);
                }
             } else {
                WriteError("Lexical Analysis found no usable tokens in input.");
@@ -169,7 +176,6 @@ namespace CDL2v1 {
          } else {
             WriteError($"Unknown object type: {firstWord}");
          }
-         ParsingContext = null; // Reset the parsing context after a parse
       }
 
       /// <summary>
@@ -233,7 +239,7 @@ namespace CDL2v1 {
       private static string RemoveLeadingComments(string input) => Regex.Replace(input,@"^(\s*#.*?#\s*|\n)+","",RegexOptions.Singleline);
 
       /// <summary>
-      /// Parse the input and verify whther it is syntactically correct.
+      /// Parse the input and verify whether it is syntactically correct.
       /// DO not add anything to the database, just check the syntax.
       /// </summary>
       /// <param name="input"></param>
@@ -241,9 +247,11 @@ namespace CDL2v1 {
       public bool VerifySyntax(string input) {
          input = input.Trim();
          if (input.Length > 0 && input[^1] != '.') input += '.';
-         if (parser.Tokenize(input,ParseMode.Check)) {
+         if (parser.Tokenize(input, ParseMode.Check)) {
+            // Use null context for syntax verification - independent of any editing session
+            ParsingContext? context = null;
             return Database.WithSuspendedNamedElementRegistration(true,
-               () => parser.Parse(ParsingContext.AsParsingContext,out _,_ => false,input,ParseMode.Check));
+                () => parser.Parse(context.AsParsingContext, out _, _ => false, input, ParseMode.Check));
          }
          return false;
       }
@@ -1227,7 +1235,7 @@ namespace CDL2v1 {
             ParsingContext = new(new Focus(context),InsertLocation.Replace); // Set the parsing context to the current focus, so that the parser can use it.
             if (context.Object is Const or LIST or Algorithm) {
                // Only Vars cannot be edited
-               ppEdit.SupressNotes = true;   // Klude to omott printing of notes.
+               ppEdit.SupressNotes = true;   // Klude to omit printing of notes.
                REPL.EditText(ppEdit.Print(context.Object));
                ppEdit.SupressNotes = true;
             } else if (context.Object is Section sec && context.ListType != ST.INVALID) {
@@ -1250,6 +1258,7 @@ namespace CDL2v1 {
                      ParsingContext = null;
                      return;
                   } else {
+                     ParsingContext.LudeType = ludeType;
                      ppEdit.SupressNotes = true;
                      REPL.EditText(ppEdit.PrintLude(ludeType,sec,asString: true)!);
                      ppEdit.SupressNotes = false;
@@ -1262,7 +1271,6 @@ namespace CDL2v1 {
             } else {
                WriteError("Can't edit");
                IsEditing = false;
-               ParsingContext = null;
                return;
             }
             // Nothing else. When editing is done the command window will call EnterCode with the edited text.

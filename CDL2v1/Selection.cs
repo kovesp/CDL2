@@ -715,6 +715,9 @@ namespace CDL2v1 {
    public class ParsingContext(Focus? focus = null,InsertLocation location = InsertLocation.Last) {
       public readonly InsertLocation Location = location;
       public readonly Focus Focus = focus ?? Focus.Current;
+
+      public RW LudeType = RW.NONE;
+
       public override string ToString() => $"{Location} {Focus}";
    }
 }

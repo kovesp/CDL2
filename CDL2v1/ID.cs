@@ -34,6 +34,7 @@
 
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    /// <summary>
@@ -80,6 +81,13 @@ namespace CDL2v1 {
       public override string ToString() => Name;
       public int CompareTo(object? obj) => obj is ID id ? CanonicalName.CompareTo(id.CanonicalName) : 1;
       internal void Rename(string newName) => CanonicalName = Database.Instance.RenameCanonicalName(CanonicalName,newName);
+
+      /// <summary>
+      /// True if the name matches this ID. If the name starts with '/', it is treated as a regular expression.
+      /// </summary>
+      /// <param name="name">A name, a regular expression or * which matches any ID.</param>
+      /// <returns></returns>
+      public bool Matches(string name) => name == "*" || (name.StartsWith('/') ? new Regex(name[1..]).IsMatch(CanonicalName) : Name == CanonicalName);
 
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator ==(ID left,string right) => left is null ? right is null : left.Equals(right);

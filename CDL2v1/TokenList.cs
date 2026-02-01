@@ -35,6 +35,7 @@
 
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Dynamic;
 
 namespace CDL2v1 {
    public class TokenList(Action<TokenType[],Token,RW[]> unexpectedTokenReporter,TokenList.Options options = TokenList.Options.None) {
@@ -70,6 +71,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       public bool IsNext(List<TT> types) => IsNonEmpty() && types.Contains(tokens[0].type);
 
+
       public bool IsNext(RW reservedWord) => IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].reservedWordValue == reservedWord;
       public bool IsNext(RW reservedWord,[NotNullWhen(true)] out string? comment) {
          if (IsNonEmpty() && tokens[0].type == TT.RESWORD && tokens[0].reservedWordValue == reservedWord) {
@@ -80,7 +82,22 @@ namespace CDL2v1 {
             return false;
          }
       }
-      public bool IsNext(List<RW> reservedWords) => IsNonEmpty() && tokens[0].type == TT.RESWORD && reservedWords.Contains(tokens[0].reservedWordValue ?? 0); // ??0 is a hack to suppress error: reservedWordValue can't be null because tokens[0].type == TT.RESWORD
+      public bool IsNext(IEnumerable<RW> reservedWords) => IsNonEmpty() && tokens[0].type == TT.RESWORD && reservedWords.Contains(tokens[0].reservedWordValue ?? 0); // ??0 is a hack to suppress error: reservedWordValue can't be null because tokens[0].type == TT.RESWORD
+
+      /// <summary>
+      /// Determines whether the next two tokens represent the specified reserved word type followed by the specified
+      /// identifier.
+      /// </summary>
+      /// <param name="type">The reserved word type to compare against the first token.</param>
+      /// <param name="id">The identifier to compare against the second token.</param>
+      /// <returns>true if the first token is the specified reserved word type and the second token is the specified identifier;
+      /// otherwise, false.</returns>
+      public bool IsNextTypeAndId(RW type,ID id,bool strict = false) 
+         => tokens.Count > 1 && tokens[0].type == TT.RESWORD && IsSameType(tokens[0].reservedWordValue??RW.NONE,type) && tokens[1].type == TT.ID && ID.From(tokens[1]) == id;
+      private static readonly RW[] AlgorithmTypes = [RW.TEST,RW.PREDICATE,RW.FUNCTION,RW.ACTION];
+      private static bool IsSameType(RW type,RW tokenType,bool strict = false)
+         => strict ? type == tokenType : AlgorithmTypes.Contains(type) && AlgorithmTypes.Contains(tokenType);
+
       public Token Next() {
          if (IsNonEmpty()) {
             Token token = tokens[0];

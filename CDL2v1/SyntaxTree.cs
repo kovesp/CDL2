@@ -39,6 +39,7 @@
 
 // Ignore Spelling: Transput CDL abstr ext inv ludes lude lwb upb FQN
 
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
@@ -306,6 +307,24 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(6)] public Notes Notes { get; set; } = [];
 
       [JsonIgnore] public virtual bool IsImported => false;
+
+      private static readonly ImmutableDictionary<string,RW> ReservedWordMap = new Dictionary<string,RW>() {
+         { "Program", RW.PROGRAM },
+         { "Module", RW.MODULE },
+         { "Layer", RW.LAYER },
+         { "Section", RW.SECTION },
+         { "LIST", RW.LIST },
+         { "Var", RW.VAR },
+         { "Const", RW.CONST },
+         { "ImportedConst", RW.CONST },
+      }.ToImmutableDictionary();
+
+      /// <summary>
+      /// Gets the reserved word type associated with this instance, if applicable.
+      /// </summary>
+      /// <remarks>If the instance is an Algorithm, returns its algorithm type. Otherwise, attempts to map
+      /// the type name to a reserved word; if no mapping exists, returns RW.NONE.</remarks>
+      [JsonIgnore] public RW TypeAsReservedWord => this is Algorithm alg ? alg.AlgorithmType : ReservedWordMap.TryGetValue(GetType().Name,out RW rw) ? rw : RW.NONE;
 
       /// <summary>
       /// Create a new NamedElement with the given ID.
@@ -761,8 +780,8 @@ namespace CDL2v1 {
          return section != null;
       }
 
-      [JsonIgnore] public List<Layer> Layers => [.. Children.Select(GUID => (Layer)Database.Instance.NamedElements[GUID])];
-      [JsonIgnore] public List<Section> Sections => [.. Layers.SelectMany(layer => layer.Children.Select(GUID => (Section)Database.Instance.NamedElements[GUID]))];
+      [JsonIgnore] public IEnumerable<Layer> Layers => [.. Children.Select(GUID => (Layer)Database.Instance.NamedElements[GUID])];
+      [JsonIgnore] public IEnumerable<Section> Sections => [.. Layers.SelectMany(layer => layer.Children.Select(GUID => (Section)Database.Instance.NamedElements[GUID]))];
 
       public override List<Guid> Siblings => Database.Instance.Modules;
    }

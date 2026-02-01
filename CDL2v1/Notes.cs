@@ -148,6 +148,7 @@ namespace CDL2v1 {
       public static readonly Note ExpectedBuiltinId = new(Severity.Error,062,"Expected built-in ID");
       public static readonly Note ExpectedGroup = new(Severity.Error,063,"Expected group");
       public static readonly Note ExpectedLastCall = new(Severity.Error,064,"Expected last call: ID, +, -, ?, or *");
+      public static readonly Note CannotChangeIdentity = new(Severity.Error,065,"The edit command cannot be used to change the type or identity of an object");
 
       public static readonly Note NoEffect = new(Severity.Warning,101,"Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten = new(Severity.Warning,102,"Output affix {0} whose value has not been read passed to output in {1}");
