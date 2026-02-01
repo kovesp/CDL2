@@ -655,7 +655,7 @@ namespace CDL2v1 {
             return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id) => ParseListBody(id,mode,canReplace,context),notes,mode,out lists);
          }
          lists = [];
-         return true;
+         return false;
       }
 
       /// <summary>
@@ -667,8 +667,6 @@ namespace CDL2v1 {
          bool isDuplicate = DuplicateDeclaration(id,RW.LIST,report: context is null);
          if (isDuplicate && mode != ParseMode.Full) return null;
 
-
-
          LIST? list = null;
          if (tokens.Optional(TT.LISTBOUNDSTART) &&
                tokens.CanConsume(TT.ID,out Token lwbToken) &&
@@ -676,14 +674,16 @@ namespace CDL2v1 {
                tokens.CanConsume(TT.ID,out Token upbToken) &&
                tokens.CanConsume(TT.LISTBOUNDEND)) {
             list = new(id,currentSection,ID.From(lwbToken),ID.From(upbToken));
-            if (isDuplicate) {
-               if (context is not null && canReplace?.Invoke(list) == false) return null;
-               currentSection.Declarations[id].ToCDL2Object<LIST>()?.Replace(list);
-               Database.Instance.RecordUndo(currentSection.Declarations[id], list.GUID, ChangeType.Replaced);
-            } else {
-               Database.Instance.RecordUndo(list, context: context?.Focus.Object, changeType: ChangeType.Added);
+            if (mode == ParseMode.Full) {
+               if (isDuplicate) {
+                  if (context is not null && canReplace?.Invoke(list) == false) return null;
+                  currentSection.Declarations[id].ToCDL2Object<LIST>()?.Replace(list);
+                  Database.Instance.RecordUndo(currentSection.Declarations[id],list.GUID,ChangeType.Replaced);
+               } else {
+                  Database.Instance.RecordUndo(list,context: context?.Focus.Object,changeType: ChangeType.Added);
+                  currentSection.Declarations[id] = list.GUID; // ← Protected!
+               }
             }
-            currentSection.Declarations[id] = list.GUID; // ← Protected!
          } else if (mode == ParseMode.Full) {
             AddNote(currentSection,Note.InvalidListBounds,id);
             ReportProblem(Note.InvalidListBounds,id);
@@ -1128,7 +1128,7 @@ namespace CDL2v1 {
                if (section is not null) {
                   currentSection = section;
                   if (ParseList(Notes.Empty,out List<LIST> lists,mode,canReplace,parsingContext)) {
-                     MoveObjectToPosition(parsingContext,context,lists);
+                     if (mode == ParseMode.Full) MoveObjectToPosition(parsingContext,context,lists);
                      element = lists.LastOrDefault();
                   }
                } else {
