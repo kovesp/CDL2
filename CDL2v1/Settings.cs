@@ -166,7 +166,6 @@ namespace CDL2v1 {
          new Setting<string>(  "Shell",               "--shell",            "pwsh",        "The shell to use in the shell command. Default is PowerShell",saved:true),
          new Setting<string>(  "Editor",              "--editor",           "code",        "The external editor to use for editing files. Default is VS Code",saved:true),
          new Setting<bool>  (  "Console",             "--console",          !OnWindows,    "Run the Lab in console mode if given. Default is false on Windows."),
-         new Setting<bool>  (  "ANSI",                "--ansi",             !OnWindows,    "When in console mode allow the use of ANSI escapes to support all colours."),
          new Setting<bool>  (  "LongConsolePrompt",   "--long-console-prompt",true,        "Include the focus in the console prompt. On by default."),
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each

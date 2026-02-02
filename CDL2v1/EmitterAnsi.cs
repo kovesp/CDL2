@@ -16,6 +16,7 @@
 //=======================================================================
 // </auto-gen>
 
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
@@ -25,43 +26,29 @@ namespace CDL2v1 {
    public class EmitterAnsi : Emitter {
       private const string ESC = "\x1b";
       private const string RESET = $"{ESC}[0m";
+      private readonly ICLIREPL? _repl;
 
       public bool SuppressBackgroundColors { get; set; } = true;
 
       /// <summary>
       /// Initialize the ANSI emitter
       /// </summary>
-      public EmitterAnsi() : base() {
+      public EmitterAnsi(ICLIREPL? repl = null) : base() {
+         _repl = repl;
          SupportsDecoration = true;
-         EnableAnsiSupport();
-      }
-
-      /// <summary>
-      /// Enable ANSI escape sequence support in Windows console
-      /// </summary>
-      private static void EnableAnsiSupport() {
-#if WINDOWS
-         try {
-            IntPtr handle = GetStdHandle(-11); // STD_OUTPUT_HANDLE
-            if (GetConsoleMode(handle,out uint mode)) {
-               mode |= 0x0004; // ENABLE_VIRTUAL_TERMINAL_PROCESSING
-               SetConsoleMode(handle,mode);
-            }
-         } catch {
-            // Ignore if ANSI support cannot be enabled
-         }
-#endif
       }
 
       /// <summary>
       /// Write a line with span formatting to console using ANSI codes
       /// </summary>
       protected override void WriteLine(string item) {
+         // Build ANSI-styled output
+         StringBuilder output = new();
          int lastIndex = 0;
 
          foreach (Match match in spanRegex.Matches(item)) {
             if (match.Index > lastIndex) {
-               Console.Write(item[lastIndex..match.Index]);
+               output.Append(item[lastIndex..match.Index]);
             }
 
             string fg = match.Groups["fg"].Value;
@@ -70,13 +57,19 @@ namespace CDL2v1 {
             string text = match.Groups["text"].Value;
 
             string ansiCodes = BuildAnsiCodes(fg,bg,style);
-            Console.Write($"{ansiCodes}{text}{RESET}");
+            output.Append($"{ansiCodes}{text}{RESET}");
 
             lastIndex = match.Index + match.Length;
          }
 
-         if (lastIndex < item.Length) Console.Write(item[lastIndex..]);
-         Console.WriteLine();
+         if (lastIndex < item.Length) output.Append(item[lastIndex..]);
+
+         // Route through ICLIREPL.WriteLine with ANSI codes
+         if (_repl != null) {
+            _repl.WriteLine(output.ToString(),Severity.NONE);
+         } else {
+            Console.WriteLine(output.ToString());
+         }
       }
 
       /// <summary>
@@ -120,18 +113,5 @@ namespace CDL2v1 {
             return (255, 255, 255);
          }
       }
-
-      #region Windows Console API for ANSI support
-#if WINDOWS
-      [System.Runtime.InteropServices.DllImport("kernel32.dll",SetLastError = true)]
-      private static extern IntPtr GetStdHandle(int nStdHandle);
-
-      [System.Runtime.InteropServices.DllImport("kernel32.dll")]
-      private static extern bool GetConsoleMode(IntPtr hConsoleHandle,out uint lpMode);
-
-      [System.Runtime.InteropServices.DllImport("kernel32.dll")]
-      private static extern bool SetConsoleMode(IntPtr hConsoleHandle,uint dwMode);
-#endif
-#endregion
    }
 }

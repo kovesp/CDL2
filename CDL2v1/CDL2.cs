@@ -263,13 +263,12 @@ namespace CDL2v1 {
 #endif
             } else {
                ICLIREPL repl = new CommandConsole();
-               Emitter emitter = Settings.SettingValue<bool>("ANSI") ? new EmitterAnsi() { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") }
-                                                                     : new EmitterConsole() { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") };
+               Emitter emitter = new EmitterAnsi(repl) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") };
                CommandInterpreter CLI = new(repl,emitter,toaster);
                repl.SetInputProcessor(CLI.ProcessInput);
                Database.Instance.CLI = CLI;
                CLI.SetStatus();
-               Settings.LoadSettings(repl);  // Add this line to load command history
+               Settings.LoadSettings(repl);
                repl.Open();
             }
          } else if (args.Length > 0) {

@@ -27,6 +27,13 @@ namespace CDL2v1 {
       private bool _isRunning = false;
       private bool _statusLineEnabled = false;
       private int _terminalHeight = 0;
+      private int _terminalWidth = 0;
+
+      // Scrollback buffer
+      private readonly List<OutputLine> _scrollbackBuffer = [];
+      private const int MaxScrollbackLines = 1000;
+      private int _scrollOffset = 0;
+      private bool _inScrollMode = false;
 
       private const string _editModeHelp = """
 Editing keys
@@ -37,7 +44,7 @@ Enter       | Insert a new line, but submit when caret
             | is at end and line ends with period ('.').
 Ctrl-Enter  | Submit the CDL2 construct (last line must end with '.').
 Esc         | Cancel editing.
-Arrows      | Navigate within the text. With Shift, select text.
+← → ↑ ↓     | Navigate within the text. With Shift, select text.
 Home        | Move to beginning of current line.
 End         | Move to end of current line.
 Backspace   | Delete character before cursor or merge
@@ -56,6 +63,23 @@ Background color indicates syntax validity:
   Yellow = Syntax errors detected
 """;
 
+      private const string _scrollModeHelp = """
+Scroll Mode Navigation
+
+Key         | Action
+---
+↑           | Scroll up one line
+↓           | Scroll down one line
+PgUp        | Scroll up one page
+PgDn        | Scroll down one page
+Home        | Jump to oldest line in buffer
+End         | Jump to newest line (exit scroll mode)
+Esc         | Exit scroll mode
+Mouse Wheel | Scroll up/down
+
+Press Ctrl+B to enter scroll mode at any time.
+""";
+
       private Action<string>? inputProcessor;
 
       public Emitter? Emitter { get; set; }
@@ -71,20 +95,23 @@ Background color indicates syntax validity:
       public void Open() {
          _isRunning = true;
          Settings.LoadSettings(this);
-         
+
          // Set up status line and scrolling region
          SetupStatusLine();
-         
+
          WriteLine($"\n{CDL2.LabName} v{CDL2.Version}");
-         WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.", severity: Severity.Info);
+         WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.",severity: Severity.Info);
+         WriteLine("Press Ctrl+B to enter scroll mode to review output history.",severity: Severity.Info);
 
          while (_isRunning) {
+            HandleConsoleResize();
+            
             string prompt = GetPrompt(false);
-            string? line = ReadLineWithHistory(prompt, true);
+            string? line = ReadLineWithHistory(prompt,true);
 
             if (line == null) break;
 
-            InputType inputType = TokenList.ClassifyInput(line, out string trimmed, out string firstWord);
+            InputType inputType = TokenList.ClassifyInput(line,out string trimmed,out string firstWord);
 
             switch (inputType) {
                case InputType.Empty:
@@ -108,7 +135,7 @@ Background color indicates syntax validity:
                   // Expand abbreviation if needed
                   SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
                   string expandedInput = $"{type} {trimmed[firstWord.Length..]}";
-                  
+
                   if (!trimmed.EndsWith('.')) {
                      // Start of multiline code snippet - enter edit mode
                      string? editedText = ReadMultilineText(expandedInput);
@@ -122,7 +149,7 @@ Background color indicates syntax validity:
                   break;
 
                case InputType.Invalid:
-                  WriteLine($"Invalid input: '{firstWord}' is not a recognized command or CDL2 reserved word.", Severity.Error);
+                  WriteLine($"Invalid input: '{firstWord}' is not a recognized command or CDL2 reserved word.",Severity.Error);
                   break;
             }
          }
@@ -160,26 +187,61 @@ Background color indicates syntax validity:
       /// Write a line of text with optional severity coloring
       /// </summary>
       public void WriteLine(string text,Severity severity = Severity.NONE) {
-         ConsoleColor originalColor = Console.ForegroundColor;
+         string outputText = text;
+         
+         // If severity is set and text has no ANSI codes, wrap with 24-bit RGB ANSI color codes
+         // Look up colors from PrettyPrinter.Decorators to keep all styling in one place
+         if (severity != Severity.NONE && !text.Contains("\x1b[")) {
+            SE syntaxElement = severity switch {
+               Severity.Error => SE.NoteError,
+               Severity.Warning => SE.NoteWarning,
+               Severity.Info => SE.NoteInfo,
+               Severity.Note => SE.Comment,
+               _ => SE.Other
+            };
+            
+            string hexColor = PrettyPrinter.Decorators[syntaxElement].FG;
+            (int r, int g, int b) = ParseHexColor(hexColor);
+            
+            outputText = $"\x1b[38;2;{r};{g};{b}m{text}\x1b[0m";
+         }
 
-         Console.ForegroundColor = severity switch {
-            Severity.Error => ConsoleColor.Red,
-            Severity.Warning => ConsoleColor.Yellow,
-            Severity.Info => ConsoleColor.Cyan,
-            Severity.Note => ConsoleColor.Gray,
-            _ => originalColor
-         };
+         // Add to scrollback buffer WITH ANSI codes intact
+         AddToScrollback(outputText,severity);
 
-         Console.WriteLine(text);
-         Console.ForegroundColor = originalColor;
+         // Display if not in scroll mode
+         if (!_inScrollMode) {
+            Console.WriteLine(outputText);
+         }
+      }
+
+      /// <summary>
+      /// Parse hex color string (#RRGGBB) to RGB values
+      /// </summary>
+      private static (int r, int g, int b) ParseHexColor(string hexColor) {
+         if (string.IsNullOrEmpty(hexColor) || !hexColor.StartsWith("#") || hexColor.Length != 7) 
+            return (255, 255, 255);
+
+         try {
+            string hex = hexColor.TrimStart('#');
+            int r = Convert.ToInt32(hex.Substring(0,2),16);
+            int g = Convert.ToInt32(hex.Substring(2,2),16);
+            int b = Convert.ToInt32(hex.Substring(4,2),16);
+            return (r, g, b);
+         } catch {
+            return (255, 255, 255);
+         }
       }
 
       /// <summary>
       /// Display a query box and get user response
       /// </summary>
       public bool QueryBox(string message) {
-         Console.Write($"{message} (y/n): ");
+         // Display the prompt through WriteLine so it goes to scrollback
+         WriteLine($"{message} (y/n): ",Severity.Info);
          string? response = Console.ReadLine();
+         // Add the response to scrollback
+         if (response != null) WriteLine($"  Response: {response}");
          return response?.Trim().Equals("y",StringComparison.OrdinalIgnoreCase) == true;
       }
 
@@ -204,39 +266,39 @@ Background color indicates syntax validity:
             string programName = Settings.SettingValue<string>("ProgramName")!;
             string marker = programName.IsNotEmptyOrWhitespace && Database.Instance.ProgramByName(programName)!.Modified ? "*" : "";
             string rightStatus = $"[{Database.Instance.GetModificationCount()}/{Settings.SettingValue<int>("AutosaveCount")}] {marker}Prog {programName}";
-            
+
             // Save cursor position
             Console.Write("\x1b[s");
-            
+
             // Move to line 1 (status line)
             Console.Write("\x1b[1;1H");
-            
+
             // Clear the line and write status
             Console.Write("\x1b[2K");
             Console.ForegroundColor = ConsoleColor.Black;
             Console.BackgroundColor = ConsoleColor.Gray;
-            
+
             // Calculate spacing to right-justify the right portion
             int width = Console.WindowWidth;
             int leftLen = message.Length;
             int rightLen = rightStatus.Length;
-            int spacesNeeded = Math.Max(1, width - leftLen - rightLen);
-            
+            int spacesNeeded = Math.Max(1,width - leftLen - rightLen);
+
             // Write left part, spaces, then right part
-            string statusLine = (message + new string(' ', spacesNeeded) + rightStatus);
-            
+            string statusLine = (message + new string(' ',spacesNeeded) + rightStatus);
+
             // Truncate or pad to exact width
             if (statusLine.Length > width) {
                statusLine = statusLine[..(width - 3)] + "...";
             } else if (statusLine.Length < width) {
                statusLine = statusLine.PadRight(width);
             }
-            
+
             Console.Write(statusLine);
-            
+
             // Reset colors
             Console.ResetColor();
-            
+
             // Restore cursor position
             Console.Write("\x1b[u");
          } else {
@@ -254,37 +316,223 @@ Background color indicates syntax validity:
       /////////////////////
 
       /// <summary>
+      /// Record for storing output lines in scrollback buffer
+      /// </summary>
+      private record OutputLine(string Text);
+
+      /// <summary>
+      /// Add a line to the scrollback buffer
+      /// </summary>
+      private void AddToScrollback(string text,Severity severity = Severity.NONE) {
+         // Split by newlines to handle text with embedded \n characters
+         string[] lines = text.Split('\n');
+         
+         foreach (string line in lines) {
+            _scrollbackBuffer.Add(new OutputLine(line));
+            if (_scrollbackBuffer.Count > MaxScrollbackLines) _scrollbackBuffer.RemoveAt(0);
+         }
+      }
+
+      /// <summary>
+      /// Enter scroll mode to review output history
+      /// </summary>
+      private void EnterScrollMode() {
+         if (_scrollbackBuffer.Count == 0) return;
+
+         _inScrollMode = true;
+         _scrollOffset = Math.Max(0,_scrollbackBuffer.Count - (_terminalHeight - 2));
+
+         RedrawScrollView();
+
+         while (_inScrollMode) {
+            ConsoleKeyInfo key = Console.ReadKey(intercept: true);
+
+            if (key.Key == ConsoleKey.Escape || key.Key == ConsoleKey.End) {
+               ExitScrollMode();
+            } else if (key.Key == ConsoleKey.UpArrow) {
+               ScrollUp(1);
+            } else if (key.Key == ConsoleKey.DownArrow) {
+               ScrollDown(1);
+            } else if (key.Key == ConsoleKey.PageUp) {
+               ScrollUp(_terminalHeight - 2);
+            } else if (key.Key == ConsoleKey.PageDown) {
+               ScrollDown(_terminalHeight - 2);
+            } else if (key.Key == ConsoleKey.Home) {
+               _scrollOffset = 0;
+               RedrawScrollView();
+            } else if (key.Key == ConsoleKey.F1) {
+               ShowScrollModeHelp();
+            }
+         }
+      }
+
+      /// <summary>
+      /// Exit scroll mode and return to normal output
+      /// </summary>
+      private void ExitScrollMode() {
+         _inScrollMode = false;
+         _scrollOffset = 0;
+         Console.Write("\x1b[2;1H\x1b[J"); // Clear scrolling region
+         RedisplayRecentOutput();
+      }
+
+      /// <summary>
+      /// Scroll up by the specified number of lines
+      /// </summary>
+      private void ScrollUp(int lines) {
+         int oldOffset = _scrollOffset;
+         _scrollOffset = Math.Max(0,_scrollOffset - lines);
+         
+         // Only redraw if we actually moved
+         if (_scrollOffset != oldOffset) {
+            RedrawScrollView();
+         }
+      }
+
+      /// <summary>
+      /// Scroll down by the specified number of lines
+      /// </summary>
+      private void ScrollDown(int lines) {
+         int oldOffset = _scrollOffset;
+         int maxOffset = Math.Max(0,_scrollbackBuffer.Count - (_terminalHeight - 2));
+         _scrollOffset = Math.Min(maxOffset,_scrollOffset + lines);
+   
+         // Only redraw if we actually moved
+         if (_scrollOffset != oldOffset) {
+            RedrawScrollView();
+         }
+      }
+
+      /// <summary>
+      /// Redraw the scrollable view
+      /// </summary>
+      private void RedrawScrollView() {
+         int visibleLines = _terminalHeight - 2;
+         int endLine = Math.Min(_scrollOffset + visibleLines,_scrollbackBuffer.Count);
+
+         // Draw each visible line
+         for (int i = _scrollOffset ; i < endLine ; i++) {
+            OutputLine line = _scrollbackBuffer[i];
+            int screenLine = 2 + (i - _scrollOffset); // Screen line number (2-based because line 1 is status)
+            
+            // Move to specific line and clear it
+            Console.Write($"\x1b[{screenLine};1H\x1b[2K");
+            // Write the content (no WriteLine to avoid unexpected line advance)
+            Console.Write(line.Text);
+         }
+
+         // Clear any remaining lines below the content
+         for (int i = endLine - _scrollOffset ; i < visibleLines ; i++) {
+            int screenLine = 2 + i;
+            Console.Write($"\x1b[{screenLine};1H\x1b[2K");
+         }
+
+         // Update status to show scroll position
+         int totalLines = _scrollbackBuffer.Count;
+         int currentLine = _scrollOffset + 1;
+         int endDisplayLine = Math.Min(_scrollOffset + visibleLines,totalLines);
+         SetStatus($"Scroll Mode: Lines {currentLine}-{endDisplayLine} of {totalLines} (Esc to exit, F1 for help)");
+      }
+
+      /// <summary>
+      /// Show help for scroll mode
+      /// </summary>
+      private void ShowScrollModeHelp() {
+         // Switch to alternate screen buffer
+         Console.Write("\x1b[?1049h");
+
+         // Clear alternate screen and move to top
+         Console.Write("\x1b[2J\x1b[H");
+
+         // Display help directly to alternate screen (not through WriteLine)
+         Console.ForegroundColor = ConsoleColor.Cyan;
+         Console.WriteLine("\n" + _scrollModeHelp);
+         Console.WriteLine("\nPress any key to return to scroll mode...");
+         Console.ResetColor();
+
+         // Wait for key press
+         Console.ReadKey(intercept: true);
+
+         // Switch back to main screen buffer
+         Console.Write("\x1b[?1049l");
+
+         RedrawScrollView();
+      }
+
+      /// <summary>
       /// Setup status line with scrolling region
       /// </summary>
       private void SetupStatusLine() {
          try {
+            EnableAnsiSupport();
+            
+            // Set console encoding to UTF-8 for proper Unicode display
+            try {
+               Console.OutputEncoding = System.Text.Encoding.UTF8;
+            } catch {
+               // Ignore if encoding cannot be set
+            }
+            
+            // Set initial console size (Windows only)
+#if WINDOWS
+            try {
+               // Set a reasonable default size (e.g., 120 columns x 30 rows)
+               int desiredWidth = 120;
+               int desiredHeight = 60;
+               
+               // Ensure buffer is large enough before setting window size
+               Console.SetBufferSize(
+                  Math.Max(desiredWidth, Console.BufferWidth),
+                  Math.Max(MaxScrollbackLines + 100, desiredHeight)
+               );
+               
+               // Now set the window size
+               Console.SetWindowSize(desiredWidth, desiredHeight);
+            } catch {
+               // Ignore if resizing fails (may not be supported in all environments)
+            }
+#endif
+            
             _terminalHeight = Console.WindowHeight;
+            _terminalWidth = Console.WindowWidth;
 
-            // Clear screen
-            Console.Write("\x1b[2J");
-
-            // Initialize status line (line 1) with blank content
-            Console.Write("\x1b[1;1H");
-            Console.ForegroundColor = ConsoleColor.Black;
-            Console.BackgroundColor = ConsoleColor.Gray;
-            Console.Write(new string(' ',Console.WindowWidth));
-            Console.ResetColor();
-
-            // Set scrolling region to lines 2 through bottom
-            Console.Write($"\x1b[2;{_terminalHeight}r");
-
-            // Move cursor to line 2 (start of scrolling region)
-            Console.Write("\x1b[2;1H");
-
+            ReconfigureScrollingRegion();
             _statusLineEnabled = true;
-
-            // Initialize status line with right-side content
             SetStatus("Nothing");
          } catch {
-            // If anything fails, disable status line
             _statusLineEnabled = false;
          }
       }
+
+      /// <summary>
+      /// Enable ANSI escape sequence support in Windows
+      /// </summary>
+      private static void EnableAnsiSupport() {
+#if WINDOWS
+         try {
+            IntPtr handle = GetStdHandle(-11); // STD_OUTPUT_HANDLE
+            if (GetConsoleMode(handle,out uint mode)) {
+               mode |= 0x0004; // ENABLE_VIRTUAL_TERMINAL_PROCESSING
+               SetConsoleMode(handle,mode);
+            }
+         } catch {
+            // Ignore if ANSI support cannot be enabled
+         }
+#endif
+      }
+
+      #region Windows Console API for ANSI support
+#if WINDOWS
+      [System.Runtime.InteropServices.DllImport("kernel32.dll",SetLastError = true)]
+      private static extern IntPtr GetStdHandle(int nStdHandle);
+
+      [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+      private static extern bool GetConsoleMode(IntPtr hConsoleHandle,out uint lpMode);
+
+      [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+      private static extern bool SetConsoleMode(IntPtr hConsoleHandle,uint dwMode);
+#endif
+      #endregion
 
       /// <summary>
       /// Cleanup status line and restore normal scrolling
@@ -293,10 +541,10 @@ Background color indicates syntax validity:
          if (_statusLineEnabled) {
             // Reset scrolling region
             Console.Write("\x1b[r");
-            
+
             // Move cursor to bottom of screen
             Console.Write($"\x1b[{_terminalHeight};1H");
-            
+
             Console.WriteLine();
             _statusLineEnabled = false;
          }
@@ -312,9 +560,7 @@ Background color indicates syntax validity:
          if (_statusLineEnabled || !Settings.SettingValue<bool>("LongConsolePrompt")) return "> ";
 
          string fqdn = Focus.Current.Object?.FQDN() ?? "";
-         if (Settings.SettingValue<bool>("ANSI")) return $"\x1b[93m{fqdn}\x1b[0m> ";
-
-         return $"{fqdn}> ";
+         return $"\x1b[93m{fqdn}\x1b[0m> ";
       }
 
       /// <summary>
@@ -322,16 +568,16 @@ Background color indicates syntax validity:
       /// </summary>
       private static int GetVisualLength(string text) {
          // Remove ANSI escape sequences (pattern: ESC [ ... m)
-         string withoutAnsi = Regex.Replace(text, @"\x1b\[[0-9;]*m", "");
+         string withoutAnsi = Regex.Replace(text,@"\x1b\[[0-9;]*m","");
          return withoutAnsi.Length;
       }
 
       /// <summary>
       /// Read a line of input with history navigation support
       /// </summary>
-      private string? ReadLineWithHistory(string prompt, bool enableHistory) {
+      private string? ReadLineWithHistory(string prompt,bool enableHistory) {
          Console.Write(prompt);
-         
+
          if (!enableHistory) return Console.ReadLine();
 
          int promptVisualLength = GetVisualLength(prompt);
@@ -343,55 +589,71 @@ Background color indicates syntax validity:
 
             if (keyInfo.Key == ConsoleKey.Enter) {
                Console.WriteLine();
-               return new string(buffer.ToArray());
+               string input = new string(buffer.ToArray());
+               
+               // Add user input to scrollback with prompt (already a single line)
+               if (input.Length > 0) {
+                  _scrollbackBuffer.Add(new OutputLine($"{prompt}{input}"));
+                  if (_scrollbackBuffer.Count > MaxScrollbackLines) _scrollbackBuffer.RemoveAt(0);
+               }
+               
+               return input;
+            } else if (keyInfo.Key == ConsoleKey.B && keyInfo.Modifiers == ConsoleModifiers.Control) {
+               // Ctrl+B: Enter scroll mode
+               Console.WriteLine();
+               EnterScrollMode();
+               // After exiting scroll mode, redraw prompt and buffer
+               Console.Write(prompt);
+               Console.Write(new string(buffer.ToArray()));
+               Console.SetCursorPosition(promptVisualLength + cursorPosition,Console.CursorTop);
             } else if (keyInfo.Key == ConsoleKey.Delete && keyInfo.Modifiers == ConsoleModifiers.Alt) {
                // Alt+Delete: Clear the console
                ClearConsole();
                // Redraw the prompt and current buffer
                Console.Write(prompt);
                Console.Write(new string(buffer.ToArray()));
-               Console.SetCursorPosition(promptVisualLength + cursorPosition, Console.CursorTop);
+               Console.SetCursorPosition(promptVisualLength + cursorPosition,Console.CursorTop);
             } else if (keyInfo.Key == ConsoleKey.UpArrow) {
                string? previous = _commandHistory.Previous();
                if (previous != null) {
-                  ReplaceBuffer(buffer, previous, ref cursorPosition, prompt, promptVisualLength);
+                  ReplaceBuffer(buffer,previous,ref cursorPosition,prompt,promptVisualLength);
                }
             } else if (keyInfo.Key == ConsoleKey.DownArrow) {
                string? next = _commandHistory.Next();
                if (next != null) {
-                  ReplaceBuffer(buffer, next, ref cursorPosition, prompt, promptVisualLength);
+                  ReplaceBuffer(buffer,next,ref cursorPosition,prompt,promptVisualLength);
                }
             } else if (keyInfo.Key == ConsoleKey.Backspace) {
                if (cursorPosition > 0) {
                   buffer.RemoveAt(cursorPosition - 1);
                   cursorPosition--;
-                  RedrawLine(buffer, cursorPosition, prompt, promptVisualLength);
+                  RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
                }
             } else if (keyInfo.Key == ConsoleKey.Delete) {
                if (cursorPosition < buffer.Count) {
                   buffer.RemoveAt(cursorPosition);
-                  RedrawLine(buffer, cursorPosition, prompt, promptVisualLength);
+                  RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
                }
             } else if (keyInfo.Key == ConsoleKey.LeftArrow) {
                if (cursorPosition > 0) {
                   cursorPosition--;
-                  Console.SetCursorPosition(promptVisualLength + cursorPosition, Console.CursorTop);
+                  Console.SetCursorPosition(promptVisualLength + cursorPosition,Console.CursorTop);
                }
             } else if (keyInfo.Key == ConsoleKey.RightArrow) {
                if (cursorPosition < buffer.Count) {
                   cursorPosition++;
-                  Console.SetCursorPosition(promptVisualLength + cursorPosition, Console.CursorTop);
+                  Console.SetCursorPosition(promptVisualLength + cursorPosition,Console.CursorTop);
                }
             } else if (keyInfo.Key == ConsoleKey.Home) {
                cursorPosition = 0;
-               Console.SetCursorPosition(promptVisualLength, Console.CursorTop);
+               Console.SetCursorPosition(promptVisualLength,Console.CursorTop);
             } else if (keyInfo.Key == ConsoleKey.End) {
                cursorPosition = buffer.Count;
-               Console.SetCursorPosition(promptVisualLength + cursorPosition, Console.CursorTop);
+               Console.SetCursorPosition(promptVisualLength + cursorPosition,Console.CursorTop);
             } else if (!char.IsControl(keyInfo.KeyChar)) {
-               buffer.Insert(cursorPosition, keyInfo.KeyChar);
+               buffer.Insert(cursorPosition,keyInfo.KeyChar);
                cursorPosition++;
-               RedrawLine(buffer, cursorPosition, prompt, promptVisualLength);
+               RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
             }
          }
       }
@@ -408,16 +670,16 @@ Background color indicates syntax validity:
             // Set edit mode colors to black on white
             Console.ForegroundColor = ConsoleColor.Black;
             Console.BackgroundColor = ConsoleColor.White;
-            
-            // Display header line
+
+            // Display header line (directly, not through WriteLine - this is temporary UI)
             Console.WriteLine("[Edit text, F1 for help]");
-            
+
             // Trim trailing whitespace and split into lines
             string trimmedText = initialText.TrimEnd();
-            List<string> lines = string.IsNullOrEmpty(trimmedText) 
+            List<string> lines = string.IsNullOrEmpty(trimmedText)
                ? [""] 
                : trimmedText.Split('\n').ToList();
-            
+
             int currentLine = lines.Count - 1;
             int cursorPosition = lines[currentLine].Length;
             int linesDisplayed = 0;
@@ -429,20 +691,20 @@ Background color indicates syntax validity:
             const int maxUndoLevels = 100;
 
             // Save initial state
-            SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+            SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
 
-            RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+            RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
 
             while (true) {
                ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
 
                if (keyInfo.Key == ConsoleKey.F1) {
                   // Show help message
-                  ShowEditModeHelp(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine, savedForeground, savedBackground);
+                  ShowEditModeHelp(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine,savedForeground,savedBackground);
                } else if (keyInfo.Key == ConsoleKey.Z && keyInfo.Modifiers == ConsoleModifiers.Control) {
                   // Ctrl-Z: Undo
                   if (undoStack.Count > 1) { // Keep at least the initial state
-                     EditState currentState = new(lines, currentLine, cursorPosition);
+                     EditState currentState = new(lines,currentLine,cursorPosition);
                      redoStack.Push(currentState);
                      if (redoStack.Count > maxUndoLevels) {
                         // Remove oldest redo entry
@@ -450,96 +712,102 @@ Background color indicates syntax validity:
                         redoStack.Clear();
                         foreach (EditState state in temp.Reverse()) redoStack.Push(state);
                      }
-                     
+
                      undoStack.Pop(); // Remove current state
                      EditState prevState = undoStack.Peek();
                      lines = prevState.Lines.Select(s => s).ToList(); // Deep copy
                      currentLine = prevState.CurrentLine;
                      cursorPosition = prevState.CursorPosition;
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Y && keyInfo.Modifiers == ConsoleModifiers.Control) {
                   // Ctrl-Y: Redo
                   if (redoStack.Count > 0) {
-                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                     SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
                      EditState nextState = redoStack.Pop();
                      lines = nextState.Lines.Select(s => s).ToList(); // Deep copy
                      currentLine = nextState.CurrentLine;
                      cursorPosition = nextState.CursorPosition;
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Enter && keyInfo.Modifiers == ConsoleModifiers.Control) {
                   // Ctrl+Enter: Submit regardless of cursor position if text ends with period
-                  string fullText = string.Join("\n", lines).TrimEnd();
+                  string fullText = string.Join("\n",lines).TrimEnd();
                   if (fullText.Length > 0 && fullText[^1] == '.') {
-                     ClearEditAreaWithHeader(linesDisplayed, lastCursorLine, savedForeground, savedBackground);
-                     return string.Join("\n", lines);
+                     ClearEditAreaWithHeader(linesDisplayed,lastCursorLine,savedForeground,savedBackground);
+                     return string.Join("\n",lines);
                   }
                } else if (keyInfo.Key == ConsoleKey.Enter) {
                   // Only terminate if on last line, at end, and ends with period
-                  if (IsAtTerminationPoint(lines, currentLine, cursorPosition)) {
+                  if (IsAtTerminationPoint(lines,currentLine,cursorPosition)) {
                      // Clear the edit area and move to next line
-                     ClearEditAreaWithHeader(linesDisplayed, lastCursorLine, savedForeground, savedBackground);
-                     return string.Join("\n", lines);
+                     ClearEditAreaWithHeader(linesDisplayed,lastCursorLine,savedForeground,savedBackground);
+                     return string.Join("\n",lines);
                   } else {
                      // Insert new line
                      string currentLineText = lines[currentLine];
                      lines[currentLine] = currentLineText[..cursorPosition];
-                     lines.Insert(currentLine + 1, currentLineText[cursorPosition..]);
+                     lines.Insert(currentLine + 1,currentLineText[cursorPosition..]);
                      currentLine++;
                      cursorPosition = 0;
-                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
+                     SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
                      redoStack.Clear(); // Clear redo stack on new change
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Escape) {
                   // Clear the edit area and show cancellation message
-                  ClearEditAreaWithHeader(linesDisplayed, lastCursorLine, savedForeground, savedBackground);
+                  ClearEditAreaWithHeader(linesDisplayed,lastCursorLine,savedForeground,savedBackground);
                   Console.WriteLine("[Editing cancelled]");
                   return null;
                } else if (keyInfo.Key == ConsoleKey.UpArrow) {
                   if (currentLine > 0) {
                      currentLine--;
-                     cursorPosition = Math.Min(cursorPosition, lines[currentLine].Length);
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     cursorPosition = Math.Min(cursorPosition,lines[currentLine].Length);
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.DownArrow) {
                   if (currentLine < lines.Count - 1) {
                      currentLine++;
-                     cursorPosition = Math.Min(cursorPosition, lines[currentLine].Length);
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     cursorPosition = Math.Min(cursorPosition,lines[currentLine].Length);
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.LeftArrow) {
                   if (cursorPosition > 0) {
                      cursorPosition--;
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   } else if (currentLine > 0) {
+                     // Merge with previous line
                      currentLine--;
                      cursorPosition = lines[currentLine].Length;
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     string mergedLine = lines[currentLine] + lines[currentLine + 1];
+                     lines[currentLine] = mergedLine;
+                     lines.RemoveAt(currentLine + 1);
+                     SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
+                     redoStack.Clear();
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.RightArrow) {
                   if (cursorPosition < lines[currentLine].Length) {
                      cursorPosition++;
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   } else if (currentLine < lines.Count - 1) {
                      currentLine++;
                      cursorPosition = 0;
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Home) {
                   cursorPosition = 0;
-                  RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                  RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                } else if (keyInfo.Key == ConsoleKey.End) {
                   cursorPosition = lines[currentLine].Length;
-                  RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                  RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                } else if (keyInfo.Key == ConsoleKey.Backspace) {
                   if (cursorPosition > 0) {
-                     lines[currentLine] = lines[currentLine].Remove(cursorPosition - 1, 1);
+                     lines[currentLine] = lines[currentLine].Remove(cursorPosition - 1,1);
                      cursorPosition--;
-                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
-                     redoStack.Clear(); // Clear redo stack on new change
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
+                     redoStack.Clear();
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   } else if (currentLine > 0) {
                      // Merge with previous line
                      string mergedLine = lines[currentLine - 1] + lines[currentLine];
@@ -547,30 +815,30 @@ Background color indicates syntax validity:
                      lines.RemoveAt(currentLine);
                      currentLine--;
                      lines[currentLine] = mergedLine;
-                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
-                     redoStack.Clear(); // Clear redo stack on new change
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
+                     redoStack.Clear();
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (keyInfo.Key == ConsoleKey.Delete) {
                   if (cursorPosition < lines[currentLine].Length) {
-                     lines[currentLine] = lines[currentLine].Remove(cursorPosition, 1);
-                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
-                     redoStack.Clear(); // Clear redo stack on new change
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     lines[currentLine] = lines[currentLine].Remove(cursorPosition,1);
+                     SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
+                     redoStack.Clear();
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   } else if (currentLine < lines.Count - 1) {
                      // Merge with next line
                      lines[currentLine] += lines[currentLine + 1];
                      lines.RemoveAt(currentLine + 1);
-                     SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
-                     redoStack.Clear(); // Clear redo stack on new change
-                     RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                     SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
+                     redoStack.Clear();
+                     RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                   }
                } else if (!char.IsControl(keyInfo.KeyChar)) {
-                  lines[currentLine] = lines[currentLine].Insert(cursorPosition, keyInfo.KeyChar.ToString());
+                  lines[currentLine] = lines[currentLine].Insert(cursorPosition,keyInfo.KeyChar.ToString());
                   cursorPosition++;
-                  SaveState(undoStack, lines, currentLine, cursorPosition, maxUndoLevels);
-                  redoStack.Clear(); // Clear redo stack on new change
-                  RedrawAllLines(lines, currentLine, cursorPosition, ref linesDisplayed, ref lastCursorLine);
+                  SaveState(undoStack,lines,currentLine,cursorPosition,maxUndoLevels);
+                  redoStack.Clear();
+                  RedrawAllLines(lines,currentLine,cursorPosition,ref linesDisplayed,ref lastCursorLine);
                }
             }
          } finally {
@@ -587,9 +855,10 @@ Background color indicates syntax validity:
          if (_statusLineEnabled) {
             // Move to line 2 (first line of scrolling region)
             Console.Write("\x1b[2;1H");
-
             // Clear from cursor to end of screen
             Console.Write("\x1b[J");
+            // Clear scrollback buffer
+            _scrollbackBuffer.Clear();
          } else {
             // Use ANSI clear screen sequence
             Console.Write("\x1b[2J\x1b[H");
@@ -604,62 +873,46 @@ Background color indicates syntax validity:
                                      ConsoleColor savedForeground,ConsoleColor savedBackground) {
          // Switch to alternate screen buffer
          Console.Write("\x1b[?1049h");
-
          // Clear alternate screen and move to top
          Console.Write("\x1b[2J\x1b[H");
-
-         // Display help
-         WriteLine("\n" + _editModeHelp,Severity.Info);
-         WriteLine("\nPress any key to continue editing...");
-
+         // Display help directly to alternate screen
+         Console.ForegroundColor = ConsoleColor.Cyan;
+         Console.WriteLine("\n" + _editModeHelp);
+         Console.WriteLine("\nPress any key to continue editing...");
+         Console.ResetColor();
          // Wait for key press
          Console.ReadKey(intercept: true);
-
-         // Switch back to main screen buffer (restores everything exactly as it was)
+         // Switch back to main screen buffer
          Console.Write("\x1b[?1049l");
       }
 
       /// <summary>
-      /// Clear the edit area including header line and reset cursor position
+      /// Clear the edit area including header line
       /// </summary>
-      private static void ClearEditAreaWithHeader(int linesDisplayed, int lastCursorLine, ConsoleColor foreground, ConsoleColor background) {
-         // First restore the original colors BEFORE clearing
+      private static void ClearEditAreaWithHeader(int linesDisplayed,int lastCursorLine,ConsoleColor foreground,ConsoleColor background) {
          Console.ForegroundColor = foreground;
          Console.BackgroundColor = background;
-         
-         // Move cursor back to first edit line
-         if (lastCursorLine > 0) {
-            Console.Write($"\x1b[{lastCursorLine}A");
-         }
+         if (lastCursorLine > 0) Console.Write($"\x1b[{lastCursorLine}A");
          Console.Write("\r");
-         
-         // Clear all edit lines
-         for (int i = 0; i < linesDisplayed; i++) {
-            Console.Write("\x1b[2K"); // Clear line
+         for (int i = 0 ; i < linesDisplayed ; i++) {
+            Console.Write("\x1b[2K");
             if (i < linesDisplayed - 1) {
                Console.WriteLine();
                Console.Write("\r");
             }
          }
-         
-         // Move back to first edit line
-         if (linesDisplayed > 1) {
-            Console.Write($"\x1b[{linesDisplayed - 1}A");
-         }
+         if (linesDisplayed > 1) Console.Write($"\x1b[{linesDisplayed - 1}A");
          Console.Write("\r");
-         
-         // Move up one more line to the header and clear it
          Console.Write("\x1b[A\r\x1b[2K");
       }
 
       /// <summary>
-      /// Check if cursor is at termination point (last line, at end, ends with period)
+      /// Check if cursor is at termination point
       /// </summary>
-      private static bool IsAtTerminationPoint(List<string> lines, int currentLine, int cursorPosition) {
+      private static bool IsAtTerminationPoint(List<string> lines,int currentLine,int cursorPosition) {
          if (currentLine != lines.Count - 1) return false;
          if (cursorPosition != lines[currentLine].Length) return false;
-         
-         string fullText = string.Join("\n", lines).TrimEnd();
+         string fullText = string.Join("\n",lines).TrimEnd();
          return fullText.Length > 0 && fullText[^1] == '.';
       }
 
@@ -667,106 +920,137 @@ Background color indicates syntax validity:
       /// Verify the syntax of the current text
       /// </summary>
       private static bool VerifySyntax(List<string> lines) {
-         string text = string.Join("\n", lines);
+         string text = string.Join("\n",lines);
          return Database.Instance.CLI?.VerifySyntax(text) ?? false;
       }
 
       /// <summary>
-      /// Redraw all lines in the multi-line editor with syntax-based background color using ANSI codes
+      /// Redraw all lines in the multi-line editor
       /// </summary>
-      private static void RedrawAllLines(List<string> lines, int currentLine, int cursorPosition, ref int linesDisplayed, ref int lastCursorLine) {
-         int windowWidth = Console.WindowWidth;
-         
-         // Verify syntax and set background color accordingly
+      private static void RedrawAllLines(List<string> lines,int currentLine,int cursorPosition,ref int linesDisplayed,ref int lastCursorLine) {
          bool syntaxValid = VerifySyntax(lines);
          Console.BackgroundColor = syntaxValid ? ConsoleColor.White : ConsoleColor.Yellow;
          Console.ForegroundColor = ConsoleColor.Black;
-         
-         // Move cursor back to the first line of the edit area
-         // The cursor is currently at lastCursorLine, so move up that many lines
-         if (linesDisplayed > 0 && lastCursorLine > 0) {
-            Console.Write($"\x1b[{lastCursorLine}A");
-         }
-         Console.Write("\r"); // Move to start of line
-         
-         // Determine how many lines to display (max of current and previous)
-         int linesToDisplay = Math.Max(lines.Count, linesDisplayed);
-         
-         // Write all lines
-         for (int i = 0; i < linesToDisplay; i++) {
-            Console.Write("\x1b[2K"); // Clear entire line
-            if (i < lines.Count) {
-               Console.Write(": " + lines[i]);
-            }
+         if (linesDisplayed > 0 && lastCursorLine > 0) Console.Write($"\x1b[{lastCursorLine}A");
+         Console.Write("\r");
+         int linesToDisplay = Math.Max(lines.Count,linesDisplayed);
+         for (int i = 0 ; i < linesToDisplay ; i++) {
+            Console.Write("\x1b[2K");
+            if (i < lines.Count) Console.Write(": " + lines[i]);
             if (i < linesToDisplay - 1) {
                Console.WriteLine();
-               Console.Write("\r"); // Ensure we're at start of new line
+               Console.Write("\r");
             }
          }
-         
-         // Update the number of lines displayed
          linesDisplayed = lines.Count;
-         
-         // Position cursor at the correct line and column
-         // We're at the end of line (linesToDisplay - 1), move up to currentLine
          if (currentLine < linesToDisplay - 1) {
             int linesToMoveUp = linesToDisplay - 1 - currentLine;
             Console.Write($"\x1b[{linesToMoveUp}A");
          }
-         Console.Write($"\r\x1b[{2 + cursorPosition}C"); // Move to column position
-         
-         // Remember where we left the cursor for next time
+         Console.Write($"\r\x1b[{2 + cursorPosition}C");
          lastCursorLine = currentLine;
       }
 
       /// <summary>
       /// Replace the current buffer with history content
       /// </summary>
-      private static void ReplaceBuffer(List<char> buffer, string text, ref int cursorPosition, string prompt, int promptVisualLength) {
+      private static void ReplaceBuffer(List<char> buffer,string text,ref int cursorPosition,string prompt,int promptVisualLength) {
          buffer.Clear();
          buffer.AddRange(text);
          cursorPosition = buffer.Count;
-         RedrawLine(buffer, cursorPosition, prompt, promptVisualLength);
+         RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
       }
 
       /// <summary>
       /// Redraw the current input line
       /// </summary>
-      private static void RedrawLine(List<char> buffer, int cursorPosition, string prompt, int promptVisualLength) {
+      private static void RedrawLine(List<char> buffer,int cursorPosition,string prompt,int promptVisualLength) {
          int currentTop = Console.CursorTop;
          int windowWidth = Console.WindowWidth;
-         
-         // Clear the entire line by overwriting with spaces
-         Console.SetCursorPosition(0, currentTop);
-         Console.Write(new string(' ', windowWidth - 1));
-         
-         // Redraw the prompt and buffer
-         Console.SetCursorPosition(0, currentTop);
+         Console.SetCursorPosition(0,currentTop);
+         Console.Write(new string(' ',windowWidth - 1));
+         Console.SetCursorPosition(0,currentTop);
          Console.Write(prompt + new string(buffer.ToArray()));
-         
-         // Position cursor at the correct location using visual length
-         Console.SetCursorPosition(promptVisualLength + cursorPosition, currentTop);
+         Console.SetCursorPosition(promptVisualLength + cursorPosition,currentTop);
       }
 
       /// <summary>
       /// Save the current state for undo/redo functionality
       /// </summary>
-      private record EditState(List<string> Lines, int CurrentLine, int CursorPosition) {
-         public List<string> Lines { get; init; } = Lines.Select(s => s).ToList(); // Deep copy
+      private record EditState(List<string> Lines,int CurrentLine,int CursorPosition) {
+         public List<string> Lines { get; init; } = Lines.Select(s => s).ToList();
       }
 
       /// <summary>
       /// Save the current state to the undo stack
       /// </summary>
-      private static void SaveState(Stack<EditState> stack, List<string> lines, int currentLine, int cursorPosition, int maxLevels) {
-         EditState state = new(lines, currentLine, cursorPosition);
+      private static void SaveState(Stack<EditState> stack,List<string> lines,int currentLine,int cursorPosition,int maxLevels) {
+         EditState state = new(lines,currentLine,cursorPosition);
          stack.Push(state);
          if (stack.Count > maxLevels) {
-            // Remove oldest entry
             Stack<EditState> temp = new(stack.Reverse().Skip(1));
             stack.Clear();
             foreach (EditState s in temp.Reverse()) stack.Push(s);
          }
+      }
+
+      /// <summary>
+      /// Check if console has been resized and update display if needed
+      /// </summary>
+      private void HandleConsoleResize() {
+         if (!_statusLineEnabled) return;
+
+         int currentHeight = Console.WindowHeight;
+         int currentWidth = Console.WindowWidth;
+         
+         bool heightChanged = currentHeight != _terminalHeight;
+         bool widthChanged = currentWidth != _terminalWidth;
+         
+         if (heightChanged || widthChanged) {
+            _terminalHeight = currentHeight;
+            _terminalWidth = currentWidth;
+            
+            try {
+               if (heightChanged) {
+                  // Full reconfigure needed when height changes
+                  ReconfigureScrollingRegion();
+                  RedisplayRecentOutput();
+               } else if (widthChanged) {
+                  // Only update status line when just width changes
+                  string currentStatus = Focus.Current.Object?.FQDN() ?? "Nothing";
+                  SetStatus(currentStatus);
+               }
+            } catch {
+               _statusLineEnabled = false;
+            }
+         }
+      }
+
+      /// <summary>
+      /// Configure the scrolling region and status line
+      /// </summary>
+      private void ReconfigureScrollingRegion() {
+         Console.Write("\x1b[2J"); // Clear screen
+         Console.Write("\x1b[1;1H"); // Move to line 1
+         Console.ForegroundColor = ConsoleColor.Black;
+         Console.BackgroundColor = ConsoleColor.Gray;
+         Console.Write(new string(' ',Console.WindowWidth));
+         Console.ResetColor();
+         Console.Write($"\x1b[2;{_terminalHeight}r"); // Set scrolling region
+         Console.Write("\x1b[2;1H"); // Move to line 2
+      }
+
+      /// <summary>
+      /// Redisplay recent output from scrollback buffer
+      /// </summary>
+      private void RedisplayRecentOutput() {
+         int startLine = Math.Max(0,_scrollbackBuffer.Count - (_terminalHeight - 2));
+         for (int i = startLine ; i < _scrollbackBuffer.Count ; i++) {
+            Console.WriteLine(_scrollbackBuffer[i].Text);
+         }
+         
+         string currentStatus = Focus.Current.Object?.FQDN() ?? "Nothing";
+         SetStatus(currentStatus);
       }
    }
 }
