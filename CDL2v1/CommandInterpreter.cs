@@ -382,8 +382,7 @@ namespace CDL2v1 {
             // Commands start with a lowercase letter
             InterpretCommand(input);
          } else if (!input.StartsWith(CommandInterpreter.CommandComment)) { // A command comment. Can't be the CDL2 comment delimiter # becasue that is valid in CDL2 source
-                                                                            // Assume it is a cdl2 construct that must be parsed
-            EnterCode(input);
+            EnterCode(input); // Assume it is a cdl2 construct that must be parsed
          }
       }
 

@@ -471,36 +471,53 @@ F1    | Show this help message.
                   e.Handled = true;
                }
             } else {
-               string trimmed = input.Trim();
-               if (trimmed.Length == 0) {
-                  ExecuteCommand();
-                  e.Handled = true;
-                  return;
-               }
-               bool isCommand = char.IsAsciiLetterLower(trimmed[0]);
-               string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
-               if (!isCommand) {
-                  SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
-                  if (type != SelectorType.INVALID) {
-                     InputTextBox.Text = $"{type} {input[firstWord.Length..]}";
-                     InputTextBox.CaretIndex = InputTextBox.Text.Length;
-                     if (trimmed.EndsWith('.')) {
+               InputType inputType = TokenList.ClassifyInput(input, out string trimmed, out string firstWord);
+                
+                switch (inputType) {
+                    case InputType.Empty:
                         ExecuteCommand();
                         e.Handled = true;
-                     } else {
-                        SwitchToMultiline();
-                        InsertNewlineWithIndent();
+                        break;
+                        
+                    case InputType.CommandComment:
+                        // Command comments are ignored - just show new prompt
+                        DisplayPrompt();
                         e.Handled = true;
-                     }
-                  } else {
-                     WriteError($"Attempt to enter a CDL2 construct with non-existent reserved word: {firstWord}");
-                     DisplayPrompt();
-                     e.Handled = true;
-                  }
-               } else {
-                  ExecuteCommand();
-                  e.Handled = true;
-               }
+                        break;
+                        
+                    case InputType.CDL2Comment:
+                        // CDL2 comments are passed through as-is
+                        ExecuteCommand();
+                        e.Handled = true;
+                        break;
+                        
+                    case InputType.Command:
+                        ExecuteCommand();
+                        e.Handled = true;
+                        break;
+                        
+                    case InputType.CDL2Construct:
+                        // Expand abbreviation and switch to multiline if needed
+                        SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
+                        InputTextBox.Text = $"{type} {input[firstWord.Length..]}";
+                        InputTextBox.CaretIndex = InputTextBox.Text.Length;
+                        
+                        if (trimmed.EndsWith('.')) {
+                            ExecuteCommand();
+                            e.Handled = true;
+                        } else {
+                            SwitchToMultiline();
+                            InsertNewlineWithIndent();
+                            e.Handled = true;
+                        }
+                        break;
+                        
+                    case InputType.Invalid:
+                        WriteError($"Invalid input: '{firstWord}' is not a recognized command or CDL2 reserved word.");
+                        DisplayPrompt();
+                        e.Handled = true;
+                        break;
+                }
             }
          }
 

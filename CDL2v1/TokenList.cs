@@ -33,9 +33,19 @@
 
 // Ignore Spelling: CDL
 
+using CDL2v1;
+
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
+using System.Text.RegularExpressions;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 
 namespace CDL2v1 {
    public class TokenList(Action<TokenType[],Token,RW[]> unexpectedTokenReporter,TokenList.Options options = TokenList.Options.None) {
@@ -252,6 +262,40 @@ namespace CDL2v1 {
             note = null;
             return false;
          }
+      }
+
+      /// <summary>
+      /// Determines the type of input, handling comments correctly
+      /// </summary>
+      /// <param name="input">The raw input text</param>
+      /// <param name="trimmedInput">Output: the trimmed input</param>
+      /// <param name="firstWord">Output: the first word of the input</param>
+      /// <returns>The classified input type</returns>
+      public static InputType ClassifyInput(string input, out string trimmedInput, out string firstWord) {
+          trimmedInput = input.Trim();
+          firstWord = "";
+          
+          if (trimmedInput.Length == 0) return InputType.Empty;
+          
+          // Check for command comment
+          if (trimmedInput.StartsWith(CommandInterpreter.CommandComment)) return InputType.CommandComment;
+          
+          // Check for CDL2 comment
+          if (trimmedInput.StartsWith('#')) return InputType.CDL2Comment;
+          
+          // Get the first word for further classification
+          firstWord = trimmedInput.Split(' ', '\t', '\r', '\n')[0];
+          
+          // Check if it's a command (lowercase letter)
+          if (char.IsAsciiLetterLower(trimmedInput[0])) return InputType.Command;
+          
+          // Check if it's a CDL2 construct (reserved word)
+          if (char.IsAsciiLetterUpper(trimmedInput[0])) {
+              SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
+              if (type != SelectorType.INVALID) return InputType.CDL2Construct;
+          }
+          
+          return InputType.Invalid;
       }
    }
 }

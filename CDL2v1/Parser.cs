@@ -990,7 +990,7 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Parse the tokens stream. Add it to the parse tree in the context of the focus.
+      /// Parse the token stream. Add tjh result to the parse tree in the context of the focus.
       /// Return the resulting element or null if there was an error.
       /// </summary>
       /// <param name="context"></param>
@@ -1181,6 +1181,13 @@ namespace CDL2v1 {
                }
                break;
             case RW.NOTE:
+               Notes notes = ParseNotes();
+               if (context.Object is not null) { 
+                  if (mode == ParseMode.Full) {
+                     context.Object.AddNotes(PhaseName,notes);
+                  }
+                  element = context.Object;
+               }
                break;
 
             case RW.NONE:

@@ -65,6 +65,18 @@ namespace CDL2v1 {
 
 
    /// <summary>
+   /// Classifies the type of input entered by the user
+   /// </summary>
+   public enum InputType {
+      Empty,              // Empty or whitespace only
+      CommandComment,     // Starts with ! (command comment)
+      CDL2Comment,        // Starts with # (CDL2 comment)
+      Command,            // Starts with lowercase letter (Lab command)
+      CDL2Construct,      // Starts with reserved word (CDL2 construct)
+      Invalid             // Unknown/invalid input
+   }
+
+   /// <summary>
    /// Token types for the CDL2 language.
    /// The aliases are meant to be used in the parser to make the code more readable.
    /// </summary>
