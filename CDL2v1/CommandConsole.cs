@@ -76,7 +76,7 @@ Background color indicates syntax validity:
          SetupStatusLine();
          
          WriteLine($"\n{CDL2.LabName} v{CDL2.Version}");
-         WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.",severity:Severity.Info);
+         WriteLine("Type 'help' for available commands, 'exit' or 'quit' to exit.", severity: Severity.Info);
 
          while (_isRunning) {
             string prompt = GetPrompt(false);
@@ -84,26 +84,46 @@ Background color indicates syntax validity:
 
             if (line == null) break;
 
-            line = line.Trim();
+            InputType inputType = TokenList.ClassifyInput(line, out string trimmed, out string firstWord);
 
-            if (string.IsNullOrEmpty(line)) continue;
+            switch (inputType) {
+               case InputType.Empty:
+                  continue;
 
-            // Skip comment lines (starting with !)
-            if (line[0] == '!') continue;
+               case InputType.CommandComment:
+                  // Command comments are ignored - just continue to next prompt
+                  continue;
 
-            if (char.IsAsciiLetterLower(line[0])) {
-               // Command
-               _commandHistory.Add(line);
-               inputProcessor!(line);
-            } else if (!line.EndsWith('.')) {
-               // Start of multiline code snippet - enter edit mode
-               string? editedText = ReadMultilineText(line);
-               if (editedText != null) {
-                  inputProcessor!(editedText);
-               }
-            } else {
-               // Single line code snippet
-               inputProcessor!(line);
+               case InputType.CDL2Comment:
+                  // CDL2 comments are passed through as-is
+                  inputProcessor!(trimmed);
+                  break;
+
+               case InputType.Command:
+                  _commandHistory.Add(trimmed);
+                  inputProcessor!(trimmed);
+                  break;
+
+               case InputType.CDL2Construct:
+                  // Expand abbreviation if needed
+                  SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
+                  string expandedInput = $"{type} {trimmed[firstWord.Length..]}";
+                  
+                  if (!trimmed.EndsWith('.')) {
+                     // Start of multiline code snippet - enter edit mode
+                     string? editedText = ReadMultilineText(expandedInput);
+                     if (editedText != null) {
+                        inputProcessor!(editedText);
+                     }
+                  } else {
+                     // Single line complete CDL2 construct
+                     inputProcessor!(expandedInput);
+                  }
+                  break;
+
+               case InputType.Invalid:
+                  WriteLine($"Invalid input: '{firstWord}' is not a recognized command or CDL2 reserved word.", Severity.Error);
+                  break;
             }
          }
       }

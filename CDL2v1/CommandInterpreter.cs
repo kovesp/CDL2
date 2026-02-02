@@ -143,7 +143,7 @@ namespace CDL2v1 {
          if (input[^1] != '.') input += '.';
          string inputBody = RemoveLeadingComments(input);
          string inputComment = input.Length > inputBody.Length ? input[..(input.Length - inputBody.Length)] : "";
-         string firstWord = inputBody.Split(' ','\t','\r','\n')[0];
+         string firstWord = inputBody.Split('.',' ','\t','\r','\n')[0];
          SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
          if (type != SelectorType.INVALID) {
             input = inputComment + type + inputBody[firstWord.Length..];
