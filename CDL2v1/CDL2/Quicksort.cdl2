@@ -603,11 +603,11 @@ PRELUDE data.
 ROOT sorter.
 
 #PRAGMA Target=PowerShell#
-PROGRAM sort.
+PROGRAM powershell sort.
    PART powershell kernel, quicksort.
    PRELUDE powershell kernel.
    ROOT quicksort.
-ENDPROG sort.
+ENDPROG powershell sort.
 
 #PRAGMA Target=CSharp#
 PROGRAM csharp sort.

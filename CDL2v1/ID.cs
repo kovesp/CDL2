@@ -87,7 +87,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="name">A name, a regular expression or * which matches any ID.</param>
       /// <returns></returns>
-      public bool Matches(string name) => name == "*" || (name.StartsWith('/') ? new Regex(name[1..]).IsMatch(CanonicalName) : Name == CanonicalName);
+      public bool Matches(string name) => name == "*" || this == name || (name.StartsWith('/') && new Regex(name[1..]).IsMatch(CanonicalName));
 
       public static bool operator ==(ID left,ID right) => left is null ? right is null : left.Equals(right);
       public static bool operator ==(ID left,string right) => left is null ? right is null : left.Equals(right);
