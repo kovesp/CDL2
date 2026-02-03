@@ -741,13 +741,30 @@ be used in CDL2 code.
 * Functions. These return values in an output affix. Example:
   `BUILTIN date+date string` sets the output affix to the current date
   as a string. These functions are evaluated when code is generated.
-  **NOT YET IMPLEMENTED**.
+
 
 #### Notes
-   * All input arguments are specified as `*arg` ans must be passed as literal strings.
-   * The functions return their result in the last argument as an output affix. Accordingly, the
-     actual argument must be an output or transput affix, a local, or a variable. The output
-     affix must be of the appropriate type (string, int, etc.)
+   * All input arguments are specified as `*arg` and must be passed as literal strings.
+   * The functions return their result in the last argument as an output affix.
+   * The value is always returned as a string. This means that it must be
+     passed to other algorithms in a string parameter position, i.e.,
+     an affix declared as `*affix`.
+   * The output affix must be
+     * Local to the procedure that makes the call.
+     * It can be used only in a single builtin call. The parser verifies this.
+     * It _should_ not be used in any call prior to the builtin call. The parser will not try to verify this.
+       Using it prior to the builtin call is **undefined**.
+     * Currently, violating the above constraint will work, but this is not guaranteed in future and is counterintuitive.   
+     * Subsequent to the call, it may only be used in a string position.
+     * _Note: There will be no code generated for this local. It is just a convention for passing the builtin function value._
+
+For example, the first version will work, but obviously you should no do it that way:
+```
+ACTION bad use of builtin -today: 
+   print+"The current date is: ", print+today, BUILTIN date+today.
+ACTION correct use of builtin -today: 
+   BUILTIN date+today, print+"The current date is: ", print+today.
+```
 
 ```
 TEST is option*name

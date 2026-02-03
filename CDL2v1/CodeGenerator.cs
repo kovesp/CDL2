@@ -402,7 +402,7 @@ namespace CDL2v1 {
                      switch (arg) {
                         case Var vv: cg.GenerateMacroElementVar(vv,callingProc.CanFail,inlined: true); break;
                         case Const cc: cg.GenerateMacroElementConst(cc!); break;
-                        case Local ll: cg.GenerateMacroElementLocal(ll); break;
+                        case Local ll: cg.GenerateMacroElementLocal(ll,aff); break;
                         case Affix aa: cg.GenerateMacroElementAffix(aa,callingProc.CanFail); break;
                         case STRING s: cg.GenerateMacroElementString(s.value,firstElement: false,quoted: true); break;
                         default: Debugger.Break(); break;
@@ -411,7 +411,7 @@ namespace CDL2v1 {
                      cg.GenerateMacroElementAffix(aff,macro.CanFail);
                   }
                } else if (macro.TryGetLocal(id,out Local loc)) {
-                  cg.GenerateMacroElementLocal(loc);
+                  cg.GenerateMacroElementLocal(loc,aff);
                } else if (section.TryGetDeclaration(id,out CDL2Object? obj)) { // This should be a reference to an affix, local, Const, Var or List, so check which one
                   switch (obj) {
                      case Const c: cg.GenerateMacroElementConst(c); break;
@@ -496,6 +496,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="proc"></param>
       private void GenerateProcedure(Procedure proc,int _) {
+         //if (proc.Id.Name == "run demo") {
+         //   Debug.WriteLine($"Generating code for {proc}");
+         //}
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
          } else if (!proc.IsSynthetic && proc.IsInlinable(Compiler.Reachable)) { // TODO: Inline synthetics if applicable
@@ -506,6 +509,7 @@ namespace CDL2v1 {
             //   cg.GenerateComment($"Procedure not invoked");
          } else {
             IEnumerable<Var> variables = proc.GetReferencedVariables();
+            Dictionary<Local,string> builtinLocalMap = GetLocalsUsedByBuiltins(proc.group,[]);
             cg.GenerateProcedureStart(proc);
             GenerateAlgorithmHeader(proc,variables);
             cg.GenerateProcedureBodyStart(proc,proc.ProcedureBodyType);
@@ -514,6 +518,32 @@ namespace CDL2v1 {
             FinalizeAffixesAndVariables(proc,variables);
             cg.GenerateProcedureEnd(proc);
          }
+      }
+
+      private Dictionary<Local,string> GetLocalsUsedByBuiltins(Group proc,Dictionary<Local,string> builtinLocalMap) {
+         foreach (Alternative alternative in proc.Alternatives) {
+            foreach (Call call in alternative.calls) {
+               if (call.IsBuiltin) {
+                  if (Builtin.IsFunction(call,out Local? loc)) {
+                     //call.Args.LastOrDefault() is Local lastArg)
+                  } else {
+
+                  }
+               }
+            }
+            switch (alternative.lastCall.type) {
+               case LCT.Standard:
+                  if (alternative.lastCall.call!.IsBuiltin) {
+                     Builtin.CollectLocalsUsedByBuiltin(alternative.lastCall.call!,builtinLocalMap);
+                  }
+                  break;
+               case LCT.Group:
+                  GetLocalsUsedByBuiltins(alternative.lastCall.group!,builtinLocalMap);
+                  break;
+            }
+         }
+
+         return builtinLocalMap;
       }
 
       /// <summary>
@@ -609,30 +639,34 @@ namespace CDL2v1 {
       /// <exception cref="NotImplementedException"></exception>
       private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative = false,bool lastAlternative = false,Parameters? parameters = null) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
-         Algorithm? called = call.Called;
-         if (called is not null) {
-            if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
-               cg.GenerateComment($"Inlining macro call -> {call}");
-               GenerateMacroBody(macro,proc,[.. call.Args],parameters,inlining: true);
-            } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Compiler.Reachable)) {
-               cg.GenerateComment($"Inlining procedure call -> {call}");
-               GenerateLocalInitializers(calledProc);
-               GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new Parameters(parameters,calledProc.Affixes,[.. call.Args]));
-            } else {
-               cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);
-               parameters = new Parameters(parameters,called.Affixes,call.Args);
-               if (parameters.Count > 0) {
-                  int i = 0;
-                  GenerateActualArg(proc,call,called.Affixes[i++],call.Args.First());
-                  foreach (IActualArg arg in call.Args.Skip(1)) {
-                     cg.GenerateActualArgSeparator();
-                     GenerateActualArg(proc,call,called.Affixes[i++],arg);
-                  }
-               }
-               cg.GenerateCallEnd(called,proc,canFail,onlyCallInAlternative,lastAlternative);
-            }
+         if (call.IsBuiltin && Builtin.IsFunction(call)) {
+            if (call.Args.Count > 0 && call.Args.Last() is Local target) cg.GenerateValueAssignment(target,Builtin.EvalFunction(call));
          } else {
-            cg.GenerateComment($"Call to undefined algorithm {call} skipped.");
+            Algorithm? called = call.Called;
+            if (called is not null) {
+               if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
+                  cg.GenerateComment($"Inlining macro call -> {call}");
+                  GenerateMacroBody(macro,proc,[.. call.Args],parameters,inlining: true);
+               } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Compiler.Reachable)) {
+                  cg.GenerateComment($"Inlining procedure call -> {call}");
+                  GenerateLocalInitializers(calledProc);
+                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new Parameters(parameters,calledProc.Affixes,[.. call.Args]));
+               } else {
+                  cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);
+                  parameters = new Parameters(parameters,called.Affixes,call.Args);
+                  if (parameters.Count > 0) {
+                     int i = 0;
+                     GenerateActualArg(proc,call,called.Affixes[i++],call.Args.First());
+                     foreach (IActualArg arg in call.Args.Skip(1)) {
+                        cg.GenerateActualArgSeparator();
+                        GenerateActualArg(proc,call,called.Affixes[i++],arg);
+                     }
+                  }
+                  cg.GenerateCallEnd(called,proc,canFail,onlyCallInAlternative,lastAlternative);
+               }
+            } else {
+               cg.GenerateComment($"Call to undefined algorithm {call} skipped.");
+            }
          }
       }
 

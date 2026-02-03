@@ -124,13 +124,21 @@ namespace CDL2v1 {
       public void GenerateConstElementInt(long value) => emitter.Emit(value);
       public void GenerateConstElementFloat(double value) => emitter.Emit(value);
       public void GenerateConstElementString(string value) => emitter.Emit("\"",value,"\"");
-      public void GenerateConstElementConst(Const c) => emitter.Emit(CName(c));
+      public void GenerateConstElementConst(Const c) => emitter.Emit(CArgName(c));
 
       public void GenerateConstantEnd(Const constant) => emitter.Emitnl();
 
       public void GenerateVar(Var v) => emitter.Emitnl("VALUE ",CName(v)," = ",RandomInitialValue,";");
 
       public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("CDL2_DECLARE_LIST(",CName(list),", ",CName(lwb),", ",CName(upb),");");
+
+
+      /// <summary>
+      /// Generate the assigment of a value to the given actual argument. Used to implement builtin functions.
+      /// </summary>
+      /// <param name="arg"></param>
+      /// <param name="value"></param>
+      void ICodeGenerator.GenerateValueAssignment(IActualArg arg,object value) => emitter.Emitnl(CArgName(arg)," = ",GenerateValueExpression(value),";");
 
       public void GenerateMacroStart(Macro macro) => emitter.NlEmit("\n",sourceEmitter.Content);
       public void GenerateMacroEnd(Macro macro) {
@@ -173,7 +181,7 @@ namespace CDL2v1 {
       public void GenerateMacroElementConst(Const c) => emitter.Emit(CName(c));
       public void GenerateMacroElementVar(Var v,bool canFail,bool inlined = false) => emitter.Emit(CName(v,canFail && !inlined ? "_" : ""));
       public void GenerateMacroElementList(LIST l) => emitter.Emit(CName(l));
-      public void GenerateMacroElementLocal(Local local) => emitter.Emit(CName(local));
+      public void GenerateMacroElementLocal(Local local,Affix calledAffix) => emitter.Emit(CName(local));
       public void GenerateMacroElementAffix(Affix affix,bool canFail) => emitter.Emit((affix.IsOutput ? "*" : "") + CName(affix,canFail && affix.IsOutput ? "_" : ""));
 
       #region Procedures
@@ -415,6 +423,27 @@ namespace CDL2v1 {
       private static string CName(Affix affix,string suffix = "") => "a_" + affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CName(Local local,string suffix = "") => "l_" + local.Id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CName(Var var,string suffix = "") => "v_" + var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
+      private static string CArgName(IActualArg arg,string suffix = "") => arg switch {
+         Affix a => CName(a,suffix),
+         Local l => CName(l,suffix),
+         Var v => CName(v,suffix),
+         _ => throw new NotImplementedException($"CName not implemented for type {arg.GetType()}."),
+      };
+      /// <summary>
+      /// Generate the constant that will be assinged to an Affix, Local or Var.
+      /// </summary>
+      /// <param name="value"></param>
+      /// <returns></returns>
+      /// <exception cref="NotImplementedException"></exception>
+      private string GenerateValueExpression(object value) => value switch {
+         long l => l.ToString(),
+         int i => i.ToString(),
+         double d => d.ToString(System.Globalization.CultureInfo.InvariantCulture),
+         string s => $"\"{s.Replace("\"","`\"")}\"",
+         _ => throw new NotImplementedException($"Value expression generation not implemented for type {value.GetType()}."),
+      };
+
+
       #endregion Helpers
    }
 }

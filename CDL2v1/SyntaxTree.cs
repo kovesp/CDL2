@@ -1693,11 +1693,17 @@ namespace CDL2v1 {
          FocusType = SelectorType.CALL;
       }
 
+      /// <summary>
+      /// Return true if this call is a conditional compilation flag set to on or off depending on the parameter.
+      /// Note that if the call is a built-in test then its evaluation is used to determine the result. If it is a builtin function then this is always false.
+      /// </summary>
+      /// <param name="on"></param>
+      /// <returns></returns>
       private bool IsConditionalCompilation(bool on) {
          if (Called != null) {
             return Called.IsConditionalCompilation(on);
-         } else if (IsBuiltin && Builtin.IsTest(this)) {
-            return on == Builtin.EvalTest(this);
+         } else if (IsBuiltin) {
+            return Builtin.IsTest(this) && on == Builtin.EvalTest(this);
          } else {
             return !on;
          }
@@ -2109,6 +2115,28 @@ namespace CDL2v1 {
       [JsonIgnore]
       public static readonly Local Default = new(ID.AnonID);
       override public string ToString() => $"-{Id.Name}";
+      /// <summary>
+      /// During parsing this will be set to the Guid of the call that setss this local.
+      /// During code generation, 
+      /// </summary>
+      [JsonInclude] public Guid BuiltinCallGuid = Guid.Empty;
+      [JsonIgnore] private string? _builtinFunctionValue = null;
+      /// <summary>
+      /// Returns the value of the built-in function if this local is set by a built-in function call.
+      /// <remarks>
+      /// Notice that this value is cached after the first evaluation. 
+      /// The parser will ensure that 
+      /// <list type="bullet">
+      /// <item>The local occurs only in a single built-in function call.</item>
+      /// <item>The local is not used before the builtin call.</item>
+      /// <item>The occurences of the local after the builtin call are to input ot string parameters.</item>
+      /// </list> 
+      /// </remarks>
+      /// </summary>
+      [JsonIgnore] public string BuiltinFunctionValue => _builtinFunctionValue ??= Builtin.EvalFunction(BuiltinCallGuid);
+
+      [JsonIgnore] public bool IsBuiltin => BuiltinCallGuid != Guid.Empty;
+
       [JsonConstructor]
       public Local() : this(ID.AnonID) { } // For deserialization
    }

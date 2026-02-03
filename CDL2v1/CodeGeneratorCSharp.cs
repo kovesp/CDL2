@@ -266,6 +266,13 @@ namespace CDL2Generated {
          }
       }
 
+      /// <summary>
+      /// Generate the assigment of a value to the given actual argument. Used to implement builtin functions.
+      /// </summary>
+      /// <param name="arg"></param>
+      /// <param name="value"></param>
+      void ICodeGenerator.GenerateValueAssignment(IActualArg arg,object value) => emitter.Emitnl(CSArgName(arg)," = ",GenerateValueExpression(value),";");
+
       void ICodeGenerator.GenerateAffixAndVariableInitializationStart(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("Initialization"); }
       void ICodeGenerator.GenerateAffixAndVariableInitializationEnd(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("End Initialization"); }
       void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("Finalization"); }
@@ -310,7 +317,7 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateMacroElementList(LIST list) => emitter.Emit(CSName(list));
       void ICodeGenerator.GenerateMacroElementConst(Const constant) => emitter.Emit(CSName(constant));
       void ICodeGenerator.GenerateMacroElementAffix(Affix affix,bool macroCanFail) => emitter.Emit(CSName(affix,macroCanFail && affix.IsOutput ? "_" : ""));
-      void ICodeGenerator.GenerateMacroElementLocal(Local loc) => emitter.Emit(CSName(loc));
+      void ICodeGenerator.GenerateMacroElementLocal(Local loc,Affix aff) => emitter.Emit(CSName(loc));
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
          if (macro.NeedsFinalization) IncrementIndent();
@@ -480,6 +487,26 @@ namespace CDL2Generated {
       private static string CSName(Affix affix,string suffix = "") => "a_" + affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CSName(Local local,string suffix = "") => "l_" + local.Id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CSName(Var var,string suffix = "") => "v_" + var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
+      private static string CSArgName(IActualArg arg,string suffix = "") => arg switch {
+         Affix a => CSName(a,suffix),
+         Local l => CSName(l,suffix),
+         Var v => CSName(v,suffix),
+         _ => throw new NotImplementedException($"CSName not implemented for type {arg.GetType()}."),
+      };
+
+      /// <summary>
+      /// Generate the constant that will be assinged to an Affix, Local or Var.
+      /// </summary>
+      /// <param name="value"></param>
+      /// <returns></returns>
+      /// <exception cref="NotImplementedException"></exception>
+      private string GenerateValueExpression(object value) => value switch {
+         long l => l.ToString(),
+         int i => i.ToString(),
+         double d => d.ToString(System.Globalization.CultureInfo.InvariantCulture),
+         string s => $"\"{s.Replace("\"","\\\"")}\"",
+         _ => throw new NotImplementedException($"Value expression generation not implemented for type {value.GetType()}."),
+      };
       #endregion Helpers
    }
 }

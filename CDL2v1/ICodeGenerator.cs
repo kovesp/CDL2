@@ -349,6 +349,14 @@ namespace CDL2v1 {
       /// <param name="direction"></param>
       /// <param name="algorithmCanFail"></param>
       void GenerateAffix(Affix affix,AD direction,bool algorithmCanFail);
+
+      /// <summary>
+      /// Generate the assigment of a value to the given actual argument. Used to implement builtin functions.
+      /// </summary>
+      /// <param name="arg"></param>
+      /// <param name="value"></param>
+      void GenerateValueAssignment(IActualArg arg,object value);
+
       /// <summary>
       /// This is called to generate the separator between affixes in the algorithm header.
       /// </summary>
@@ -477,7 +485,7 @@ namespace CDL2v1 {
       void GenerateMacroElementVar(Var var,bool macroCanFail,bool inlined = false);
       void GenerateMacroElementList(LIST list);
       void GenerateMacroElementAffix(Affix aff,bool macroCanFail);
-      void GenerateMacroElementLocal(Local id);
+      void GenerateMacroElementLocal(Local id,Affix calledAffix);
       void GenerateMacroInlineStart(Macro macro);
       void GenerateMacroInlineEnd(Macro macro);
       #endregion Macros

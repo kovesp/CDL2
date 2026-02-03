@@ -717,7 +717,8 @@ namespace CDL2v1 {
             Match targetMatch = Regex.Match(program.Comments,@"PRAGMA\s+Target\s*[=:]\s*(\w+)",RegexOptions.Compiled);
             string target = targetMatch.Success ? targetMatch.Groups[1].Value : Settings.SettingValue<string>("Target")!;
             if (CDL2.AvailableCodeGenerators.ContainsKey(target)) {
-               CDL2.GenerateCode(out string targetFileName,target: target,program);
+               string targetFileName = Settings.SettingValue<string>("file")!;
+               CDL2.GenerateCode(ref targetFileName,target: target,program);
                WriteInfo($"{target} code generated for {program.FQDN()} into {targetFileName}");
             } else {
                WriteError($"Unknown code generator {target} specified in {(targetMatch.Success ? "program PRAGMA" : "setting")}");

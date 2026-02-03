@@ -252,8 +252,10 @@ namespace CDL2v1 {
       /// The focus can be pushed or popped to allow for easier navigation.
       /// It is not preserved across sessions.
       /// </summary>
-      [JsonIgnore]
+
       public readonly BoundedStack<Focus> FocusStack = new(DefaultFocusStackSize);
+
+      [JsonInclude][JsonPropertyOrder(9)] public Guid CurrentFocusGuid = Guid.Empty;
 
       [JsonIgnore]
       private CommandInterpreter? _CLI;
@@ -718,10 +720,14 @@ namespace CDL2v1 {
       public static Section? Sec(string sec,string mod = "*") => Instance.SectionByName(sec,mod);
 
 
-      public static string Save(string? filePath = null) => Serializer.SaveDB(filePath);
+      public static string Save(string? filePath = null) {
+         Instance.CurrentFocusGuid = Focus.Current.Object?.GUID ?? Guid.Empty;
+         return Serializer.SaveDB(filePath);
+      }
       public static void Load(string? filePath = null) {
          Serializer.LoadDB(filePath);
          Instance.ConfigureAutoSave(Settings.SettingValue<int>("AutosaveInterval"));
+         Focus.SetFocus(Instance.CurrentFocusGuid);
       }
       public static void InitializeForTests() {
          Directory.SetCurrentDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,@"..\..\..\..\CDL2v1\CDL2"));

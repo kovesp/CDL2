@@ -329,7 +329,7 @@ function Remove-Const([string[]]$names) {
             emitter.Emit(PSVar(affix));
          }
       }
-      void ICodeGenerator.GenerateMacroElementLocal(Local loc) => emitter.Emit(PSVar(loc));
+      void ICodeGenerator.GenerateMacroElementLocal(Local loc,Affix calledAffix) => emitter.Emit(PSVar(loc));
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
          if (macro.NeedsFinalization) IncrementIndent();
@@ -384,6 +384,14 @@ function Remove-Const([string[]]$names) {
             emitter.Emitnl("} while ($true)");
          }
       }
+
+      /// <summary>
+      /// Generate the assigment of a value to the given actual argument. Used to implement builtin functions.
+      /// </summary>
+      /// <param name="arg"></param>
+      /// <param name="value"></param>
+      void ICodeGenerator.GenerateValueAssignment(IActualArg arg,object value) => emitter.Emitnl(PSArgName(arg)," = ",GenerateValueExpression(value),";");
+
       #region Alternatives
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) => GenerateComment($"Alternative {i}");
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed) {
@@ -513,6 +521,26 @@ function Remove-Const([string[]]$names) {
       private static string PSName(Affix affix) => affix.Id.Name.AsIdentifier(camelCase: true);
       private static string PSName(Local local) => local.Id.Name.AsIdentifier(camelCase: true);
       //private static string PSName(ID id) => id.Name.AsIdentifier(camelCase: true);
+
+      private static string PSArgName(IActualArg arg,string suffix = "") => arg switch {
+         Affix a => PSName(a),
+         Local l => PSName(l),
+         Var v => PSName(v),
+         _ => throw new NotImplementedException($"PSName not implemented for type {arg.GetType()}."),
+      };
+      /// <summary>
+      /// Generate the constant that will be assinged to an Affix, Local or Var.
+      /// </summary>
+      /// <param name="value"></param>
+      /// <returns></returns>
+      /// <exception cref="NotImplementedException"></exception>
+      private static string GenerateValueExpression(object value) => value switch {
+         long l => l.ToString(),
+         int i => i.ToString(),
+         double d => d.ToString(System.Globalization.CultureInfo.InvariantCulture),
+         string s => $"\"{s.Replace("\"","`\"")}\"",
+         _ => throw new NotImplementedException($"Value expression generation not implemented for type {value.GetType()}."),
+      };
       #endregion Helpers
    }
 }

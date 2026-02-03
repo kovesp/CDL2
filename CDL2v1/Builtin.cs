@@ -31,6 +31,9 @@
 //=======================================================================
 // </auto-gen>
 
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+
 namespace CDL2v1 {
    internal static class Builtin {
       // The Builtin facility is an extension to CDL2.
@@ -47,22 +50,40 @@ namespace CDL2v1 {
       // TEST     is environment variable value*name*value. // Is defined and has the value
       // TEST     is target*target
 
-      private static readonly Set<string> BuiltinFunctions = [
-         "date",
-         "time",
-         "version",
-         "option",
-         "environmentvariable",
-      ];
-      private static readonly Set<string> BuiltinTests = [
+      /// <summary>
+      /// Map of built-in functions and their argument counts.
+      /// </summary>
+      private static readonly Dictionary<string,int> Functions = new() {
+         { "date", 1 },
+         { "time", 1 },
+         { "version", 1 },
+         { "option", 2 },
+         { "environmentvariable", 2 },
+      };
+      /// <summary>
+      /// Provides a set of built-in test names recognized by the system.
+      /// </summary>
+      private static readonly HashSet<string> Tests = new() {
          "isoption",
          "isoptionvalue",
          "isenvironmentvariable",
          "istarget",
       ];
 
-      public static bool IsFunction(Call call) => BuiltinFunctions.Contains(call.id.CanonicalName);
-      public static bool IsTest(Call call) => BuiltinTests.Contains(call.id.CanonicalName);
+      /// <summary>
+      /// Is this a built-in function call? For this to be true,
+      /// <list type="bullet">
+      ///   <item>The call must be to a known built-in function with the correct number of arguments</item>
+      ///   <item>The last argument must be a Local (i.e., a variable to store the result)</item>
+      /// </list>
+      /// </summary>
+      /// <param name="call"></param>
+      /// <returns></returns>
+      public static bool IsFunction(Call call,[MaybeNullWhen(false)] out Local? loc) {
+         loc = Functions.TryGetValue(call.id.CanonicalName,out int argCount) && call.Args.Count == argCount && call.Args.Last() is Local l ? l: null;
+         return loc is not null;
+      }
+      public static bool IsTest(Call call) => Tests.Contains(call.id.CanonicalName);
 
       /// <summary>
       /// Evaluates a built-in function call and returns the result based on the specified function name and arguments.
@@ -71,12 +92,9 @@ namespace CDL2v1 {
       /// "environmentvariable". The behavior and return value vary depending on the function. For unrecognized function
       /// names, an exception is thrown.</remarks>
       /// <param name="call">The function call to evaluate, including the function identifier and any arguments. Cannot be null.</param>
-      /// <returns>The result of the evaluated function. The return type and value depend on the function specified in the call.
-      /// For example, returns the current date as a string for the "date" function, but will be an int for a setting that is an int.
-      /// It is up to the code generator to decide how to generate the result.
-      /// </returns>
+      /// <returns>The result of the evaluated function returned as a string.</returns>
       /// <exception cref="NotImplementedException">Thrown if the specified function name is not recognized or not implemented.</exception>
-      public static object EvalFunction(Call call) {
+      public static string EvalFunction(Call call) {
          switch (call.id.CanonicalName) {
             case "date":
                return DateTime.Now.ToString("yyyy-MM-dd");
@@ -86,7 +104,7 @@ namespace CDL2v1 {
                return CDL2.Version;
             case "option":
                if (call.TryGetActual<STRING>(out STRING? option)) {
-                  return Settings.TryGetSettingValue(option.value,out object? value) ? value : "";
+                  return Settings.TryGetSettingValue(option.value,out object? value) ? value?.ToString() ?? "" : "";
                } else {
                   return "";
                }
@@ -100,6 +118,8 @@ namespace CDL2v1 {
                throw new NotImplementedException($"Builtin function {call.id.CanonicalName} not implemented.");
          }
       }
+      public static string EvalFunction(Guid callGuid) => NamedElement.From<Call>(callGuid) is Call call ? EvalFunction(call) : "";
+
       /// <summary>
       /// 
       /// </summary>
