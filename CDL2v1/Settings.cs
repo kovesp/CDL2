@@ -191,7 +191,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "undo",               NoOption,             false,          "Can be used in the list command to display the undo stack."),
          new Setting<bool>(    "redo",               NoOption,             false,          "Can be used in the list command to display the redo stack."),
 
-         new Setting<bool>(    "DebugCommands",       NoOption,             false,         "Display the parsed command."),
+         new Setting<bool>(    "DebugCommands",      NoOption,             false,         "Display the parsed command."),
       ];
       private readonly ImmutableHashSet<string> ValidSetting;
 
