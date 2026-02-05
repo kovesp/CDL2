@@ -151,6 +151,7 @@ namespace CDL2v1 {
       public static readonly Note CannotChangeIdentity = new(Severity.Error,065,"The edit command cannot be used to change the type or identity of an object");
       public static readonly Note UnknownBuiltin = new(Severity.Error,066,"Unknown built-in function or wrong number of arguments: {0}");
       public static readonly Note BuiltinResultReused = new(Severity.Error,067,"Local {0} used in more than one BUILTIN call");
+      public static readonly Note BuiltinResultAsOutput = new(Severity.Error,068,"BUILTIN result {1} used as {0} in {2}");
 
       public static readonly Note NoEffect = new(Severity.Warning,101,"Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten = new(Severity.Warning,102,"Output affix {0} whose value has not been read passed to output in {1}");
