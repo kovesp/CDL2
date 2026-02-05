@@ -868,15 +868,19 @@ namespace CDL2v1 {
                WriteLine($"   {sel.NameWithAbbreviation,-10}   {sel.HelpText}");
             }
          } else if (Settings.SettingValue<bool>("settings")!) {
+            WriteInfo("The short form of a setting is in parentheses.");
+            WriteInfo("Single letter versions CANNOT be combined (e.g., '-ur' must be written '-u -r'.");
+            WriteInfo("Settings marked with * are not avilable on the Lab command line.");
             static string blanks(int n) => new(' ',n);
             foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
                string[] desc = setting.Option.Description?.Split("\n") ?? [""];
                string abbrev = Settings.ReverseAbbreviations.TryGetValue(setting.Name,out string? abbr)
                                  ? $"({abbr})".PadRight(Settings.MaxAbbreviationLength + 2)
                                  : $"{blanks(Settings.MaxAbbreviationLength + 2)}";
-               WriteLine($"{setting.Name.PadRight(Settings.Instance.MaxNameLength)} {abbrev} : {desc[0]}");
+               string labOnly = setting.LongOption.StartsWith("--NA") ? "*" : " ";
+               WriteLine($"{(labOnly+setting.Name).PadRight(Settings.Instance.MaxNameLength+1)} {abbrev} : {desc[0]}");
                foreach (string line in desc.Skip(1)) {
-                  WriteLine($"{blanks(Settings.Instance.MaxNameLength + Settings.MaxAbbreviationLength + 3)}   {line}");
+                  WriteLine($"{blanks(Settings.Instance.MaxNameLength + Settings.MaxAbbreviationLength + 4)}   {line}");
                }
             }
          } else {
@@ -885,8 +889,8 @@ namespace CDL2v1 {
             foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
                WriteLine(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
             }
-            WriteInfo("Type 'help -sel[ectors]' to list the valid selectors.");
-            WriteInfo("Type 'help -s[ettings]' to list the valid settings.");
+            WriteInfo("Type 'help -s[electors]' to list the valid selectors.");
+            WriteInfo("Type 'help -settings' or 'help -o' to list the valid settings.");
          }
       }
 

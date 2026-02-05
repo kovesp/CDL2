@@ -171,7 +171,7 @@ namespace CDL2v1 {
          // Settings that cannot be used from the lab command line. A dummy option is generated for each
          new Setting<bool>(    "list",                NoOption,             false,         "Modify a command to list available objects. Used by Undo and redo."),
          new Setting<bool>(    "before",              NoOption,             false,         "Used in commands to specify a postioning location before a target."),
-         new Setting<bool>(    "after",               NoOption,             false,         "Used in commands to specify a postioning location after a target. Default adn redundant"),
+         new Setting<bool>(    "after",               NoOption,             false,         "Used in commands to specify a postioning location after a target. Default, so redundant"),
          new Setting<bool>(    "inv",                 NoOption,             false,         "Modify the command to affect only the INV list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "ext",                 NoOption,             false,         "Modify the command to affect only the EXT list entry of the object if any. Applies to delete and add."),
          new Setting<bool>(    "abstr",               NoOption,             false,         "Modify the command to affect only the ABSTR list entry of the object if any. Applies to delete and add."),
@@ -183,7 +183,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "separate",            NoOption,             false,         "When generating code for programs (modules), do not inline objects from (other) modules."),
          new Setting<bool>(    "prompt",              NoOption,             false,         "When removing an object prompt for confirmation."),
          new Setting<bool>(    "refs",                NoOption,             true,          "When renaming an object also rename all references to it."),
-         new Setting<string>(  "file",                NoOption,             "",            "Supplies the file name for print/type. The filename may be end with ::append to leave\n"+
+         new Setting<string>(  "file",                NoOption,             "",            "Supplies the file name for print/type. The filename may end with ::append to leave\n"+
                                                                                            "the file open for appending by further print/type commands. If the file name is just ::append\n"+
                                                                                            "the existing file is reused. If this option is missing, the file is closed by print/type.\n"+
                                                                                            "Specify ::close to print nothing, just close the file. If a directory is not given,\n"+
@@ -198,7 +198,7 @@ namespace CDL2v1 {
       ];
 
       public static readonly ImmutableDictionary<string,string> Abbreviations = new Dictionary<string,string>() {
-         { "p","Program" },
+         { "p","ProgramName" },
          { "t","Target" },
          { "od","OutputDirectory" },
          { "npi","NoProcInlining" },
@@ -206,12 +206,12 @@ namespace CDL2v1 {
          { "l","list" },
          { "u","undo" },
          { "r","redo" },
-         { "a","after" },
+         { "b","before" },
          { "imp","import" },
          { "exp","export" },
          { "f","file" },
-         { "s","settings" },
-         { "sel","selectors" },
+         { "o","settings" },
+         { "s","selectors" },
       }.ToImmutableDictionary();
       public static readonly ImmutableDictionary<string,string> ReverseAbbreviations =
          Abbreviations.ToImmutableDictionary(kvp => kvp.Value,kvp => kvp.Key);
