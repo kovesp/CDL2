@@ -271,6 +271,7 @@ namespace CDL2v1 {
    [JsonDerivedType(typeof(Var),"Var")]
    [JsonDerivedType(typeof(Const),"Const")]
    [JsonDerivedType(typeof(ImportedConst),"ImportedConst")]
+   [JsonDerivedType(typeof(Call),"Call")]
    [JsonDerivedType(typeof(Affix),"Affix")]
    [JsonDerivedType(typeof(Local),"Local")]
    [JsonDerivedType(typeof(Undeclared),"Undeclared")]
@@ -332,11 +333,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="id"></param>
       /// <param name="synthetic"></param>
-      public NamedElement(ID id,bool synthetic = false,SelectorType focusType = SelectorType.INVALID) {
+      public NamedElement(ID id,bool synthetic = false,SelectorType focusType = SelectorType.INVALID,bool record = false) {
          Id = id;
          IsSynthetic = synthetic;
          GUID = Guid.NewGuid();
-         Database.Instance.AddNamedElement(this); // Register the element in the database.
+         Database.Instance.AddNamedElement(this,record); // Register the element in the database.
          FocusType = focusType;
       }
       /// <summary>
@@ -1640,7 +1641,7 @@ namespace CDL2v1 {
 
    }
 
-   public class Call : NamedElement, IUnrecordedElement {
+   public class Call : NamedElement {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Call";
@@ -1679,9 +1680,11 @@ namespace CDL2v1 {
       /// </summary>
       [JsonInclude][JsonPropertyOrder(54)] public bool IsBuiltin;
 
+      [JsonIgnore] public bool IsBuiltinFunction => IsBuiltin && Builtin.IsFunction(this);
+
       [JsonIgnore] public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
       [JsonIgnore] public bool IsConditionalCompilationOn => IsConditionalCompilation(on: true);
-      public Call(ID id,Procedure containingProc,Alternative containingAlternative,bool builtin = false) : base(id,focusType: SelectorType.CALL) {
+      public Call(ID id,Procedure containingProc,Alternative containingAlternative,bool builtin = false) : base(id,focusType: SelectorType.CALL,record:builtin) {
          this.id = id;
          Parent = containingAlternative.GUID;
          IsBuiltin = builtin;
@@ -1759,8 +1762,8 @@ namespace CDL2v1 {
       public override bool Equals(object? obj) => false;
       public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
-      [JsonIgnore] public bool CanFail => Called?.CanFail ?? true;
-      [JsonIgnore] public bool AlwaysSucceeds => Called?.AlwaysSucceeds ?? false;
+      [JsonIgnore] public bool CanFail => !IsBuiltinFunction && (Called?.CanFail ?? true);
+      [JsonIgnore] public bool AlwaysSucceeds => IsBuiltinFunction || (Called?.AlwaysSucceeds ?? false);
       [JsonIgnore] public bool HasEffect => Called?.HasEffect ?? false;
       [JsonIgnore] public bool HasNoEffect => Called?.HasNoEffect ?? false;
 
@@ -2115,6 +2118,7 @@ namespace CDL2v1 {
       [JsonIgnore]
       public static readonly Local Default = new(ID.AnonID);
       override public string ToString() => $"-{Id.Name}";
+
       /// <summary>
       /// During parsing this will be set to the Guid of the call that setss this local.
       /// During code generation, 
@@ -2133,9 +2137,10 @@ namespace CDL2v1 {
       /// </list> 
       /// </remarks>
       /// </summary>
-      [JsonIgnore] public string BuiltinFunctionValue => _builtinFunctionValue ??= Builtin.EvalFunction(BuiltinCallGuid);
+      [JsonIgnore] public string BuiltinResult => _builtinFunctionValue ??= Builtin.EvalFunction(BuiltinCallGuid);
 
-      [JsonIgnore] public bool IsBuiltin => BuiltinCallGuid != Guid.Empty;
+      [JsonIgnore] public bool IsBuiltinResult => BuiltinCallGuid != Guid.Empty;
+      internal void ResetBuiltinResult() => _builtinFunctionValue = null;
 
       [JsonConstructor]
       public Local() : this(ID.AnonID) { } // For deserialization

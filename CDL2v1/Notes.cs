@@ -107,7 +107,7 @@ namespace CDL2v1 {
       public static readonly Note InterfaceElementNotProvidable = new(Severity.Error,021,"Only CONSTs and Algorithms may be in {1} declarations. {0} is of type {2}");
       public static readonly Note InvalidInputArg = new(Severity.Error,022,"Only CONST, VAR, AFFIX (input or transput) or LOCAL may be passed to an input affix {0}");
       public static readonly Note InvalidOutputArg = new(Severity.Error,023,"Only VAR, AFFIX (output or transput) or LOCAL may be passed to an output affix {0}");
-      public static readonly Note InvalidStringArg = new(Severity.Error,024,"Only CONST, literal string, or string affix can be passed to {1}, not {0}");
+      public static readonly Note InvalidStringArg = new(Severity.Error,024,"Only CONST, literal string, string affix, or BUILTIN result can be passed to {1}, not {0}");
       public static readonly Note InvalidTransputArg = new(Severity.Error,025,"Only VAR, AFFIX (output or transput) or LOCAL may be passed to a transput affix {0}");
       public static readonly Note InvalidArgumentType = new(Severity.Error,026,"Argument must reference an affix, const or var, not {0}");
       public static readonly Note UnresolvedArgument = new(Severity.Error,027,"Argument could not be resolved {0}");
@@ -149,6 +149,8 @@ namespace CDL2v1 {
       public static readonly Note ExpectedGroup = new(Severity.Error,063,"Expected group");
       public static readonly Note ExpectedLastCall = new(Severity.Error,064,"Expected last call: ID, +, -, ?, or *");
       public static readonly Note CannotChangeIdentity = new(Severity.Error,065,"The edit command cannot be used to change the type or identity of an object");
+      public static readonly Note UnknownBuiltin = new(Severity.Error,066,"Unknown built-in function or wrong number of arguments: {0}");
+      public static readonly Note BuiltinResultReused = new(Severity.Error,067,"Local {0} used in more than one BUILTIN call");
 
       public static readonly Note NoEffect = new(Severity.Warning,101,"Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten = new(Severity.Warning,102,"Output affix {0} whose value has not been read passed to output in {1}");

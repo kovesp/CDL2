@@ -625,9 +625,10 @@ namespace CDL2v1 {
                   if (affix[i].IsString) {
                      // The actual argument must be a constant, a string or a string affix of the containing procedure.
                      switch (args[i]) {
-                        case Const _:
+                        case Const:
+                        case STRING:
                         case Affix stringArg when stringArg.IsString:
-                        case STRING _:
+                        case Local local when local.IsBuiltinResult:
                            break;
                         default:
                            proc.AddNote(PhaseName,Note.InvalidStringArg,args[i],call);
@@ -637,8 +638,8 @@ namespace CDL2v1 {
                      // The actual argument must be a constant, a variable, an input or transput affix of the containing procedure,
                      // or a local or output affix that has already received a value.
                      switch (args[i]) {
-                        case Const _:
-                        case Var _:
+                        case Const:
+                        case Var:
                         case Affix inputArg when inputArg.IsInput:   // Includes transput
                            break;
                         case Affix outputArg when outputArg.IsOutputOnly:
@@ -655,7 +656,7 @@ namespace CDL2v1 {
                      // The actual argument must be a variable, a local or an affix (output or transput) of the containing procedure.
                      // The local or affix must have been read since it was last written (this is a warning).
                      switch (args[i]) {
-                        case Var _:
+                        case Var:
                            break;
                         case Affix outputArg when outputArg.IsOutput:   // Includes transput
                            if (info.Unwritable(outputArg)) proc.AddNote(PhaseName,Note.OutputAffixOverwritten,outputArg,call);

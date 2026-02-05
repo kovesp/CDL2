@@ -350,14 +350,7 @@ namespace CDL2v1 {
       /// <param name="algorithmCanFail"></param>
       void GenerateAffix(Affix affix,AD direction,bool algorithmCanFail);
 
-      /// <summary>
-      /// Generate the assigment of a value to the given actual argument. Used to implement builtin functions.
-      /// </summary>
-      /// <param name="arg"></param>
-      /// <param name="value"></param>
-      void GenerateValueAssignment(IActualArg arg,object value);
-
-      /// <summary>
+       /// <summary>
       /// This is called to generate the separator between affixes in the algorithm header.
       /// </summary>
       void GenerateAffixSeparator();

@@ -271,7 +271,6 @@ namespace CDL2Generated {
       /// </summary>
       /// <param name="arg"></param>
       /// <param name="value"></param>
-      void ICodeGenerator.GenerateValueAssignment(IActualArg arg,object value) => emitter.Emitnl(CSArgName(arg)," = ",GenerateValueExpression(value),";");
 
       void ICodeGenerator.GenerateAffixAndVariableInitializationStart(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("Initialization"); }
       void ICodeGenerator.GenerateAffixAndVariableInitializationEnd(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("End Initialization"); }

@@ -75,6 +75,8 @@ namespace CDL2v1 {
          }
          //DumpReachableObjects(program);
 
+         ResetBuiltinLocals();
+
          if (!isSeparate) {
             // Generate an integrated program ignoring module boundaries of all objects reachable from the program's ludes.
             cg.GenerateProgramStart(program,emitter);  // Generate the overall scaffolding
@@ -83,6 +85,7 @@ namespace CDL2v1 {
             GenerateObjects<Const>(Compiler.Reachable.Objects.OfType<Const>(),GenerateConstant);
             GenerateObjects<Var>(Compiler.Reachable.Objects.OfType<Var>(),GenerateVar);
             GenerateObjects<LIST>(Compiler.Reachable.Objects.OfType<LIST>(),GenerateList);
+
 
             GenerateObjects<Macro>(Compiler.Reachable.Objects.OfType<Macro>(),GenerateMacro);
             GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic),GenerateProcedure);
@@ -107,6 +110,13 @@ namespace CDL2v1 {
             cg.GenerateProgramEnd(program);
             foreach (Module mod in program.Modules) GenerateModule(mod,isSeparate: true);
          }
+      }
+
+      /// <summary>
+      /// Reset all builtins to cause their values to be recomputed.
+      /// </summary>
+      private static void ResetBuiltinLocals() {
+         foreach (Local local in Database.Instance.NamedElements.Values.OfType<Local>()) local.ResetBuiltinResult();
       }
 
       /// <summary>
@@ -402,7 +412,13 @@ namespace CDL2v1 {
                      switch (arg) {
                         case Var vv: cg.GenerateMacroElementVar(vv,callingProc.CanFail,inlined: true); break;
                         case Const cc: cg.GenerateMacroElementConst(cc!); break;
-                        case Local ll: cg.GenerateMacroElementLocal(ll,aff); break;
+                        case Local ll:
+                           if (ll.IsBuiltinResult) {
+                              cg.GenerateMacroElementString(ll.BuiltinResult,firstElement: first,quoted: true);
+                           } else {
+                              cg.GenerateMacroElementLocal(ll,aff);
+                           }
+                           break;
                         case Affix aa: cg.GenerateMacroElementAffix(aa,callingProc.CanFail); break;
                         case STRING s: cg.GenerateMacroElementString(s.value,firstElement: false,quoted: true); break;
                         default: Debugger.Break(); break;
@@ -474,8 +490,9 @@ namespace CDL2v1 {
       /// Generates initializers for all local variables defined in the specified algorithm.
       /// </summary>
       /// <param name="alg">The algorithm containing the local variables for which initializers will be generated. Cannot be null.</param>
+      /// <remarks>Notice that nothing is genrated for built-in result locals ... these are virtual.</remarks>
       private void GenerateLocalInitializers(Algorithm alg) {
-         foreach (Local local in alg.Locals) cg.GenerateLocal(local);
+         foreach (Local local in alg.Locals) if (!local.IsBuiltinResult) cg.GenerateLocal(local);
       }
 
       /// <summary>
@@ -509,7 +526,6 @@ namespace CDL2v1 {
             //   cg.GenerateComment($"Procedure not invoked");
          } else {
             IEnumerable<Var> variables = proc.GetReferencedVariables();
-            Dictionary<Local,string> builtinLocalMap = GetLocalsUsedByBuiltins(proc.group,[]);
             cg.GenerateProcedureStart(proc);
             GenerateAlgorithmHeader(proc,variables);
             cg.GenerateProcedureBodyStart(proc,proc.ProcedureBodyType);
@@ -518,32 +534,6 @@ namespace CDL2v1 {
             FinalizeAffixesAndVariables(proc,variables);
             cg.GenerateProcedureEnd(proc);
          }
-      }
-
-      private Dictionary<Local,string> GetLocalsUsedByBuiltins(Group proc,Dictionary<Local,string> builtinLocalMap) {
-         foreach (Alternative alternative in proc.Alternatives) {
-            foreach (Call call in alternative.calls) {
-               if (call.IsBuiltin) {
-                  if (Builtin.IsFunction(call,out Local? loc)) {
-                     //call.Args.LastOrDefault() is Local lastArg)
-                  } else {
-
-                  }
-               }
-            }
-            switch (alternative.lastCall.type) {
-               case LCT.Standard:
-                  if (alternative.lastCall.call!.IsBuiltin) {
-                     Builtin.CollectLocalsUsedByBuiltin(alternative.lastCall.call!,builtinLocalMap);
-                  }
-                  break;
-               case LCT.Group:
-                  GetLocalsUsedByBuiltins(alternative.lastCall.group!,builtinLocalMap);
-                  break;
-            }
-         }
-
-         return builtinLocalMap;
       }
 
       /// <summary>
@@ -640,7 +630,7 @@ namespace CDL2v1 {
       private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative = false,bool lastAlternative = false,Parameters? parameters = null) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          if (call.IsBuiltin && Builtin.IsFunction(call)) {
-            if (call.Args.Count > 0 && call.Args.Last() is Local target) cg.GenerateValueAssignment(target,Builtin.EvalFunction(call));
+            // Ignore the call here. The value of the builtin will be inserted directly where needed.
          } else {
             Algorithm? called = call.Called;
             if (called is not null) {
@@ -686,7 +676,11 @@ namespace CDL2v1 {
                if (proc.TryGetAffix(id,out Affix procAffix)) {
                   cg.GenerateCallArgReferenceAffix(calledAffix,procAffix,needFinalization: call.CanFail);
                } else if (proc.TryGetLocal(id,out Local local)) {
-                  cg.GenerateCallArgReferenceLocal(calledAffix,local);
+                  if (local.IsBuiltinResult) {
+                     cg.GenerateCallArgString(local.BuiltinResult);
+                  } else {
+                     cg.GenerateCallArgReferenceLocal(calledAffix,local);
+                  }
                } else if (proc.ParentElement<Section>()!.TryGetDeclaration(id,out CDL2Object? dataRef)) {
                   if (dataRef is Const c) {
                      Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");

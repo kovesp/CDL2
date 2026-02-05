@@ -132,14 +132,6 @@ namespace CDL2v1 {
 
       public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("CDL2_DECLARE_LIST(",CName(list),", ",CName(lwb),", ",CName(upb),");");
 
-
-      /// <summary>
-      /// Generate the assigment of a value to the given actual argument. Used to implement builtin functions.
-      /// </summary>
-      /// <param name="arg"></param>
-      /// <param name="value"></param>
-      void ICodeGenerator.GenerateValueAssignment(IActualArg arg,object value) => emitter.Emitnl(CArgName(arg)," = ",GenerateValueExpression(value),";");
-
       public void GenerateMacroStart(Macro macro) => emitter.NlEmit("\n",sourceEmitter.Content);
       public void GenerateMacroEnd(Macro macro) {
          DecrementIndent();

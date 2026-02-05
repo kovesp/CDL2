@@ -385,13 +385,6 @@ function Remove-Const([string[]]$names) {
          }
       }
 
-      /// <summary>
-      /// Generate the assigment of a value to the given actual argument. Used to implement builtin functions.
-      /// </summary>
-      /// <param name="arg"></param>
-      /// <param name="value"></param>
-      void ICodeGenerator.GenerateValueAssignment(IActualArg arg,object value) => emitter.Emitnl(PSArgName(arg)," = ",GenerateValueExpression(value),";");
-
       #region Alternatives
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int i) => GenerateComment($"Alternative {i}");
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed) {

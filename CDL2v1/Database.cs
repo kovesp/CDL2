@@ -620,8 +620,8 @@ namespace CDL2v1 {
       /// These will be removed when registration is resumed.
       /// </summary>
       /// <param name="element"></param>
-      public void AddNamedElement(NamedElement element) {
-         if (element is not IUnrecordedElement) {
+      public void AddNamedElement(NamedElement element,bool record) {
+         if (record || element is not IUnrecordedElement) {
             NamedElements[element.GUID] = element;
             if (_suspendNamedElementRegistration) _suspendedNamedElementRegistrationList.Add(element.GUID);
          }

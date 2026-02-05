@@ -430,8 +430,10 @@ namespace CDL2v1 {
             if (mode == ParseMode.Full) ReportError("Expected .");
             return false;
          }
+
          return true;
       }
+
       private bool ParseAlternatives(Procedure proc,Group group,ParseMode mode,out List<Alternative> alternatives) {
          alternatives = [];
          do {
@@ -448,7 +450,6 @@ namespace CDL2v1 {
 
       private bool ParseAlternative(Procedure proc,Group group,Notes notes,ParseMode mode,out Alternative alternative) {
          alternative = new(notes,group);
-
          do {
             if (alternative.lastCall.type != LCT.None) {
                // If we have a last call, then we should NOT have seen a separator
@@ -513,7 +514,24 @@ namespace CDL2v1 {
             ParseMode mode,[NotNullWhen(true)] out Call? call,bool builtin = false) {
          Debug.Assert(parser.currentSection != null);
          call = new(id,containingProc,containingAlternative,builtin);
-         return ParseActualArgs(parser,call,containingProc,mode);
+         if (ParseActualArgs(parser,call,containingProc,mode)) {
+            if (builtin) {
+               if (Builtin.IsFunction(call,out Local? local)) {
+                  if (!local!.IsBuiltinResult) {
+                     local.BuiltinCallGuid = call.GUID;
+                  } else {
+                     if (mode == ParseMode.Full) parser.ReportProblem(Note.BuiltinResultReused,call.Id.Name);
+                     call = null;
+                  }
+               } else if (!Builtin.IsTest(call)) {
+                  if (mode == ParseMode.Full) parser.ReportProblem(Note.UnknownBuiltin,call.Id.Name);
+                  call = null;
+               }
+            }
+         } else {
+            call = null;
+         }
+         return call is not null;
       }
 
       private bool ParseGroup(Procedure proc,Group containingGroup,Alternative containingAlternative,ParseMode mode,

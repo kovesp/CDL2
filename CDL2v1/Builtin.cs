@@ -68,7 +68,7 @@ namespace CDL2v1 {
          "isoptionvalue",
          "isenvironmentvariable",
          "istarget",
-      ];
+      };
 
       /// <summary>
       /// Is this a built-in function call? For this to be true,
@@ -83,6 +83,7 @@ namespace CDL2v1 {
          loc = Functions.TryGetValue(call.id.CanonicalName,out int argCount) && call.Args.Count == argCount && call.Args.Last() is Local l ? l: null;
          return loc is not null;
       }
+      public static bool IsFunction(Call call) => IsFunction(call,out _);
       public static bool IsTest(Call call) => Tests.Contains(call.id.CanonicalName);
 
       /// <summary>
