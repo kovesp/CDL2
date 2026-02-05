@@ -190,9 +190,34 @@ namespace CDL2v1 {
                                                                                            "it is taken from the OutputDirectory setting."),
          new Setting<bool>(    "undo",               NoOption,             false,          "Can be used in the list command to display the undo stack."),
          new Setting<bool>(    "redo",               NoOption,             false,          "Can be used in the list command to display the redo stack."),
+         
+         new Setting<bool>(    "selectors",          NoOption,             false,          "Used in the help command to list avaialble selectors."),
+         new Setting<bool>(    "settings",           NoOption,             false,          "Used in the help command to list avaialble settings."),
 
          new Setting<bool>(    "DebugCommands",      NoOption,             false,         "Display the parsed command."),
       ];
+
+      public static readonly ImmutableDictionary<string,string> Abbreviations = new Dictionary<string,string>() {
+         { "p","Program" },
+         { "t","Target" },
+         { "od","OutputDirectory" },
+         { "npi","NoProcInlining" },
+         { "nmi","NoMacroInlining" },
+         { "l","list" },
+         { "u","undo" },
+         { "r","redo" },
+         { "a","after" },
+         { "imp","import" },
+         { "exp","export" },
+         { "f","file" },
+         { "s","settings" },
+         { "sel","selectors" },
+      }.ToImmutableDictionary();
+      public static readonly ImmutableDictionary<string,string> ReverseAbbreviations =
+         Abbreviations.ToImmutableDictionary(kvp => kvp.Value,kvp => kvp.Key);
+      public static readonly int MaxAbbreviationLength =
+         Abbreviations.Keys.Max(s => s.Length);
+
       private readonly ImmutableHashSet<string> ValidSetting;
 
       public static List<ISetting> AllSettings => Instance.SettingsList;

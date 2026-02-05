@@ -347,6 +347,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       private ParsedSetting ParseSetting(string setting) {
          string[] parts = setting.TrimStart('-').Split([':','='],2);
+         if (Settings.Abbreviations.TryGetValue(parts[0],out string? fullName)) parts[0] = fullName;
          if (parts.Length > 1) {
             // A numeric or string setting.
             if (int.TryParse(parts[1],out int intValue)) {
@@ -362,7 +363,6 @@ namespace CDL2v1 {
                      _ => m.Value
                   });
                }
-
                return new ParsedSetting(parts[0],SettingType.String,parts[1],null);
             }
          } else {
@@ -861,28 +861,32 @@ namespace CDL2v1 {
       }
 
       private void InterpretCommandHelp(string args) {
-         if (args == "") {
-            WriteInfo("Commands must start with a lower case letter.");
-            WriteInfo("Capital letters in the following only denote the minimum abbreviation of the command.");
-            foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
-               WriteLine(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
-            }
-            WriteInfo("Type 'help selector' to list the valid selectors.");
-            WriteInfo("Type 'help setting' to list the valid settings.");
-         } else if (args == "selector") {
+         if (Settings.SettingValue<bool>("selectors")!) {
             WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
             WriteInfo("Only the first letter of the selector must be capitalized.\n");
             foreach (Abbreviation<SelectorType> sel in Abbreviation<SelectorType>.FocusTypes) {
                WriteLine($"   {sel.NameWithAbbreviation,-10}   {sel.HelpText}");
             }
-         } else if (args == "setting") {
+         } else if (Settings.SettingValue<bool>("settings")!) {
+            static string blanks(int n) => new(' ',n);
             foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
                string[] desc = setting.Option.Description?.Split("\n") ?? [""];
-               WriteLine($"{setting.Name.PadRight(Settings.Instance.MaxNameLength)} : {desc[0]}");
+               string abbrev = Settings.ReverseAbbreviations.TryGetValue(setting.Name,out string? abbr)
+                                 ? $"({abbr})".PadRight(Settings.MaxAbbreviationLength + 2)
+                                 : $"{blanks(Settings.MaxAbbreviationLength + 2)}";
+               WriteLine($"{setting.Name.PadRight(Settings.Instance.MaxNameLength)} {abbrev} : {desc[0]}");
                foreach (string line in desc.Skip(1)) {
-                  WriteLine($"{new string(' ',Settings.Instance.MaxNameLength)}   {line}");
+                  WriteLine($"{blanks(Settings.Instance.MaxNameLength + Settings.MaxAbbreviationLength + 3)}   {line}");
                }
             }
+         } else {
+            WriteInfo("Commands must start with a lower case letter.");
+            WriteInfo("Capital letters in the following only denote the minimum abbreviation of the command.");
+            foreach (Abbreviation<CommandType> cmd in Abbreviation<CommandType>.Commands) {
+               WriteLine(Regex.Replace(cmd.HelpText,@"^[a-z]+","   " + cmd.NameWithAbbreviation,RegexOptions.Compiled));
+            }
+            WriteInfo("Type 'help -sel[ectors]' to list the valid selectors.");
+            WriteInfo("Type 'help -s[ettings]' to list the valid settings.");
          }
       }
 
