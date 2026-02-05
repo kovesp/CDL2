@@ -1191,7 +1191,7 @@ namespace CDL2v1 {
       /// <param name="obj"></param>
       /// <returns></returns>
       public override bool Equals(object? obj) => obj is CDL2Object @object && EqualityComparer<ID>.Default.Equals(Id,@object.Id);
-      public override int GetHashCode() => HashCode.Combine(Id);
+      public override int GetHashCode() => HashCode.Combine(Id,GUID);
 
       public static bool operator ==(CDL2Object? left,CDL2Object? right) => EqualityComparer<CDL2Object>.Default.Equals(left,right);
       public static bool operator !=(CDL2Object? left,CDL2Object? right) => !(left == right);

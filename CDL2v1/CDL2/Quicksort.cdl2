@@ -599,7 +599,7 @@ MODULE quicksort.
          # Test builtin function.
          ACTION show user and code generation date -gen date -user:
             BUILTIN date+gen date, show msg no newline+"Code generated on ", show msg+gen date,
-            BUILTIN environment variable+"USER"+user, show msg no newline+"User: ", show msg+user.
+            BUILTIN environment variable+"USERNAME"+user, show msg no newline+"User: ", show msg+user.
          
          # Test conditional compilation with built-in tests.
          ACTION show target:

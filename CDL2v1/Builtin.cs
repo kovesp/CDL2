@@ -63,12 +63,12 @@ namespace CDL2v1 {
       /// <summary>
       /// Provides a set of built-in test names recognized by the system.
       /// </summary>
-      private static readonly HashSet<string> Tests = new() {
+      private static readonly HashSet<string> Tests = [
          "isoption",
          "isoptionvalue",
          "isenvironmentvariable",
          "istarget",
-      };
+      ];
 
       /// <summary>
       /// Is this a built-in function call? For this to be true,
