@@ -72,7 +72,6 @@ namespace CDL2v1 {
       public void ErrorReporter(Severity severity,string msg,bool _) => REPL?.WriteLine($"{severity}: {msg}",severity);
       private void ReportProblem(Note note,params object[] args) => ErrorReporter(note.NoteType,note.FormattedText(args),false);
 
-
       public void SetStatus(NamedElement? element = null) {
          if (REPL is not null) {
             if (element is null) {
@@ -468,7 +467,7 @@ namespace CDL2v1 {
       /// <param name="_">Reserved for future use. This parameter is ignored.</param>
       /// <param name="target">An object expected to be a string representing the code generator name to validate. Can be null.</param>
       /// <returns>true if the target is a string and matches a known code generator name; otherwise, false.</returns>
-      private static bool SetTarget(bool isSet,string _,object? target) => target is string cg && CDL2.AvailableCodeGenerators.ContainsKey(cg);
+      private static bool SetTarget(bool isSet,string _,object? target) => target is string cg && CodeGenerator.AvailableCodeGenerators.ContainsKey(cg);
 
       /// <summary>
       /// Interpret the command with the given verb, arguments and settings.
@@ -716,11 +715,10 @@ namespace CDL2v1 {
          if (program is not null) {
             Match targetMatch = Regex.Match(program.Comments,@"PRAGMA\s+Target\s*[=:]\s*(\w+)",RegexOptions.Compiled);
             string target = targetMatch.Success ? targetMatch.Groups[1].Value : Settings.SettingValue<string>("Target")!;
-            if (CDL2.AvailableCodeGenerators.ContainsKey(target)) {
-               string targetFileName = Settings.SettingValue<string>("file")!;
-               CDL2.GenerateCode(ref targetFileName,target: target,program);
-               WriteInfo($"{target} code generated for {program.FQDN()} into {targetFileName}");
-            } else {
+            if (CodeGenerator.AvailableCodeGenerators.ContainsKey(target)) {
+               string targetFileName = Settings.SettingValue<string>("file") ?? "";
+               CodeGenerator.GenerateCode(ref targetFileName,ReportProblem,target: target,program);
+             } else {
                WriteError($"Unknown code generator {target} specified in {(targetMatch.Success ? "program PRAGMA" : "setting")}");
             }
          }
@@ -1430,7 +1428,7 @@ namespace CDL2v1 {
       private void InterpretCommandStatus() {
          WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
          Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo,0);
-         WriteInfo($" Available code generators: {string.Join(", ",CDL2.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}");
+         WriteInfo($" Available code generators: {string.Join(", ",CodeGenerator.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}");
       }
 
       /// <summary>

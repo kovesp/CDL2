@@ -33,18 +33,23 @@
 
 // Ignore Spelling: CDL
 
+using System.Data;
 using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    /// <summary>
    /// 
    /// </summary>
    /// <param Id="cg"></param>
-   public class CodeGenerator(ICodeGenerator cg,CDL2 compiler) : CompilationPhase(compiler) {
+   public class CodeGenerator(ICodeGenerator cg,CDL2 compiler,Action<Note,object[]> problemReporter) : CompilationPhase(compiler) {
       /// <summary>
       /// Target specific code generator to use.
       /// </summary>
       private readonly ICodeGenerator cg = cg;
+      private readonly Action<Note,object[]> ReportProblem = problemReporter;
 
       /// <summary>
       /// Used to add the CDL2 code to each generated algorithm.
@@ -66,11 +71,11 @@ namespace CDL2v1 {
             if (Compiler.Reachable.AmbigousVars.Contains(var)) {
                // We know the variable was written to, but we can't tell whether it was read (because it was only referenced in an ACTION/PREDICATE macro).
                var.AddNote("CodeGeneration",Note.VariableMayNotHaveBeenRead,var);
-               Logger.ReportError($"Variable {var} may not have been read. It was only referenced in an ACTION/PREDICATE macro.");
+               ReportProblem(Note.VariableMayNotHaveBeenRead,[var]);
             } else if (!Compiler.Reachable.ReadVars.Contains(var)) {
                // It must have been written, but not read.
                var.AddNote("CodeGeneration",Note.VariableNotRead,var);
-               Logger.ReportError($"Variable {var} was written to, but never read.");
+               ReportProblem(Note.VariableNotRead,[var]);
             }
          }
          //DumpReachableObjects(program);
@@ -701,6 +706,74 @@ namespace CDL2v1 {
          }
       }
 
+      #region Find target code generators
+
+      public static readonly Dictionary<string,Type> AvailableCodeGenerators = [];
+
+      private static readonly Dictionary<string,ICodeGenerator?> CodeGeneratorCache = [];
+
+      static CodeGenerator() {
+         foreach (Type cg in GetAvailableCodeGenerators()) {
+            AvailableCodeGenerators[cg.Name.Replace("CodeGenerator","")] = cg;
+         }
+      }
+      private static ICodeGenerator? CreateCodeGenerator(string target,Action<Note,object[]> problemReporter,string dataType = "long") {
+         if (CodeGeneratorCache.TryGetValue(target,out ICodeGenerator? cached)) return cached;
+         try {
+            if (AvailableCodeGenerators.TryGetValue(target,out Type? type)) {
+               return CodeGeneratorCache[target] = Activator.CreateInstance(type,dataType) as ICodeGenerator;
+            }
+         } catch (Exception ex) {
+            problemReporter(Note.CodeGenCreationError,[target,dataType,ex.Message]);
+         }
+         return CodeGeneratorCache[target] = null;
+      }
+
+      public static IEnumerable<Type> GetAvailableCodeGenerators() {
+         Assembly currentAssembly = Assembly.GetExecutingAssembly();
+         return currentAssembly.GetTypes()
+            .Where(t =>
+               t.IsClass &&
+               !t.IsAbstract &&
+               typeof(ICodeGenerator).IsAssignableFrom(t) &&
+               t.Name.StartsWith("CodeGenerator"));
+      }
+
+      public static void GenerateCode(ref string targetFileName,Action<Note,object[]> problemReporter,string? target = null,Program? program = null) {
+         program ??= CDL2.GetMainProgram();
+         if (program is null) {
+            problemReporter(Note.NoProgram,[]);
+            return;
+         }
+         Match targetMatch = Regex.Match(program.Comments,@"PRAGMA\s+Target\s*[=:]\s*(\w+)",RegexOptions.Compiled);
+         target = targetMatch.Success ? targetMatch.Groups[1].Value : target ?? Settings.SettingValue<string>("Target")!;
+         if (AvailableCodeGenerators.ContainsKey(target)) {
+            ICodeGenerator? cg = CreateCodeGenerator(target,problemReporter);
+
+            if (cg != null) {
+               Emitter? emitter = null;
+               try {
+                  if (targetFileName == "") {
+                     targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(program!.Id.Name,cg.FileExtension));
+                  } else {
+                     if (Path.GetFileName(targetFileName) == targetFileName) targetFileName = Path.Combine(Settings.OutputDirectory,targetFileName);
+                     if (Path.GetExtension(targetFileName) == "") targetFileName = Path.ChangeExtension(targetFileName,cg.FileExtension);
+                  }
+                  emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = !Settings.SettingValue<bool>("CGDebug") };
+                  CodeGenerator codeGenerator = new(cg,CDL2.Compiler,problemReporter);
+                  codeGenerator.GenerateCode(program,emitter);
+                  problemReporter(Note.CodeGenDone,[target,program,targetFileName]);
+               } catch (Exception ex) {
+                  problemReporter(Note.CodeGenError,[target,targetFileName,ex.Message]);
+               } finally {
+                  emitter?.Close();
+               }
+            } else {
+               problemReporter(Note.NoCodeGenerator,[target]);
+            }
+         }
+      }
+      #endregion
    }
 }
 

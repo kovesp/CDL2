@@ -165,19 +165,12 @@ namespace CDL2v1 {
 #endif
 
       public static readonly string Version = "1.0.0";
-      public static readonly Dictionary<string,Type> AvailableCodeGenerators = [];
-
       public const string LabName = "CDL2 Laboratory Redux";
 
       /// <summary>
       /// Static constructor
       /// </summary>
-      static CDL2() {
-         Compiler = new CDL2();
-         foreach (Type cg in GetAvailableCodeGenerators()) {
-            AvailableCodeGenerators[cg.Name.Replace("CodeGenerator","")] = cg;
-         }
-      }
+      static CDL2() => Compiler = new CDL2();
 
       private CDL2() { }
       public static readonly CDL2 Compiler;
@@ -310,8 +303,9 @@ namespace CDL2v1 {
                }
 
                if (!Settings.SettingValue<bool>("ParseOnly")) {
-                  string targetFileName = Settings.SettingValue<string>("file")!;
-                  GenerateCode(ref targetFileName,PrettyPrint,MainProgram);
+                  string targetFileName = Settings.SettingValue<string>("file") ?? "";
+                  string? target = Settings.SettingValue<string>("target")!;
+                  CodeGenerator.GenerateCode(ref targetFileName,(note,args)=>Log(0,$"{note.NoteType} {note.FormattedText(args)}"),target: target,program:MainProgram);
                }
 
                Log(0,"");
@@ -319,35 +313,6 @@ namespace CDL2v1 {
                Log(0,"");
                SemanticAnalyzer.ReportNoteCounts(Reachable);
             }
-         }
-      }
-
-      public static void GenerateCode(ref string targetFileName,string? target = null,Program? MainProgram = null) {
-         MainProgram ??= CDL2.GetMainProgram();
-         if (target == null) target = Settings.SettingValue<string>("Target");
-         ICodeGenerator? cg = CreateCodeGenerator(target!);
-
-         if (cg != null) {
-            Emitter? emitter = null;
-            try {
-               if (targetFileName == "") {
-                  targetFileName = Path.Combine(Settings.OutputDirectory,Path.ChangeExtension(MainProgram!.Id.Name,cg.FileExtension));
-               } else {
-                  if (Path.GetFileName(targetFileName) == targetFileName) targetFileName = Path.Combine(Settings.OutputDirectory,targetFileName);
-                  if (Path.GetExtension(targetFileName) == "") targetFileName = Path.ChangeExtension(targetFileName,cg.FileExtension);
-               }
-               emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = !Settings.SettingValue<bool>("CGDebug") };
-               Log(0,$"\nGenerating {Settings.SettingValue<string>("Target")!} code for {MainProgram}");
-               CodeGenerator codeGenerator = new(cg,Compiler);
-               codeGenerator.GenerateCode(MainProgram,emitter);
-               Log(0,$"Code generation complete. Output written to {targetFileName}");
-            } catch (Exception ex) {
-               ReportError($"Error during code generation: {ex.Message} {ex.StackTrace}");
-            } finally {
-               emitter?.Close();
-            }
-         } else {
-            ReportError("No target code generator");
          }
       }
 
@@ -379,29 +344,6 @@ namespace CDL2v1 {
          reachable.CollectReachableObjects(MainProgram);
          semanticAnalyzer.AnalyzeUnused(MainProgram,reachable);
          return semanticAnalyzer;
-      }
-
-      private static readonly Dictionary<string,ICodeGenerator?> CodeGeneratorCache = [];
-      private static ICodeGenerator? CreateCodeGenerator(string target,string dataType = "long") {
-         if (CodeGeneratorCache.TryGetValue(target,out ICodeGenerator? cached)) return cached;
-         try {
-            if (AvailableCodeGenerators.TryGetValue(target,out Type? type)) {
-               return CodeGeneratorCache[target] = Activator.CreateInstance(type,dataType) as ICodeGenerator;
-            }
-         } catch (Exception ex) {
-            ReportError($"Error creating code generator for target {target} with Data type {dataType}: {ex.Message}");
-         }
-         return CodeGeneratorCache[target] = null;
-      }
-
-      private static IEnumerable<Type> GetAvailableCodeGenerators() {
-         Assembly currentAssembly = Assembly.GetExecutingAssembly();
-         return currentAssembly.GetTypes()
-            .Where(t =>
-               t.IsClass &&
-               !t.IsAbstract &&
-               typeof(ICodeGenerator).IsAssignableFrom(t) &&
-               t.Name.StartsWith("CodeGenerator"));
       }
 
       internal void SkipToNextEnd() => Parser?.SkipToNextEnd();

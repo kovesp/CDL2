@@ -152,6 +152,10 @@ namespace CDL2v1 {
       public static readonly Note UnknownBuiltin = new(Severity.Error,066,"Unknown built-in function or wrong number of arguments: {0}");
       public static readonly Note BuiltinResultReused = new(Severity.Error,067,"Local {0} used in more than one BUILTIN call");
       public static readonly Note BuiltinResultAsOutput = new(Severity.Error,068,"BUILTIN result {1} used as {0} in {2}");
+      public static readonly Note NoProgram = new(Severity.Error,069,"No main program to generate code for");
+      public static readonly Note NoCodeGenerator = new(Severity.Error,070,"No code generator available for target {0}");
+      public static readonly Note CodeGenCreationError = new(Severity.Error,071,"Error creating code generator for target {0} with Data type {1}: {2}");
+      public static readonly Note CodeGenError = new(Severity.Error,072,"Error during code generation: {0} {1}");
 
       public static readonly Note NoEffect = new(Severity.Warning,101,"Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten = new(Severity.Warning,102,"Output affix {0} whose value has not been read passed to output in {1}");
@@ -169,6 +173,7 @@ namespace CDL2v1 {
       public static readonly Note AffixNotRefeenced = new(Severity.Info,201,"Affix {0} was not used in procedure {1}");
       public static readonly Note LocalNotReferenced = new(Severity.Info,202,"Local {0} was not used in procedure {1}");
       public static readonly Note UnreferenceObject = new(Severity.Info,203,"Object is defined but not used in program. This may be due to conditional compilation");
+      public static readonly Note CodeGenDone = new(Severity.Info,204,"{0} code generated for {1} into {2}");
 
 #if DEBUG
       static Note() {
