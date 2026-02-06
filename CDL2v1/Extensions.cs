@@ -553,6 +553,18 @@ namespace CDL2v1 {
          }
       }
 
+      extension (string? s) {
+         /// <summary>
+         /// Verify that the string is null, empty or whitespace.
+         /// </summary>
+         /// <returns></returns>
+         public bool IsNullEmptyOrWhitespace => s is null || s.All(char.IsWhiteSpace);
+         /// <summary>
+         /// ... or it's not.
+         /// </summary>
+         public bool IsNotNullEmptyOrWhitespace => !s.IsNullEmptyOrWhitespace;
+      }
+
       extension(string s) {
          /// <summary>
          /// Gets the resolved <see cref="Type"/> represented by the stored type name.
@@ -606,12 +618,6 @@ namespace CDL2v1 {
                return true;
             }
          }
-         /// <summary>
-         /// Verify that the string is null, empty or whitespace.
-         /// </summary>
-         /// <returns></returns>
-         public bool IsEmptyOrWhitespace => s is null || s.All(char.IsWhiteSpace);
-         public bool IsNotEmptyOrWhitespace => !s.IsEmptyOrWhitespace;
 
          /// <summary>
          /// Return the string with whitespaces removed.
@@ -627,7 +633,6 @@ namespace CDL2v1 {
             if (factor < 0 || factor > 1) throw new ArgumentOutOfRangeException(nameof(factor),"DimColor: Factor must be between 0 and 1.");
             return ScaleColor(s,factor);
          }
-
 
          /// <summary>
          /// Returns the pluralized form of the string based on the specified count.

@@ -73,6 +73,11 @@ namespace CDL2v1 {
          LogObjectCount(AllObjects,$"in {moduleCount.Plural("module")}");
       }
 
+      /// <summary>
+      /// Collects all objects reachable from the given program.
+      /// Clears previous collection results first.
+      /// </summary>
+      /// <param name="prog"></param>
       public void CollectReachableObjects(Program prog) {
          collected = false;
          collecting = true;
@@ -94,7 +99,8 @@ namespace CDL2v1 {
          LogObjectCount(Objects,$"reachable from {prog}");
       }
 
-      public static void LogObjectCount(Set<CDL2Object> objects,string sort,Action<string>? logger = null,int logLevel=1) {
+      public static void LogObjectCount(Set<CDL2Object>? objects,string sort,Action<string>? logger = null,int logLevel=1) {
+         if (objects is null) return;
          logger ??= str => Logger.Log(logLevel,str);
          string CountObjects(Type type,Set<CDL2Object> objects,bool noComma = false) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name,noComma ? null : ",");
          logger($"{objects.Count.Plural("object")} {sort} ...");

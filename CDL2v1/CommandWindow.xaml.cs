@@ -529,7 +529,7 @@ F1    | Show this help message.
                if (trimmed.Length == 0 || char.IsAsciiLetterLower(trimmed[0])) {
                   string firstWord = trimmed.Split(' ','\t','\r','\n')[0];
                   string commandHelp = Abbreviation<CommandType>.LongHelp(firstWord,toastFormat: true);
-                  if (commandHelp.IsNotEmptyOrWhitespace) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
+                  if (commandHelp.IsNotNullEmptyOrWhitespace) toastMessage += $"\n\nCommand|Parameters|Description\n---\n{commandHelp}";
                }
             }
             Toaster.ShowToast(toastMessage);
@@ -588,7 +588,7 @@ F1    | Show this help message.
                WriteLine($"> {command}");
             }
 
-            if (command.IsNotEmptyOrWhitespace) {
+            if (command.IsNotNullEmptyOrWhitespace) {
                // Raise event to handle the command
                CommandEntered?.Invoke(this,command);
             }
@@ -1043,7 +1043,7 @@ F1    | Show this help message.
       public void SetStatus(string message) {
          StatusBarLeftTextBlock.Text = message;
          string programName = Settings.SettingValue<string>("ProgramName")!;
-         string marker = programName.IsNotEmptyOrWhitespace && Database.Instance.ProgramByName(programName)!.Modified ? "*" : "";
+         string marker = programName.IsNotNullEmptyOrWhitespace && Database.Instance.ProgramByName(programName)!.Modified ? "*" : "";
          StatusBarRightTextBlock.Text = $"[{Database.Instance.GetModificationCount()}/{Settings.SettingValue<int>("AutosaveCount")}] {marker}Prog {programName}";
       }
 

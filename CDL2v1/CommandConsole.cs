@@ -264,7 +264,7 @@ Press Ctrl+B to enter scroll mode at any time.
          if (_statusLineEnabled) {
             // Build right-side status (same as GUI version)
             string programName = Settings.SettingValue<string>("ProgramName")!;
-            string marker = programName.IsNotEmptyOrWhitespace && Database.Instance.ProgramByName(programName)!.Modified ? "*" : "";
+            string marker = programName.IsNotNullEmptyOrWhitespace && Database.Instance.ProgramByName(programName)!.Modified ? "*" : "";
             string rightStatus = $"[{Database.Instance.GetModificationCount()}/{Settings.SettingValue<int>("AutosaveCount")}] {marker}Prog {programName}";
 
             // Save cursor position

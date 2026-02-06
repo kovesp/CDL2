@@ -95,12 +95,34 @@ namespace CDL2v1 {
          }
       }
 
+      public Reachable Reachable = new();
+
+      /// <summary>
+      /// Performs semantic analysis on the specified program and collects information about reachable objects.
+      /// Note that a new Analyzer is always created.
+      /// 
+      /// Currently this is the only public interfaceto the analyzer apart from the methods in the CompilationPhase base class.
+      /// </summary>
+      /// <remarks>This method analyzes the program for semantic issues and identifies unused or unreachable
+      /// objects. The results of the analysis are stored in the provided reachable object. This method does not modify
+      /// the input program.</remarks>
+      /// <param name="MainProgram">The program to analyze for semantic correctness and object reachability. Cannot be null.</param>
+      /// <param name="reachable">The object used to collect and track all objects and reachable objects within the program. Cannot be null.</param>
+      public static SemanticAnalyzer PerformSemanticAnalysis(CDL2 Compiler,Program MainProgram) {
+         SemanticAnalyzer analyzer= new(Compiler);
+         analyzer.Analyze(MainProgram);
+         analyzer.Reachable.CollectAllObjects(MainProgram);
+         analyzer.Reachable.CollectReachableObjects(MainProgram);
+         analyzer.AnalyzeUnused(MainProgram,analyzer.Reachable);
+         return analyzer;
+      }
+
       /// <summary>
       /// Analyze the imports of the given program.
       /// Ensure that all imports used in the modules are found and are consistent with the exports.
       /// </summary>
       /// <param name="program"></param>
-      internal void AnalyzeProgramImportsAndExports(Program program) {
+      private void AnalyzeProgramImportsAndExports(Program program) {
          Log(1,$"Analyzing {program} imports and exports");
          // Collect all the exports from the modules in the program.
          program.Exports.Clear();
@@ -120,7 +142,7 @@ namespace CDL2v1 {
          }
       }
 
-      public void AnalyzeModuleImportsAndExports(Program? program,Module module) {
+      private void AnalyzeModuleImportsAndExports(Program? program,Module module) {
          Log(2,$"Analyzing {module} import and export resolution");
          // First collect all the imports in the sections into the imports table of the module.
          // While doing this check for consistency in case an object is imported ínto multiple sections.
@@ -204,7 +226,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="mainProgram"></param>
       /// <param name="Reachable"></param>
-      public void AnalyzeUnused(Program mainProgram,Reachable Reachable) {
+      private void AnalyzeUnused(Program mainProgram,Reachable Reachable) {
          int unused = 0;
          SortedList<string,CDL2Object> unusedObjects = [];
          foreach (CDL2Object obj in Reachable.AllObjects) {
@@ -220,7 +242,7 @@ namespace CDL2v1 {
          if (Settings.AnyVerbosity(4)) foreach (CDL2Object obj in unusedObjects.Values) Log(1,$"  {obj}");
       }
 
-      public void AnalyzeProgram(Program program) {
+      private void AnalyzeProgram(Program program) {
          IDDictionary<Module> validModules = [];
          Log(1,$"Analyzing module presence of {program}");
          // First verify that all modules in the parts list are present in the database.
@@ -278,7 +300,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="prog"></param>
       /// <param name="module"></param>
-      public void AnalyzeModule(Module module) {
+      private void AnalyzeModule(Module module) {
          Log(1,$"Analyzing {module.ContainerName}");
          foreach (Layer layer in module.Layers) {
             AnalyzeLayer(layer);

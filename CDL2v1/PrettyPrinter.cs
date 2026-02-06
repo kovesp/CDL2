@@ -1008,7 +1008,7 @@ namespace CDL2v1 {
       /// <param name="needsEnd">true to append an end marker after notes of type Note; otherwise, false. The default is true.</param>
       private void PrintComment(string comments,Notes? notes = null,bool nl = true,bool needsEnd = true) {
          if (IncludeComments) {
-            if (comments.IsNotEmptyOrWhitespace) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter,SE.Comment));
+            if (comments.IsNotNullEmptyOrWhitespace) EmitOptNl(nl,NormalizeDividers(comments).Decorate(Emitter,SE.Comment));
 
             foreach (Note note in notes ?? Notes.Empty) {
                if (note.NoteType == Severity.Note) {

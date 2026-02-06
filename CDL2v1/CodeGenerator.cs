@@ -57,6 +57,7 @@ namespace CDL2v1 {
       /// </summary>
       private readonly PrettyPrinter sourceCommentPrinter = new(cg.SourceEmitter,includeComments: false);
 
+      private Reachable Reachable = new();
       /// <summary>
       /// Generate code for the unit and all its modulesWithLudes.
       /// If there is argAffix unit, then use its Ludes. Otherwise, use the Ludes from all modulesWithLudes.
@@ -65,14 +66,13 @@ namespace CDL2v1 {
       /// <param Id="Emitter"></param>
       /// <param Id="isSeparate"></param>
       public void GenerateCode(Program program,Emitter emitter,bool isSeparate = false) {
-         // CDL2.Compiler.SemanticAnalysis(program, Compiler.Reachable); // Ensure semantic analysis has been done.
-         // Compiler.Reachable.CollectReachableObjects(program);
-         foreach (Var var in Compiler.Reachable.Objects.OfType<Var>()) {
-            if (Compiler.Reachable.AmbigousVars.Contains(var)) {
+         Reachable = program.Reachable;
+         foreach (Var var in program.Reachable.Objects.OfType<Var>()) {
+            if (Reachable.AmbigousVars.Contains(var)) {
                // We know the variable was written to, but we can't tell whether it was read (because it was only referenced in an ACTION/PREDICATE macro).
                var.AddNote("CodeGeneration",Note.VariableMayNotHaveBeenRead,var);
                ReportProblem(Note.VariableMayNotHaveBeenRead,[var]);
-            } else if (!Compiler.Reachable.ReadVars.Contains(var)) {
+            } else if (!Reachable.ReadVars.Contains(var)) {
                // It must have been written, but not read.
                var.AddNote("CodeGeneration",Note.VariableNotRead,var);
                ReportProblem(Note.VariableNotRead,[var]);
@@ -87,14 +87,14 @@ namespace CDL2v1 {
             cg.GenerateProgramStart(program,emitter);  // Generate the overall scaffolding
 
 
-            GenerateObjects<Const>(Compiler.Reachable.Objects.OfType<Const>(),GenerateConstant);
-            GenerateObjects<Var>(Compiler.Reachable.Objects.OfType<Var>(),GenerateVar);
-            GenerateObjects<LIST>(Compiler.Reachable.Objects.OfType<LIST>(),GenerateList);
+            GenerateObjects<Const>(Reachable.Objects.OfType<Const>(),GenerateConstant);
+            GenerateObjects<Var>(Reachable.Objects.OfType<Var>(),GenerateVar);
+            GenerateObjects<LIST>(Reachable.Objects.OfType<LIST>(),GenerateList);
 
 
-            GenerateObjects<Macro>(Compiler.Reachable.Objects.OfType<Macro>(),GenerateMacro);
-            GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic),GenerateProcedure);
-            GenerateObjects<Procedure>(Compiler.Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic),GenerateProcedure,"Synthetic Procedure");
+            GenerateObjects<Macro>(Reachable.Objects.OfType<Macro>(),GenerateMacro);
+            GenerateObjects<Procedure>(Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic),GenerateProcedure);
+            GenerateObjects<Procedure>(Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic),GenerateProcedure,"Synthetic Procedure");
             //GenerateObjects<Procedure>(section.LudeProcedures,          GenerateProcedure,"Lude Procedure"); // The above already generates these
 
             sourceCommentPrinter.Print(program);
@@ -523,10 +523,10 @@ namespace CDL2v1 {
          //}
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
-         } else if (!proc.IsSynthetic && proc.IsInlinable(Compiler.Reachable)) { // TODO: Inline synthetics if applicable
+         } else if (!proc.IsSynthetic && proc.IsInlinable(Reachable)) { // TODO: Inline synthetics if applicable
             GenerateAlgorithmComment(proc);
             cg.GenerateComment($"Procedure inlined");
-            //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Compiler.Reachable).NumberOfTimesCalled == 0) {
+            //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Reachable).NumberOfTimesCalled == 0) {
             //   GenerateAlgorithmComment(proc);
             //   cg.GenerateComment($"Procedure not invoked");
          } else {
@@ -642,7 +642,7 @@ namespace CDL2v1 {
                if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
                   cg.GenerateComment($"Inlining macro call -> {call}");
                   GenerateMacroBody(macro,proc,[.. call.Args],parameters,inlining: true);
-               } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Compiler.Reachable)) {
+               } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call}");
                   GenerateLocalInitializers(calledProc);
                   GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new Parameters(parameters,calledProc.Affixes,[.. call.Args]));

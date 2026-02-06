@@ -88,7 +88,7 @@ namespace CDL2v1 {
       public SingleSelection(NamedElement? obj,SelectorType type,string name) {
          Object = obj;
          ListType = type;
-         if (name.IsNotEmptyOrWhitespace) Id = new(name);
+         if (name.IsNotNullEmptyOrWhitespace) Id = new(name);
       }
 
       public static SingleSelection Empty => new();
@@ -687,16 +687,16 @@ namespace CDL2v1 {
          int ludeCount = Object.Siblings.ToSyntheticCDL2Objects().Count();
          switch (direction) {
             case MoveDirection.First:
-               if (args.IsNotEmptyOrWhitespace) return false;
+               if (args.IsNotNullEmptyOrWhitespace) return false;
                newIndex = 0;
                break;
             case MoveDirection.Last:
-               if (args.IsNotEmptyOrWhitespace) return false;
+               if (args.IsNotNullEmptyOrWhitespace) return false;
                newIndex = Object.Siblings.Count - ludeCount - 1;
                break;
             default:
                int focusMoveCount = 1;
-               if (args.IsNotEmptyOrWhitespace && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
+               if (args.IsNotNullEmptyOrWhitespace && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
                newIndex = (currentIndex + focusMoveCount * (int)direction).ConstrainedTo(0,Object.Siblings.Count - ludeCount - 1);
                break;
          }

@@ -522,7 +522,7 @@ namespace CDL2v1 {
                   case CommandType.focus:
                      if (!Focus.SetFocus(args,out string errorMessage)) {
                         WriteLineParsed(errorMessage);
-                     } else if (args.IsEmptyOrWhitespace || !Settings.SettingValue<bool>("LongConsolePrompt")) {
+                     } else if (args.IsNullEmptyOrWhitespace || !Settings.SettingValue<bool>("LongConsolePrompt")) {
                         WriteLine(Focus.Current.ToString());
                      }
                      break;
@@ -831,7 +831,7 @@ namespace CDL2v1 {
                // Non-Lab mode parsing.
                List<ITopLevelContainer> parsedContainers = parser.ParseString(fileContent);
                Debug.Assert(parsedContainers.All(c => c is Program || c is Module),"Expected programs or modules in consulted file");
-               Debug.Assert(CDL2.Compiler.SemanticAnalyzer != null,"SemanticAnalyzer is null");
+               //Debug.Assert(CDL2.Compiler.SemanticAnalyzer != null,"SemanticAnalyzer is null");
                foreach (ITopLevelContainer container in parsedContainers) {
                   container.Modified = true;
                }
@@ -907,7 +907,7 @@ namespace CDL2v1 {
             ListUndoRedoStack(stack,stackName);
          } else if (stack.Count == 0) {
             WriteWarning($"{stackName} stack is empty.");
-         } else if ((tag = Settings.SettingValue<string>("tag")!).IsNotEmptyOrWhitespace) {
+         } else if ((tag = Settings.SettingValue<string>("tag")!).IsNotNullEmptyOrWhitespace) {
             // Find the most recent record with the given tag
             int index = stack.FindIndex(r => r.Tag == tag);
             if (index < 0) {
@@ -932,7 +932,7 @@ namespace CDL2v1 {
             }
             if (isIndex) {
                tag = Settings.SettingValue<string>("settag")!;
-               if (tag.IsNotEmptyOrWhitespace) {
+               if (tag.IsNotNullEmptyOrWhitespace) {
                   stack[n - 1]?.Tag = tag == "-" ? "" : tag;
                } else {
                   // Move the requested record to the top of the stack and perform the operation
@@ -1427,7 +1427,7 @@ namespace CDL2v1 {
       }
       private void InterpretCommandStatus() {
          WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
-         Reachable.LogObjectCount(CDL2.Compiler.Reachable.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo,0);
+         Reachable.LogObjectCount(CDL2.GetMainProgram()?.Reachable?.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo,0);
          WriteInfo($" Available code generators: {string.Join(", ",CodeGenerator.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}");
       }
 
@@ -1457,7 +1457,7 @@ namespace CDL2v1 {
             withComment = false;
          }
 
-         if (args.IsEmptyOrWhitespace) {
+         if (args.IsNullEmptyOrWhitespace) {
             if (Focus.Current.Object is not null) {
                ppTarget.PauseUpdate(() => ppTarget.Print(Focus.Current.Object,withComment));
                ppTarget.Emitter.Close();
@@ -1484,7 +1484,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="args"></param>
       private void InterpretCommandList(string args) {
-         if (args.IsEmptyOrWhitespace) {
+         if (args.IsNullEmptyOrWhitespace) {
             if (ListUndoRedoStack(Database.Instance.UndoStack,"Undo",ifSetting: "undo") | ListUndoRedoStack(Database.Instance.RedoStack,"Redo",ifSetting: "redo")) return;
 
             if (Focus.Current.Object is not null) {

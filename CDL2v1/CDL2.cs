@@ -202,16 +202,12 @@ namespace CDL2v1 {
       }
 
       public Parser? Parser;
-      public Reachable Reachable = new();
-      public SemanticAnalyzer? SemanticAnalyzer;
-
-
 
       public void CompileSources(string[] args) {
-         Log(2,Settings.AllSettings.First().ToTabularString(title: true,compact: true)!);
+         Log(4,Settings.AllSettings.First().ToTabularString(title: true,compact: true)!);
          foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.LongOption)) {
             string? settingString = setting.ToTabularString(compact: true);
-            if (settingString != null) Log(2,settingString);
+            if (settingString != null) Log(4,settingString);
          }
 
 
@@ -225,8 +221,11 @@ namespace CDL2v1 {
             Serializer.Toaster = toaster;
             Database.Load();
 
-            SemanticAnalyzer = SemanticAnalysis(GetMainProgram()!,Reachable);
-            if (SemanticAnalyzer.AbortCompilation()) return;
+            //PerformSemanticAnalysis(GetMainProgram()!);
+            //Program? MainProgram = GetMainProgram();
+            //if (MainProgram != null) {
+            //   if (MainProgram.SemanticAnalyzer.AbortCompilation()) return;
+            //}
 
             if (usingGUI) {
 #if WINDOWS
@@ -255,7 +254,7 @@ namespace CDL2v1 {
                throw new PlatformNotSupportedException("GUI mode is only supported on Windows");
 #endif
             } else {
-               ICLIREPL repl = new CommandConsole();
+               CommandConsole repl = new();
                Emitter emitter = new EmitterAnsi(repl) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") };
                CommandInterpreter CLI = new(repl,emitter,toaster);
                repl.SetInputProcessor(CLI.ProcessInput);
@@ -279,9 +278,7 @@ namespace CDL2v1 {
 
             Program? MainProgram = GetMainProgram();
             if (MainProgram != null) {
-               SemanticAnalyzer = SemanticAnalysis(MainProgram,Reachable);
-               if (SemanticAnalyzer.AbortCompilation()) return;
-
+               if (MainProgram.SemanticAnalyzer.AbortCompilation()) return;
                Database.Save();
 
                string? PrettyPrint = Settings.SettingValue<string>("PrettyPrint");
@@ -305,24 +302,33 @@ namespace CDL2v1 {
                if (!Settings.SettingValue<bool>("ParseOnly")) {
                   string targetFileName = Settings.SettingValue<string>("file") ?? "";
                   string? target = Settings.SettingValue<string>("target")!;
-                  CodeGenerator.GenerateCode(ref targetFileName,(note,args)=>Log(0,$"{note.NoteType} {note.FormattedText(args)}"),target: target,program:MainProgram);
+                  CodeGenerator.GenerateCode(ref targetFileName,(note,args) => Log(0,$"{note.NoteType} {note.FormattedText(args)}"),target: target,program: MainProgram);
                }
 
                Log(0,"");
-               Parser.ReportNoteCounts(Reachable);
+               Parser.ReportNoteCounts(null);
                Log(0,"");
-               SemanticAnalyzer.ReportNoteCounts(Reachable);
+               MainProgram.SemanticAnalyzer.ReportNoteCounts(MainProgram.SemanticAnalyzer.Reachable);
             }
          }
       }
+
+      /// <summary>
+      /// Perform semantic analysis on the given program.
+      /// Note that a new semantic analyzer is always created.
+      /// This is because semantic analysis may be performed multiple times in the laboratory, and we want to keep the notes separate for each run.
+      /// The only use ot the property is to retrieve statistics.
+      /// </summary>
+      /// <param name="program"></param>
+      //public void PerformSemanticAnalysis(Program program) => SemanticAnalyzer = SemanticAnalyzer.PerformSemanticAnalysis(this,program);
 
       public static Program? GetMainProgram() {
          Program? program = null;
          string? ProgramName = Settings.SettingValue<string>("ProgramName");
          if (ProgramName == "" && Database.Instance.FirstProgram != null) {
             program = Database.Instance.FirstProgram;
-         } else if (ProgramName != null && ProgramName != "") {
-            program = Database.Instance.ProgramByName(ProgramName);
+         } else if (ProgramName.IsNotNullEmptyOrWhitespace) {
+            program = Database.Instance.ProgramByName(ProgramName!);
             if (program is null) {
                if (Database.Instance.FirstProgram != null) {
                   program = Database.Instance.FirstProgram;
@@ -336,16 +342,6 @@ namespace CDL2v1 {
          Settings.SettingValue<string>("ProgramName",program?.Id.Name ?? "");
          return program;
       }
-
-      public SemanticAnalyzer SemanticAnalysis(Program MainProgram,Reachable reachable) {
-         SemanticAnalyzer semanticAnalyzer = new(this);
-         semanticAnalyzer.Analyze(MainProgram);
-         reachable.CollectAllObjects(MainProgram);
-         reachable.CollectReachableObjects(MainProgram);
-         semanticAnalyzer.AnalyzeUnused(MainProgram,reachable);
-         return semanticAnalyzer;
-      }
-
       internal void SkipToNextEnd() => Parser?.SkipToNextEnd();
    }
 }

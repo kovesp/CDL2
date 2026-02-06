@@ -694,6 +694,7 @@ namespace CDL2v1 {
          }
       }
       [JsonInclude][JsonPropertyOrder(21)] public bool _modified = false;
+
       /// <summary>
       /// Used by modules to set the program modified without incrementing the global modification counter.
       /// </summary>
@@ -710,6 +711,30 @@ namespace CDL2v1 {
       /// </summary>
       [JsonIgnore]
       public readonly IDDictionary<IExportable> Exports = [];
+
+      [JsonIgnore] private SemanticAnalyzer? _semanticAnalyzer;
+      /// <summary>
+      /// Returns the Semantic analys
+      /// </summary>
+      [JsonIgnore]public SemanticAnalyzer SemanticAnalyzer { 
+         get {
+            if (_semanticAnalyzer == null || _modified) {
+               _semanticAnalyzer = SemanticAnalyzer.PerformSemanticAnalysis(CDL2.Compiler,this);
+               _modified = false;
+            }
+            return _semanticAnalyzer;
+         }
+      }
+
+      /// <summary>
+      /// Gets the reachability analysis results for the current semantic context.
+      /// </summary>
+      /// <remarks>Use this property to determine which code paths are considered reachable according to
+      /// semantic analysis. The returned object provides detailed information about reachability, which is required
+      /// for code validation or optimization and code generation scenarios.</remarks>
+      [JsonIgnore] public Reachable Reachable => SemanticAnalyzer.Reachable;
+
+
       /// <summary>
       /// Program Ludes are a list of module IDs.
       /// </summary>
