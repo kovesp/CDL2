@@ -337,6 +337,7 @@ namespace CDL2v1 {
    public enum SettingType {
       Boolean,
       Integer,
+      Double,
       String,
    }
 

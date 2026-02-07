@@ -328,6 +328,9 @@ namespace CDL2v1 {
          public readonly SettingType Type = Type;
          public readonly object? Value = Value;
          public object? PreviousValue = currentValue;
+         public bool IsValid => Value is not null;
+
+         public static readonly ParsedSetting Invalid = new ("",SettingType.String,null,null); 
 
          public override string ToString() => Type switch {
             SettingType.Boolean => $"-{Name}{(Value is null ? "" : (bool)Value ? "+" : "-")} ",
@@ -344,30 +347,62 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="setting"></param>
       /// <returns></returns>
-      private ParsedSetting ParseSetting(string setting) {
-         string[] parts = setting.TrimStart('-').Split([':','='],2);
+      private ParsedSetting ParseSetting(string settingString) {
+         string[] parts = settingString.TrimStart('-').Split([':','='],2);
          if (Settings.Abbreviations.TryGetValue(parts[0],out string? fullName)) parts[0] = fullName;
-         if (parts.Length > 1) {
-            // A numeric or string setting.
-            if (int.TryParse(parts[1],out int intValue)) {
-               return new ParsedSetting(parts[0],SettingType.Integer,intValue,null);
-            } else {
-               if (parts[1].StartsWith('"')) {
-                  parts[1] = Regex.Replace(parts[1],@"$(.)",m => m.Groups[1].Value switch {
-                     "S" or "s" => " ",
-                     "$" => "$",
-                     "\"" => "\"",
-                     "L" or "l" => "\n",
-                     "T" or "t" => "\t",
-                     _ => m.Value
-                  });
+         string settingName = parts[0].ToLower().TrimEnd('+','-');
+         if (Settings.TryGetSetting(settingName,out ISetting? setting)) {
+            if (setting.SettingType != SettingType.Boolean) {
+               if (parts[0] != settingName) {
+                  ReportProblem(Note.InvalidSettingSuffix,setting.SettingType,parts[0]);
                }
-               return new ParsedSetting(parts[0],SettingType.String,parts[1],null);
+            } else if (parts.Length != 1) {
+               ReportProblem(Note.BoolSettingHasValue,settingString);
+            } else {
+               switch (setting.SettingType) {
+                  case SettingType.Boolean:
+                     return new ParsedSetting(settingName,SettingType.Boolean,parts[0][^1] == '+' ? true : parts[0][^1] == '-' ? false : null,null);
+                  case SettingType.Integer:
+                     if (parts.Length == 1) {
+                        return new ParsedSetting(parts[0],SettingType.Integer,0,null);
+                     } else if (int.TryParse(parts[1],out int intValue)) {
+                        return new ParsedSetting(parts[0],SettingType.Integer,intValue,null);
+                     } else {
+                        ReportProblem(Note.InvalidSettingValue,"integer",parts[0],parts[1]);
+                     }
+                     break;
+                  case SettingType.String:
+                     if (parts.Length == 1) {
+                        return new ParsedSetting(parts[0],SettingType.String,"",null);
+                     } else if (parts[1].StartsWith('"')) {
+                        parts[1] = Regex.Replace(parts[1].Trim('"'),@"$(.)",m => m.Groups[1].Value switch {
+                           "S" or "s" => " ",
+                           "$" => "$",
+                           "\"" => "\"",
+                           "L" or "l" => "\n",
+                           "T" or "t" => "\t",
+                           _ => m.Value
+                        });
+                     }
+                     return new ParsedSetting(parts[0],SettingType.String,parts[1],null);
+                  case SettingType.Double:
+                     if (parts.Length == 1) {
+                        return new ParsedSetting(parts[0],SettingType.Double,0.0,null);
+                     } else if (double.TryParse(parts[1],out double doubleValue)) {
+                        return new ParsedSetting(parts[0],SettingType.Double,doubleValue,null);
+                     } else {
+                        ReportProblem(Note.InvalidSettingValue,"double",parts[0],parts[1]);
+                     }
+                     break;
+                  default:
+                     ReportProblem(Note.InvalidSetting,parts[0]);
+                     break;
+               }
             }
          } else {
-            // A boolean setting, possibly with + or - suffix.
-            return new ParsedSetting(parts[0].TrimEnd('-','+'),SettingType.Boolean,parts[0][^1] == '+' ? true : parts[0][^1] == '-' ? false : null,null);
+            ReportProblem(Note.InvalidSetting,parts[0]);
          }
+         return ParsedSetting.Invalid;
       }
 
       /// <summary>
@@ -442,6 +477,7 @@ namespace CDL2v1 {
              ["programname"] = SetProgram,
              ["autosaveinterval"] = SetAutoSaveInterval,
              ["target"] = SetTarget,
+             ["programname"] = SetProgramName,
           }.ToImmutableDictionary();
 
       /// <summary>
@@ -456,6 +492,17 @@ namespace CDL2v1 {
             Database.Instance.ConfigureAutoSave(interval);
          }
          return true;
+      }
+
+      private static bool SetProgramName(bool isSet,string _,object? programName) {
+         if (programName is string name) {
+            Program? prog = Database.Instance.ProgramByName(name);
+            if (prog is not null) {
+               Focus.SetFocus(prog);
+               return true;
+            }
+         }
+         return false;
       }
 
       /// <summary>

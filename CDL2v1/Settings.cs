@@ -39,6 +39,8 @@ using System.Data;
 using System.IO;
 using System.Text.Json;
 using System.CommandLine;
+using System.Runtime.CompilerServices;
+using System.Diagnostics.CodeAnalysis;
 
 namespace CDL2v1 {
    public interface ISetting {
@@ -48,6 +50,14 @@ namespace CDL2v1 {
       Option Option { get; set; }
       string LongOption { get; }
       bool CommandOverride { get; set; }
+      object? ObjectValue { get; }
+      SettingType SettingType => Type.Name switch {
+         "Boolean" => SettingType.Boolean,
+         "Int32" => SettingType.Integer,
+         "String" => SettingType.String,
+         "Double" => SettingType.Double,
+         _ => throw new InvalidEnumArgumentException($"Unsupported setting type {Type.Name}")
+      };
       string? ToTabularString(bool title = false,bool compact = false);
    }
 
@@ -56,6 +66,7 @@ namespace CDL2v1 {
       public int Index { get; set; }
       public Type Type { get; set; }
       public T? Value { get; set; } = default;
+      public object? ObjectValue => Value;
       public Option Option { get; set; }
       public bool IsSaved { get; set; } = false; // Whether this setting should be saved to a file
       public bool CommandOverride { get; set; } = false; // Whether this setting was specified from a lab command
@@ -222,6 +233,8 @@ namespace CDL2v1 {
 
       public static List<ISetting> AllSettings => Instance.SettingsList;
 
+
+
       private static int NoOptionCounter = 1;
       private static string NoOption => $"--NA{NoOptionCounter++}";
 
@@ -287,27 +300,16 @@ namespace CDL2v1 {
          }
       }
       public static bool IsValidSetting(string name) => Instance.SettingsDict.ContainsKey(name);
-      public static bool TryGetSettingValue(string name,out object value) {
-         if (Instance.SettingsDict.TryGetValue(name,out ISetting? setting)) {
-            if (setting is Setting<string> sSetting) {
-               value = sSetting.Value!;
-               return true;
-            }
-            if (setting is Setting<bool> bSetting) {
-               value = bSetting.Value;
-               return true;
-            }
-            if (setting is Setting<int> iSetting) {
-               value = iSetting.Value;
-               return true;
-            }
-            if (setting is Setting<double> dSetting) {
-               value = dSetting.Value;
-               return true;
-            }
+
+      public static bool TryGetSetting(string name,[MaybeNullWhen(false)] out ISetting setting) => Instance.SettingsDict.TryGetValue(name,out setting);
+      public static bool TryGetSettingValue(string name,[MaybeNullWhen(false)] out object? value) {
+         if (TryGetSetting(name,out ISetting? setting)) {
+            value = setting.ObjectValue;
+            return true;
+         } else {
+            value = null;
+            return false;
          }
-         value = "";
-         return false;
       }
 
       public static void ProcessCommandLine(string[] commandLine) {
