@@ -56,6 +56,7 @@ namespace CDL2v1 {
          "Int32" => SettingType.Integer,
          "String" => SettingType.String,
          "Double" => SettingType.Double,
+         "Severity" => SettingType.Severity,
          _ => throw new InvalidEnumArgumentException($"Unsupported setting type {Type.Name}")
       };
       string? ToTabularString(bool title = false,bool compact = false);
@@ -280,6 +281,8 @@ namespace CDL2v1 {
             case SettingType.Boolean: SettingValue<bool>(name,value is null ? !SettingValue<bool>(name) : (bool)value); break;
             case SettingType.Integer: SettingValue<int>(name,(int)value!); break;
             case SettingType.String: SettingValue<string>(name,(string)value!); break;
+            case SettingType.Double: SettingValue<double>(name,(double)value!); break;
+            case SettingType.Severity: SettingValue<Severity>(name,(Severity)value!); break;
             default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");
          }
          SetCommandOverride(name,CommandOverride);

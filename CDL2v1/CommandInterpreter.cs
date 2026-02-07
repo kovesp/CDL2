@@ -349,55 +349,67 @@ namespace CDL2v1 {
       /// <returns></returns>
       private ParsedSetting ParseSetting(string settingString) {
          string[] parts = settingString.TrimStart('-').Split([':','='],2);
-         if (Settings.Abbreviations.TryGetValue(parts[0],out string? fullName)) parts[0] = fullName;
          string settingName = parts[0].ToLower().TrimEnd('+','-');
+         if (Settings.Abbreviations.TryGetValue(settingName,out string? fullName)) settingName = fullName;
+         bool hasBoolSuffix = parts[0].EndsWith('+') || parts[0].EndsWith('-');
+         bool boolValue = ! parts[0].EndsWith('-');
          if (Settings.TryGetSetting(settingName,out ISetting? setting)) {
             if (setting.SettingType != SettingType.Boolean) {
-               if (parts[0] != settingName) {
-                  ReportProblem(Note.InvalidSettingSuffix,setting.SettingType,parts[0]);
+               if (hasBoolSuffix) {
+                  ReportProblem(Note.InvalidSettingSuffix,setting.SettingType,setting.Name);
+                  return ParsedSetting.Invalid;
                }
             } else if (parts.Length != 1) {
-               ReportProblem(Note.BoolSettingHasValue,settingString);
-            } else {
-               switch (setting.SettingType) {
-                  case SettingType.Boolean:
-                     return new ParsedSetting(settingName,SettingType.Boolean,parts[0][^1] == '+' ? true : parts[0][^1] == '-' ? false : null,null);
-                  case SettingType.Integer:
-                     if (parts.Length == 1) {
-                        return new ParsedSetting(parts[0],SettingType.Integer,0,null);
-                     } else if (int.TryParse(parts[1],out int intValue)) {
-                        return new ParsedSetting(parts[0],SettingType.Integer,intValue,null);
-                     } else {
-                        ReportProblem(Note.InvalidSettingValue,"integer",parts[0],parts[1]);
-                     }
-                     break;
-                  case SettingType.String:
-                     if (parts.Length == 1) {
-                        return new ParsedSetting(parts[0],SettingType.String,"",null);
-                     } else if (parts[1].StartsWith('"')) {
-                        parts[1] = Regex.Replace(parts[1].Trim('"'),@"$(.)",m => m.Groups[1].Value switch {
-                           "S" or "s" => " ",
-                           "$" => "$",
-                           "\"" => "\"",
-                           "L" or "l" => "\n",
-                           "T" or "t" => "\t",
-                           _ => m.Value
-                        });
-                     }
-                     return new ParsedSetting(parts[0],SettingType.String,parts[1],null);
-                  case SettingType.Double:
-                     if (parts.Length == 1) {
-                        return new ParsedSetting(parts[0],SettingType.Double,0.0,null);
-                     } else if (double.TryParse(parts[1],out double doubleValue)) {
-                        return new ParsedSetting(parts[0],SettingType.Double,doubleValue,null);
-                     } else {
-                        ReportProblem(Note.InvalidSettingValue,"double",parts[0],parts[1]);
-                     }
-                     break;
-                  default:
-                     ReportProblem(Note.InvalidSetting,parts[0]);
-                     break;
-               }
+               ReportProblem(Note.BoolSettingHasValue,setting.Name,parts[1]);
+               return ParsedSetting.Invalid;
+            }
+            switch (setting.SettingType) {
+               case SettingType.Boolean:
+                  return new ParsedSetting(setting.Name,SettingType.Boolean,boolValue,null);
+               case SettingType.Integer:
+                  if (parts.Length == 1) {
+                     return new ParsedSetting(setting.Name,SettingType.Integer,0,null);
+                  } else if (int.TryParse(parts[1],out int intValue)) {
+                     return new ParsedSetting(setting.Name,SettingType.Integer,intValue,null);
+                  } else {
+                     ReportProblem(Note.InvalidSettingValue,setting.SettingType,setting.Name,parts[1]);
+                  }
+                  break;
+               case SettingType.String:
+                  if (parts.Length == 1) {
+                     return new ParsedSetting(setting.Name,SettingType.String,"",null);
+                  } else if (parts[1].StartsWith('"')) {
+                     parts[1] = Regex.Replace(parts[1].Trim('"'),@"\$(.)",m => m.Groups[1].Value switch {
+                        "S" or "s" => " ",
+                        "$" => "$",
+                        "\"" => "\"",
+                        "L" or "l" => "\n",
+                        "T" or "t" => "\t",
+                        _ => m.Value
+                     });
+                  }
+                  return new ParsedSetting(setting.Name,SettingType.String,parts[1],null);
+               case SettingType.Double:
+                  if (parts.Length == 1) {
+                     return new ParsedSetting(setting.Name,SettingType.Double,0.0,null);
+                  } else if (double.TryParse(parts[1],out double doubleValue)) {
+                     return new ParsedSetting(setting.Name,SettingType.Double,doubleValue,null);
+                  } else {
+                     ReportProblem(Note.InvalidSettingValue,setting.SettingType,setting.Name,parts[1]);
+                  }
+                  break;
+               case SettingType.Severity:
+                  if (parts.Length == 1) {
+                     return new ParsedSetting(setting.Name,SettingType.Severity,Severity.Error,null);
+                  } else if (Enum.TryParse(parts[1],out Severity severityValue)) {
+                     return new ParsedSetting(setting.Name,SettingType.Severity,severityValue,null);
+                  } else {
+                     ReportProblem(Note.InvalidSettingValue,setting.SettingType,setting.Name,parts[1]);
+                  }
+                  break;
+               default:
+                  ReportProblem(Note.InvalidSetting,parts[0]);
+                  break;
             }
          } else {
             ReportProblem(Note.InvalidSetting,parts[0]);
@@ -474,10 +486,9 @@ namespace CDL2v1 {
       /// </summary>
       private static readonly ImmutableDictionary<string,Func<bool,string,object?,bool>> SetHandlers =
           new Dictionary<string,Func<bool,string,object?,bool>> {
-             ["programname"] = SetProgram,
              ["autosaveinterval"] = SetAutoSaveInterval,
              ["target"] = SetTarget,
-             ["programname"] = SetProgramName,
+             ["programname"] = SetProgram,
           }.ToImmutableDictionary();
 
       /// <summary>
@@ -494,15 +505,26 @@ namespace CDL2v1 {
          return true;
       }
 
-      private static bool SetProgramName(bool isSet,string _,object? programName) {
+      /// <summary>
+      /// Attempts to set the program with the specified name as the default program for code generation.
+      /// </summary>
+      /// <param name="isSet">A value indicating whether the operation should attempt to set the program. This parameter is not used in the
+      /// current implementation.</param>
+      /// <param name="settingName">This parameter is ignored.</param>
+      /// <param name="programName">The name of the program to set as the current focus. Must be a non-null string.</param>
+      /// <returns>true if a program with the specified name exists and is set as the current focus; otherwise, false.</returns>
+      private static bool SetProgram(bool isSet,string settingName,object? programName) {
+         Program? prog = null;
          if (programName is string name) {
-            Program? prog = Database.Instance.ProgramByName(name);
-            if (prog is not null) {
-               Focus.SetFocus(prog);
-               return true;
+            if (name.IsNotNullEmptyOrWhitespace) prog = Database.Instance.ProgramByName(name);
+            if (prog is null) {
+               SingleSelection sel = Focus.Current.Selection;
+               if (sel.Object is not null && sel.Object is Program program) prog = program;
+
             }
+            if (prog is not null) Settings.SettingValue<string>("ProgramName",prog.Id.Name);
          }
-         return false;
+         return prog is not null;
       }
 
       /// <summary>
@@ -529,11 +551,13 @@ namespace CDL2v1 {
          // Use settings to change global settings. Save previous values so they can be restored later.
          bool SettingsValid = true;
          foreach (ParsedSetting setting in settings) {
-            if (Settings.IsValidSetting(setting.Name)) {
+            if (setting.IsValid) {
                setting.PreviousValue = setting.Type switch {
                   SettingType.Boolean => Settings.SettingValue<bool>(setting.Name),
                   SettingType.Integer => Settings.SettingValue<int>(setting.Name),
                   SettingType.String => Settings.SettingValue<string>(setting.Name),
+                  SettingType.Double => Settings.SettingValue<double>(setting.Name),
+                  SettingType.Severity => Settings.SettingValue<Severity>(setting.Name),
                   _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
                };
                if (SetHandlers.TryGetValue(setting.Name,out Func<bool,string,object?,bool>? handler) && !handler(true,setting.Name,setting.Value)) SettingsValid = false;
@@ -543,8 +567,6 @@ namespace CDL2v1 {
                   WriteError($"Invalid setting value: {setting.Name}={setting.Value}. Command aborted.");
                   break;
                }
-            } else {
-               WriteError($"Invalid setting: {setting.Name} ignored");
             }
          }
 
@@ -769,20 +791,6 @@ namespace CDL2v1 {
                WriteError($"Unknown code generator {target} specified in {(targetMatch.Success ? "program PRAGMA" : "setting")}");
             }
          }
-      }
-
-      /// <summary>
-      /// Verifies that the given program name existis in the database.
-      /// </summary>
-      /// <param name="_1">True when setting the value, false when reseting. Since the previous value is passed on reset, no need to check.</param>
-      /// <param name="_2">The name of the setting (not used).</param>
-      /// <param name="programName"></param>
-      /// <returns></returns>
-      private static bool SetProgram(bool _1,string _2,object? programName) {
-         Program? prog = Database.Instance.ProgramByName((programName as string) ?? "");
-         if (prog is null) return false;
-         //TODO Set the mainprogram variable here
-         return true;
       }
 
       /// <summary>

@@ -158,7 +158,7 @@ namespace CDL2v1 {
       public static readonly Note CodeGenError = new(Severity.Error,072,"Error during code generation: {0} {1}");
       public static readonly Note InvalidSetting = new(Severity.Error,073,"Unknown setting: {0}");
       public static readonly Note InvalidSettingValue = new(Severity.Error,074,"Invalid setting value for {0} setting {1}={2}");
-      public static readonly Note BoolSettingHasValue = new(Severity.Error,075,"Boolean settings cannot have a value: {0}");
+      public static readonly Note BoolSettingHasValue = new(Severity.Error,075,"Boolean settings cannot have a value: {0} = {1}");
       public static readonly Note MissingSettingValue = new(Severity.Error,076,"Missing or too many setting values: {0}");
       public static readonly Note InvalidSettingSuffix = new(Severity.Error,077,"The {0} setting {1} cannot have a suffix");
 

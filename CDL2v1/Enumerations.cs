@@ -339,6 +339,7 @@ namespace CDL2v1 {
       Integer,
       Double,
       String,
+      Severity,
    }
 
    /// <summary>
