@@ -161,6 +161,7 @@ namespace CDL2v1 {
       public static readonly Note BoolSettingHasValue = new(Severity.Error,075,"Boolean settings cannot have a value: {0} = {1}");
       public static readonly Note MissingSettingValue = new(Severity.Error,076,"Missing or too many setting values: {0}");
       public static readonly Note InvalidSettingSuffix = new(Severity.Error,077,"The {0} setting {1} cannot have a suffix");
+      public static readonly Note AmbiguousSettingName = new(Severity.Error,078,"'{0}' matches {{{1}}}");
 
       public static readonly Note NoEffect = new(Severity.Warning,101,"Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten = new(Severity.Warning,102,"Output affix {0} whose value has not been read passed to output in {1}");

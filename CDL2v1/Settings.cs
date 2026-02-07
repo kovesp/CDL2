@@ -41,6 +41,7 @@ using System.Text.Json;
 using System.CommandLine;
 using System.Runtime.CompilerServices;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Policy;
 
 namespace CDL2v1 {
    public interface ISetting {
@@ -209,8 +210,29 @@ namespace CDL2v1 {
          new Setting<bool>(    "DebugCommands",      NoOption,             false,         "Display the parsed command."),
       ];
 
+      public record struct NameCompletion(IEnumerable<ISetting> Matches,int MatchLength);
+      /// <summary>
+      /// Returns the list of settings that match the given name and the length of the longest common prefix of their names.
+      /// </summary>
+      /// <param name="name"></param>
+      /// <param name="WithPrefixLength">Compute the maximum prefix length. This will be 0 if it was not computed.</param>
+      /// <returns></returns>
+      public static NameCompletion MatchingSetting(string name,bool WithPrefixLength=false) {
+         List<ISetting> matches = [];
+         foreach (ISetting setting in Settings.Instance.SettingsList) {
+            if (setting.Name.StartsWith(name,StringComparison.OrdinalIgnoreCase)) {
+               matches.Add(setting);
+            }
+         }
+         int matchLength = 0;
+         if (matches.Count > 0 && WithPrefixLength) {
+            string longestName = matches.OrderByDescending(s => s.Name.Length).First().Name;
+            for (matchLength = name.Length ; matches.All(s => s.Name.Length > matchLength && char.ToLower(s.Name[matchLength+1]) == longestName[matchLength+1]) ; matchLength++) ;
+          }
+         return new NameCompletion(matches,matchLength);
+      }
+
       public static readonly ImmutableDictionary<string,string> Abbreviations = new Dictionary<string,string>() {
-         { "p","ProgramName" },
          { "t","Target" },
          { "od","OutputDirectory" },
          { "npi","NoProcInlining" },

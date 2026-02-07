@@ -326,7 +326,7 @@ namespace CDL2v1 {
       public record class ParsedSetting(string Name,SettingType Type,object? Value,object? currentValue) {
          public readonly string Name = Name.ToLower();
          public readonly SettingType Type = Type;
-         public readonly object? Value = Value;
+         public object? Value = Value; // A setting handler can update it
          public object? PreviousValue = currentValue;
          public bool IsValid => Value is not null;
 
@@ -351,6 +351,13 @@ namespace CDL2v1 {
          string[] parts = settingString.TrimStart('-').Split([':','='],2);
          string settingName = parts[0].ToLower().TrimEnd('+','-');
          if (Settings.Abbreviations.TryGetValue(settingName,out string? fullName)) settingName = fullName;
+         Settings.NameCompletion completions = Settings.MatchingSetting(settingName);
+         if (completions.Matches.Count() > 1) {
+            ReportProblem(Note.AmbiguousSettingName,settingName,string.Join(",",completions.Matches.Select(s => s.Name)));
+            return ParsedSetting.Invalid;
+         } else if (completions.Matches.Count() == 1) {
+            settingName = completions.Matches.First().Name;
+         }
          bool hasBoolSuffix = parts[0].EndsWith('+') || parts[0].EndsWith('-');
          bool boolValue = ! parts[0].EndsWith('-');
          if (Settings.TryGetSetting(settingName,out ISetting? setting)) {
@@ -484,8 +491,8 @@ namespace CDL2v1 {
       /// The third parameter is the value to be set.
       /// The return value is whether the set was successful.
       /// </summary>
-      private static readonly ImmutableDictionary<string,Func<bool,string,object?,bool>> SetHandlers =
-          new Dictionary<string,Func<bool,string,object?,bool>> {
+      private static readonly ImmutableDictionary<string,Action<bool,ParsedSetting>> SetHandlers =
+          new Dictionary<string,Action<bool,ParsedSetting>> {
              ["autosaveinterval"] = SetAutoSaveInterval,
              ["target"] = SetTarget,
              ["programname"] = SetProgram,
@@ -495,36 +502,10 @@ namespace CDL2v1 {
       /// Handles changes to the AutosaveInterval setting by configuring the database auto-save timer.
       /// </summary>
       /// <param name="isSet">True when setting the value, false when resetting.</param>
-      /// <param name="_">The name of the setting (not used).</param>
-      /// <param name="intervalSeconds">The auto-save interval in seconds.</param>
-      /// <returns>Always true as any integer value is valid.</returns>
-      private static bool SetAutoSaveInterval(bool isSet,string _,object? intervalSeconds) {
-         if (intervalSeconds is int interval) {
-            Database.Instance.ConfigureAutoSave(interval);
-         }
-         return true;
-      }
-
-      /// <summary>
-      /// Attempts to set the program with the specified name as the default program for code generation.
-      /// </summary>
-      /// <param name="isSet">A value indicating whether the operation should attempt to set the program. This parameter is not used in the
-      /// current implementation.</param>
-      /// <param name="settingName">This parameter is ignored.</param>
-      /// <param name="programName">The name of the program to set as the current focus. Must be a non-null string.</param>
-      /// <returns>true if a program with the specified name exists and is set as the current focus; otherwise, false.</returns>
-      private static bool SetProgram(bool isSet,string settingName,object? programName) {
-         Program? prog = null;
-         if (programName is string name) {
-            if (name.IsNotNullEmptyOrWhitespace) prog = Database.Instance.ProgramByName(name);
-            if (prog is null) {
-               SingleSelection sel = Focus.Current.Selection;
-               if (sel.Object is not null && sel.Object is Program program) prog = program;
-
-            }
-            if (prog is not null) Settings.SettingValue<string>("ProgramName",prog.Id.Name);
-         }
-         return prog is not null;
+      /// <param name="setting">The setting to modify.</param>
+      private static void SetAutoSaveInterval(bool isSet,ParsedSetting setting) {
+         int interval = isSet ? (int)setting.Value! : (int)setting.PreviousValue!;
+         Database.Instance.ConfigureAutoSave(interval);
       }
 
       /// <summary>
@@ -533,10 +514,30 @@ namespace CDL2v1 {
       /// <remarks>This method checks whether the provided target corresponds to a registered code
       /// generator. The isSet and _ parameters do not influence the outcome.</remarks>
       /// <param name="isSet">Indicates whether the target is intended to be set. This parameter does not affect the result.</param>
-      /// <param name="_">Reserved for future use. This parameter is ignored.</param>
-      /// <param name="target">An object expected to be a string representing the code generator name to validate. Can be null.</param>
-      /// <returns>true if the target is a string and matches a known code generator name; otherwise, false.</returns>
-      private static bool SetTarget(bool isSet,string _,object? target) => target is string cg && CodeGenerator.AvailableCodeGenerators.ContainsKey(cg);
+      /// <param name="setting">The setting to modify.</param>
+      private static void SetTarget(bool isSet,ParsedSetting setting) {
+         string cg = isSet ? (string)setting.Value! : (string)setting.PreviousValue!;
+         CodeGenerator.AvailableCodeGenerators.ContainsKey(cg);
+      }
+
+      /// <summary>
+      /// Attempts to set the program with the specified name as the default program for code generation.
+      /// </summary>
+      /// <param name="isSet">A value indicating whether the operation should attempt to set the program. This parameter is not used in the
+      /// current implementation.</param>
+      /// <param name="setting">The setting to modify.</param>
+      private static void SetProgram(bool isSet,ParsedSetting setting) {
+         string name = isSet ? (string)setting.Value! : (string)setting.PreviousValue!;
+         Program? prog = null;
+         if (name.IsNotNullEmptyOrWhitespace) prog = Database.Instance.ProgramByName(name);
+         if (prog is null) {
+            SingleSelection sel = Focus.Current.Selection;
+            if (sel.Object is not null && sel.Object is Program program) prog = program;
+
+         }
+         if (prog is not null) setting.Value = prog.Id.Name;
+      }
+
 
       /// <summary>
       /// Interpret the command with the given verb, arguments and settings.
@@ -560,7 +561,7 @@ namespace CDL2v1 {
                   SettingType.Severity => Settings.SettingValue<Severity>(setting.Name),
                   _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
                };
-               if (SetHandlers.TryGetValue(setting.Name,out Func<bool,string,object?,bool>? handler) && !handler(true,setting.Name,setting.Value)) SettingsValid = false;
+               if (SetHandlers.TryGetValue(setting.Name,out Action<bool,ParsedSetting>? handler)) handler(true,setting);
                if (SettingsValid) {
                   Settings.SettingValue(setting.Name,setting.Type,setting.Value,CommandOverride: true);
                } else {
@@ -687,7 +688,7 @@ namespace CDL2v1 {
             if (ResetSettings) {
                foreach (ParsedSetting setting in settings) {
                   if (Settings.IsValidSetting(setting.Name)) {
-                     if (SetHandlers.TryGetValue(setting.Name,out Func<bool,string,object?,bool>? handler)) handler(false,setting.Name,setting.PreviousValue!);
+                     if (SetHandlers.TryGetValue(setting.Name,out Action<bool,ParsedSetting>? handler)) handler(false,setting);
                      Settings.SettingValue(setting.Name,setting.Type,setting.PreviousValue!,CommandOverride: false);
                   }
                }

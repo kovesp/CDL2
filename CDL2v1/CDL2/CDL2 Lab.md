@@ -399,7 +399,7 @@ If no settings are given, all current settings are listed. The following is a li
 | verbose | int  | 0    | Logging verbosity |
 | debug-log | int  | 0 | Debug logging verbosity |
 | target | string | "PowerShell" | The target code generator |
-| program | string | "" | The default program to generate |
+| program | string | "" | The default program to generate. **Special case:** If the focus is on a program, issuing `set program` will set the value from the name of the program.|
 | stop-on-warnings | bool | false | If true, then code code cannot be generated if the program or any parts have warnings. |
 | allow-errors | bool | false | If true, then code code can be generated even if there are errors. |
 | gen-debug-info | bool | false | If true, then debug information is generated. Not implemented. |
