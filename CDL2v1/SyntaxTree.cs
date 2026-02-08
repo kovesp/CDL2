@@ -48,6 +48,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Windows.Input;
 
 namespace CDL2v1 {
    // Marker interfaces to allow lists to be composed of permissible elements.
@@ -306,6 +307,8 @@ namespace CDL2v1 {
       [JsonIgnore] public virtual List<Guid> Siblings => [];
       [JsonInclude][JsonPropertyOrder(5)] public string Comments { get; set; } = string.Empty;
       [JsonInclude][JsonPropertyOrder(6)] public Notes Notes { get; set; } = [];
+
+      [JsonIgnore] public virtual bool Modified { get => false; set { } }
 
       [JsonIgnore] public virtual bool IsImported => false;
 
@@ -608,6 +611,11 @@ namespace CDL2v1 {
          { RW.POSTLUDE,[] }
       };
 
+      public override bool Modified {
+         get => Module?.Modified ?? false;
+         set => Module?.Modified = value;
+      }
+
       public static readonly List<RW> LudeTypes = [RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
       public static readonly List<ST> LudeSelectors = [ST.PRELUDE,ST.ROOT,ST.POSTLUDE];
       public static readonly Dictionary<ST,RW> LudeTypeBySelector = new() {
@@ -685,8 +693,9 @@ namespace CDL2v1 {
       [JsonPropertyOrder(20)]
       public IDSet Parts = [];
 
+
       [JsonIgnore]
-      public bool Modified {
+      public override bool Modified {
          get => _modified;
          set {
             _modified = value;
@@ -706,11 +715,26 @@ namespace CDL2v1 {
       [JsonIgnore] public List<Module> Modules => [.. Database.Instance.NamedElements.Values.OfType<Module>().Where(mod => Parts.Contains(mod.Id)!)];
       public override IEnumerable<NamedElement> ChildElements() => Modules;
 
+      [JsonIgnore] public string? Target {
+         get {
+            Match targetMatch = Regex.Match(Comments,@"PRAGMA\s+Target\s*[=:]\s*(\w+)",RegexOptions.Compiled);
+            return targetMatch.Success ? targetMatch.Groups[1].Value : null;
+         }
+      }
+
       /// <summary>
       /// Maps all identifiers exported by the modules in the program to the exporting module.
       /// </summary>
       [JsonIgnore]
       public readonly IDDictionary<IExportable> Exports = [];
+
+      [JsonInclude]
+      [JsonPropertyOrder(22)]      
+      /// <summary>
+      /// Will be reset by semantic analysis after it is done.
+      /// Wiil be reset by the lab analysis command and the codegenerator to force analysis.
+      /// </summary>
+      public bool AnalysisRequired { get; set; } = true;
 
       [JsonIgnore] private SemanticAnalyzer? _semanticAnalyzer;
       /// <summary>
@@ -718,11 +742,16 @@ namespace CDL2v1 {
       /// </summary>
       [JsonIgnore]public SemanticAnalyzer SemanticAnalyzer { 
          get {
-            if (_semanticAnalyzer == null || _modified) {
-               _semanticAnalyzer = SemanticAnalyzer.PerformSemanticAnalysis(CDL2.Compiler,this);
-               _modified = false;
+            if (_semanticAnalyzer is null || AnalysisRequired) {
+               SemanticAnalyzer.PerformSemanticAnalysis(CDL2.Compiler,this);
+               AnalysisRequired = false;
             }
+            Debug.Assert(_semanticAnalyzer != null,"Semantic analysis did not set the SemanticAnalyzer property.");
             return _semanticAnalyzer;
+         }
+         set {
+            _semanticAnalyzer = value;
+            _modified = false;
          }
       }
 
@@ -767,7 +796,7 @@ namespace CDL2v1 {
       [JsonPropertyOrder(21)]
       public bool _modified = false;
       [JsonIgnore]
-      public bool Modified {
+      public override bool Modified {
          get => _modified;
          set {
             if (value && !_modified) {
@@ -1143,6 +1172,11 @@ namespace CDL2v1 {
 
       [JsonIgnore]
       public SyntacticElement SE { get; protected set; }
+
+      public override bool Modified {
+         get => Module?.Modified ?? false;
+         set => Module?.Modified = value;
+      }
 
       public override string FQDN(bool WithInterface = false) {
          InterfaceTypes interfaceTypes = GetInterfaces();

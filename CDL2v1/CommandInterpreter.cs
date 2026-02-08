@@ -350,7 +350,7 @@ namespace CDL2v1 {
       private ParsedSetting ParseSetting(string settingString) {
          string[] parts = settingString.TrimStart('-').Split([':','='],2);
          string settingName = parts[0].ToLower().TrimEnd('+','-');
-         if (Settings.Abbreviations.TryGetValue(settingName,out string? fullName)) settingName = fullName;
+         if (Settings.SpecificAbbreviations.TryGetValue(settingName,out string? fullName)) settingName = fullName;
          Settings.NameCompletion completions = Settings.MatchingSetting(settingName);
          if (completions.Matches.Count() > 1) {
             ReportProblem(Note.AmbiguousSettingName,settingName,string.Join(",",completions.Matches.Select(s => s.Name)));
@@ -446,7 +446,7 @@ namespace CDL2v1 {
       /// <remarks>For use by unit tests and the consult command.</remarks>
       public void InterpretCommand(string command) {
          if ((command = command.Trim()) == "" || command.StartsWith(CommandComment)) return; // Ignore empty commands and command comments
-         ParseCommand(command,out string verb,out CommandType commandType,out string args,out ParsedSetting[] settings);
+         ParseCommand(command,out string verb,out CommandType commandType,out string args,out List<ParsedSetting> settings);
          InterpretCommand(verb,commandType,settings,args);
       }
 
@@ -458,7 +458,7 @@ namespace CDL2v1 {
       /// <param name="commandType"></param>
       /// <param name="args"></param>
       /// <param name="settings"></param>
-      private void ParseCommand(string command,out string verb,out CommandType commandType,out string args,out ParsedSetting[] settings) {
+      private void ParseCommand(string command,out string verb,out CommandType commandType,out string args,out List<ParsedSetting> settings) {
          string input = ReplaceSpacesInQuotedStrings(command); // Replace spaces in quoted strings with $S to allow splitting the command line into arguments and settings.
          string[] commandParts = Regex.Split(input,@"\s+");
          verb = commandParts[0].ToLower();
@@ -547,27 +547,14 @@ namespace CDL2v1 {
       /// <param name="settings"></param>
       /// <param name="args"></param>
       /// <exception cref="NotImplementedException"></exception>
-      public void InterpretCommand(string verb,CommandType commandType,ParsedSetting[] settings,string args) {
+      public void InterpretCommand(string verb,CommandType commandType,List<ParsedSetting> settings,string args) {
          IsEditing = false;
-         // Use settings to change global settings. Save previous values so they can be restored later.
          bool SettingsValid = true;
+         // Use settings to change global settings. Save previous values so they can be restored later.
          foreach (ParsedSetting setting in settings) {
-            if (setting.IsValid) {
-               setting.PreviousValue = setting.Type switch {
-                  SettingType.Boolean => Settings.SettingValue<bool>(setting.Name),
-                  SettingType.Integer => Settings.SettingValue<int>(setting.Name),
-                  SettingType.String => Settings.SettingValue<string>(setting.Name),
-                  SettingType.Double => Settings.SettingValue<double>(setting.Name),
-                  SettingType.Severity => Settings.SettingValue<Severity>(setting.Name),
-                  _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
-               };
-               if (SetHandlers.TryGetValue(setting.Name,out Action<bool,ParsedSetting>? handler)) handler(true,setting);
-               if (SettingsValid) {
-                  Settings.SettingValue(setting.Name,setting.Type,setting.Value,CommandOverride: true);
-               } else {
-                  WriteError($"Invalid setting value: {setting.Name}={setting.Value}. Command aborted.");
-                  break;
-               }
+            if (!SetSetting(setting)) {
+               SettingsValid = false;
+               break;
             }
          }
 
@@ -619,7 +606,7 @@ namespace CDL2v1 {
 
                   case CommandType.set:
                      // Modify settings so that the reset actually sets the new values
-                     if (settings.Length == 0) {
+                     if (settings.Count == 0) {
                         // List the current settings
                         DisplaySettings();
                      } else {
@@ -671,7 +658,7 @@ namespace CDL2v1 {
                   case CommandType.analyze:
                      InterpretCommandAnalyze(args); break;
                   case CommandType.generate:
-                     InterpretCommandGenerate(args);
+                     InterpretCommandGenerate(args,settings);
                      break;
 
                   default:
@@ -695,6 +682,28 @@ namespace CDL2v1 {
             }
          }
          SetStatus();
+      }
+
+      private bool SetSetting(ParsedSetting setting) {
+         if (setting.IsValid) {
+            setting.PreviousValue = setting.Type switch {
+               SettingType.Boolean => Settings.SettingValue<bool>(setting.Name),
+               SettingType.Integer => Settings.SettingValue<int>(setting.Name),
+               SettingType.String => Settings.SettingValue<string>(setting.Name),
+               SettingType.Double => Settings.SettingValue<double>(setting.Name),
+               SettingType.Severity => Settings.SettingValue<Severity>(setting.Name),
+               _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
+            };
+            if (SetHandlers.TryGetValue(setting.Name,out Action<bool,ParsedSetting>? handler)) handler(true,setting);
+            if (setting.IsValid) {
+               Settings.SettingValue(setting.Name,setting.Type,setting.Value,CommandOverride: true);
+            } else {
+               WriteError($"Invalid setting value: {setting.Name}={setting.Value}. Command aborted.");
+               return false;
+            }
+            return true;
+         }
+         return false;
       }
 
       /// <summary>
@@ -778,18 +787,35 @@ namespace CDL2v1 {
          }
       }
 
-      private void InterpretCommandGenerate(string args) {
-         // TODO: Pass the program derivable from the focus or settings. Same for the target code generator.
-         SingleSelection? context = GetContext(args);
-         Program? program = context?.Object is not null && context?.Object is Program prog ? prog : CDL2.GetMainProgram();
-         if (program is not null) {
-            Match targetMatch = Regex.Match(program.Comments,@"PRAGMA\s+Target\s*[=:]\s*(\w+)",RegexOptions.Compiled);
-            string target = targetMatch.Success ? targetMatch.Groups[1].Value : Settings.SettingValue<string>("Target")!;
-            if (CodeGenerator.AvailableCodeGenerators.ContainsKey(target)) {
-               string targetFileName = Settings.SettingValue<string>("file") ?? "";
-               CodeGenerator.GenerateCode(ref targetFileName,ReportProblem,target: target,program);
-             } else {
-               WriteError($"Unknown code generator {target} specified in {(targetMatch.Success ? "program PRAGMA" : "setting")}");
+      private void InterpretCommandGenerate(string args,List<ParsedSetting> settings) {
+         Selection? context = GetMultiContext(args);
+         IEnumerable<Program?> programs;
+         if (context is not null && context.Count > 1 && context.All(sel=>sel.Object is Program)) {
+            programs = context.Select(sel => sel.Object as Program);
+         } else {
+            programs = [CDL2.GetMainProgram()];
+         }
+
+         foreach (Program? program in programs) {
+            if (program is not null) {
+               string target;
+               string? programTarget = program.Target;
+               if (programTarget is not null) {
+                  ParsedSetting? parsedTarget = settings.FirstOrDefault(s => s.Name == "target");
+                  if (parsedTarget is null) {
+                     parsedTarget = new ParsedSetting("target",SettingType.String,programTarget,null);
+                     if (SetSetting(parsedTarget)) settings.Add(parsedTarget);
+                  }
+                  target = programTarget;
+               } else {
+                  target = Settings.SettingValue<string>("Target")!;
+               }
+               if (CodeGenerator.AvailableCodeGenerators.ContainsKey(target)) {
+                  string targetFileName = Settings.SettingValue<string>("file") ?? "";
+                  CodeGenerator.GenerateCode(ref targetFileName,ReportProblem,target: target,program);
+               } else {
+                  WriteError($"Unknown code generator {target} specified in {(programTarget is not null ? "program PRAGMA" : "setting")}");
+               }
             }
          }
       }
@@ -870,7 +896,31 @@ namespace CDL2v1 {
          return true;
       }
 
-      private void InterpretCommandAnalyze(string args) => throw new NotImplementedException();
+      private void InterpretCommandAnalyze(string args) {
+         IEnumerable<Program> programs;
+         if (args.IsNotNullEmptyOrWhitespace) {
+            Selection? context = GetMultiContext(args);
+            if (context is not null && context.IsValid && context.Count > 0 && context.First().Object is Program) {
+               programs = context.Select(ss => ss.Object).OfType<Program>();
+            } else {
+               WriteError("Context for analyze command must be a program.");
+               return;
+            }
+         } else {
+            SingleSelection? context = GetContext(args);
+            if (context is not null && context.Object is Program prog) {
+               programs = [prog];
+            } else {
+               programs = Database.Instance.ProgramObjects;
+            }
+         }
+         foreach (Program program in Database.Instance.ProgramObjects) {
+            WriteInfo($"Analyzing {program}");
+            program.AnalysisRequired = true;
+            SemanticAnalyzer analyzer = program.SemanticAnalyzer;
+            analyzer.ReportNoteCounts(program.Reachable,reporter: WriteInfo,summaryOnly: true);
+         }
+      }
 
       private static readonly Regex ModuleOrProgramStart = new(@"(?m)^\s*(?:#.*?(?:#|$)\s*)*\s*(?:MODULE|PROGRAM)(?=\s)",RegexOptions.Compiled);
       /// <summary>
@@ -923,18 +973,20 @@ namespace CDL2v1 {
             }
          } else if (Settings.SettingValue<bool>("settings")!) {
             WriteInfo("The short form of a setting is in parentheses.");
+            WriteInfo("Capital letters denote the minimum abbreviation of the selector.");
             WriteInfo("Single letter versions CANNOT be combined (e.g., '-ur' must be written '-u -r'.");
-            WriteInfo("Settings marked with * are not avilable on the Lab command line.");
+            WriteInfo("Settings marked with * are not available on the Lab command line.");
             static string blanks(int n) => new(' ',n);
             foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
                string[] desc = setting.Option.Description?.Split("\n") ?? [""];
-               string abbrev = Settings.ReverseAbbreviations.TryGetValue(setting.Name,out string? abbr)
-                                 ? $"({abbr})".PadRight(Settings.MaxAbbreviationLength + 2)
-                                 : $"{blanks(Settings.MaxAbbreviationLength + 2)}";
+               string abbrev = Settings.ReverseSpecificAbbreviations.TryGetValue(setting.Name,out string? abbr)
+                                 ? $"({abbr})".PadRight(Settings.MaxSpecificAbbreviationLength + 2)
+                                 : $"{blanks(Settings.MaxSpecificAbbreviationLength + 2)}";
                string labOnly = setting.LongOption.StartsWith("--NA") ? "*" : " ";
-               WriteLine($"{(labOnly+setting.Name).PadRight(Settings.Instance.MaxNameLength+1)} {abbrev} : {desc[0]}");
+               string settingName = setting.Name[..setting.MinimalAbbreviation].ToUpper() + setting.Name[setting.MinimalAbbreviation..].ToLower();
+               WriteLine($"{(labOnly+settingName).PadRight(Settings.Instance.MaxNameLength+1)} {abbrev} : {desc[0]}");
                foreach (string line in desc.Skip(1)) {
-                  WriteLine($"{blanks(Settings.Instance.MaxNameLength + Settings.MaxAbbreviationLength + 4)}   {line}");
+                  WriteLine($"{blanks(Settings.Instance.MaxNameLength + Settings.MaxSpecificAbbreviationLength + 4)}   {line}");
                }
             }
          } else {

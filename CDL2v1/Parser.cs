@@ -33,6 +33,7 @@
 
 // Ignore Spelling: CDL
 
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -125,9 +126,9 @@ namespace CDL2v1 {
          AddNote(subject,Note.UnexpectedToken,expectedTypes,actualType);
       }
 
-      public override void ReportNoteCounts(Reachable? reachable,string? message = null) {
-         Lexer!.ReportNoteCounts(reachable,message);
-         base.ReportNoteCounts(reachable,message);
+      public override void ReportNoteCounts(Reachable? reachable,string? message = null,Action<string>? reporter = null,bool summaryOnly=false) {
+         Lexer!.ReportNoteCounts(reachable,message,reporter,summaryOnly);
+         base.ReportNoteCounts(reachable,message,reporter,summaryOnly);
       }
 
 
@@ -1034,9 +1035,10 @@ namespace CDL2v1 {
             case RW.PROGRAM:
                tokens.Skip(); // Consume the reserved word
                if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
-                  // We have a correct Module declaration. These are valid irrespective of the context.
+                  // We have a correct Program declaration. These are valid irrespective of the context.
                   after = context.IndexFor(objectType);
                   element = new Program(id,comments,after: after);
+                  SetModified(element,mode);
                   Focus.SetFocus(element);
                } else {
                   ReportError($"Expected ID and . after {RW.PROGRAM} reserved word.");
@@ -1044,10 +1046,10 @@ namespace CDL2v1 {
                break;
             case RW.PART:
                tokens.Skip(); // Consume the reserved word
-               // TODO: It must be possible to add the part(s) at an arbitrary position in the parts list.
                if (context.FocusType == SelectorType.PROGRAM) {
                   ParseIDList(RW.PART,(context.Object as Program)!.Parts);
                   element = context.Object;
+                  SetModified(element,mode);
                } else {
                   ReportError($"{RW.PART} declaration outside of {RW.PROGRAM} context");
                }
@@ -1055,9 +1057,10 @@ namespace CDL2v1 {
             case RW.MODULE:
                tokens.Skip(); // Consume the reserved word
                if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
-                  // We have a correct Module or Program declaration. These are valid irrespective of the context.
+                  // We have a correct Module declaration. These are valid irrespective of the context.
                   after = context.IndexFor(objectType);
                   element = new Module(id,comments,after: after);
+                  SetModified(element,mode);
                   Focus.SetFocus(element);
                } else {
                   ReportError($"Expected ID and . after {RW.MODULE} reserved word.");
@@ -1072,7 +1075,8 @@ namespace CDL2v1 {
                   Module module = context.Module!;
                   Layer? ancestor = Focus.Current.ObjectFor(RW.LAYER,module.Layers);
                   element = new Layer(id,module,ancestor,comments,after: after);
-                  Focus.SetFocus(element);
+                  element.Module!.Modified = true;
+                  SetModified(element,mode);
                } else {
                   ReportError($"Expected ID and . after {RW.LAYER} reserved word.");
                }
@@ -1086,6 +1090,7 @@ namespace CDL2v1 {
                   Module module = context.Module!;
                   Layer layer = Focus.Current.ObjectFor(RW.LAYER,module.Layers)!;
                   element = new Section(id,layer,comments,after: after);
+                  SetModified(element,mode);
                   Focus.SetFocus(element);
                } else {
                   ReportError($"Expected ID and . after {RW.SECTION} reserved word.");
@@ -1103,6 +1108,7 @@ namespace CDL2v1 {
                      element = alg;
                      // alg was added to the current section at the end
                      if (mode == ParseMode.Full) MoveObjectToPosition(parsingContext,context,alg);
+                     SetModified(element,mode);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1118,6 +1124,7 @@ namespace CDL2v1 {
                   if (ParseConstants(Notes.Empty,mode,out List<Const> consts,canReplace,parsingContext)) {
                      if (mode == ParseMode.Full) MoveObjectToPosition(parsingContext,context,consts);
                      element = consts.LastOrDefault();
+                     SetModified(element!,mode);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1133,6 +1140,7 @@ namespace CDL2v1 {
                   if (ParseVariables(Notes.Empty,mode,out List<Var> vars,parsingContext)) {
                      MoveObjectToPosition(parsingContext,context,vars);
                      element = vars.LastOrDefault();
+                     SetModified(element!,mode);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1148,6 +1156,7 @@ namespace CDL2v1 {
                   if (ParseList(Notes.Empty,out List<LIST> lists,mode,canReplace,parsingContext)) {
                      if (mode == ParseMode.Full) MoveObjectToPosition(parsingContext,context,lists);
                      element = lists.LastOrDefault();
+                     SetModified(element!,mode);
                   }
                } else {
                   if (mode == ParseMode.Full) {
@@ -1166,6 +1175,7 @@ namespace CDL2v1 {
                   foreach (ID interfaceId in ParseInterfaceList(objectType,section.Interfaces[Container.InterfaceEnumByType[objectType]])) {
                      Database.Instance.RecordUndo(section,objectType,interfaceId,ChangeType.InterfaceAdded);
                   }
+                  SetModified(element!,mode);
                } else if (mode == ParseMode.Full) {
                   ReportProblem(Note.NoSectionForObject,context.ToString());
                }
@@ -1186,12 +1196,14 @@ namespace CDL2v1 {
                      if (mode == ParseMode.Full) ReportProblem(Note.InvalidLude,$"{objectType} in {currentSection.FQDN()}");
                      return false;
                   }
+                  SetModified(currentSection,mode);
                   return true;
                } else {
                   // Otherwise it is a Program or a Module
                   Container container = (context.Object as Container)!;
                   if (ParseLudeOfIDs(this,objectType,container,out List<ID> ludeIds)) {
                      if (mode == ParseMode.Full) foreach (ID ludeId in ludeIds) Database.Instance.RecordUndo(container,objectType,ludeId,ChangeType.LudeAdded);
+                     SetModified(container,mode);
                   } else {
                      if (mode == ParseMode.Full) ReportProblem(Note.InvalidLude,$"{objectType} in {context.Object!.FQDN()}");
                      return false;
@@ -1200,11 +1212,12 @@ namespace CDL2v1 {
                break;
             case RW.NOTE:
                Notes notes = ParseNotes();
-               if (context.Object is not null) { 
+               if (context.Object is not null) {
                   if (mode == ParseMode.Full) {
                      context.Object.AddNotes(PhaseName,notes);
                   }
                   element = context.Object;
+                  SetModified(element,mode);
                }
                break;
 
@@ -1213,6 +1226,10 @@ namespace CDL2v1 {
          }
 
          return element != null;
+      }
+
+      private static void SetModified(NamedElement element,ParseMode mode) {
+         if (mode == ParseMode.Full) element.Modified = true;
       }
 
       /// <summary>

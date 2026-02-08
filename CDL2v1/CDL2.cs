@@ -111,23 +111,28 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="message">Optional termination message.</param>
       /// <returns></returns>
-      public virtual void ReportNoteCounts(Reachable? reachable,string? message = null) {
-         Log(0,$"{PhaseName,-16}: {Errors.Count().Plural("error",",")} {Warnings.Count().Plural("warning",",")} {Infos.Count().Plural("info message")}");
-         if (message != null) Log(0,message);
+      public virtual void ReportNoteCounts(Reachable? reachable,string? message = null,Action<string>? reporter = null,bool summaryOnly=false) {
+         reporter ??= msg=>Log(0,msg);
+         reporter($"{PhaseName,-16}: {Errors.Count().Plural("error",",")} {Warnings.Count().Plural("warning",",")} {Infos.Count().Plural("info message")}");
+         if (message != null) reporter(message);
 
-         Severity messages = Settings.SettingValue<Severity>("Messages")!;
-         bool all = messages == Severity.Info || Settings.SettingValue<bool>("ReportAll");
-         ReportByType(Errors,all);
-         if (messages == Severity.Warning || messages == Severity.Info) ReportByType(Warnings,all);
-         if (messages == Severity.Info) ReportByType(Infos,all);
+         if (summaryOnly) {
+            //ReportByType(Errors);
+         } else { 
+            Severity messages = Settings.SettingValue<Severity>("Messages")!;
+            bool all = messages == Severity.Info || Settings.SettingValue<bool>("ReportAll");
+            ReportByType(Errors,all);
+            if (messages == Severity.Warning || messages == Severity.Info) ReportByType(Warnings,all);
+            if (messages == Severity.Info) ReportByType(Infos,all);
+         }
 
-         void ReportByType(IEnumerable<Note> list,bool all) {
+         void ReportByType(IEnumerable<Note> list,bool all=false) {
             foreach (Note note in list) {
                // Report messages only for reachable objects
                NamedElement? noteOwner = NamedElement.From<NamedElement>(note.Owner);
                if (all || reachable is null || note.Owner == Guid.Empty || noteOwner is Container _ || (noteOwner is CDL2Object obj && reachable.Objects.Contains(obj))) {
                   string head = $"{note.NoteType,7} {note.Number:D3}: ";
-                  Log(0,$"   {head} {noteOwner?.FQDN() ?? PhaseName}\n    {new string(' ',head.Length)}{note.Text}");
+                  reporter($"   {head} {noteOwner?.FQDN() ?? PhaseName}\n    {new string(' ',head.Length)}{note.Text}");
                }
             }
          }

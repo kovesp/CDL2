@@ -52,6 +52,8 @@ namespace CDL2v1 {
       string LongOption { get; }
       bool CommandOverride { get; set; }
       object? ObjectValue { get; }
+      int MinimalAbbreviation { get; set; }
+
       SettingType SettingType => Type.Name switch {
          "Boolean" => SettingType.Boolean,
          "Int32" => SettingType.Integer,
@@ -72,6 +74,7 @@ namespace CDL2v1 {
       public Option Option { get; set; }
       public bool IsSaved { get; set; } = false; // Whether this setting should be saved to a file
       public bool CommandOverride { get; set; } = false; // Whether this setting was specified from a lab command
+      public int MinimalAbbreviation { get; set; } = 0;
 
       public Setting(string name,string optionName,T defaultValue,string description,ArgumentArity? arity = null,bool saved = false,string disjoint = "")
          : this(name,[optionName],defaultValue,description,arity,saved: saved,disjoint: disjoint) { }
@@ -217,9 +220,9 @@ namespace CDL2v1 {
       /// <param name="name"></param>
       /// <param name="WithPrefixLength">Compute the maximum prefix length. This will be 0 if it was not computed.</param>
       /// <returns></returns>
-      public static NameCompletion MatchingSetting(string name,bool WithPrefixLength=false) {
+      private NameCompletion MatchingSettingInst(string name,bool WithPrefixLength=false) {
          List<ISetting> matches = [];
-         foreach (ISetting setting in Settings.Instance.SettingsList) {
+         foreach (ISetting setting in SettingsList) {
             if (setting.Name.StartsWith(name,StringComparison.OrdinalIgnoreCase)) {
                matches.Add(setting);
             }
@@ -231,8 +234,9 @@ namespace CDL2v1 {
           }
          return new NameCompletion(matches,matchLength);
       }
+      public static NameCompletion MatchingSetting(string name,bool WithPrefixLength=false) => Instance.MatchingSettingInst(name,WithPrefixLength);
 
-      public static readonly ImmutableDictionary<string,string> Abbreviations = new Dictionary<string,string>() {
+      public static readonly ImmutableDictionary<string,string> SpecificAbbreviations = new Dictionary<string,string>() {
          { "t","Target" },
          { "od","OutputDirectory" },
          { "npi","NoProcInlining" },
@@ -247,16 +251,14 @@ namespace CDL2v1 {
          { "o","settings" },
          { "s","selectors" },
       }.ToImmutableDictionary();
-      public static readonly ImmutableDictionary<string,string> ReverseAbbreviations =
-         Abbreviations.ToImmutableDictionary(kvp => kvp.Value,kvp => kvp.Key);
-      public static readonly int MaxAbbreviationLength =
-         Abbreviations.Keys.Max(s => s.Length);
+      public static readonly ImmutableDictionary<string,string> ReverseSpecificAbbreviations =
+         SpecificAbbreviations.ToImmutableDictionary(kvp => kvp.Value,kvp => kvp.Key);
+      public static readonly int MaxSpecificAbbreviationLength =
+         SpecificAbbreviations.Keys.Max(s => s.Length);
 
       private readonly ImmutableHashSet<string> ValidSetting;
 
       public static List<ISetting> AllSettings => Instance.SettingsList;
-
-
 
       private static int NoOptionCounter = 1;
       private static string NoOption => $"--NA{NoOptionCounter++}";
@@ -269,6 +271,15 @@ namespace CDL2v1 {
       private Settings() {
          for (int i = 0 ; i < SettingsList.Count ; i++) {
             SettingsList[i].Index = i;
+            // Compute minimal abbreviation length for each setting
+            string name = SettingsList[i].Name.ToLower();
+            for (int j = 1 ; j < name.Length ; j++) {
+               NameCompletion completion = MatchingSettingInst(name[..j]);
+               if (completion.Matches.Count() == 1 && ! SpecificAbbreviations.ContainsKey(name[..j])) {
+                  SettingsList[i].MinimalAbbreviation = j;
+                  break;
+               }
+            }
             SettingsDict[SettingsList[i].Name] = SettingsDict[SettingsList[i].Name.ToLower()] = SettingsList[i];
             MaxNameLength = Math.Max(MaxNameLength,SettingsList[i].Name.Length);
             MaxOptionLength = Math.Max(MaxOptionLength,SettingsList[i].LongOption.Length);

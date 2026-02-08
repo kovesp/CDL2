@@ -81,7 +81,7 @@ namespace CDL2v1 {
       /// Analyze the given program.
       /// </summary>
       /// <param name="program"></param>
-      internal void Analyze(Program program) {
+      private void Analyze(Program program) {
          Log(1,$"Analyzing {program}");
          //phase 1
          AnalyzeProgram(program);
@@ -89,10 +89,6 @@ namespace CDL2v1 {
          AnalyzeProgramInterfaces(program);
          // Phase 3
          AnalyzeProgramImportsAndExports(program);
-         // Pahse 4
-         foreach (Module module in program.Modules) {
-            AnalyzeModule(module);
-         }
       }
 
       public Reachable Reachable = new();
@@ -106,15 +102,19 @@ namespace CDL2v1 {
       /// <remarks>This method analyzes the program for semantic issues and identifies unused or unreachable
       /// objects. The results of the analysis are stored in the provided reachable object. This method does not modify
       /// the input program.</remarks>
-      /// <param name="MainProgram">The program to analyze for semantic correctness and object reachability. Cannot be null.</param>
+      /// <param name="program">The program to analyze for semantic correctness and object reachability. Cannot be null.</param>
       /// <param name="reachable">The object used to collect and track all objects and reachable objects within the program. Cannot be null.</param>
-      public static SemanticAnalyzer PerformSemanticAnalysis(CDL2 Compiler,Program MainProgram) {
+      public static void PerformSemanticAnalysis(CDL2 Compiler,Program program,Action<string>? reporter = null) {
+         reporter?.Invoke($"Analyzing {program}");
          SemanticAnalyzer analyzer= new(Compiler);
-         analyzer.Analyze(MainProgram);
-         analyzer.Reachable.CollectAllObjects(MainProgram);
-         analyzer.Reachable.CollectReachableObjects(MainProgram);
-         analyzer.AnalyzeUnused(MainProgram,analyzer.Reachable);
-         return analyzer;
+         analyzer.Analyze(program);
+         analyzer.Reachable.CollectAllObjects(program);
+         analyzer.Reachable.CollectReachableObjects(program);
+         analyzer.AnalyzeUnused(program,analyzer.Reachable);
+         // Phase 4 of Semantic analysis
+         foreach (Module module in program.Modules) analyzer.AnalyzeModule(module);
+         if (reporter is not null) analyzer.ReportNoteCounts(program.Reachable,reporter:reporter);
+         program.SemanticAnalyzer = analyzer;
       }
 
       /// <summary>
@@ -124,8 +124,12 @@ namespace CDL2v1 {
       /// <param name="program"></param>
       private void AnalyzeProgramImportsAndExports(Program program) {
          Log(1,$"Analyzing {program} imports and exports");
-         // Collect all the exports from the modules in the program.
+         // Clear all import and export tables
+         foreach (Module module in program.Modules) { 
+            module.exports.Clear(); module.imports.Clear(); 
+         }
          program.Exports.Clear();
+         // Collect all the exports from the modules in the program.
          foreach (Module module in program.Modules) {
             AnalyzeModuleExports(module);
             foreach (IExportable export in module.exports.Values.Cast<IExportable>()) {
@@ -146,6 +150,7 @@ namespace CDL2v1 {
          Log(2,$"Analyzing {module} import and export resolution");
          // First collect all the imports in the sections into the imports table of the module.
          // While doing this check for consistency in case an object is imported ínto multiple sections.
+
          foreach (Section section in module.Sections) {
             foreach (ID elemid in section.Interfaces[InterfaceTypes.Import]) {
                if (section.Declarations.TryGetValue(elemid,out CDL2Object? obj)) {
@@ -191,6 +196,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="program"></param>
       private void AnalyzeProgramInterfaces(Program program) {
+         // The Visible tables must be reconstructed from scratch, so clear them in all modules
+         foreach (Layer layer in program.Modules.SelectMany(mod => mod.Layers)) layer.Visible.Clear();
          foreach (Module module in program.Modules) {
             Log(1,$"Analyzing internal interfaces of {module}");
             // Construct the Visible table of each layer in the module
@@ -205,14 +212,16 @@ namespace CDL2v1 {
             // Also ensures that the actual element IDs are in the inv list. (Should not stritly be necessary, but just in case.)
             foreach (Layer layer in module.Layers) {
                foreach (Section section in layer.Sections) {
-                  Log(2,$"Analyzing section {section} {RW.INV}");
-                  Set<ID> invs = [.. section.Interfaces[InterfaceTypes.Inv]];
-                  section.Interfaces[InterfaceTypes.Inv].Clear();
-                  foreach (ID elemid in invs) {
-                     if (layer.Visible.TryGetValue(elemid,out IProvidable? elem)) {
-                        section.Interfaces[InterfaceTypes.Inv].Add(elem.Id);
-                     } else {
-                        AddNote(section,Note.MissingInvoke,elemid,layer);
+                  if (section.Interfaces[InterfaceTypes.Inv].Count > 0) {
+                     Log(2,$"Analyzing section {section} {RW.INV}");
+                     Set<ID> invs = [.. section.Interfaces[InterfaceTypes.Inv]];
+                     section.Interfaces[InterfaceTypes.Inv].Clear();
+                     foreach (ID elemid in invs) {
+                        if (layer.Visible.TryGetValue(elemid,out IProvidable? elem)) {
+                           section.Interfaces[InterfaceTypes.Inv].Add(elem.Id);
+                        } else {
+                           AddNote(section,Note.MissingInvoke,elemid,layer);
+                        }
                      }
                   }
                }
@@ -441,17 +450,17 @@ namespace CDL2v1 {
       /// <param name="interfaceElements"></param>
       /// <param name="providables"></param>
       private void AnalyzeProvidedInterfaces(Section section,RW kind,SortedSet<ID> interfaceElements,IDDictionary<IProvidable>? providables,int logDepth) {
-         Log(logDepth,$"Analyzing section {section} {kind}");
          // Providables will be null in the top layer, hence there should be no abstractions in this section ... add a warning.
          if (providables == null) {
             if (interfaceElements.Count > 0) AddNote(section,Note.AbstractionsInTopLayer);
-         } else {
+         } else if (interfaceElements.Count > 0) {
+            Log(logDepth,$"Analyzing section {section} {kind}");
             Set<ID> elems = [.. interfaceElements];
             interfaceElements.Clear();
             foreach (ID elemId in elems) {
                if (section.Declarations.TryGetValue(elemId,out CDL2Object? decl)) {
                   if (providables.TryGetValue(elemId,out IProvidable? prov)) {
-                     AddNote(section,Note.DuplicateInterfaceElement,elemId,kind,section,prov.Section!);
+                     AddNote(section,Note.DuplicateInterfaceElement,elemId,kind,section.FQDN(),prov.Section!.FQDN()!);
                   } else if (decl is IProvidable providable) {
                      interfaceElements.Add(providable.Id);
                      providables[providable.Id] = providable;

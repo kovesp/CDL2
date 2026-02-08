@@ -745,9 +745,9 @@ namespace CDL2v1 {
             problemReporter(Note.NoProgram,[]);
             return;
          }
-         Match targetMatch = Regex.Match(program.Comments,@"PRAGMA\s+Target\s*[=:]\s*(\w+)",RegexOptions.Compiled);
-         target = targetMatch.Success ? targetMatch.Groups[1].Value : target ?? Settings.SettingValue<string>("Target")!;
-         if (AvailableCodeGenerators.ContainsKey(target)) {
+         program.AnalysisRequired = true;
+         target = program.Target ?? Settings.SettingValue<string>("Target")!;
+         if (AvailableCodeGenerators.ContainsKey (target)) {
             ICodeGenerator? cg = CreateCodeGenerator(target,problemReporter);
 
             if (cg != null) {

@@ -198,12 +198,14 @@ namespace CDL2v1 {
       [JsonInclude]
       [JsonPropertyOrder(5)]
       public List<Guid> Programs = [];
+      [JsonIgnore] public IEnumerable<Program> ProgramObjects => Programs.Select(guid => NamedElements[guid] as Program).Where(p => p is not null).Cast<Program>();
       /// <summary>
       /// All the modules in the database.
       /// </summary>
       [JsonInclude]
       [JsonPropertyOrder(6)]
       public List<Guid> Modules = [];
+      [JsonIgnore] public IEnumerable<Module> ModuleObjects => Modules.Select(guid => NamedElements[guid] as Module).Where(m => m is not null).Cast<Module>();
       /// <summary>
       /// When a note is added to an element, the element is also added here.
       /// Should be cleared at the begining of compilation.
