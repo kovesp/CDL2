@@ -180,7 +180,7 @@ Examples:
 
 ## Non-Commands
 
-From the syntax it is clear that actuall commands start with a command token and that all command tokens
+From the syntax it is clear that actual commands start with a command token and that all command tokens
 are lower case. Anything that does not start with a command token is treated as a CDL2 code snipet.
 
 A code snipet always begins with one of the CDL2 reserved words that start a syntactic unit 
@@ -578,8 +578,7 @@ When the object is restored using `undo`, it is added at the end of the list of 
 analyze command : analyze token, setting sequence option, selector option.
 ```
 
-Performs semantic analysis on the selected program (the selector or focus must select
-a single program). If no selector is given, or the selection is not on a program, the
+Performs semantic analysis on the selected program(s). If no selector is given, or the selection is not on a program, the
 default program specified by the `-program` setting is analyzed.
 
 Notes:
@@ -636,6 +635,15 @@ Executes the given command line in the host operating system shell.
 For example, on Windows: `shell dir C:\CDL2`.
 If you need to pass switches to the shell command escape the minus sign with a backslash.
 For example, `shell --shell=bash ls \-l` will execute `ls -l` in bash.
+
+##### Status
+```
+status command : status token, selector option.
+```
+
+Displays the Lab version, the number of modules and programs the current database
+contains, and the number and types of objects in the current program or the program(s)
+selected by the selector.
 
 
 ##### Quit/Exit/Bye/Abort

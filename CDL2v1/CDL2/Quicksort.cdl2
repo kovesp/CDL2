@@ -615,21 +615,21 @@ ENDMOD quicksort.
 PRELUDE sorter.
 ROOT sorter.
 
-#PRAGMA Target=PowerShell#
+#PRAGMA Target=PowerShell file=psort#
 PROGRAM powershell sort.
    PART powershell kernel, quicksort.
    PRELUDE powershell kernel, quicksort.
    ROOT quicksort.
 ENDPROG powershell sort.
 
-#PRAGMA Target=CSharp#
+#PRAGMA Target=CSharp file=cssort#
 PROGRAM csharp sort.
    PART csharp kernel, quicksort.
    PRELUDE csharp kernel, quicksort.
    ROOT quicksort.
 ENDPROG csharp sort.
 
-#PRAGMA Target=C#
+#PRAGMA Target=C file=csort#
 PROGRAM c sort.
    PART c kernel, quicksort.
    PRELUDE c kernel, quicksort.

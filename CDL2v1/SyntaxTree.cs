@@ -39,6 +39,8 @@
 
 // Ignore Spelling: Transput CDL abstr ext inv ludes lude lwb upb FQN
 
+using CDL2v1;
+
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -49,6 +51,8 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+
+using static CDL2v1.CommandInterpreter;
 
 namespace CDL2v1 {
    // Marker interfaces to allow lists to be composed of permissible elements.
@@ -381,6 +385,19 @@ namespace CDL2v1 {
             return null;
          }
       }
+
+      public Dictionary<string,string> ProcessPragmas(List<ParsedSetting> settings,Action<string> reporter) {
+         Dictionary<string,string> pragmas = Pragmas;
+         foreach (string settingName in pragmas.Keys) {
+            ParsedSetting? parsedTarget = settings.FirstOrDefault(s => s.Name == settingName);
+            if (parsedTarget is null) {
+               parsedTarget = new ParsedSetting(settingName,SettingType.String,pragmas[settingName],null);
+               if (parsedTarget.SetSetting(reporter)) settings.Add(parsedTarget);
+            }
+         }
+         return pragmas;
+      }
+
       /// <summary>
       /// The Parent as an element.
       /// </summary>
@@ -471,6 +488,21 @@ namespace CDL2v1 {
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
 
       public Container Container => ParentElement<Container>()!;
+
+      [JsonIgnore]
+      public Dictionary<string,string> Pragmas {
+         get {
+            Match pragmaMatch = Regex.Match(Comments,@"PRAGMA\s+(.+)",RegexOptions.Compiled);
+            if (!pragmaMatch.Success) return [];
+
+            string pragmaContent = pragmaMatch.Groups[1].Value;
+            MatchCollection kvMatches = Regex.Matches(pragmaContent,@"(\w+)\s*[=:]\s*(?:""((?:[^""$]|\$.)*)""|(\S+))",RegexOptions.Compiled);
+            return kvMatches.Cast<Match>().ToDictionary(
+               kvMatch => kvMatch.Groups[1].Value,
+               kvMatch => kvMatch.Groups[2].Success ? kvMatch.Groups[2].Value : kvMatch.Groups[3].Value
+            );
+         }
+      }
 
       public Note AddNote(string phase,Note note,params object[] insertions) {
          Note newNote = new Note(note,phase,this,insertions);
@@ -714,13 +746,6 @@ namespace CDL2v1 {
       /// <remarks>Note that here and elsewhere the iteration must be fixed to avoid multiple calls interfering with each other.</remarks>
       [JsonIgnore] public List<Module> Modules => [.. Database.Instance.NamedElements.Values.OfType<Module>().Where(mod => Parts.Contains(mod.Id)!)];
       public override IEnumerable<NamedElement> ChildElements() => Modules;
-
-      [JsonIgnore] public string? Target {
-         get {
-            Match targetMatch = Regex.Match(Comments,@"PRAGMA\s+Target\s*[=:]\s*(\w+)",RegexOptions.Compiled);
-            return targetMatch.Success ? targetMatch.Groups[1].Value : null;
-         }
-      }
 
       /// <summary>
       /// Maps all identifiers exported by the modules in the program to the exporting module.

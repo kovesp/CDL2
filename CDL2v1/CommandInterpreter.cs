@@ -330,7 +330,29 @@ namespace CDL2v1 {
          public object? PreviousValue = currentValue;
          public bool IsValid => Value is not null;
 
-         public static readonly ParsedSetting Invalid = new ("",SettingType.String,null,null); 
+         public static readonly ParsedSetting Invalid = new ("",SettingType.String,null,null);
+
+         public bool SetSetting(Action<string> reporter) {
+            if (IsValid) {
+               PreviousValue = Type switch {
+                  SettingType.Boolean => Settings.SettingValue<bool>(Name),
+                  SettingType.Integer => Settings.SettingValue<int>(Name),
+                  SettingType.String => Settings.SettingValue<string>(Name),
+                  SettingType.Double => Settings.SettingValue<double>(Name),
+                  SettingType.Severity => Settings.SettingValue<Severity>(Name),
+                  _ => throw new NotImplementedException($"Setting type {Type} not implemented."),
+               };
+               if (SetHandlers.TryGetValue(Name,out Action<bool,ParsedSetting>? handler)) handler(true,this);
+               if (IsValid) {
+                  Settings.SettingValue(Name,Type,Value,CommandOverride: true);
+               } else {
+                  reporter($"Invalid setting value: {Name}={Value}. Command aborted.");
+                  return false;
+               }
+               return true;
+            }
+            return false;
+         }
 
          public override string ToString() => Type switch {
             SettingType.Boolean => $"-{Name}{(Value is null ? "" : (bool)Value ? "+" : "-")} ",
@@ -552,7 +574,7 @@ namespace CDL2v1 {
          bool SettingsValid = true;
          // Use settings to change global settings. Save previous values so they can be restored later.
          foreach (ParsedSetting setting in settings) {
-            if (!SetSetting(setting)) {
+            if (!setting.SetSetting(WriteError)) {
                SettingsValid = false;
                break;
             }
@@ -684,28 +706,6 @@ namespace CDL2v1 {
          SetStatus();
       }
 
-      private bool SetSetting(ParsedSetting setting) {
-         if (setting.IsValid) {
-            setting.PreviousValue = setting.Type switch {
-               SettingType.Boolean => Settings.SettingValue<bool>(setting.Name),
-               SettingType.Integer => Settings.SettingValue<int>(setting.Name),
-               SettingType.String => Settings.SettingValue<string>(setting.Name),
-               SettingType.Double => Settings.SettingValue<double>(setting.Name),
-               SettingType.Severity => Settings.SettingValue<Severity>(setting.Name),
-               _ => throw new NotImplementedException($"Setting type {setting.Type} not implemented."),
-            };
-            if (SetHandlers.TryGetValue(setting.Name,out Action<bool,ParsedSetting>? handler)) handler(true,setting);
-            if (setting.IsValid) {
-               Settings.SettingValue(setting.Name,setting.Type,setting.Value,CommandOverride: true);
-            } else {
-               WriteError($"Invalid setting value: {setting.Name}={setting.Value}. Command aborted.");
-               return false;
-            }
-            return true;
-         }
-         return false;
-      }
-
       /// <summary>
       /// Return the platform dependent name of the progam to invoke for the supported shells
       /// </summary>
@@ -798,27 +798,18 @@ namespace CDL2v1 {
 
          foreach (Program? program in programs) {
             if (program is not null) {
-               string target;
-               string? programTarget = program.Target;
-               if (programTarget is not null) {
-                  ParsedSetting? parsedTarget = settings.FirstOrDefault(s => s.Name == "target");
-                  if (parsedTarget is null) {
-                     parsedTarget = new ParsedSetting("target",SettingType.String,programTarget,null);
-                     if (SetSetting(parsedTarget)) settings.Add(parsedTarget);
-                  }
-                  target = programTarget;
-               } else {
-                  target = Settings.SettingValue<string>("Target")!;
-               }
+               Dictionary<string,string> pragmas = program.ProcessPragmas(settings, WriteError);
+               string target = Settings.SettingValue<string>("target") ?? "";
                if (CodeGenerator.AvailableCodeGenerators.ContainsKey(target)) {
                   string targetFileName = Settings.SettingValue<string>("file") ?? "";
                   CodeGenerator.GenerateCode(ref targetFileName,ReportProblem,target: target,program);
                } else {
-                  WriteError($"Unknown code generator {target} specified in {(programTarget is not null ? "program PRAGMA" : "setting")}");
+                  WriteError($"Unknown code generator {target} specified in {(pragmas.ContainsKey("target") ? "program PRAGMA" : "setting")}");
                }
             }
          }
       }
+
 
       /// <summary>
       /// Attempts to move the currently selected object by the specified amount and direction based on the provided
@@ -1541,13 +1532,13 @@ namespace CDL2v1 {
       /// current lab, database, designated program, object counts, and available code generators. It is intended for
       /// internal use to assist with diagnostics and status reporting.</remarks>
       private void InterpretCommandStatus(string args) {
-         SingleSelection? sel = GetContext(args);
-         Program program = sel is not null && sel.Object is not null && sel.Object is Program prog ? prog : CDL2.GetMainProgram()!;
-
+         Selection? context = GetMultiContext(args);
          WriteInfo($"{CDL2.LabName} {CDL2.Version} with database {Settings.LabDBPath}");
-         WriteInfo($"Database contains {Database.Instance.Programs.Count.Plural("program",countWidth: 1)} and {Database.Instance.Modules.Count.Plural("module",countWidth: 1)}.");
-         Reachable.LogObjectCount(program.Reachable,$"reachable from {program} with {program.Parts.Count.Plural("part",countWidth: 1)}.",WriteInfo,0,unused:true);
+         WriteInfo($" Database contains {Database.Instance.Programs.Count.Plural("program",countWidth: 1)} and {Database.Instance.Modules.Count.Plural("module",countWidth: 1)}.");
          WriteInfo($" Available code generators: {string.Join(", ",CodeGenerator.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}.");
+         foreach (Program program in context?.FirstOrDefault()?.Object is Program ? context.Select(s => (Program)s.Object!) : [CDL2.GetMainProgram()!]) {
+            Reachable.LogObjectCount(program.Reachable,$"reachable from {program} with {program.Parts.Count.Plural("part",countWidth: 1)}.",WriteInfo,0,unused: true);
+         }
       }
 
       /// <summary>
