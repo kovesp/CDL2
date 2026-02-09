@@ -144,31 +144,6 @@ namespace CDL2v1 {
    /// Processes command line options and compiles the source files.
    /// </summary>
    public partial class CDL2 {
-#if WINDOWS
-      [DllImport("kernel32.dll")]
-      private static extern IntPtr GetConsoleWindow();
-
-      [DllImport("user32.dll")]
-      private static extern bool ShowWindow(IntPtr hWnd,int nCmdShow);
-
-      private const int SW_HIDE = 0;
-
-      [DllImport("kernel32.dll",SetLastError = true)]
-      [return: MarshalAs(UnmanagedType.Bool)]
-      private static extern bool AllocConsole();
-
-      [DllImport("kernel32.dll",SetLastError = true)]
-      [return: MarshalAs(UnmanagedType.Bool)]
-      private static extern bool AttachConsole(int dwProcessId);
-
-      [DllImport("kernel32.dll",SetLastError = true)]
-      private static extern IntPtr GetStdHandle(int nStdHandle);
-
-      private const int ATTACH_PARENT_PROCESS = -1;
-      private const int STD_OUTPUT_HANDLE = -11;
-      private const int STD_INPUT_HANDLE = -10;
-#endif
-
       public static readonly string Version = "1.0.0";
       public const string LabName = "CDL2 Laboratory Redux";
 
@@ -187,20 +162,7 @@ namespace CDL2v1 {
          Settings.LoadSettings();
          Settings.ProcessCommandLine(args);
 
-         // Only hide console on Windows when in GUI mode
-#if WINDOWS
-         // On Windows with WinExe, allocate console if needed
-         if (Settings.SettingValue<bool>("Console")) {
-            AllocConsole();
-
-            StreamWriter standardOutput = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
-            Console.SetOut(standardOutput);
-            Console.SetError(standardOutput);
-
-            StreamReader standardInput = new StreamReader(Console.OpenStandardInput());
-            Console.SetIn(standardInput);
-         }
-#endif
+         AllocateConsole();
 
          Log(2,$"\n {(Settings.LabMode ? CDL2.LabName : "Compiler")} v{Version}");
          Compiler.CompileSources(Settings.SettingValue<string[]>("Sources")!);
@@ -217,20 +179,14 @@ namespace CDL2v1 {
 
 
          if (Settings.LabMode) {
-            bool usingGUI = Settings.OnWindows && !Settings.SettingValue<bool>("Console") && Settings.LabMode;
-#if WINDOWS
+            bool usingGUI = Settings.OnWindows && !Settings.SettingValue<bool>("Console");
+
             IToaster toaster = usingGUI ? new ToastWindow() : new ToastConsole();
-#else
-            IToaster toaster = new ToastConsole();
-#endif
             Serializer.Toaster = toaster;
             Database.Load();
 
-            //PerformSemanticAnalysis(GetMainProgram()!);
-            //Program? MainProgram = GetMainProgram();
-            //if (MainProgram != null) {
-            //   if (MainProgram.SemanticAnalyzer.AbortCompilation()) return;
-            //}
+            // Ensure all programs are in an analyzed state
+            foreach (Program program in Database.Instance.ProgramObjects) SemanticAnalyzer.AnalyzeProgram(program);
 
             if (usingGUI) {
 #if WINDOWS
@@ -348,5 +304,46 @@ namespace CDL2v1 {
          return program;
       }
       internal void SkipToNextEnd() => Parser?.SkipToNextEnd();
+
+#if WINDOWS
+      private static void AllocateConsole() {
+         // On Windows with WinExe, allocate console if needed
+         if (Settings.SettingValue<bool>("Console")) {
+            AllocConsole();
+
+            StreamWriter standardOutput = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
+            Console.SetOut(standardOutput);
+            Console.SetError(standardOutput);
+
+            StreamReader standardInput = new StreamReader(Console.OpenStandardInput());
+            Console.SetIn(standardInput);
+         }
+      }
+
+      [DllImport("kernel32.dll")]
+      private static extern IntPtr GetConsoleWindow();
+
+      [DllImport("user32.dll")]
+      private static extern bool ShowWindow(IntPtr hWnd,int nCmdShow);
+
+      private const int SW_HIDE = 0;
+
+      [DllImport("kernel32.dll",SetLastError = true)]
+      [return: MarshalAs(UnmanagedType.Bool)]
+      private static extern bool AllocConsole();
+
+      [DllImport("kernel32.dll",SetLastError = true)]
+      [return: MarshalAs(UnmanagedType.Bool)]
+      private static extern bool AttachConsole(int dwProcessId);
+
+      [DllImport("kernel32.dll",SetLastError = true)]
+      private static extern IntPtr GetStdHandle(int nStdHandle);
+
+      private const int ATTACH_PARENT_PROCESS = -1;
+      private const int STD_OUTPUT_HANDLE = -11;
+      private const int STD_INPUT_HANDLE = -10;
+#else
+      private static void AllocateConsole() {}
+#endif // WINDOWS
    }
 }

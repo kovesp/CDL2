@@ -614,7 +614,7 @@ namespace CDL2v1 {
                      }
                      break;
                   case CommandType.status:
-                     InterpretCommandStatus(); break;
+                     InterpretCommandStatus(args); break;
 
                   case CommandType.rename:
                      InterpretCommandRename(args); RequiresSemanticAnalysis = true; break;
@@ -1533,10 +1533,21 @@ namespace CDL2v1 {
             if (mainProgramBeingRenamed) Settings.SettingValue<string>("ProgramName",newName);
          }
       }
-      private void InterpretCommandStatus() {
-         WriteInfo($"CDL2 Lab Version {CDL2.Version} with database {Settings.LabDBPath}");
-         Reachable.LogObjectCount(CDL2.GetMainProgram()?.Reachable?.AllObjects,$"in {Database.Instance.Modules.Count.Plural("module")}",WriteInfo,0);
-         WriteInfo($" Available code generators: {string.Join(", ",CodeGenerator.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}");
+      /// <summary>
+      /// Outputs status information about the loaded programs, modules, and available
+      /// code generators.
+      /// </summary>
+      /// <remarks>This method writes informational messages to the output, including details about the
+      /// current lab, database, designated program, object counts, and available code generators. It is intended for
+      /// internal use to assist with diagnostics and status reporting.</remarks>
+      private void InterpretCommandStatus(string args) {
+         SingleSelection? sel = GetContext(args);
+         Program program = sel is not null && sel.Object is not null && sel.Object is Program prog ? prog : CDL2.GetMainProgram()!;
+
+         WriteInfo($"{CDL2.LabName} {CDL2.Version} with database {Settings.LabDBPath}");
+         WriteInfo($"Database contains {Database.Instance.Programs.Count.Plural("program",countWidth: 1)} and {Database.Instance.Modules.Count.Plural("module",countWidth: 1)}.");
+         Reachable.LogObjectCount(program.Reachable,$"reachable from {program} with {program.Parts.Count.Plural("part",countWidth: 1)}.",WriteInfo,0,unused:true);
+         WriteInfo($" Available code generators: {string.Join(", ",CodeGenerator.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}.");
       }
 
       /// <summary>

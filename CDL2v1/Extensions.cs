@@ -642,6 +642,8 @@ namespace CDL2v1 {
          /// <returns>The pluralized form of the string if the count does not equal 1; otherwise, the original string.</returns>
          public string Plural(int count,string? plural = null) => count.Plural(s,plural);
 
+         public string Capitalize => s.Length > 1 ? s[0..1].ToUpper() + s[1..].ToLower() : s.ToUpper();
+
          /// <summary>
          /// Normalize a string to a valid identifier.
          /// </summary>

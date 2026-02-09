@@ -81,10 +81,10 @@ namespace CDL2v1 {
       /// Analyze the given program.
       /// </summary>
       /// <param name="program"></param>
-      private void Analyze(Program program) {
+      private void AnalyzeProgramStructureAndInterfaces(Program program) {
          Log(1,$"Analyzing {program}");
          //phase 1
-         AnalyzeProgram(program);
+         AnalyzeProgramStructure(program);
          // Phase 2
          AnalyzeProgramInterfaces(program);
          // Phase 3
@@ -104,16 +104,16 @@ namespace CDL2v1 {
       /// the input program.</remarks>
       /// <param name="program">The program to analyze for semantic correctness and object reachability. Cannot be null.</param>
       /// <param name="reachable">The object used to collect and track all objects and reachable objects within the program. Cannot be null.</param>
-      public static void PerformSemanticAnalysis(CDL2 Compiler,Program program,Action<string>? reporter = null) {
+      public static void AnalyzeProgram(Program program,Action<string>? reporter = null) {
          reporter?.Invoke($"Analyzing {program}");
-         SemanticAnalyzer analyzer= new(Compiler);
-         analyzer.Analyze(program);
+         SemanticAnalyzer analyzer= new(CDL2.Compiler);
+         analyzer.AnalyzeProgramStructureAndInterfaces(program);
          analyzer.Reachable.CollectAllObjects(program);
          analyzer.Reachable.CollectReachableObjects(program);
-         analyzer.AnalyzeUnused(program,analyzer.Reachable);
+         analyzer.AnalyzeUnusedObjects(program,analyzer.Reachable);
          // Phase 4 of Semantic analysis
          foreach (Module module in program.Modules) analyzer.AnalyzeModule(module);
-         if (reporter is not null) analyzer.ReportNoteCounts(program.Reachable,reporter:reporter);
+         if (reporter is not null) analyzer.ReportNoteCounts(program.Reachable,reporter: reporter);
          program.SemanticAnalyzer = analyzer;
       }
 
@@ -235,7 +235,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="mainProgram"></param>
       /// <param name="Reachable"></param>
-      private void AnalyzeUnused(Program mainProgram,Reachable Reachable) {
+      private void AnalyzeUnusedObjects(Program mainProgram,Reachable Reachable) {
          int unused = 0;
          SortedList<string,CDL2Object> unusedObjects = [];
          foreach (CDL2Object obj in Reachable.AllObjects) {
@@ -251,7 +251,17 @@ namespace CDL2v1 {
          if (Settings.AnyVerbosity(4)) foreach (CDL2Object obj in unusedObjects.Values) Log(1,$"  {obj}");
       }
 
-      private void AnalyzeProgram(Program program) {
+      /// <summary>
+      /// Analyzes the specified program to verify module presence and validate lude references. Updates the program's
+      /// parts and lude tables to ensure consistency with the database.
+      /// </summary>
+      /// <remarks>This method checks that all modules referenced in the program's parts list exist in the
+      /// database and updates the list to include only valid modules. It also verifies that lude references are
+      /// correct, replacing IDs with actual ones and adding notes for any missing modules or ludes. Use this method to
+      /// ensure that a program's structure is consistent and all references are valid before further
+      /// processing.</remarks>
+      /// <param name="program">The program to analyze and update. Cannot be null.</param>
+      private void AnalyzeProgramStructure(Program program) {
          IDDictionary<Module> validModules = [];
          Log(1,$"Analyzing module presence of {program}");
          // First verify that all modules in the parts list are present in the database.

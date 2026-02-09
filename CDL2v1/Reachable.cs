@@ -70,7 +70,7 @@ namespace CDL2v1 {
             moduleCount = program.Parts.Count;
             AllObjects = AllObjects.Where(obj => !obj.IsImported && programModules.Contains(obj.Module)).ToSet;
          }
-         LogObjectCount(AllObjects,$"in {moduleCount.Plural("module")}");
+         LogObjectCount(this,$"in {moduleCount.Plural("module")}",allObjects:true);
       }
 
       /// <summary>
@@ -96,15 +96,16 @@ namespace CDL2v1 {
          }
          collecting = false;
          collected = true;
-         LogObjectCount(Objects,$"reachable from {prog}");
+         LogObjectCount(this,$"reachable from {prog}");
       }
 
-      public static void LogObjectCount(Set<CDL2Object>? objects,string sort,Action<string>? logger = null,int logLevel=1) {
-         if (objects is null) return;
+      public static void LogObjectCount(Reachable reachable,string sort,Action<string>? logger = null,int logLevel = 1,bool unused = false,bool allObjects=false) {
+         Set<CDL2Object> objects = allObjects ? reachable.AllObjects : reachable.Objects;
          logger ??= str => Logger.Log(logLevel,str);
-         string CountObjects(Type type,Set<CDL2Object> objects,bool noComma = false) => objects.Where(obj => obj.GetType() == type).Count().Plural(type.Name,noComma ? null : ",");
-         logger($"{objects.Count.Plural("object")} {sort} ...");
-         logger($"   {CountObjects(typeof(Const),objects)} {CountObjects(typeof(Var),objects)} {CountObjects(typeof(LIST),objects)} {CountObjects(typeof(Macro),objects)} {CountObjects(typeof(Procedure),objects,noComma: true)}.");
+         string CountObjects<T>(bool noComma = false) => objects.Where(obj => obj.GetType() == typeof(T)).Count().Plural(typeof(T).Name.Capitalize,noComma ? null : ",",countWidth:1);
+
+         logger($"{objects.Count.Plural("object")}{(unused ? $" ({reachable.AllObjects.Count - reachable.Objects.Count} unused)" : "")} {sort}...");
+         logger($"   {CountObjects<Const>()} {CountObjects<Var>()} {CountObjects<LIST>()} {CountObjects<Macro>()} {CountObjects<Procedure>(noComma: true)}.");
       }
 
       public void CollectReachableObjects(Module module) => throw new NotImplementedException($"CollectReachableObjects: Not yet implemented for modules.");

@@ -743,7 +743,7 @@ namespace CDL2v1 {
       [JsonIgnore]public SemanticAnalyzer SemanticAnalyzer { 
          get {
             if (_semanticAnalyzer is null || AnalysisRequired) {
-               SemanticAnalyzer.PerformSemanticAnalysis(CDL2.Compiler,this);
+               SemanticAnalyzer.AnalyzeProgram(this);
                AnalysisRequired = false;
             }
             Debug.Assert(_semanticAnalyzer != null,"Semantic analysis did not set the SemanticAnalyzer property.");
