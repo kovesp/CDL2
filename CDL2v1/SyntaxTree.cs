@@ -762,6 +762,8 @@ namespace CDL2v1 {
       public bool AnalysisRequired { get; set; } = true;
 
       [JsonIgnore] private SemanticAnalyzer? _semanticAnalyzer;
+      [JsonIgnore] public string? Target => Pragmas.TryGetValue("target", out string? target) ? target : null;
+
       /// <summary>
       /// Returns the Semantic analys
       /// </summary>

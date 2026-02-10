@@ -790,7 +790,7 @@ namespace CDL2v1 {
       private void InterpretCommandGenerate(string args,List<ParsedSetting> settings) {
          Selection? context = GetMultiContext(args);
          IEnumerable<Program?> programs;
-         if (context is not null && context.Count > 1 && context.All(sel=>sel.Object is Program)) {
+         if (context is not null && context.Count >= 1 && context.All(sel=>sel.Object is Program)) {
             programs = context.Select(sel => sel.Object as Program);
          } else {
             programs = [CDL2.GetMainProgram()];

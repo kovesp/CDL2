@@ -137,7 +137,7 @@ namespace CDL2v1 {
                }
             case "isoptionvalue":
                if (call.TryGetActual(out STRING? option2) && call.TryGetActual(out STRING? value,1)) {
-                  return Settings.TryGetSettingValue(option2.value,out object? settingValue) && (string)settingValue == value.value;
+                  return Settings.TryGetSettingValue(option2.value,out object? settingValue) && (string)(settingValue??"") == value.value;
                } else {
                   return false;
                }
