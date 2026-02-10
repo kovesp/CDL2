@@ -79,7 +79,33 @@ Mouse Wheel | Scroll up/down
 
 Press Ctrl+B to enter scroll mode at any time.
 """;
+      private const string _inputModeHelp = """
+Input Mode Navigation and Commands
 
+Key         | Action
+---
+Enter       | Execute the current command
+Tab         | Name completion (if multiple matches, shows menu)
+Esc         | Clear the input line
+↑           | Previous command in history
+↓           | Next command in history
+←           | Move cursor left
+→           | Move cursor right
+Home        | Move to beginning of line
+End         | Move to end of line
+Backspace   | Delete character before cursor
+Delete      | Delete character at cursor
+Ctrl+B      | Enter scroll mode to review output history
+Alt+Delete  | Clear the console screen
+F1          | Show this help message
+
+Tab Completion Menu (when shown):
+  ↑/↓       | Navigate items
+  PgUp/PgDn | Navigate by page
+  Home/End  | Jump to first/last item
+  Enter     | Select current item
+  Esc       | Cancel menu
+""";
       private Action<string>? inputProcessor;
 
       public Emitter? Emitter { get; set; }
@@ -460,6 +486,29 @@ Press Ctrl+B to enter scroll mode at any time.
       }
 
       /// <summary>
+      /// Show help for input mode
+      /// </summary>
+      private void ShowInputModeHelp() {
+         // Switch to alternate screen buffer
+         Console.Write("\x1b[?1049h");
+
+         // Clear alternate screen and move to top
+         Console.Write("\x1b[2J\x1b[H");
+
+         // Display help directly to alternate screen (not through WriteLine)
+         Console.ForegroundColor = ConsoleColor.Cyan;
+         Console.WriteLine("\n" + _inputModeHelp);
+         Console.WriteLine("\nPress any key to return to input...");
+         Console.ResetColor();
+
+         // Wait for key press
+         Console.ReadKey(intercept: true);
+
+         // Switch back to main screen buffer
+         Console.Write("\x1b[?1049l");
+      }
+
+      /// <summary>
       /// Setup status line with scrolling region
       /// </summary>
       private void SetupStatusLine() {
@@ -598,6 +647,44 @@ Press Ctrl+B to enter scroll mode at any time.
                }
                
                return input;
+
+            } else if (keyInfo.Key == ConsoleKey.Tab) {
+               // Tab: Name completion
+               string currentText = new string(buffer.ToArray());
+               CompletionResult? result = NameCompletion.GetCompletions(currentText);
+
+               if (result is not null) {
+                  if (result.Completions.Length == 1) {
+                     // Single match: apply directly
+                     string replacement = result.Completions[0];
+                     string newText = currentText[..result.StartPosition] + replacement;
+                     buffer.Clear();
+                     buffer.AddRange(newText);
+                     cursorPosition = buffer.Count;
+                     RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
+                  } else {
+                     // Multiple matches: show menu
+                     string? selected = ShowCompletionMenu(result.Completions,buffer,cursorPosition,prompt,promptVisualLength);
+                     if (selected != null) {
+                        string newText = currentText[..result.StartPosition] + selected;
+                        buffer.Clear();
+                        buffer.AddRange(newText);
+                        cursorPosition = buffer.Count;
+                        RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
+                     } else {
+                        // Menu was cancelled, just redraw the line
+                        RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
+                     }
+                  }
+               }
+            } else if (keyInfo.Key == ConsoleKey.Escape) {
+               // Esc: Clear the input line
+               buffer.Clear();
+               cursorPosition = 0;
+               RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
+            } else if (keyInfo.Key == ConsoleKey.F1) {
+               // F1: Show help
+               ShowInputModeHelp();
             } else if (keyInfo.Key == ConsoleKey.B && keyInfo.Modifiers == ConsoleModifiers.Control) {
                // Ctrl+B: Enter scroll mode
                Console.WriteLine();
@@ -1051,6 +1138,160 @@ Press Ctrl+B to enter scroll mode at any time.
          
          string currentStatus = Focus.Current.Object?.FQDN() ?? "Nothing";
          SetStatus(currentStatus);
+      }
+
+      /// <summary>
+      /// Show a completion menu and return the selected item, or null if cancelled
+      /// </summary>
+      private string? ShowCompletionMenu(string[] completions,List<char> buffer,int cursorPosition,string prompt,int promptVisualLength) {
+         // Save cursor position
+         int savedCursorLeft = Console.CursorLeft;
+         int savedCursorTop = Console.CursorTop;
+
+         // Calculate menu dimensions
+         int maxWidth = completions.Max(c => c.Length) + 4; // Add padding
+         int menuWidth = Math.Max(maxWidth,20);
+         int menuHeight = Math.Min(completions.Length + 2,15); // +2 for borders, max 15 lines
+         bool needsScroll = completions.Length > (menuHeight - 2);
+
+         int selectedIndex = 0;
+         int scrollOffset = 0;
+         int visibleItems = menuHeight - 2;
+
+         // Save original colors
+         ConsoleColor savedForeground = Console.ForegroundColor;
+         ConsoleColor savedBackground = Console.BackgroundColor;
+
+         try {
+            while (true) {
+               // Calculate menu position (below current line, or above if not enough space)
+               int menuTop = savedCursorTop + 1;
+               if (menuTop + menuHeight > Console.WindowHeight) {
+                  menuTop = savedCursorTop - menuHeight;
+                  if (menuTop < 0) menuTop = 0;
+               }
+
+               int menuLeft = Math.Max(0,Math.Min(savedCursorLeft,Console.WindowWidth - menuWidth));
+
+               // Draw menu
+               DrawCompletionMenu(completions,selectedIndex,scrollOffset,visibleItems,menuLeft,menuTop,menuWidth,menuHeight,needsScroll);
+
+               // Wait for key input
+               ConsoleKeyInfo key = Console.ReadKey(intercept: true);
+
+               if (key.Key == ConsoleKey.Escape) {
+                  // Cancel - clear menu and return null
+                  ClearCompletionMenu(menuLeft,menuTop,menuWidth,menuHeight);
+                  return null;
+               } else if (key.Key == ConsoleKey.Enter) {
+                  // Select current item
+                  ClearCompletionMenu(menuLeft,menuTop,menuWidth,menuHeight);
+                  return completions[selectedIndex];
+               } else if (key.Key == ConsoleKey.UpArrow) {
+                  if (selectedIndex > 0) {
+                     selectedIndex--;
+                     if (selectedIndex < scrollOffset) scrollOffset = selectedIndex;
+                  }
+               } else if (key.Key == ConsoleKey.DownArrow) {
+                  if (selectedIndex < completions.Length - 1) {
+                     selectedIndex++;
+                     if (selectedIndex >= scrollOffset + visibleItems) scrollOffset = selectedIndex - visibleItems + 1;
+                  }
+               } else if (key.Key == ConsoleKey.PageUp) {
+                  selectedIndex = Math.Max(0,selectedIndex - visibleItems);
+                  scrollOffset = Math.Max(0,scrollOffset - visibleItems);
+               } else if (key.Key == ConsoleKey.PageDown) {
+                  selectedIndex = Math.Min(completions.Length - 1,selectedIndex + visibleItems);
+                  scrollOffset = Math.Min(Math.Max(0,completions.Length - visibleItems),scrollOffset + visibleItems);
+               } else if (key.Key == ConsoleKey.Home) {
+                  selectedIndex = 0;
+                  scrollOffset = 0;
+               } else if (key.Key == ConsoleKey.End) {
+                  selectedIndex = completions.Length - 1;
+                  scrollOffset = Math.Max(0,completions.Length - visibleItems);
+               }
+            }
+         } finally {
+            // Restore cursor and colors
+            Console.SetCursorPosition(savedCursorLeft,savedCursorTop);
+            Console.ForegroundColor = savedForeground;
+            Console.BackgroundColor = savedBackground;
+         }
+      }
+
+      /// <summary>
+      /// Draw the completion menu using box drawing characters
+      /// </summary>
+      private static void DrawCompletionMenu(string[] completions,int selectedIndex,int scrollOffset,int visibleItems,int menuLeft,int menuTop,int menuWidth,int menuHeight,bool needsScroll) {
+         Console.ForegroundColor = ConsoleColor.White;
+         Console.BackgroundColor = ConsoleColor.DarkGray;
+
+         // Draw top border
+         Console.SetCursorPosition(menuLeft,menuTop);
+         Console.Write("┌" + new string('─',menuWidth - 2) + "┐");
+
+         // Draw menu items
+         int displayCount = Math.Min(visibleItems,completions.Length - scrollOffset);
+         for (int i = 0 ; i < visibleItems ; i++) {
+            Console.SetCursorPosition(menuLeft,menuTop + 1 + i);
+            Console.Write("│");
+
+            if (i < displayCount) {
+               int itemIndex = scrollOffset + i;
+               string item = completions[itemIndex];
+               bool isSelected = itemIndex == selectedIndex;
+
+               if (isSelected) {
+                  Console.ForegroundColor = ConsoleColor.Black;
+                  Console.BackgroundColor = ConsoleColor.Cyan;
+               } else {
+                  Console.ForegroundColor = ConsoleColor.White;
+                  Console.BackgroundColor = ConsoleColor.DarkGray;
+               }
+
+               // Truncate or pad item to fit
+               string displayItem = item.Length > menuWidth - 4 ? item[..(menuWidth - 7)] + "..." : item.PadRight(menuWidth - 4);
+               Console.Write($" {displayItem} ");
+
+               Console.ForegroundColor = ConsoleColor.White;
+               Console.BackgroundColor = ConsoleColor.DarkGray;
+            } else {
+               Console.Write(new string(' ',menuWidth - 2));
+            }
+
+            Console.Write("│");
+         }
+
+         // Draw bottom border
+         Console.SetCursorPosition(menuLeft,menuTop + menuHeight - 1);
+         Console.Write("└" + new string('─',menuWidth - 2) + "┘");
+
+         // Draw scroll indicators if needed
+         if (needsScroll) {
+            if (scrollOffset > 0) {
+               Console.SetCursorPosition(menuLeft + menuWidth - 2,menuTop);
+               Console.Write("▲");
+            }
+            if (scrollOffset + visibleItems < completions.Length) {
+               Console.SetCursorPosition(menuLeft + menuWidth - 2,menuTop + menuHeight - 1);
+               Console.Write("▼");
+            }
+         }
+      }
+
+      /// <summary>
+      /// Clear the completion menu from the screen
+      /// </summary>
+      private static void ClearCompletionMenu(int menuLeft,int menuTop,int menuWidth,int menuHeight) {
+         Console.ForegroundColor = ConsoleColor.Gray;
+         Console.BackgroundColor = ConsoleColor.Black;
+
+         for (int i = 0 ; i < menuHeight ; i++) {
+            Console.SetCursorPosition(menuLeft,menuTop + i);
+            Console.Write(new string(' ',menuWidth));
+         }
+
+         Console.ResetColor();
       }
    }
 }

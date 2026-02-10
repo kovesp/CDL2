@@ -515,26 +515,15 @@ F1    | Show this help message.
             if (_multilineMode) {
                InsertIndentation();
             } else {
-               string currentText = InputTextBox.Text;
-               string textForSelection = TrimToFirstSelector(currentText);
-               Selection? sel = new(textForSelection);
-               if (sel is not null && sel.Count > 0) {
-                  // Find the position after the last capitalized word
-                  int endingStart = GetLastObjectName(textForSelection);
-
-                  if (endingStart >= 0) {
-                     string[] completions = [.. sel.Select(s => s.Object!.Id.Name).Distinct()];
-                     int prefixLen = currentText.Length - textForSelection.Length;
-                     int completionStartPos = prefixLen + endingStart;
-
-                     if (sel.Count == 1) {
-                        // Single match: use the full object name
-                        string replacement = completions[0];
-                        InputTextBox.Text = currentText[..completionStartPos] + replacement;
-                        InputTextBox.CaretIndex = InputTextBox.Text.Length;
-                     } else {
-                        ShowCompletionMenu(completions,completionStartPos);
-                     }
+               CompletionResult? result = NameCompletion.GetCompletions(InputTextBox.Text);
+               if (result is not null) {
+                  if (result.Completions.Length == 1) {
+                     // Single match: use the full object name
+                     string replacement = result.Completions[0];
+                     InputTextBox.Text = InputTextBox.Text[..result.StartPosition] + replacement;
+                     InputTextBox.CaretIndex = InputTextBox.Text.Length;
+                  } else {
+                     ShowCompletionMenu(result.Completions,result.StartPosition);
                   }
                }
             }
