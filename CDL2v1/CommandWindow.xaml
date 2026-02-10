@@ -51,8 +51,8 @@
             <!-- Add a row for the rule/line -->
             <RowDefinition Height="2" />
             <RowDefinition x:Name="OutputRow" Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition x:Name="InputAreaSeparator" Height="Auto" />
+            <RowDefinition x:Name="InputArea" Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Status Bar -->

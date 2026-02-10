@@ -31,6 +31,7 @@
 //=======================================================================
 // </auto-gen>
 #if WINDOWS
+using System.Configuration;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -406,6 +407,95 @@ F1    | Show this help message.
          InputTextBox.Focus();
       });
 
+      // Completion tracking
+      private int _completionStartPos = 0;
+
+      /// <summary>
+      /// Shows a menu of completions at the current caret position.
+      /// When a completion is selected, it replaces the text from the start position to the caret with the selected completion.
+      /// </summary>
+      /// <param name="completions"></param>
+      /// <param name="startPos"></param>
+      /// <summary>
+      /// Shows a menu of completions at the current caret position.
+      /// When a completion is selected, it replaces the text from the start position to the caret with the selected completion.
+      /// </summary>
+      /// <param name="completions"></param>
+      /// <param name="startPos"></param>
+      private void ShowCompletionMenu(IEnumerable<string> completions,int startPos) {
+         _completionStartPos = startPos;
+
+         // Get colors from PrettyPrinter
+         string bgColorHex = PrettyPrinter.Decorators[SE.Other].BG;
+         string fgColorHex = PrettyPrinter.Decorators[SE.Other].FG;
+         string highlightBgHex = PrettyPrinter.Decorators[SE.NoteInfo].BG;
+         string highlightFgHex = PrettyPrinter.Decorators[SE.NoteInfo].FG;
+
+         Brush bgBrush = (Brush)new BrushConverter().ConvertFromString(bgColorHex)!;
+         Brush fgBrush = (Brush)new BrushConverter().ConvertFromString(fgColorHex)!;
+         Brush highlightBgBrush = (Brush)new BrushConverter().ConvertFromString(highlightBgHex)!;
+         Brush highlightFgBrush = (Brush)new BrushConverter().ConvertFromString(highlightFgHex)!;
+
+         ContextMenu completionMenu = new() {
+            PlacementTarget = this,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute,
+            Background = bgBrush,
+            Foreground = fgBrush,
+            BorderBrush = fgBrush,
+            BorderThickness = new Thickness(1)
+         };
+
+         // Create a simplified template for menu items without icon column
+         ControlTemplate itemTemplate = new(typeof(MenuItem));
+         FrameworkElementFactory border = new(typeof(Border));
+         border.Name = "Border";
+         border.SetValue(Border.BackgroundProperty,bgBrush);
+         border.SetValue(Border.PaddingProperty,new Thickness(8,4,8,4));
+
+         FrameworkElementFactory contentPresenter = new(typeof(ContentPresenter));
+         contentPresenter.SetValue(ContentPresenter.ContentSourceProperty,"Header");
+         border.AppendChild(contentPresenter);
+
+         itemTemplate.VisualTree = border;
+
+         Trigger mouseOverTrigger = new() { Property = MenuItem.IsMouseOverProperty,Value = true };
+         mouseOverTrigger.Setters.Add(new Setter(Border.BackgroundProperty,highlightBgBrush,border.Name));
+         itemTemplate.Triggers.Add(mouseOverTrigger);
+
+         // Style for menu items
+         Style menuItemStyle = new(typeof(MenuItem));
+         menuItemStyle.Setters.Add(new Setter(MenuItem.TemplateProperty,itemTemplate));
+         menuItemStyle.Setters.Add(new Setter(MenuItem.ForegroundProperty,fgBrush));
+
+         Trigger itemMouseOverTrigger = new() { Property = MenuItem.IsMouseOverProperty,Value = true };
+         itemMouseOverTrigger.Setters.Add(new Setter(MenuItem.ForegroundProperty,highlightFgBrush));
+         menuItemStyle.Triggers.Add(itemMouseOverTrigger);
+
+         foreach (string completion in completions.OrderBy(c => c)) {
+            MenuItem menuItem = new() {
+               Header = completion,
+               Style = menuItemStyle
+            };
+            menuItem.Click += (s,e) => ApplyCompletion(completion);
+            completionMenu.Items.Add(menuItem);
+         }
+
+         // Simple positioning: 30px right of InputTextBox, bottom of menu above InputTextBox
+         Point inputPosition = InputTextBox.TransformToAncestor(this).Transform(new Point(0,0));
+
+         completionMenu.HorizontalOffset = this.Left + 20;
+         completionMenu.VerticalOffset = this.Top + this.Height - (InputArea.ActualHeight + InputAreaSeparator.ActualHeight + completions.Count() * 26);
+
+         completionMenu.Closed += (s,e) => InputTextBox.Focus();
+         completionMenu.IsOpen = true;
+      }
+
+      private void ApplyCompletion(string completion) {
+         string currentText = InputTextBox.Text;
+         InputTextBox.Text = currentText[.._completionStartPos] + completion;
+         InputTextBox.CaretIndex = InputTextBox.Text.Length;
+      }
+
       /// <summary>
       /// Handle input text box key down events
       /// </summary>
@@ -422,7 +512,32 @@ F1    | Show this help message.
             IsEditing = false;
             e.Handled = true;
          } else if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None) {
-            InsertIndentation();
+            if (_multilineMode) {
+               InsertIndentation();
+            } else {
+               string currentText = InputTextBox.Text;
+               string textForSelection = TrimToFirstSelector(currentText);
+               Selection? sel = new(textForSelection);
+               if (sel is not null && sel.Count > 0) {
+                  // Find the position after the last capitalized word
+                  int endingStart = GetLastObjectName(textForSelection);
+
+                  if (endingStart >= 0) {
+                     string[] completions = [.. sel.Select(s => s.Object!.Id.Name).Distinct()];
+                     int prefixLen = currentText.Length - textForSelection.Length;
+                     int completionStartPos = prefixLen + endingStart;
+
+                     if (sel.Count == 1) {
+                        // Single match: use the full object name
+                        string replacement = completions[0];
+                        InputTextBox.Text = currentText[..completionStartPos] + replacement;
+                        InputTextBox.CaretIndex = InputTextBox.Text.Length;
+                     } else {
+                        ShowCompletionMenu(completions,completionStartPos);
+                     }
+                  }
+               }
+            }
             e.Handled = true;
          } else if (e.Key == Key.Up && !_multilineMode) {
             HandleHistoryNavigation(true);
@@ -445,6 +560,74 @@ F1    | Show this help message.
          /////////////////////
          // Local functions //
          /////////////////////
+         string TrimToFirstSelector(string text) {
+            bool inString = false;
+
+            for (int i = 0 ; i < text.Length ; i++) {
+               char c = text[i];
+
+               if (c == '"') {
+                  // Check if it's escaped by $
+                  if (i > 0 && text[i - 1] == '$') continue;
+                  else inString = !inString;
+               }
+
+               if (!inString && char.IsUpper(c)) {
+                  // Check if it's the start of a word
+                  if (i == 0 || !char.IsLetter(text[i - 1]) || char.IsWhiteSpace(text[i - 1])) return text[i..];
+               }
+            }
+
+            return text;
+         }
+
+
+         int GetLastObjectName(string text) {
+            int lastCapPos = -1;
+
+            for (int i = 0 ; i < text.Length ; i++) {
+               if (i == 0 || !char.IsLetter(text[i - 1]) || char.IsWhiteSpace(text[i - 1])) {
+                  if (char.IsUpper(text[i])) lastCapPos = i;
+               }
+            }
+
+            if (lastCapPos < 0) return -1;
+
+            // Find end of this capitalized word
+            int pos = lastCapPos;
+            while (pos < text.Length && char.IsLetter(text[pos])) pos++;
+
+            // Skip whitespace after the word
+            while (pos < text.Length && char.IsWhiteSpace(text[pos])) pos++;
+
+            return pos;
+         }
+
+         string FindLongestCommonPrefix(IEnumerable<string> names) {
+            string[] nameArray = names.ToArray();
+            if (nameArray.Length == 0) return "";
+            if (nameArray.Length == 1) return nameArray[0];
+
+            string first = nameArray[0];
+            int prefixLen = 0;
+
+            for (int i = 0 ; i < first.Length ; i++) {
+               char c = first[i];
+               bool allMatch = true;
+
+               foreach (string name in nameArray.Skip(1)) {
+                  if (i >= name.Length || name[i] != c) {
+                     allMatch = false;
+                     break;
+                  }
+               }
+
+               if (!allMatch) break;
+               prefixLen = i + 1;
+            }
+
+            return first.Substring(0,prefixLen);
+         }
          void Insert(string chars) {
             int index = InputTextBox.CaretIndex;
             InputTextBox.Text = InputTextBox.Text.Insert(index,chars);
