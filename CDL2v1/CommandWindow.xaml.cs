@@ -515,16 +515,12 @@ F1    | Show this help message.
             if (_multilineMode) {
                InsertIndentation();
             } else {
-               CompletionResult? result = NameCompletion.GetCompletions(InputTextBox.Text);
-               if (result is not null) {
-                  if (result.Completions.Length == 1) {
-                     // Single match: use the full object name
-                     string replacement = result.Completions[0];
-                     InputTextBox.Text = InputTextBox.Text[..result.StartPosition] + replacement;
-                     InputTextBox.CaretIndex = InputTextBox.Text.Length;
-                  } else {
-                     ShowCompletionMenu(result.Completions,result.StartPosition);
-                  }
+               if (NameCompletion.GetCommandCompletions(InputTextBox.Text,out CompletionResult? result)) {
+                  ApplyCompletions(result);
+               } else if (NameCompletion.GetSettingCompletions(InputTextBox.Text,out result)) {
+                  ApplyCompletions(result);
+               } else if (NameCompletion.GetSelectorCompletions(InputTextBox.Text,out result)) {
+                  ApplyCompletions(result);
                }
             }
             e.Handled = true;
@@ -549,74 +545,6 @@ F1    | Show this help message.
          /////////////////////
          // Local functions //
          /////////////////////
-         string TrimToFirstSelector(string text) {
-            bool inString = false;
-
-            for (int i = 0 ; i < text.Length ; i++) {
-               char c = text[i];
-
-               if (c == '"') {
-                  // Check if it's escaped by $
-                  if (i > 0 && text[i - 1] == '$') continue;
-                  else inString = !inString;
-               }
-
-               if (!inString && char.IsUpper(c)) {
-                  // Check if it's the start of a word
-                  if (i == 0 || !char.IsLetter(text[i - 1]) || char.IsWhiteSpace(text[i - 1])) return text[i..];
-               }
-            }
-
-            return text;
-         }
-
-
-         int GetLastObjectName(string text) {
-            int lastCapPos = -1;
-
-            for (int i = 0 ; i < text.Length ; i++) {
-               if (i == 0 || !char.IsLetter(text[i - 1]) || char.IsWhiteSpace(text[i - 1])) {
-                  if (char.IsUpper(text[i])) lastCapPos = i;
-               }
-            }
-
-            if (lastCapPos < 0) return -1;
-
-            // Find end of this capitalized word
-            int pos = lastCapPos;
-            while (pos < text.Length && char.IsLetter(text[pos])) pos++;
-
-            // Skip whitespace after the word
-            while (pos < text.Length && char.IsWhiteSpace(text[pos])) pos++;
-
-            return pos;
-         }
-
-         string FindLongestCommonPrefix(IEnumerable<string> names) {
-            string[] nameArray = names.ToArray();
-            if (nameArray.Length == 0) return "";
-            if (nameArray.Length == 1) return nameArray[0];
-
-            string first = nameArray[0];
-            int prefixLen = 0;
-
-            for (int i = 0 ; i < first.Length ; i++) {
-               char c = first[i];
-               bool allMatch = true;
-
-               foreach (string name in nameArray.Skip(1)) {
-                  if (i >= name.Length || name[i] != c) {
-                     allMatch = false;
-                     break;
-                  }
-               }
-
-               if (!allMatch) break;
-               prefixLen = i + 1;
-            }
-
-            return first.Substring(0,prefixLen);
-         }
          void Insert(string chars) {
             int index = InputTextBox.CaretIndex;
             InputTextBox.Text = InputTextBox.Text.Insert(index,chars);
@@ -721,6 +649,17 @@ F1    | Show this help message.
                InputTextBox.CaretIndex = history.Length;
             }
          }
+
+         void ApplyCompletions(CompletionResult result) {
+            if (result.Completions.Length == 1) {
+               // Single match: use the full object name
+               string replacement = result.Completions[0];
+               InputTextBox.Text = InputTextBox.Text[..result.StartPosition] + replacement;
+               InputTextBox.CaretIndex = InputTextBox.Text.Length;
+            } else {
+               ShowCompletionMenu(result.Completions,result.StartPosition);
+            }
+         }
       }
 
       private static void ClearUndoRedo(TextBox box) {
@@ -775,7 +714,7 @@ F1    | Show this help message.
          MessageBox.Show(this,message,CDL2.LabName,
                               MessageBoxButton.YesNo,
                               MessageBoxImage.Question) == MessageBoxResult.Yes;
-      #endregion
+#endregion
 
       #region UI Controls
       /// <summary>

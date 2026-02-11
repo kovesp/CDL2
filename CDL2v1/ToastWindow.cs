@@ -170,4 +170,13 @@ namespace CDL2v1 {
       }
    }
 }
+#else
+namespace CDL2v1 {
+   public class ToastWindow : IToaster {
+      public ToastWindow() { }
+
+      public void ShowToast(string message,int timeoutMs = 0,bool delay = false,bool setOwner = true) => throw new NotImplementedException();
+      public void ShowToast(string message,Action action,int minShowInterval = 0) => throw new NotImplementedException();
+   }
+}
 #endif

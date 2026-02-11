@@ -34,7 +34,6 @@
 
 
 using System.Diagnostics;
-using System.Windows.Ink;
 
 using static CDL2v1.Logger;
 

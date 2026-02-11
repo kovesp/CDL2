@@ -635,47 +635,27 @@ Tab Completion Menu (when shown):
 
          while (true) {
             ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
+            
 
             if (keyInfo.Key == ConsoleKey.Enter) {
                Console.WriteLine();
-               string input = new string(buffer.ToArray());
-               
+               string input = new string(buffer.ToArray());               
                // Add user input to scrollback with prompt (already a single line)
                if (input.Length > 0) {
                   _scrollbackBuffer.Add(new OutputLine($"{prompt}{input}"));
                   if (_scrollbackBuffer.Count > MaxScrollbackLines) _scrollbackBuffer.RemoveAt(0);
-               }
-               
+               }               
                return input;
-
             } else if (keyInfo.Key == ConsoleKey.Tab) {
                // Tab: Name completion
-               string currentText = new string(buffer.ToArray());
-               CompletionResult? result = NameCompletion.GetCompletions(currentText);
+               string currentText = new([.. buffer]);
 
-               if (result is not null) {
-                  if (result.Completions.Length == 1) {
-                     // Single match: apply directly
-                     string replacement = result.Completions[0];
-                     string newText = currentText[..result.StartPosition] + replacement;
-                     buffer.Clear();
-                     buffer.AddRange(newText);
-                     cursorPosition = buffer.Count;
-                     RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
-                  } else {
-                     // Multiple matches: show menu
-                     string? selected = ShowCompletionMenu(result.Completions,buffer,cursorPosition,prompt,promptVisualLength);
-                     if (selected != null) {
-                        string newText = currentText[..result.StartPosition] + selected;
-                        buffer.Clear();
-                        buffer.AddRange(newText);
-                        cursorPosition = buffer.Count;
-                        RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
-                     } else {
-                        // Menu was cancelled, just redraw the line
-                        RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
-                     }
-                  }
+               if (NameCompletion.GetCommandCompletions(currentText,out CompletionResult? result)) {
+                  ApplyCompletions(currentText,result);
+               } else if (NameCompletion.GetSettingCompletions(currentText,out result)) {
+                  ApplyCompletions(currentText,result);
+               } else if (NameCompletion.GetSelectorCompletions(currentText,out result)) {
+                  ApplyCompletions(currentText,result);
                }
             } else if (keyInfo.Key == ConsoleKey.Escape) {
                // Esc: Clear the input line
@@ -741,6 +721,31 @@ Tab Completion Menu (when shown):
                buffer.Insert(cursorPosition,keyInfo.KeyChar);
                cursorPosition++;
                RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
+            }
+         }
+
+         void ApplyCompletions(string currentText,CompletionResult result) {
+            if (result.Completions.Length == 1) {
+               // Single match: apply directly
+               string replacement = result.Completions[0];
+               string newText = currentText[..result.StartPosition] + replacement;
+               buffer.Clear();
+               buffer.AddRange(newText);
+               cursorPosition = buffer.Count;
+               RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
+            } else {
+               // Multiple matches: show menu
+               string? selected = ShowCompletionMenu(result.Completions,buffer,cursorPosition,prompt,promptVisualLength);
+               if (selected != null) {
+                  string newText = currentText[..result.StartPosition] + selected;
+                  buffer.Clear();
+                  buffer.AddRange(newText);
+                  cursorPosition = buffer.Count;
+                  RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
+               } else {
+                  // Menu was cancelled, just redraw the line
+                  RedrawLine(buffer,cursorPosition,prompt,promptVisualLength);
+               }
             }
          }
       }

@@ -13,6 +13,8 @@
 // </summary>
 //=======================================================================
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace CDL2v1 {
    /// <summary>
    /// Provides name completion functionality for CDL2 object names
@@ -23,23 +25,171 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="text">The current input text</param>
       /// <returns>Completion result if matches found, null otherwise</returns>
-      public static CompletionResult? GetCompletions(string text) {
+      public static bool GetSelectorCompletions(string text, [NotNullWhen(true)] out CompletionResult? result) {
+         result = null;
+
          string textForSelection = TrimToFirstSelector(text);
+         
          Selection? sel = new(textForSelection);
-         if (sel is null || sel.Count == 0) return null;
+         if (sel is null || sel.Count == 0) return false;
 
          int endingStart = GetLastObjectName(textForSelection);
-         if (endingStart < 0) return null;
+         if (endingStart < 0) return false;
 
-         string[] completions = [.. sel.Select(s => s.Object!.Id.Name).Distinct()];
+         // Check if the word we're trying to complete is already complete
+         int wordEnd = endingStart;
+         while (wordEnd < textForSelection.Length && (char.IsLetter(textForSelection[wordEnd]) || textForSelection[wordEnd] == ' ')) {
+            wordEnd++;
+         }
+         
+         // If we're at the end and the last character was a space, nothing to complete
+         if (wordEnd >= textForSelection.Length && wordEnd > endingStart && textForSelection[wordEnd - 1] == ' ') {
+            return false;
+         }
+
+         string[] completions = [.. sel.Select(s => s.Object!.Id.Name).Distinct().Order()];
          int prefixLen = text.Length - textForSelection.Length;
          int completionStartPos = prefixLen + endingStart;
 
-         return new CompletionResult {
+         result = new CompletionResult {
             Completions = completions,
             StartPosition = completionStartPos,
             CommonPrefix = FindLongestCommonPrefix(completions)
          };
+         return true;
+      }
+
+      /// <summary>
+      /// Gets command completions for the current text
+      /// </summary>
+      /// <param name="text">The current input text</param>
+      /// <returns>Completion result if matching commands found, null otherwise</returns>
+      public static bool GetCommandCompletions(string text,[NotNullWhen(true)] out CompletionResult? result) {
+         result = null;
+         // Command completion only works on the first word
+         string trimmed = text.TrimStart();
+         if (trimmed.Length == 0) {
+            result = new CompletionResult {
+               Completions = [.. Enum.GetNames<CommandType>().Where(s=>s!="INVALID").Distinct().Order() ],
+               StartPosition = 0,
+               CommonPrefix = ""
+            };
+         } else { 
+            // Must start with lowercase letter
+            if (!char.IsAsciiLetterLower(trimmed[0])) return false;
+
+            // Find the end of the first word (no spaces allowed in command name)
+            int wordEnd = 0;
+            while (wordEnd < trimmed.Length && char.IsAsciiLetterLower(trimmed[wordEnd])) {
+               wordEnd++;
+            }
+
+            // If we found a non-whitespace character, invalid command format
+            if (wordEnd < trimmed.Length && !char.IsWhiteSpace(trimmed[wordEnd])) return false;
+
+            // If there's anything after the first word (after skipping whitespace), fail
+            if (wordEnd < trimmed.Length) return false;
+
+            string commandPrefix = trimmed[..wordEnd];
+            if (commandPrefix.Length == 0) return false;
+
+            // Get all matching commands from Abbreviation<CommandType>
+            string[] completions = [.. Enum.GetNames<CommandType>()
+                                          .Where(cmdName => cmdName.StartsWith(commandPrefix))
+                                          .Distinct().Order() ];
+
+            if (completions.Length == 0) return false;
+
+            // Start position is at the beginning of the trimmed text
+            int startPos = text.Length - trimmed.Length;
+            result = new CompletionResult {
+               Completions = completions,
+               StartPosition = startPos,
+               CommonPrefix = FindLongestCommonPrefix(completions)
+            };
+         }
+         
+         return true;
+      }
+
+      /// <summary>
+      /// Gets setting name completions for the current text
+      /// </summary>
+      /// <param name="text">The current input text</param>
+      /// <param name="result">Completion result if matching settings found</param>
+      /// <returns>True if completions found, false otherwise</returns>
+      public static bool GetSettingCompletions(string text,[NotNullWhen(true)] out CompletionResult? result) {
+         result = null;
+         string trimmed = text.TrimStart();
+         if (trimmed.Length == 0) return false;
+
+         // Fail if there's any capitalized word (selector present)
+         if (TrimToFirstSelector(trimmed) != trimmed) return false;
+
+         // Skip the first word (the command)
+         int firstWordEnd = 0;
+         while (firstWordEnd < trimmed.Length && !char.IsWhiteSpace(trimmed[firstWordEnd])) {
+            firstWordEnd++;
+         }
+
+         // If we haven't moved past the first word, no completions
+         if (firstWordEnd >= trimmed.Length) return false;
+
+         // Skip whitespace after first word
+         while (firstWordEnd < trimmed.Length && char.IsWhiteSpace(trimmed[firstWordEnd])) {
+            firstWordEnd++;
+         }
+
+         // If nothing after the first word, no completions
+         if (firstWordEnd >= trimmed.Length) return false;
+
+         // Find the last lowercase word (possibly starting with '-')
+         string afterFirstWord = trimmed[firstWordEnd..];
+         int lastWordStart = afterFirstWord.Length;
+
+         // Work backwards to find the start of the last word
+         for (int i = afterFirstWord.Length - 1 ; i >= 0 ; i--) {
+            if (char.IsWhiteSpace(afterFirstWord[i])) {
+               lastWordStart = i + 1;
+               break;
+            }
+            if (i == 0) {
+               lastWordStart = 0;
+            }
+         }
+
+         string lastWord = afterFirstWord[lastWordStart..];
+         if (lastWord.Length == 0) return false;
+
+         // Check if input already has a '-'
+         bool hasDash = lastWord.StartsWith('-');
+         
+         // Remove leading '-' if present for matching
+         string settingPrefix = hasDash ? lastWord[1..] : lastWord;
+
+         // Must be lowercase letters (or empty for just '-')
+         if (settingPrefix.Length > 0 && !char.IsAsciiLetterLower(settingPrefix[0])) return false;
+
+         // Get all setting names that match the prefix (case-insensitive)
+         string[] completions = [.. Settings.AllSettings
+                                    .Select(s => s.Name.ToLower())
+                                    .Where(name => name.StartsWith(settingPrefix,StringComparison.OrdinalIgnoreCase))
+                                    .Select(name => "-" + name)  // Always prepend '-' to completions
+                                    .Distinct()
+                                    .Order()];
+
+         if (completions.Length == 0) return false;
+
+         // Calculate start position (start of the word, whether it has '-' or not)
+         int startPos = text.Length - trimmed.Length + firstWordEnd + lastWordStart;
+
+         result = new CompletionResult {
+            Completions = completions,
+            StartPosition = startPos,
+            CommonPrefix = FindLongestCommonPrefix(completions)
+         };
+
+         return true;
       }
 
       private static string TrimToFirstSelector(string text) {
@@ -56,7 +206,14 @@ namespace CDL2v1 {
 
             if (!inString && char.IsUpper(c)) {
                // Check if it's the start of a word
-               if (i == 0 || !char.IsLetter(text[i - 1]) || char.IsWhiteSpace(text[i - 1])) return text[i..];
+               if (i == 0 || !char.IsLetter(text[i - 1]) || char.IsWhiteSpace(text[i - 1])) {
+                  // Check if there's a '^' immediately before the capital letter
+                  int startPos = i;
+                  if (i > 0 && text[i - 1] == '^') {
+                     startPos = i - 1;
+                  }
+                  return text[startPos..];
+               }
             }
          }
 
@@ -65,23 +222,33 @@ namespace CDL2v1 {
 
       private static int GetLastObjectName(string text) {
          int lastCapPos = -1;
-
+         
+         // Find the LAST capitalized word - any capital letter that's not preceded by a lowercase letter
          for (int i = 0 ; i < text.Length ; i++) {
-            if (i == 0 || !char.IsLetter(text[i - 1]) || char.IsWhiteSpace(text[i - 1])) {
-               if (char.IsUpper(text[i])) lastCapPos = i;
+            if (char.IsUpper(text[i])) {
+               // It's a capitalized word start if previous char is not a lowercase letter
+               if (i == 0 || !char.IsLower(text[i - 1])) {
+                  lastCapPos = i;
+               }
             }
          }
-
+         
          if (lastCapPos < 0) return -1;
-
-         // Find end of this capitalized word
+         
+         // Skip past the capitalized word itself
          int pos = lastCapPos;
          while (pos < text.Length && char.IsLetter(text[pos])) pos++;
-
-         // Skip whitespace after the word
+         
+         // Skip whitespace after the capitalized word
          while (pos < text.Length && char.IsWhiteSpace(text[pos])) pos++;
-
-         return pos;
+         
+         // If there's lowercase text after, return its position (the partial identifier)
+         if (pos < text.Length && char.IsAsciiLetterLower(text[pos])) {
+            return pos;
+         }
+         
+         // Otherwise, we're completing the capitalized word itself
+         return lastCapPos;
       }
 
       private static string FindLongestCommonPrefix(IEnumerable<string> names) {

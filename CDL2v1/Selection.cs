@@ -501,7 +501,16 @@ namespace CDL2v1 {
          return "Selection<" + (this.Take(SingleSelectionCount).Aggregate("",(a,b) => $"{a} {b}")).TrimStart() + (this.Count > SingleSelectionCount ? "..." : "") + ">";
       }
 
-      [GeneratedRegex(@"([A-Z][A-Za-z]*)|(/.*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z0-9\s]*)",RegexOptions.Compiled)]
+      /// <summary>
+      /// Provides a compiled regular expression for parsing selector segments according to specific patterns.
+      /// </summary>
+      /// <remarks>The returned regular expression is optimized for performance using the <see
+      /// cref="RegexOptions.Compiled"/> option. It supports matching multiple selector segment formats, such as named
+      /// segments, paths, indices, and numeric values. Use the named group 'index' to extract index values when
+      /// present.</remarks>
+      /// <returns>A compiled <see cref="Regex"/> instance that matches selector segment patterns, including capitalized words,
+      /// path segments, index specifiers, signed numbers, and lowercase identifiers.</returns>
+      [GeneratedRegex(@"([A-Z][A-Za-z]*)|(/(?:[^\s\\]|\\.)*)|(:\s*(?<index>\d+)$)|([+-]\s*\d+)|([a-z][a-z0-9\s]*)",RegexOptions.Compiled)]
       private static partial Regex SelectorSegmentRE();
    }
 

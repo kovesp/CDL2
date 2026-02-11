@@ -180,8 +180,11 @@ namespace CDL2v1 {
 
          if (Settings.LabMode) {
             bool usingGUI = Settings.OnWindows && !Settings.SettingValue<bool>("Console");
-
+#if WINDOWS
             IToaster toaster = usingGUI ? new ToastWindow() : new ToastConsole();
+#else
+            IToaster toaster = new ToastConsole();
+#endif
             Serializer.Toaster = toaster;
             Database.Load();
 
