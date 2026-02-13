@@ -182,8 +182,10 @@ function Remove-Const([string[]]$names) {
          }
          IncrementIndent();
       }
-      void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section)
-         => emitter.Emitnl(section.SyntheticProcedures.Where(p => p.Id.CanonicalName == ludeType.ToString()).FirstOrDefault()?.FQN(camelCase: true,literalObjectName: true)!);
+      void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section) {
+         Procedure? lude = (section.LudeProcs[ludeType]??Guid.Empty).ToCDL2Object<Procedure>();
+         if (lude is not null) emitter.Emitnl(lude.FQN(camelCase: true,literalObjectName: true)!);
+      }
       void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType,Module module,bool wrapped) {
          DecrementIndent();
          if (wrapped) emitter.Emitnl("}");
@@ -449,7 +451,7 @@ function Remove-Const([string[]]$names) {
          => emitter.Emit(PSVar(v,needFinalization ? "_" : "",isRef: calledAffix.IsOutput));
 
       void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label,bool canFail)
-         => emitter.Emitnl("continue ",label.IsAnonymous ? label.CanonicalName : "");
+         => emitter.Emitnl("continue ",label.IsAnonymous ? "" : label.CanonicalName);
       void ICodeGenerator.GenerateFail(Procedure proc,Group group) {
          if (!proc.IsVerySimple) {
             emitter.Emitnl(proc.CanFail ? "return $false" : "return");

@@ -409,13 +409,10 @@ F1    | Show this help message.
 
       // Completion tracking
       private int _completionStartPos = 0;
+      private ContextMenu? _activeCompletionMenu = null;
+      private int _selectedCompletionIndex = 0;
+      private string[]? _currentCompletions = null;
 
-      /// <summary>
-      /// Shows a menu of completions at the current caret position.
-      /// When a completion is selected, it replaces the text from the start position to the caret with the selected completion.
-      /// </summary>
-      /// <param name="completions"></param>
-      /// <param name="startPos"></param>
       /// <summary>
       /// Shows a menu of completions at the current caret position.
       /// When a completion is selected, it replaces the text from the start position to the caret with the selected completion.
@@ -424,6 +421,8 @@ F1    | Show this help message.
       /// <param name="startPos"></param>
       private void ShowCompletionMenu(IEnumerable<string> completions,int startPos) {
          _completionStartPos = startPos;
+         _currentCompletions = completions.OrderBy(c => c).ToArray();
+         _selectedCompletionIndex = 0;
 
          // Get colors from PrettyPrinter
          string bgColorHex = PrettyPrinter.Decorators[SE.Other].BG;
@@ -436,13 +435,33 @@ F1    | Show this help message.
          Brush highlightBgBrush = (Brush)new BrushConverter().ConvertFromString(highlightBgHex)!;
          Brush highlightFgBrush = (Brush)new BrushConverter().ConvertFromString(highlightFgHex)!;
 
-         ContextMenu completionMenu = new() {
+         _activeCompletionMenu = new ContextMenu {
             PlacementTarget = this,
             Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute,
             Background = bgBrush,
             Foreground = fgBrush,
             BorderBrush = fgBrush,
-            BorderThickness = new Thickness(1)
+            BorderThickness = new Thickness(1),
+            StaysOpen = false
+         };
+
+         // Handle keyboard navigation on the menu itself
+         _activeCompletionMenu.PreviewKeyDown += (s,e) => {
+            if (e.Key == Key.Down) {
+               _selectedCompletionIndex = (_selectedCompletionIndex + 1) % _currentCompletions.Length;
+               UpdateCompletionSelection();
+               e.Handled = true;
+            } else if (e.Key == Key.Up) {
+               _selectedCompletionIndex = (_selectedCompletionIndex - 1 + _currentCompletions.Length) % _currentCompletions.Length;
+               UpdateCompletionSelection();
+               e.Handled = true;
+            } else if (e.Key == Key.Enter) {
+               ApplyCompletion(_currentCompletions[_selectedCompletionIndex]);
+               e.Handled = true;
+            } else if (e.Key == Key.Escape) {
+               _activeCompletionMenu.IsOpen = false;
+               e.Handled = true;
+            }
          };
 
          // Create a simplified template for menu items without icon column
@@ -471,29 +490,66 @@ F1    | Show this help message.
          itemMouseOverTrigger.Setters.Add(new Setter(MenuItem.ForegroundProperty,highlightFgBrush));
          menuItemStyle.Triggers.Add(itemMouseOverTrigger);
 
-         foreach (string completion in completions.OrderBy(c => c)) {
+         int index = 0;
+         foreach (string completion in _currentCompletions) {
             MenuItem menuItem = new() {
                Header = completion,
-               Style = menuItemStyle
+               Style = menuItemStyle,
+               Tag = index
             };
             menuItem.Click += (s,e) => ApplyCompletion(completion);
-            completionMenu.Items.Add(menuItem);
+            _activeCompletionMenu.Items.Add(menuItem);
+            index++;
          }
+
+         // Highlight the first item
+         UpdateCompletionSelection();
 
          // Simple positioning: 30px right of InputTextBox, bottom of menu above InputTextBox
          Point inputPosition = InputTextBox.TransformToAncestor(this).Transform(new Point(0,0));
 
-         completionMenu.HorizontalOffset = this.Left + 20;
-         completionMenu.VerticalOffset = this.Top + this.Height - (InputArea.ActualHeight + InputAreaSeparator.ActualHeight + completions.Count() * 26);
+         _activeCompletionMenu.HorizontalOffset = this.Left + 20;
+         _activeCompletionMenu.VerticalOffset = this.Top + this.Height - (InputArea.ActualHeight + InputAreaSeparator.ActualHeight + _currentCompletions.Length * 26);
 
-         completionMenu.Closed += (s,e) => InputTextBox.Focus();
-         completionMenu.IsOpen = true;
+         _activeCompletionMenu.Closed += (s,e) => {
+            _activeCompletionMenu = null;
+            _currentCompletions = null;
+            InputTextBox.Focus();
+         };
+         _activeCompletionMenu.IsOpen = true;
+      }
+
+      private void UpdateCompletionSelection() {
+         if (_activeCompletionMenu == null || _currentCompletions == null) return;
+
+         // Get colors
+         string bgColorHex = PrettyPrinter.Decorators[SE.Other].BG;
+         string fgColorHex = PrettyPrinter.Decorators[SE.Other].FG;
+         string highlightBgHex = PrettyPrinter.Decorators[SE.NoteInfo].BG;
+         string highlightFgHex = PrettyPrinter.Decorators[SE.NoteInfo].FG;
+
+         Brush bgBrush = (Brush)new BrushConverter().ConvertFromString(bgColorHex)!;
+         Brush fgBrush = (Brush)new BrushConverter().ConvertFromString(fgColorHex)!;
+         Brush highlightBgBrush = (Brush)new BrushConverter().ConvertFromString(highlightBgHex)!;
+         Brush highlightFgBrush = (Brush)new BrushConverter().ConvertFromString(highlightFgHex)!;
+
+         for (int i = 0 ; i < _activeCompletionMenu.Items.Count ; i++) {
+            MenuItem item = (MenuItem)_activeCompletionMenu.Items[i];
+            if (i == _selectedCompletionIndex) {
+               item.Background = highlightBgBrush;
+               item.Foreground = highlightFgBrush;
+            } else {
+               item.Background = bgBrush;
+               item.Foreground = fgBrush;
+            }
+         }
       }
 
       private void ApplyCompletion(string completion) {
          string currentText = InputTextBox.Text;
          InputTextBox.Text = currentText[.._completionStartPos] + completion;
          InputTextBox.CaretIndex = InputTextBox.Text.Length;
+         if (_activeCompletionMenu != null) _activeCompletionMenu.IsOpen = false;
       }
 
       /// <summary>
@@ -505,8 +561,8 @@ F1    | Show this help message.
             HandleEnterKey();
          } else if (e.Key == Key.F1 && Keyboard.Modifiers == ModifierKeys.None) {
             ShowHelpToast();
-            e.Handled = true;
          } else if (e.Key == Key.Escape) {
+            e.Handled = true;
             SwitchToSingleLine();
             DisplayPrompt();
             IsEditing = false;
@@ -539,6 +595,37 @@ F1    | Show this help message.
             if (_multilineMode && !InputTextBox.CanRedo) {
                FlashInputError();
                e.Handled = true;
+            }
+         } else if (e.Key == Key.Down && Keyboard.Modifiers == ModifierKeys.Alt) {
+            // Select next completion
+            if (_activeCompletionMenu != null) {
+               e.Handled = true;
+
+               _selectedCompletionIndex++;
+               if (_selectedCompletionIndex >= _currentCompletions!.Length) {
+                  _selectedCompletionIndex = 0;
+               }
+               UpdateCompletionSelection();
+            }
+         } else if (e.Key == Key.Up && Keyboard.Modifiers == ModifierKeys.Alt) {
+            // Select previous completion
+            if (_activeCompletionMenu != null) {
+               e.Handled = true;
+
+               _selectedCompletionIndex--;
+               if (_selectedCompletionIndex < 0) {
+                  _selectedCompletionIndex = _currentCompletions!.Length - 1;
+               }
+               UpdateCompletionSelection();
+            }
+         } else if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Alt) {
+            // Confirm selected completion
+            if (_activeCompletionMenu != null && _currentCompletions != null) {
+               e.Handled = true;
+
+               // Get the selected completion
+               string selectedCompletion = _currentCompletions[_selectedCompletionIndex];
+               ApplyCompletion(selectedCompletion);
             }
          }
 

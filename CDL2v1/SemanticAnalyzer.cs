@@ -105,6 +105,8 @@ namespace CDL2v1 {
       /// <param name="reachable">The object used to collect and track all objects and reachable objects within the program. Cannot be null.</param>
       public static void AnalyzeProgram(Program program,Action<string>? reporter = null) {
          reporter?.Invoke($"Analyzing {program}");
+         // Save the current phase to restore it later, a new analyzer sets it to itself.
+         CompilationPhase? currentPhase = CDL2.Compiler.CompilationPhase; 
          SemanticAnalyzer analyzer= new(CDL2.Compiler);
          analyzer.AnalyzeProgramStructureAndInterfaces(program);
          analyzer.Reachable.CollectAllObjects(program);
@@ -114,6 +116,7 @@ namespace CDL2v1 {
          foreach (Module module in program.Modules) analyzer.AnalyzeModule(module);
          if (reporter is not null) analyzer.ReportNoteCounts(program.Reachable,reporter: reporter);
          program.SemanticAnalyzer = analyzer;
+         CDL2.Compiler.CompilationPhase = currentPhase;
       }
 
       /// <summary>

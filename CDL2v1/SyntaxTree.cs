@@ -1143,8 +1143,8 @@ namespace CDL2v1 {
       /// <param name="id"></param>
       /// <typeparam name="T">The type of the requested object which must be an ICDL2Object.</typeparam>
       /// <returns>The declaration if found. </returns>
-      /// 
-      public bool TryGetDeclaration<T>(ID id,out T? declaration) where T : CDL2Object {
+      ///
+      public bool TryGetDeclaration<T>(ID id,[NotNullWhen(true)] out T? declaration) where T : CDL2Object {
          if (TryGetLocalDeclaration(id,out T? local)) {
             declaration = local;
          } else if (Layer!.Visible.TryGetValue(id,out IProvidable? visible) && visible is T visibleDeclaration) {
@@ -1170,7 +1170,7 @@ namespace CDL2v1 {
       /// <param name="id"></param>
       /// <param name="declaration"></param>
       /// <returns></returns>
-      public bool TryGetLocalDeclaration<T>(ID id,out T? declaration) where T : CDL2Object {
+      public bool TryGetLocalDeclaration<T>(ID id,[NotNullWhen(true)] out T? declaration) where T : CDL2Object {
          if (Declarations.TryGetValue(id,out CDL2Object? obj) && obj is T local) {
             declaration = local;
             return true;

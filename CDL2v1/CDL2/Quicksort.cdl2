@@ -45,20 +45,26 @@ MODULE powershell kernel.
 
          TEST less or equal+>a+>b: le+a+b.
 
-         FUNCTION random+>min+>max+r> = r " = System.Random.Shared.Next(" min ", " max " + 1)".
+         FUNCTION random+>min+>max+r> = r " = Get-Random -Minimum " min " -Maximum (" max "+1)".
       ENDSEC arithmetic.
 
       SECTION timer.
          EXPORT start timer, stop timer, show elapsed time, get elapsed time.
+         INV subtract.
 
-         ACTION start timer = "$l $$script:start = Get-Date".
-         ACTION stop timer  = "$l $$script:stop = Get-Date".
+         VAR start, stop.
+         FUNCTION get timestamp in miliseconds+ts> = ts " = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()".
 
-         FUNCTION get elapsed time+elapsed> = "$l " elapsed " = [int](($$script:stop-$$script:start).TotalMicroseconds/1000))".
+         ACTION start timer: get timestamp in miliseconds+start.
+         ACTION stop timer: get timestamp in miliseconds+stop.
+
+         FUNCTION get elapsed time+elapsed>: subtract+stop+start+elapsed.
          
-         ACTION show elapsed time = 
-            "$l Write-Host -ForegroundColor Blue ('Elapsed time: {0:N0} milliseconds' -f " 
-            "[int](($$script:stop-$$script:start).TotalMicroseconds/1000))".
+         ACTION show elapsed time -elapsed:
+            get elapsed time+elapsed, show elapsed time formatted+elapsed. 
+
+         ACTION show elapsed time formatted+>elapsed = 
+            "$l Write-Host -ForegroundColor Blue ('Elapsed time: {0:N0} milliseconds' -f " elapsed ")".
       ENDSEC timer.
 
       SECTION messages.

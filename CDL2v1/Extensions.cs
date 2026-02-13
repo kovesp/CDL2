@@ -932,7 +932,7 @@ namespace CDL2v1 {
             return obj is not null && !obj.IsSynthetic;
          }
       }
-
+ 
       extension(ParsingContext? context) {
          public ParsingContext AsParsingContext => context ?? new ParsingContext(location: InsertLocation.After);
       }
