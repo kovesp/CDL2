@@ -29,7 +29,7 @@ namespace CDL2v1 {
 
       public CodeGeneratorC(string dataType) : base() => DataType = dataType;
 
-      public void GenerateProgramStart(Program program,Emitter emitter,bool isSeparate = false) {
+      public void GenerateProgramStart(Program program,Emitter emitter,string settings,bool isSeparate = false) {
          this.emitter = emitter;
          emitter.Emitnl("/*cspell:disable*/");
          emitter.Emitnl("/*");
@@ -103,7 +103,7 @@ namespace CDL2v1 {
          EmitUnitEndComment(program);
       }
 
-      void ICodeGenerator.GenerateSourceComment() => emitter.NlEmit("\n",sourceEmitter.Content);
+      void ICodeGenerator.GenerateSourceComment(bool nl) => emitter.NlEmit(nl?"\n":"",sourceEmitter.Content);
 
       public new void GenerateComment(string comment) {
          foreach (string line in comment.Split('\n')) emitter.Emitnl("/* ",line," */");

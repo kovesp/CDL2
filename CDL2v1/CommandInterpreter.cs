@@ -802,7 +802,7 @@ namespace CDL2v1 {
                string target = Settings.SettingValue<string>("target") ?? "";
                if (CodeGenerator.AvailableCodeGenerators.ContainsKey(target)) {
                   string targetFileName = Settings.SettingValue<string>("file") ?? "";
-                  CodeGenerator.GenerateCode(ref targetFileName,ReportProblem,target: target,program);
+                  CodeGenerator.GenerateCode(ref targetFileName,ReportProblem,target: target,program: program);
                } else {
                   WriteError($"Unknown code generator {target} specified in {(pragmas.ContainsKey("target") ? "program PRAGMA" : "setting")}");
                }

@@ -142,8 +142,9 @@ namespace CDL2v1 {
       ///   Used to emit the code. The generator is free to change the target using the Emitter's Target property if applicable.
       ///   Only EmitterFile currently supports this.
       /// </param>
+      /// <param name="settings"></param>
       /// <param name="isSeparate"></param>
-      void GenerateProgramStart(Program program,Emitter emitter,bool isSeparate = false);
+      void GenerateProgramStart(Program program,Emitter emitter,string settings,bool isSeparate = false);
       /// <summary>
       /// This is called at the end of the program.
       /// </summary>
@@ -577,7 +578,7 @@ namespace CDL2v1 {
       void GenerateNewline();
       void GenerateComment(string comment);
       void GenerateComment(PrettyPrinter sourcePrinter);
-      void GenerateSourceComment();
+      void GenerateSourceComment(bool nl = true);
 
       void IncrementIndent();
       void DecrementIndent();

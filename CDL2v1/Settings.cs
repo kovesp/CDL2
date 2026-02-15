@@ -34,14 +34,15 @@
 // </auto-gen>
 
 using System.Collections.Immutable;
+using System.CommandLine;
 using System.ComponentModel;
 using System.Data;
-using System.IO;
-using System.Text.Json;
-using System.CommandLine;
-using System.Runtime.CompilerServices;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Runtime.CompilerServices;
 using System.Security.Policy;
+using System.Text.Json;
+using System.Xml.Linq;
 
 namespace CDL2v1 {
    public interface ISetting {
@@ -63,6 +64,7 @@ namespace CDL2v1 {
          _ => throw new InvalidEnumArgumentException($"Unsupported setting type {Type.Name}")
       };
       string? ToTabularString(bool title = false,bool compact = false);
+      string DisplayString { get; }
    }
 
    public class Setting<T> : ISetting {
@@ -125,6 +127,7 @@ namespace CDL2v1 {
             return $"{Name.PadRight(Settings.Instance.MaxNameLength)} {type,-8} {longOption} {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
          }
       }
+      public string DisplayString => $"{Name}: {Value}";
    }
 
    public class Settings {
@@ -321,13 +324,56 @@ namespace CDL2v1 {
          SetCommandOverride(name,CommandOverride);
       }
 
+      /// <summary>
+      /// Retrieves a setting of the specified type by its name from the settings dictionary.
+      /// </summary>
+      /// <remarks>This method attempts to retrieve a setting from a dictionary of settings. It is important
+      /// to ensure that the name provided corresponds to a setting of the correct type.</remarks>
+      /// <typeparam name="T">The type of the setting to retrieve.</typeparam>
+      /// <param name="name">The name of the setting to retrieve from the settings dictionary.</param>
+      /// <returns>A Setting<T> instance associated with the specified name if found; otherwise, null.</returns>
+      /// <exception cref="KeyNotFoundException">Thrown if a setting with the specified name does not exist or is not of the expected type.</exception>
       public static Setting<T>? Setting<T>(string name) {
          if (Instance.SettingsDict.TryGetValue(name,out ISetting? setting) && setting is Setting<T> typedSetting) {
             return typedSetting;
          }
          throw new KeyNotFoundException($"Setting with name '{name}' not found or of incorrect type.");
       }
+      /// <summary>
+      /// Retrieves the setting associated with the specified name.
+      /// </summary>
+      /// <remarks>This method checks the internal settings dictionary for the specified name and returns
+      /// the corresponding setting if found. If the name does not exist, it returns null.</remarks>
+      /// <param name="name">The name of the setting to retrieve. This parameter cannot be null or empty.</param>
+      /// <returns>An instance of <see cref="ISetting"/> associated with the specified name, or null if no setting exists with
+      /// that name.</returns>
+      public static ISetting? Setting(string name) => Instance.SettingsDict.TryGetValue(name,out ISetting? setting) ? setting : null;
+      /// <summary>
+      /// Retrieves the display string associated with the specified name, or returns a default message if the name is
+      /// not recognized.
+      /// </summary>
+      /// <remarks>If the display string for the provided name does not exist, the method returns a string
+      /// in the format "{name}: <unknown>" to indicate the name is unrecognized.</remarks>
+      /// <param name="name">The name for which to retrieve the display string. This parameter cannot be null.</param>
+      /// <returns>A string containing the display string for the specified name, or a formatted message indicating the name is
+      /// unknown if no display string is found.</returns>
+      public static string DisplayString(string name) => Setting(name)?.DisplayString ?? $"{name}: <unknown>";
+      /// <summary>
+      /// Returns a string containing the values of the specified settings.
+      /// </summary>
+      /// <param name="names"></param>
+      /// <returns></returns>
+      public static object Display(params string[] names) => string.Join(", ",names.Select(DisplayString));
 
+      /// <summary>
+      /// Sets the command override state for the specified setting.
+      /// </summary>
+      /// <remarks>Changing the command override may affect how commands are processed for the setting.
+      /// Ensure the setting exists before calling this method.</remarks>
+      /// <param name="name">The name of the setting for which to update the command override. Must correspond to an existing entry in the
+      /// settings dictionary.</param>
+      /// <param name="commandOverride">A value indicating whether to enable or disable the command override for the specified setting.</param>
+      /// <exception cref="KeyNotFoundException">Thrown if a setting with the specified name does not exist in the settings dictionary.</exception>
       public static void SetCommandOverride(string name,bool commandOverride) {
          if (Instance.SettingsDict.TryGetValue(name,out ISetting? setting)) {
             setting.CommandOverride = commandOverride;
@@ -335,8 +381,23 @@ namespace CDL2v1 {
             throw new KeyNotFoundException($"Setting with name '{name}' not found.");
          }
       }
+      /// <summary>
+      /// Determines whether the specified setting name exists in the application's settings dictionary.
+      /// </summary>
+      /// <remarks>Use this method to check if a configuration setting is present before attempting to
+      /// access its value. This helps prevent errors caused by missing settings.</remarks>
+      /// <param name="name">The name of the setting to validate. This parameter cannot be null or empty.</param>
+      /// <returns>true if the setting name exists in the settings dictionary; otherwise, false.</returns>
       public static bool IsValidSetting(string name) => Instance.SettingsDict.ContainsKey(name);
-
+      /// <summary>
+      /// Attempts to retrieve the setting associated with the specified name.
+      /// </summary>
+      /// <remarks>This method is useful for safely attempting to access settings without throwing
+      /// exceptions for missing entries.</remarks>
+      /// <param name="name">The name of the setting to retrieve. This parameter cannot be null or empty.</param>
+      /// <param name="setting">When this method returns <see langword="true"/>, contains the setting associated with the specified name;
+      /// otherwise, <see langword="null"/>.</param>
+      /// <returns><see langword="true"/> if the setting was found; otherwise, <see langword="false"/>.</returns>
       public static bool TryGetSetting(string name,[MaybeNullWhen(false)] out ISetting setting) => Instance.SettingsDict.TryGetValue(name,out setting);
       public static bool TryGetSettingValue(string name,[MaybeNullWhen(false)] out object? value) {
          if (TryGetSetting(name,out ISetting? setting)) {
@@ -347,7 +408,14 @@ namespace CDL2v1 {
             return false;
          }
       }
-
+      /// <summary>
+      /// Processes the command line arguments and overrides settings based on explicitly provided options.
+      /// </summary>
+      /// <remarks>This method builds a map of option names to their aliases and identifies which options
+      /// are explicitly provided by the user. It then processes these options to override the corresponding
+      /// settings.</remarks>
+      /// <param name="commandLine">An array of strings representing the command line arguments to be processed.</param>
+      /// <exception cref="InvalidEnumArgumentException">Thrown if an unknown setting type is encountered during processing.</exception>
       public static void ProcessCommandLine(string[] commandLine) {
          // Create a HashSet of explicitly provided options from the raw command line
          HashSet<string> explicitlyProvidedOptions = [];
@@ -397,15 +465,6 @@ namespace CDL2v1 {
             }
          }
 
-         // Debug output
-         //if (AnyVerbosity(2)) {
-         //   System.Diagnostics.Debug.WriteLine("Command line: " + string.Join(" ", commandLine));
-         //   System.Diagnostics.Debug.WriteLine("Explicitly provided options:");
-         //   foreach (var opt in explicitlyProvidedOptions) {
-         //      System.Diagnostics.Debug.WriteLine($"  {opt}");
-         //   }
-         //}
-
          // Now process using regular System.CommandLine but only override settings for explicitly provided options
          RootCommand rootCommand = new() { Description = "CDL2 Compiler" };
 
@@ -424,11 +483,11 @@ namespace CDL2v1 {
                if (wasExplicitlyProvided) {
                   switch (setting) {
                      case Setting<string[]> saSetting: saSetting.Value = parseResult.GetValueForOption<string[]>((Option<string[]>)setting.Option)!; break;
-                     case Setting<int> iSetting: iSetting.Value = parseResult.GetValueForOption<int>((Option<int>)setting.Option); break;
-                     case Setting<double> dSetting: dSetting.Value = parseResult.GetValueForOption<double>((Option<double>)setting.Option); break;
-                     case Setting<string> sSetting: sSetting.Value = parseResult.GetValueForOption<string>((Option<string>)setting.Option)!; break;
-                     case Setting<bool> bSetting: bSetting.Value = parseResult.GetValueForOption<bool>((Option<bool>)setting.Option); break;
-                     case Setting<Severity> nSetting: nSetting.Value = parseResult.GetValueForOption<Severity>((Option<Severity>)setting.Option); break;
+                     case Setting<int> iSetting: iSetting.Value        = parseResult.GetValueForOption<int>((Option<int>)setting.Option); break;
+                     case Setting<double> dSetting: dSetting.Value     = parseResult.GetValueForOption<double>((Option<double>)setting.Option); break;
+                     case Setting<string> sSetting: sSetting.Value     = parseResult.GetValueForOption<string>((Option<string>)setting.Option)!; break;
+                     case Setting<bool> bSetting: bSetting.Value       = parseResult.GetValueForOption<bool>((Option<bool>)setting.Option); break;
+                     case Setting<Severity> nSetting: nSetting.Value   = parseResult.GetValueForOption<Severity>((Option<Severity>)setting.Option); break;
                      default: throw new InvalidEnumArgumentException($"Unknown setting type {setting.GetType()}");
                   }
 
@@ -472,7 +531,15 @@ namespace CDL2v1 {
 
       private const string SettingsFileName = "cdl2settings.json";
 
-      // Save settings to a file
+      /// <summary>
+      /// Saves the current application settings to a JSON file. Optionally includes command history if provided.
+      /// </summary>
+      /// <remarks>This method serializes all supported settings and writes them to a file in JSON format.
+      /// If command history is available from the provided REPL instance, it is appended to the saved settings. Any
+      /// errors encountered during the save process are logged for debugging purposes but do not interrupt application
+      /// execution.</remarks>
+      /// <param name="repl">An optional instance of ICLIREPL that supplies command history to be saved with the settings. If null, command
+      /// history is not included.</param>
       public static void SaveSettings(ICLIREPL? repl = null) {
          try {
             var settingsToSave = new Dictionary<string,object>();
@@ -513,15 +580,26 @@ namespace CDL2v1 {
             System.Diagnostics.Debug.WriteLine($"Error saving settings: {ex.Message}");
          }
       }
+      /// <summary>
+      /// Loads the command history settings for the specified REPL instance.
+      /// </summary>
+      /// <remarks>This method retrieves and applies the command history settings from a persistent storage
+      /// to the provided REPL instance.</remarks>
+      /// <param name="repl">The REPL instance for which the command history settings are to be loaded. This parameter cannot be null.</param>
+      public static void LoadCommandHistory(ICLIREPL repl) => LoadSettings(repl);
+      /// <summary>
+      /// Loads the saved settins from the settings file.
+      /// </summary>
+      public static void LoadSavedSettings() => LoadSettings();
 
       /// <summary>
-      /// Load setings form a file. This method will be called twice:
+      /// Load setings from a file. This method will be called twice:
       /// First from CDL2.main() without a CommandWindow to load general settings.
       /// Second from the constructor of the commandwindow to load command history.
       /// The settings file will be read twice, but no big deal.
       /// </summary>
       /// <param name="repl"></param>
-      public static void LoadSettings(ICLIREPL? repl = null) {
+      private static void LoadSettings(ICLIREPL? repl = null) {
          try {
             string settingsPath = Path.Combine(OutputDirectory,SettingsFileName);
             if (File.Exists(settingsPath)) {
@@ -573,6 +651,7 @@ namespace CDL2v1 {
             System.Diagnostics.Debug.WriteLine($"Error loading settings: {ex.Message}");
          }
       }
+
    }
 }
 

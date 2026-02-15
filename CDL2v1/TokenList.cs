@@ -93,11 +93,12 @@ namespace CDL2v1 {
       /// <param name="id">The identifier to compare against the second token.</param>
       /// <returns>true if the first token is the specified reserved word type and the second token is the specified identifier;
       /// otherwise, false.</returns>
-      public bool IsNextTypeAndId(RW type,ID id,bool strict = false) 
-         => tokens.Count > 1 && tokens[0].type == TT.RESWORD && IsSameType(tokens[0].reservedWordValue??RW.NONE,type) && tokens[1].type == TT.ID && ID.From(tokens[1]) == id;
+      public bool IsNextTypeAndId(RW type,ID id,bool liberal = true) 
+         => tokens.Count > 1 && tokens[0].type == TT.RESWORD && IsSameType(tokens[0].reservedWordValue??RW.NONE,type,liberal) && tokens[1].type == TT.ID && ID.From(tokens[1]) == id;
       private static readonly RW[] AlgorithmTypes = [RW.TEST,RW.PREDICATE,RW.FUNCTION,RW.ACTION];
-      private static bool IsSameType(RW type,RW tokenType,bool strict = false)
-         => strict ? type == tokenType : AlgorithmTypes.Contains(type) && AlgorithmTypes.Contains(tokenType);
+      
+      private static bool IsSameType(RW type,RW tokenType,bool liberal = true)
+         => type == tokenType || (liberal && AlgorithmTypes.Contains(type) && AlgorithmTypes.Contains(tokenType));
 
       public Token Next() {
          if (IsNonEmpty()) {

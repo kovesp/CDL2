@@ -120,7 +120,7 @@ Tab Completion Menu (when shown):
       /// </summary>
       public void Open() {
          _isRunning = true;
-         Settings.LoadSettings(this);
+         Settings.LoadCommandHistory(this);
 
          // Set up status line and scrolling region
          SetupStatusLine();

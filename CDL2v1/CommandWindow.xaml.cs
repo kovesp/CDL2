@@ -126,7 +126,7 @@ F1    | Show this help message.
       public CommandWindow(IToaster toaster) {
          this.Toaster = toaster;
 
-         Settings.LoadSettings(this);
+         Settings.LoadCommandHistory(this);
 
          InitializeComponent();
 

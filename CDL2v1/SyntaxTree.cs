@@ -1687,14 +1687,20 @@ namespace CDL2v1 {
          public int NumberOfTimesCalled = reachable.ProcedureCalls.TryGetValue(proc.Id,out int n) ? n : 0;
          public int NumberOfCallsInProc = proc.group.CallCount();
 
+         public int Inlinability => NumberOfTimesCalled * NumberOfCallsInProc;
+
          private readonly Procedure proc = proc;
 
          public override string ToString()
             => $"Proc {proc.FQDN()} -> MaxInlineCalls: {MaxInlineCalls}, NumberOfTimesCalled: {NumberOfTimesCalled}, NumberOfCallsInProc: {NumberOfCallsInProc}";
+         public string Display() 
+            => $"Called n={NumberOfTimesCalled.Plural("time",countWidth:1)}, has c={NumberOfCallsInProc.Plural("call",countWidth: 1,addSpace:false)}."
+               +$" n*c({Inlinability})<=max({MaxInlineCalls}).";
       }
 
-      private InliningParameters? inliningParameters = null!;
-      public InliningParameters GetInliningParameters(Reachable reachable) => inliningParameters ??= new InliningParameters(this,reachable);//return inliningParameters;
+      [JsonIgnore]
+      public InliningParameters? inliningParameters = null!;
+      public InliningParameters GetInliningParameters(Reachable reachable) => inliningParameters ??= new InliningParameters(this,reachable);
 
       public int CallCount() => group.CallCount();
 
@@ -1722,7 +1728,7 @@ namespace CDL2v1 {
          return BodyType == TT.INLINEPROCBODY ||
                   GetInliningParameters(reachable).NumberOfCallsInProc == 1 ||
                   GetInliningParameters(reachable).NumberOfTimesCalled <= 1 ||
-                  GetInliningParameters(reachable).NumberOfTimesCalled * GetInliningParameters(reachable).NumberOfCallsInProc <= Settings.SettingValue<int>("MaxInlineCalls");
+                  GetInliningParameters(reachable).Inlinability <= GetInliningParameters(reachable).MaxInlineCalls;
       }
 
    }

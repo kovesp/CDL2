@@ -65,7 +65,7 @@ namespace CDL2v1 {
       /// <param Id="modulesWithLudes"></param>
       /// <param Id="Emitter"></param>
       /// <param Id="isSeparate"></param>
-      public void GenerateCode(Program program,Emitter emitter,bool isSeparate = false) {
+      public void GenerateCode(Program program,Emitter emitter,string settings,bool isSeparate = false) {
          Reachable = program.Reachable;
          foreach (Var var in program.Reachable.Objects.OfType<Var>()) {
             if (Reachable.AmbigousVars.Contains(var)) {
@@ -84,7 +84,7 @@ namespace CDL2v1 {
 
          if (!isSeparate) {
             // Generate an integrated program ignoring module boundaries of all objects reachable from the program's ludes.
-            cg.GenerateProgramStart(program,emitter);  // Generate the overall scaffolding
+            cg.GenerateProgramStart(program,emitter,settings,isSeparate: false);  // Generate the overall scaffolding
 
 
             GenerateObjects<Const>(Reachable.Objects.OfType<Const>(),GenerateConstant);
@@ -106,7 +106,7 @@ namespace CDL2v1 {
             cg.GenerateProgramEnd(program);
          } else {
             // TODO: Needs work to handle generating modules as separate units.
-            cg.GenerateProgramStart(program,emitter);  // Generate the overall scaffolding
+            cg.GenerateProgramStart(program,emitter,settings,isSeparate: true);  // Generate the overall scaffolding
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
             foreach (ID modId in program.Parts) cg.GenerateProgramPart(program,modId,isSeparate);
@@ -504,13 +504,14 @@ namespace CDL2v1 {
       /// Generate the comment for an algorithm. This is adds the pretty printed text of the algorithm as a comment.
       /// </summary>
       /// <param name="alg"></param>
-      private void GenerateAlgorithmComment(Algorithm alg) {
-         if (!alg.IsSynthetic) {
+      /// <param name="nl"></param>
+      private void GenerateAlgorithmComment(Algorithm alg,bool nl = true) {
+         //if (!alg.IsSynthetic) {
             sourceCommentPrinter.Print(alg);
-            cg.GenerateSourceComment();
-         } else {
-            cg.GenerateComment(alg.FQDN());
-         }
+            cg.GenerateSourceComment(nl:false);
+         //} else {
+         //   cg.GenerateComment(alg.FQDN());
+         //}
       }
       /// <summary>
       /// Generate the code for a procedure.
@@ -518,9 +519,6 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="proc"></param>
       private void GenerateProcedure(Procedure proc,int _) {
-         //if (proc.Id.Name == "run demo") {
-         //   Debug.WriteLine($"Generating code for {proc}");
-         //}
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
          } else if (!proc.IsSynthetic && proc.IsInlinable(Reachable)) { // TODO: Inline synthetics if applicable
@@ -641,9 +639,11 @@ namespace CDL2v1 {
             if (called is not null) {
                if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
                   cg.GenerateComment($"Inlining macro call -> {call}");
+                  GenerateAlgorithmComment(called,nl: false);
                   GenerateMacroBody(macro,proc,[.. call.Args],parameters,inlining: true);
                } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
-                  cg.GenerateComment($"Inlining procedure call -> {call}");
+                  cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
+                  GenerateAlgorithmComment(called,nl:false);
                   GenerateLocalInitializers(calledProc);
                   GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new Parameters(parameters,calledProc.Affixes,[.. call.Args]));
                } else {
@@ -761,7 +761,7 @@ namespace CDL2v1 {
                   }
                   emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = !Settings.SettingValue<bool>("CGDebug") };
                   CodeGenerator codeGenerator = new(cg,CDL2.Compiler,problemReporter);
-                  codeGenerator.GenerateCode(program,emitter);
+                  codeGenerator.GenerateCode(program,emitter,$"{Settings.Display("MaxInlineCalls","NoProcInlining","NoMacroInlining")}");
                   problemReporter(Note.CodeGenDone,[target,program,targetFileName]);
                } catch (Exception ex) {
                   problemReporter(Note.CodeGenError,[target,targetFileName,ex.Message]);

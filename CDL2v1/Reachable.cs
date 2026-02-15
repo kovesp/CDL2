@@ -199,8 +199,6 @@ namespace CDL2v1 {
                         } else if (obj is Var v) {
                            Objects.Add(v);
                         }
-                     } else {
-                        throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
                      }
                      break;
                }

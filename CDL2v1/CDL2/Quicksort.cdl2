@@ -77,15 +77,11 @@ MODULE powershell kernel.
       ENDSEC messages.
 
       SECTION data.
-         INV make, subtract, incr, le, random, show msg no newline, show msg.
+         EXPORT smaller element, swap element, get element, set element, set element to, is data sorted macro.
+         EXPORT sort data.
 
-         INV const x.
-
-         EXPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
-         EXPORT sort data, initialize data.
-         IMPORT lwb, upb, max size of list to show, min random, max random.
-
-         CONST lwb, upb, max size of list to show, min random, max random.
+         IMPORT lwb, upb.
+         CONST lwb, upb.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
@@ -102,14 +98,6 @@ MODULE powershell kernel.
          ACTION set element to+>p+>q =
             data ".Item(" p "," data ".Item(" q "))".
 
-         ACTION dump list = 
-            "Write-Host " data ".Array".
-
-         ACTION dump data*msg:
-            show msg no newline+msg,
-               (le+data size+max size of list to show, dump list;
-                show msg+"too many elements to show.").
-
          TEST is data sorted macro -i -r =
             "$l " r " = 1"
             "$l for (" i " = " lwb " ; " i " -lt " upb " ; " i "++) {"
@@ -119,25 +107,9 @@ MODULE powershell kernel.
          
          # Sort the array using the built-in sort method. For execution time comparison. #
          ACTION sort data = "[Array]::Sort(" data ".Array)".  
-
-         # The size of the list to be sorted as a variable. Just to exercise VARs.
-         VAR data size.
-
-         # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
-         FUNCTION get data size +size>: make+size+data size.
-
-         # Fill the array with random integers. #
-         ACTION initialize data -i -r -z:
-            add+const x+const x+z,
-            subtract+upb+lwb+data size, incr+data size,
-            make+i+lwb,
-            (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
-            +).
       ENDSEC data.
-      PRELUDE initialize data.
    ENDLAY kernel.
 ENDMOD powershell kernel.
-PRELUDE data.
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -197,7 +169,8 @@ MODULE csharp kernel.
          ACTION stop timer  = stop " = System.DateTime.Now.Ticks;".
 
          CONST tick = 10_000.
-         FUNCTION get elapsed time+elapsed>: subtract+stop+start+elapsed, divide+elapsed+tick+elapsed.
+         FUNCTION get elapsed time+elapsed> -elapsed ticks: 
+            subtract+stop+start+elapsed ticks, divide+elapsed ticks+tick+elapsed.
 
          ACTION show elapsed time = 
             "System.Console.WriteLine($$$"Elapsed time: {((" stop " - " start ") / 10000.0):N0} milliseconds$");".
@@ -213,15 +186,11 @@ MODULE csharp kernel.
       ENDSEC messages.
 
       SECTION data.
-         INV make, subtract, incr, le, random, show msg no newline, show msg.
+         EXPORT smaller element, swap element, get element, set element, set element to,is data sorted macro.
+         EXPORT sort data.
 
-         INV const x.
-
-         EXPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
-         EXPORT sort data, initialize data.
-         IMPORT lwb, upb, max size of list to show, min random, max random.
-
-         CONST lwb, upb, max size of list to show, min random, max random.
+         IMPORT lwb, upb.
+         CONST lwb, upb.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
@@ -237,14 +206,6 @@ MODULE csharp kernel.
          ACTION set element to+>p+>q =
             data "[" p "] = " data "[" q "];".
 
-         ACTION dump list = 
-            "for (int i = (int)" lwb " ; i <= (int)" upb " ; i++) System.Console.Write(" data "[i]);".
-
-         ACTION dump data*msg:
-            show msg no newline+msg,
-               (le+data size+max size of list to show, dump list;
-                show msg+"too many elements to show.").
-
          TEST is data sorted macro -i -r =
             r " = 1;"
             "$Lfor (" i " = " lwb "; " i " < " upb "; " i "++) {"
@@ -257,25 +218,9 @@ MODULE csharp kernel.
          
          # Sort the array using the built-in sort method. For execution time comparison. #
          ACTION sort data = "System.Array.Sort(" data ".array);".  
-
-         # The size of the list to be sorted as a variable. Just to exercise VARs.
-         VAR data size.
-
-         # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
-         FUNCTION get data size +size>: make+size+data size.
-
-         # Fill the array with random integers. #
-         ACTION initialize data -i -r -z:
-            add+const x+const x+z,
-            subtract+upb+lwb+data size, incr+data size,
-            make+i+lwb,
-            (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
-            +).
       ENDSEC data.
-      PRELUDE initialize data.
    ENDLAY kernel.
 ENDMOD csharp kernel.
-PRELUDE data.
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -349,15 +294,11 @@ MODULE c kernel.
       ENDSEC messages.
 
       SECTION data.
-         INV make, subtract, incr, le, random, show msg no newline, show msg.
+         EXPORT smaller element, swap element, get element, set element, set element to,is data sorted macro.
+         EXPORT sort data.
 
-         INV const x.
-
-         EXPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
-         EXPORT sort data, initialize data.
-         IMPORT lwb, upb, max size of list to show, min random, max random.
-
-         CONST lwb, upb, max size of list to show, min random, max random.
+         IMPORT lwb, upb.
+         CONST lwb, upb.
 
          # The array to be sorted. #
          LIST data(lwb:upb).
@@ -372,15 +313,6 @@ MODULE c kernel.
             "CDL2_LIST_SET(" data ", " i ", " v ");".
          ACTION set element to+>p+>q =
             "CDL2_LIST_SET(" data ", " p ", CDL2_LIST_GET(" data ", " q "));".
-
-         ACTION dump list = 
-            "$Lfor (long i = " lwb "; i <= " upb "; i++)"
-            "$L   printf($"%ld $", CDL2_LIST_GET(" data ", i));".
-
-         ACTION dump data*msg:
-            show msg no newline+msg,
-               (le+data size+max size of list to show, dump list;
-                show msg+"too many elements to show.").
 
          TEST is data sorted macro -i -r =
             r " = 1;"
@@ -397,46 +329,34 @@ MODULE c kernel.
          ACTION sort data = 
             "$Lint cmp(const void *a, const void *b) { return (*(long*)a - *(long*)b); }"
             "$Lqsort(" data "_array, " upb " - " lwb " + 1, sizeof(long), cmp);".  
-
-         # The size of the list to be sorted as a variable. Just to exercise VARs.
-         VAR data size.
-
-         # The size of the list to be sorted. VARs cannot be EXTended or ABSTRacted. 
-         FUNCTION get data size +size>: make+size+data size.
-
-         # Fill the array with random integers. #
-         ACTION initialize data -i -r -z:
-            add+const x+const x+z,
-            subtract+upb+lwb+data size, incr+data size,
-            make+i+lwb,
-            (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
-            +).
       ENDSEC data.
-      PRELUDE initialize data.
    ENDLAY kernel.
 ENDMOD c kernel.
-PRELUDE data.
 
 #=================================================================================
 MODULE quicksort.
    LAYER base.
       SECTION parametrization.
-         ABSTR lwb, upb.
-         EXT lwb, upb, max size of list to show, min random, max random.
-         EXPORT lwb, upb, max size of list to show, min random, max random.
+         ABSTR lwb, upb, get data size.
+         EXT lwb, upb, max size of list to show, min random, max random, get data size.
+         EXPORT lwb, upb, min random, max random.
+         INV subtract, incr.
 
          # The lower and upper bounds of the data array. #
-         CONST lwb=1, upb=100_000.
+         CONST lwb=1, upb=100.
 
          CONST max size of list to show=100.
 
          # The range of random numbers. #
          CONST min random=0, max random=200.
+
+         # The size of the list to be sorted as a variable. Just to exercise VARs.
+         FUNCTION get data size +size>: subtract+upb+lwb+size, incr+size.
       ENDSEC parametrization.
 
       SECTION arithmetic.
-         ABSTR incr, decr, greater, less, less or equal, add, halve, make, random, divide.
-         EXT make, random, incr, less or equal, subtract.
+         ABSTR incr, decr, greater, less, less or equal, le, lt, add, halve, make, random, divide.
+         EXT make, random, incr, less or equal, le, lt, subtract.
 
          IMPORT incr, decr, incr with, decr with.
          IMPORT add, subtract, multiply, divide, remainder, modulo, halve.
@@ -482,10 +402,11 @@ MODULE quicksort.
       ENDSEC touch.
 
       SECTION data.
-         ABSTR smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
+         ABSTR smaller element, swap element, get element, set element, set element to, dump data, is data sorted macro.
          ABSTR sort data, initialize data.
-         IMPORT smaller element, swap element, get element, set element, dump data, is data sorted macro, get data size.
-         IMPORT sort data, initialize data.
+         IMPORT smaller element, swap element, get element, set element, set element to, is data sorted macro.
+         IMPORT sort data.
+         INV show msg no newline, show number, le, lt, incr, random, make, max size of list to show, lwb, upb, get data size.
 
          # Here for test purposes only. #
          VAR unused.
@@ -493,21 +414,31 @@ MODULE quicksort.
          NOTE.
          VAR unused2.
 
+         # Imports #
          TEST smaller element +>p+>q.
          ACTION swap element +>i+>j.
          FUNCTION get element +>i+v>.
          ACTION set element +>i+>v.
-
-         ACTION dump data*msg.
-
+         ACTION set element to+>p+>q.
          TEST is data sorted macro.
-         
-         # Sort the array using the built-in sort method. For execution time comparison. #
          ACTION sort data.  
 
-         FUNCTION get data size +size>.
+         ACTION dump list -i-e:
+            make+i+lwb, get element+i+e, show number+e,
+              (lt+i+upb, incr+i, get element+i+e, show number+e, *;
+               +).
 
-         ACTION initialize data.
+         ACTION dump data*msg -data size:
+            show msg no newline+msg, get data size+data size,
+               (le+data size+max size of list to show, dump list;
+                show msg+"too many elements to show.").
+
+         
+         # Fill the array with random integers. #
+         ACTION initialize data -i -r:
+            make+i+lwb,
+              (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
+              +).
       ENDSEC data.
 
       SECTION timer.
@@ -624,20 +555,20 @@ ROOT sorter.
 #PRAGMA Target=PowerShell file=psort#
 PROGRAM powershell sort.
    PART powershell kernel, quicksort.
-   PRELUDE powershell kernel, quicksort.
+   PRELUDE quicksort.
    ROOT quicksort.
 ENDPROG powershell sort.
 
 #PRAGMA Target=CSharp file=cssort#
 PROGRAM csharp sort.
    PART csharp kernel, quicksort.
-   PRELUDE csharp kernel, quicksort.
+   PRELUDE quicksort.
    ROOT quicksort.
 ENDPROG csharp sort.
 
 #PRAGMA Target=C file=csort#
 PROGRAM c sort.
    PART c kernel, quicksort.
-   PRELUDE c kernel, quicksort.
+   PRELUDE quicksort.
    ROOT quicksort.
 ENDPROG c sort.

@@ -159,7 +159,7 @@ namespace CDL2v1 {
 
       [STAThread]
       private static void Main(string[] args) {
-         Settings.LoadSettings();
+         Settings.LoadSavedSettings();
          Settings.ProcessCommandLine(args);
 
          AllocateConsole();
@@ -225,7 +225,6 @@ namespace CDL2v1 {
                repl.SetInputProcessor(CLI.ProcessInput);
                Database.Instance.CLI = CLI;
                CLI.SetStatus();
-               Settings.LoadSettings(repl);
                repl.Open();
             }
          } else if (args.Length > 0) {

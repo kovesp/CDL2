@@ -832,8 +832,9 @@ namespace CDL2v1 {
          /// <param name="plural">If given the plural of word. Otherwise an s, es, or ies is added as ap appropriate.</param>
          /// <param name="pad">If given, the plural is padded with spaces to the extent of what would be added after inserting the pad.</param>
          /// <param name="countWidth">Width of the count in characters. Default is 3.</param>
+         /// <param name="addSpace">Whether to add a space after the word if count is 1. Default is true.</param>
          /// <returns></returns>
-         public string Plural(string word,string? pad = null,string? plural = null,int countWidth = 3) {
+         public string Plural(string word,string? pad = null,string? plural = null,int countWidth = 3,bool addSpace=true) {
             string suffix;
             if (plural is null) {
                if (Regex.IsMatch(word,@"(s|sh|ch|x|z)$",RegexOptions.IgnoreCase | RegexOptions.Compiled)) {
@@ -844,7 +845,7 @@ namespace CDL2v1 {
                   suffix = "s";
                }
                if (i == 1) {
-                  plural = $"{word}{(pad is not null ? pad : "")}{new string(' ',suffix.Length)}";
+                  plural = $"{word}{(pad??"")}{(addSpace ? new string(' ',suffix.Length) : "")}";
                } else {
                   if (suffix == "ies") {
                      plural = Regex.Replace(word,"y$","ies",RegexOptions.IgnoreCase | RegexOptions.Compiled);
