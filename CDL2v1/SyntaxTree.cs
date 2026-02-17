@@ -128,7 +128,7 @@ namespace CDL2v1 {
             throw new ArgumentOutOfRangeException(nameof(index),"Less than 0.");
          }
          Siblings.Remove(GUID);
-         Siblings.Insert(Math.Min(index,Siblings.Count), GUID);
+         Siblings.Insert(Math.Min(index,Siblings.Count),GUID);
       }
       /// <summary>
       /// Insert the sibling at the given index in the sibling list.
@@ -200,7 +200,7 @@ namespace CDL2v1 {
       /// <param name="other"></param>
       /// <param name="before"></param>
       void MoveSibling(ISibling other,bool? before = null) {
-         if (before??Settings.Before) {
+         if (before ?? Settings.Before) {
             MoveSiblingBefore(other);
          } else {
             MoveSiblingAfter(other);
@@ -217,8 +217,8 @@ namespace CDL2v1 {
             MoveDirection.Last => int.MaxValue,
             _ => throw new NotImplementedException(),
          };
-         if (newIndex == currentIndex || (newIndex == int.MaxValue && currentIndex == Siblings.Count-1)) return; // The position would not change
-         if (recordUndo) Database.Instance.RecordUndo((NamedElement)this, newIndex, ChangeType.MovedRelative);
+         if (newIndex == currentIndex || (newIndex == int.MaxValue && currentIndex == Siblings.Count - 1)) return; // The position would not change
+         if (recordUndo) Database.Instance.RecordUndo((NamedElement)this,newIndex,ChangeType.MovedRelative);
          MoveSiblingTo(newIndex);
       }
       /// <summary>
@@ -754,7 +754,7 @@ namespace CDL2v1 {
       public readonly IDDictionary<IExportable> Exports = [];
 
       [JsonInclude]
-      [JsonPropertyOrder(22)]      
+      [JsonPropertyOrder(22)]
       /// <summary>
       /// Will be reset by semantic analysis after it is done.
       /// Wiil be reset by the lab analysis command and the codegenerator to force analysis.
@@ -762,12 +762,25 @@ namespace CDL2v1 {
       public bool AnalysisRequired { get; set; } = true;
 
       [JsonIgnore] private SemanticAnalyzer? _semanticAnalyzer;
-      [JsonIgnore] public string? Target => Pragmas.TryGetValue("target", out string? target) ? target : null;
+      [JsonIgnore] public string? Target => Pragmas.TryGetValue("target",out string? target) ? target : null;
+
+      public Set<Note> NotesWithSeverity(Severity severity) {
+         Set<Note> notes = Notes.NotesWithSeverity(severity);
+         foreach (Module mod in Modules) foreach (Note note in mod.NotesWithSeverity(severity)) notes.Add(note);
+         return notes;
+      }
+
+      public void ClearCompilerNotes() {
+         Notes.ClearCompilerNotes();
+         foreach (Module mod in Modules) mod.ClearCompilerNotes();
+      }
+
 
       /// <summary>
       /// Returns the Semantic analys
       /// </summary>
-      [JsonIgnore]public SemanticAnalyzer SemanticAnalyzer { 
+      [JsonIgnore]
+      public SemanticAnalyzer SemanticAnalyzer {
          get {
             if (_semanticAnalyzer is null || AnalysisRequired) {
                SemanticAnalyzer.AnalyzeProgram(this);
@@ -866,6 +879,17 @@ namespace CDL2v1 {
       [JsonIgnore] public IEnumerable<Section> Sections => [.. Layers.SelectMany(layer => layer.Children.Select(GUID => (Section)Database.Instance.NamedElements[GUID]))];
 
       public override List<Guid> Siblings => Database.Instance.Modules;
+
+      public Set<Note> NotesWithSeverity(Severity severity) {
+         Set<Note> notes = Notes.NotesWithSeverity(severity);
+         foreach (Layer lay in Layers) foreach (Note note in lay.NotesWithSeverity(severity)) notes.Add(note);
+         return notes;
+      }
+
+      internal void ClearCompilerNotes() {
+         Notes.ClearCompilerNotes();
+         foreach (Layer lay in Layers) lay.ClearCompilerNotes();
+      }
    }
 
    /// <summary>
@@ -901,6 +925,17 @@ namespace CDL2v1 {
 
       [JsonIgnore]
       public List<Section> Sections => [.. Children.Select(GUID => (Section)Database.Instance.NamedElements[GUID])];
+
+      public Set<Note> NotesWithSeverity(Severity severity) {
+         Set<Note> notes = Notes.NotesWithSeverity(severity);
+         foreach (Section sec in Sections) foreach (Note note in sec.NotesWithSeverity(severity)) notes.Add(note);
+         return notes;
+      }
+
+      internal void ClearCompilerNotes() {
+         Notes.ClearCompilerNotes();
+         foreach (Section sec in Sections) sec.ClearCompilerNotes();
+      }
    }
 
    /// <summary>
@@ -1075,6 +1110,13 @@ namespace CDL2v1 {
       [JsonIgnore] public List<Procedure> NonSyntheticProcedures => [.. Declarations.AsCDL2Objects<Procedure>(proc => !proc.IsSynthetic)];
       [JsonIgnore] public List<Procedure> SyntheticProcedures => [.. Declarations.AsCDL2Objects<Procedure>(proc => proc.IsSynthetic)];
 
+      internal Set<Note> NotesWithSeverity(Severity severity) {
+         Set<Note> notes = Notes.NotesWithSeverity(severity);
+         foreach (CDL2Object obj in Declarations.AsCDL2Objects<CDL2Object>()) foreach (Note note in obj.NotesWithSeverity(severity)) notes.Add(note);
+         return notes;
+      }
+
+
       /// <summary>
       /// Get the object with the given ID. If the object is not found in this Section, then if it is invoked it is looked for in the layer.
       /// If found in the layer
@@ -1146,8 +1188,10 @@ namespace CDL2v1 {
       ///
       public bool TryGetDeclaration<T>(ID id,[NotNullWhen(true)] out T? declaration) where T : CDL2Object {
          if (TryGetLocalDeclaration(id,out T? local)) {
+            // id is declared in this ection
             declaration = local;
-         } else if (Layer!.Visible.TryGetValue(id,out IProvidable? visible) && visible is T visibleDeclaration) {
+         } else if (Interfaces[InterfaceTypes.Inv].Contains(id) && Layer!.Visible.TryGetValue(id,out IProvidable? visible) && visible is T visibleDeclaration) {
+            // id is invoked and is declared in this or the preceeding layer
             declaration = visibleDeclaration;
          } else {
             // Neither declared nor invoked (not in Visible).
@@ -1177,6 +1221,11 @@ namespace CDL2v1 {
          }
          declaration = default;
          return false;
+      }
+
+      public void ClearCompilerNotes() {
+         Notes.ClearCompilerNotes();
+         foreach (CDL2Object obj in Declarations.AsCDL2Objects<CDL2Object>()) obj.ClearCompilerNotes();
       }
    }
 
@@ -1213,6 +1262,9 @@ namespace CDL2v1 {
 
       //public override List<Guid> Siblings => Section?.Children.Where(guid=>guid.IsNonSyntheticCDL2Object()).ToList() ?? [];
       public override List<Guid> Siblings => Section!.Children;
+
+      internal IEnumerable<Note> NotesWithSeverity(Severity severity) => Notes.NotesWithSeverity(severity);
+
 
       /// <summary>
       /// Checks whether this object is in the given interface type.
@@ -1294,7 +1346,7 @@ namespace CDL2v1 {
       /// Not removing the subcomponents works because subcomponents are never reused, i.e., only this object
       /// references their GUID.
       /// </remarks>
-      public void RemoveOrReplace(CDL2Object? replacement,ChangeType changeType,bool record=true) {
+      public void RemoveOrReplace(CDL2Object? replacement,ChangeType changeType,bool record = true) {
          Database.Instance.ElementsWithNotes.Remove(GUID);
          if (changeType == ChangeType.Removed) {
             Section?.Declarations.Remove(Id);
@@ -1303,7 +1355,7 @@ namespace CDL2v1 {
             ClearInterfaces();
          } else if (changeType == ChangeType.Replaced) {
             // Swap the GUID of this object with the GUID of the replacement object. Also swap them in NamedElements.
-            (GUID, replacement!.GUID) = (replacement.GUID, GUID);
+            (GUID,replacement!.GUID) = (replacement.GUID,GUID);
             Database.Instance.NamedElements[GUID] = this;
             Database.Instance.NamedElements[replacement.GUID] = replacement;
             if (replacement.Notes is not null && replacement.Notes.Count > 0) Database.Instance.ElementsWithNotes.Add(replacement.GUID);
@@ -1311,7 +1363,7 @@ namespace CDL2v1 {
          }
       }
       public void Remove() => RemoveOrReplace(null,ChangeType.Removed);
-      public virtual void Replace(CDL2Object replacement,bool record=true) => RemoveOrReplace(replacement,ChangeType.Replaced,record);
+      public virtual void Replace(CDL2Object replacement,bool record = true) => RemoveOrReplace(replacement,ChangeType.Replaced,record);
 
       /// <summary>
       /// Reverses the action of RemoveOrReplace by adding this object back to the section declarations and siblings (if removed) or swaping
@@ -1338,6 +1390,8 @@ namespace CDL2v1 {
          }
          Focus.SetFocus(this);
       }
+
+      internal void ClearCompilerNotes() => Notes.ClearCompilerNotes();
    }
 
    /// <summary>
@@ -1535,7 +1589,7 @@ namespace CDL2v1 {
 
          // Fix call references in both procedures first. Note that eithr could both be a macro or an ImportedProcedure.
          // Works for ImportedProcedures too because they have a group with no alternatives.
-         if (this is Procedure proc1)        ReplaceCallReferences(proc1.group,replacement.GUID);
+         if (this is Procedure proc1) ReplaceCallReferences(proc1.group,replacement.GUID);
          if (replacement is Procedure proc2) ReplaceCallReferences(proc2.group,GUID);
 
          base.Replace(replacement,record); // do the standard guid swap
@@ -1693,9 +1747,9 @@ namespace CDL2v1 {
 
          public override string ToString()
             => $"Proc {proc.FQDN()} -> MaxInlineCalls: {MaxInlineCalls}, NumberOfTimesCalled: {NumberOfTimesCalled}, NumberOfCallsInProc: {NumberOfCallsInProc}";
-         public string Display() 
-            => $"Called n={NumberOfTimesCalled.Plural("time",countWidth:1)}, has c={NumberOfCallsInProc.Plural("call",countWidth: 1,addSpace:false)}."
-               +$" n*c({Inlinability})<=max({MaxInlineCalls}).";
+         public string Display()
+            => $"Called n={NumberOfTimesCalled.Plural("time",countWidth: 1)}, has c={NumberOfCallsInProc.Plural("call",countWidth: 1,addSpace: false)}."
+               + $" n*c({Inlinability})<=max({MaxInlineCalls}).";
       }
 
       [JsonIgnore]
@@ -1776,7 +1830,7 @@ namespace CDL2v1 {
 
       [JsonIgnore] public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
       [JsonIgnore] public bool IsConditionalCompilationOn => IsConditionalCompilation(on: true);
-      public Call(ID id,Procedure containingProc,Alternative containingAlternative,bool builtin = false) : base(id,focusType: SelectorType.CALL,record:builtin) {
+      public Call(ID id,Procedure containingProc,Alternative containingAlternative,bool builtin = false) : base(id,focusType: SelectorType.CALL,record: builtin) {
          this.id = id;
          Parent = containingAlternative.GUID;
          IsBuiltin = builtin;
@@ -2243,6 +2297,7 @@ namespace CDL2v1 {
 
       private Undeclared() : base(ID.AnonID) => SE = SE.Other;
    }
-
 }
+
+
 

@@ -404,9 +404,12 @@ MODULE quicksort.
       SECTION data.
          ABSTR smaller element, swap element, get element, set element, set element to, dump data, is data sorted macro.
          ABSTR sort data, initialize data.
+
+         INV show msg, show msg no newline, show number, le, lt, incr, random, make, max size of list to show.
+         INV lwb, upb, get data size, min random, max random.
+
          IMPORT smaller element, swap element, get element, set element, set element to, is data sorted macro.
          IMPORT sort data.
-         INV show msg no newline, show number, le, lt, incr, random, make, max size of list to show, lwb, upb, get data size.
 
          # Here for test purposes only. #
          VAR unused.
@@ -425,8 +428,8 @@ MODULE quicksort.
 
          ACTION dump list -i-e:
             make+i+lwb, get element+i+e, show number+e,
-              (lt+i+upb, incr+i, get element+i+e, show number+e, *;
-               +).
+              (lt+i+upb, incr+i, show msg no newline+", ",get element+i+e, show number+e, *;
+               show msg+"").
 
          ACTION dump data*msg -data size:
             show msg no newline+msg, get data size+data size,
@@ -438,7 +441,7 @@ MODULE quicksort.
          ACTION initialize data -i -r:
             make+i+lwb,
               (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
-              +).
+              show msg+"").
       ENDSEC data.
 
       SECTION timer.

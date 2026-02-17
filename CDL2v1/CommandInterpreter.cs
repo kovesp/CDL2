@@ -271,11 +271,11 @@ namespace CDL2v1 {
 
       ParsingContext? ParsingContext = null;
 
-      private void WriteLine(string message,Severity severity = Severity.NONE) {
+      private void WriteLine(string message,Severity severity = Severity.NONE,uint indent = 0) {
          if (REPL is not null) {
-            REPL.WriteLine(message,severity);
+            REPL.WriteLine((" " * indent) + message,severity);
          } else {
-            Debug.WriteLine(message);
+            Debug.WriteLine((" "*indent)+message);
          }
       }
       private void WriteLineParsed(string message) {
@@ -286,9 +286,9 @@ namespace CDL2v1 {
          }
       }
 
-      private void WriteError(string message) => WriteLine("Error: " + message,Severity.Error);
-      private void WriteInfo(string message) => WriteLine("Info: " + message,Severity.Info);
-      private void WriteWarning(string message) => WriteLine("Warning: " + message,Severity.Warning);
+      private void WriteError(string message,uint indent=0) => WriteLine("Error: " + message,Severity.Error,indent);
+      private void WriteInfo(string message,uint indent = 0) => WriteLine("Info: " + message,Severity.Info,indent);
+      private void WriteWarning(string message,uint indent = 0) => WriteLine("Warning: " + message,Severity.Warning,indent);
 
       /// <summary>
       /// Replaces all spaces in quoted strings with $S, to allow splitting the command line into arguments and settings.
@@ -574,7 +574,7 @@ namespace CDL2v1 {
          bool SettingsValid = true;
          // Use settings to change global settings. Save previous values so they can be restored later.
          foreach (ParsedSetting setting in settings) {
-            if (!setting.SetSetting(WriteError)) {
+            if (!setting.SetSetting(s=>WriteError(s))) {
                SettingsValid = false;
                break;
             }
@@ -798,14 +798,22 @@ namespace CDL2v1 {
 
          foreach (Program? program in programs) {
             if (program is not null) {
-               Dictionary<string,string> pragmas = program.ProcessPragmas(settings, WriteError);
-               string target = Settings.SettingValue<string>("target") ?? "";
-               if (CodeGenerator.AvailableCodeGenerators.ContainsKey(target)) {
-                  string targetFileName = Settings.SettingValue<string>("file") ?? "";
-                  CodeGenerator.GenerateCode(ref targetFileName,ReportProblem,target: target,program: program);
-               } else {
-                  WriteError($"Unknown code generator {target} specified in {(pragmas.ContainsKey("target") ? "program PRAGMA" : "setting")}");
-               }
+               Set<Note> errors = program.NotesWithSeverity(Severity.Error);
+               if (errors.Any()) {
+                  WriteError($"Cannot generate code for {program} because it has {errors.Count.Plural("error",countWidth:1)}");
+                  foreach (Note error in errors) WriteError(error.ToString(),indent:3);
+               } else { 
+                  Dictionary<string,string> pragmas = program.ProcessPragmas(settings,msg=>WriteError(msg));
+                  string target = Settings.SettingValue<string>("target") ?? "";
+                  if (CodeGenerator.AvailableCodeGenerators.ContainsKey(target)) {
+                     string targetFileName = Settings.SettingValue<string>("file") ?? "";
+                     CodeGenerator.GenerateCode(ref targetFileName,ReportProblem,target: target,program: program);
+                  } else {
+                     WriteError($"Unknown code generator {target} specified in {(pragmas.ContainsKey("target") ? "program PRAGMA" : "setting")}");
+                  }
+               } 
+            } else {
+               WriteError($"INTERNAL ERROR: {program} not found");
             }
          }
       }
@@ -909,7 +917,7 @@ namespace CDL2v1 {
             WriteInfo($"Analyzing {program}");
             program.AnalysisRequired = true;
             SemanticAnalyzer analyzer = program.SemanticAnalyzer;
-            analyzer.ReportNoteCounts(program.Reachable,reporter: WriteInfo,summaryOnly: true);
+            analyzer.ReportNoteCounts(program.Reachable,reporter: s => WriteInfo(s),summaryOnly: true);
          }
       }
 
@@ -1537,7 +1545,7 @@ namespace CDL2v1 {
          WriteInfo($" Database contains {Database.Instance.Programs.Count.Plural("program",countWidth: 1)} and {Database.Instance.Modules.Count.Plural("module",countWidth: 1)}.");
          WriteInfo($" Available code generators: {string.Join(", ",CodeGenerator.AvailableCodeGenerators.Keys)}; Target={Settings.SettingValue<string>("Target")}.");
          foreach (Program program in context?.FirstOrDefault()?.Object is Program ? context.Select(s => (Program)s.Object!) : [CDL2.GetMainProgram()!]) {
-            Reachable.LogObjectCount(program.Reachable,$"reachable from {program} with {program.Parts.Count.Plural("part",countWidth: 1)}.",WriteInfo,0,unused: true);
+            Reachable.LogObjectCount(program.Reachable,$"reachable from {program} with {program.Parts.Count.Plural("part",countWidth: 1)}.",s=>WriteInfo(s),0,unused: true);
          }
       }
 

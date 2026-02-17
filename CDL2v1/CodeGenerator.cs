@@ -33,10 +33,12 @@
 
 // Ignore Spelling: CDL
 
+using System.Collections;
 using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
@@ -307,7 +309,7 @@ namespace CDL2v1 {
       private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,List<IActualArg>? args = null,Parameters? parameters = null,bool inlining = false) {
          parameters = new(parameters,macro.Affixes,args ?? []);
          cg.GenerateMacroBodyStart(macro);
-         if (inlining) GenerateLocalInitializers(macro);
+         //if (inlining) GenerateLocalInitializers(macro);
          bool first = true;
          if (cg.TargetRequiresMacroSpliting && macro.CanFail) { // Target spliting is only needed for macros that can fail.
             (List<IElement> beforeLast, List<IElement> lastExpression) parts = TargetCodeGenerator.SplitMacroBody(macro,cg.StatementSeparator);
@@ -414,6 +416,14 @@ namespace CDL2v1 {
                if (macro.TryGetAffix(id,out Affix aff)) {
                   if (parameters.TryGetValue(aff,out IActualArg? arg)) {
                      Debug.Assert(callingProc is not null,$"GenerateMacro: Calling procedure is null for inlined macro {macro}");
+                     if (arg is ID aid) {
+                        if (section.TryGetDeclaration(aid,out CDL2Object? argObj) && argObj is IActualArg aaArg) {
+                           arg = aaArg;
+                        } else {
+                           Debugger.Break();
+                           throw new NotImplementedException($"GenerateMacro: Unresolved reference to {arg}");
+                        }
+                     }
                      switch (arg) {
                         case Var vv: cg.GenerateMacroElementVar(vv,callingProc.CanFail,inlined: true); break;
                         case Const cc: cg.GenerateMacroElementConst(cc!); break;
@@ -426,7 +436,9 @@ namespace CDL2v1 {
                            break;
                         case Affix aa: cg.GenerateMacroElementAffix(aa,callingProc.CanFail); break;
                         case STRING s: cg.GenerateMacroElementString(s.value,firstElement: false,quoted: true); break;
-                        default: Debugger.Break(); break;
+                        default: 
+                           Debugger.Break();
+                           throw new NotImplementedException($"GenerateMacro: Reference to unresolved element {arg}");
                      }
                   } else {
                      cg.GenerateMacroElementAffix(aff,macro.CanFail);
@@ -487,7 +499,7 @@ namespace CDL2v1 {
             foreach (Affix affix in alg.Affixes) cg.GenerateAffixAndVariableInitializer(alg,affix);
             foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg,var,isVar: true);
          }
-         GenerateLocalInitializers(alg);
+         GenerateLocalInitializers(CollectLocals(alg));
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
 
@@ -496,8 +508,9 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alg">The algorithm containing the local variables for which initializers will be generated. Cannot be null.</param>
       /// <remarks>Notice that nothing is genrated for built-in result locals ... these are virtual.</remarks>
-      private void GenerateLocalInitializers(Algorithm alg) {
-         foreach (Local local in alg.Locals) if (!local.IsBuiltinResult) cg.GenerateLocal(local);
+      private void GenerateLocalInitializers(Algorithm alg) => GenerateLocalInitializers(alg.Locals);
+      private void GenerateLocalInitializers(IEnumerable<Local> locals) {
+         foreach (Local local in locals) if (!local.IsBuiltinResult) cg.GenerateLocal(local);
       }
 
       /// <summary>
@@ -524,11 +537,11 @@ namespace CDL2v1 {
          } else if (!proc.IsSynthetic && proc.IsInlinable(Reachable)) { // TODO: Inline synthetics if applicable
             GenerateAlgorithmComment(proc);
             cg.GenerateComment($"Procedure inlined");
-            //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Reachable).NumberOfTimesCalled == 0) {
-            //   GenerateAlgorithmComment(proc);
-            //   cg.GenerateComment($"Procedure not invoked");
+         //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Reachable).NumberOfTimesCalled == 0) {
+         //   GenerateAlgorithmComment(proc);
+         //   cg.GenerateComment($"Procedure not invoked");
          } else {
-            IEnumerable<Var> variables = proc.GetReferencedVariables();
+            IEnumerable<Var> variables = proc.GetReferencedVariables();            
             cg.GenerateProcedureStart(proc);
             GenerateAlgorithmHeader(proc,variables);
             cg.GenerateProcedureBodyStart(proc,proc.ProcedureBodyType);
@@ -536,6 +549,66 @@ namespace CDL2v1 {
             cg.GenerateProcedureBodyEnd(proc,proc.ProcedureBodyType);
             FinalizeAffixesAndVariables(proc,variables);
             cg.GenerateProcedureEnd(proc);
+         }
+      }
+
+      /// <summary>
+      /// Collects the locals defined by the group itself as well as inlined calls.
+      /// Applies only to Procedures. Locals for macros are handled in GenerateMacroBody.
+      /// </summary>
+      /// /// <param name="algorithm">The algorithm from which to collect local variables. Must be of type Procedure to retrieve its locals.</param>
+      /// <returns>A set of local variables defined in the provided algorithm. Returns an empty set if the algorithm is not a
+      /// Procedure.</returns>
+      /// <remarks>Since proc.Locals always generates a new set, there is no need to copy it.</remarks>
+      private Set<Local> CollectLocals(Algorithm algorithm) => algorithm is Procedure procedure ? CollectLocals(procedure.group,procedure.Locals) : [];
+
+      /// <summary>
+      /// Collects the locals of inlined calls in the group and adds them to locals.
+      /// </summary>
+      /// <param name="group"></param>
+      /// <param name="locals"></param>
+      private Set<Local> CollectLocals(Group group,Set<Local> locals) {
+         foreach (Alternative alternative in group.Alternatives) {
+            if (alternative.IsConditionalCompilationOff) continue;
+            CollectLocals(alternative,locals);
+            if (alternative.IsConditionalCompilationOn) break;
+         }
+         return locals;
+      }
+
+      /// <summary>
+      /// Collects local variables from all inlined calls within the specified alternative and adds them to the provided
+      /// collection.
+      /// </summary>
+      /// <remarks>This method processes each call in the alternative, including the final call, to ensure
+      /// all relevant local variables are gathered. It supports both standard and grouped call types within the
+      /// alternative.</remarks>
+      /// <param name="alternative">The alternative containing the sequence of calls from which local variables are to be collected.</param>
+      /// <param name="locals">An enumerable collection that receives the local variables identified from the calls in the alternative.</param>
+      private void CollectLocals(Alternative alternative,Set<Local> locals) {
+         foreach (Call call in alternative.calls) CollectLocals(call,locals);
+         switch (alternative.lastCall.type) {
+            case LCT.Standard: CollectLocals(alternative.lastCall.call!,locals); break;
+            case LCT.Group: CollectLocals(alternative.lastCall.group!,locals); break;
+         }
+      }
+
+      /// <summary>
+      /// Collects locals from the specified call and adds them to the provided collection.
+      /// </summary>
+      /// <param name="call"></param>
+      /// <param name="locals"></param>
+      private void CollectLocals(Call call,Set<Local> locals) {
+         if (!call.IsConditionalCompilationOn && !call.IsBuiltin) {
+            Algorithm? called = call.Called;
+            if (called is not null) {
+               if (called is Macro macro && !Settings.SettingValue<bool>("NoMacroInlining") && macro.IsInlineMacro) {
+                  locals.AddAll(macro.Locals);
+               } else if (called is Procedure proc && !Settings.SettingValue<bool>("NoProcInlining")  && proc.IsInlinable(Reachable)) {
+                  locals.AddAll(proc.Locals);
+                  CollectLocals(proc.group,locals);
+               }
+            }
          }
       }
 
@@ -644,7 +717,7 @@ namespace CDL2v1 {
                } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
                   GenerateAlgorithmComment(called,nl:false);
-                  GenerateLocalInitializers(calledProc);
+                  // GenerateLocalInitializers(calledProc); // Propagated up to containing proc
                   GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new Parameters(parameters,calledProc.Affixes,[.. call.Args]));
                } else {
                   cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);

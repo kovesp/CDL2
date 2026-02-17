@@ -37,6 +37,7 @@
 
 
 
+using System.Linq;
 using System.Reflection;
 using System.Text.Json.Serialization;
 
@@ -50,6 +51,15 @@ namespace CDL2v1 {
       internal void ForEach(Action<Note> action) {
          foreach (Note note in this) action(note);
       }
+      public Set<Note> NotesWithSeverity(Severity severity) => this.Where(note => note.NoteType == severity).ToSet;
+
+      private static Severity[] compilerNotes = [Severity.Error,Severity.Warning,Severity.Info];
+
+      public void ClearCompilerNotes() {
+         IEnumerable<Note> remove = [.. this.Where(note => compilerNotes.Contains(note.NoteType)) ];
+         foreach (Note note in remove) this.Remove(note);
+      }
+
       public static Notes Empty => [];
    }
 

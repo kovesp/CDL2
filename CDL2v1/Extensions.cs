@@ -43,7 +43,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
-   public class Set<T> : HashSet<T> {
+   public class Set<T> : HashSet<T>, ISet<T> {
       public Set() { }
       public Set(ICollection<T> collection) : base(collection) { }
       public Set(IEnumerable<T> enumerable) {
@@ -1013,6 +1013,12 @@ namespace CDL2v1 {
                   return objects;
                }
             }
+         }
+      }
+
+      extension<T>(ISet<T> collection) {
+         public void AddAll(IEnumerable<T> items) {
+            foreach (T item in items) collection.Add(item);
          }
       }
 
