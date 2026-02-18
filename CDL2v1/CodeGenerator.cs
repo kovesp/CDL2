@@ -309,7 +309,7 @@ namespace CDL2v1 {
       private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,List<IActualArg>? args = null,Parameters? parameters = null,bool inlining = false) {
          parameters = new(parameters,macro.Affixes,args ?? []);
          cg.GenerateMacroBodyStart(macro);
-         //if (inlining) GenerateLocalInitializers(macro);
+         if (!inlining) GenerateLocalInitializers(macro);
          bool first = true;
          if (cg.TargetRequiresMacroSpliting && macro.CanFail) { // Target spliting is only needed for macros that can fail.
             (List<IElement> beforeLast, List<IElement> lastExpression) parts = TargetCodeGenerator.SplitMacroBody(macro,cg.StatementSeparator);
@@ -349,6 +349,7 @@ namespace CDL2v1 {
             public int argNo = i;
             public Affix affix = affix;
             public IActualArg arg = arg;
+            public override string ToString() => $"[{argNo}] {affix} -> {arg}";
          }
 
          private Parameters() : base() { }
@@ -707,6 +708,7 @@ namespace CDL2v1 {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          if (call.IsBuiltin && Builtin.IsFunction(call)) {
             // Ignore the call here. The value of the builtin will be inserted directly where needed.
+            cg.GenerateComment($"{call} -> {Builtin.EvalFunction(call)}");
          } else {
             Algorithm? called = call.Called;
             if (called is not null) {
@@ -739,16 +741,27 @@ namespace CDL2v1 {
       }
 
       private void GenerateActualArg(Procedure proc,Call call,Affix calledAffix,IActualArg arg) {
+         Section callProcSection = call.ContainingProc.Section!;
          switch (arg) {
             case STRING s:
                Debug.Assert(calledAffix.affixType == AT.str,$"GenerateCallStart: String argument for non-string affix {calledAffix}");
                cg.GenerateCallArgString(s.value);
                break;
             case Const c:
-               cg.GenerateCallArgReferenceConst(calledAffix,proc.Section!.GetResolvedConstant(c)!);
+               cg.GenerateCallArgReferenceConst(calledAffix,callProcSection.GetResolvedConstant(c)!);
                break;
             case Var v:
-               cg.GenerateCallArgReferenceVar(calledAffix,v,needFinalization: call.Called!.NeedsFinalization);
+               cg.GenerateCallArgReferenceVar(calledAffix,callProcSection.GetResolvedObject(v)!,needFinalization: call.Called!.NeedsFinalization);
+               break;
+            case Local local:
+               if (local.IsBuiltinResult) {
+                  cg.GenerateCallArgString(local.BuiltinResult);
+               } else {
+                  cg.GenerateCallArgReferenceLocal(calledAffix,local);
+               }
+               break;
+            case Affix argAffix: 
+               cg.GenerateCallArgReferenceAffix(calledAffix,argAffix,proc.NeedsFinalization);
                break;
             case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
                if (proc.TryGetAffix(id,out Affix procAffix)) {
@@ -772,8 +785,6 @@ namespace CDL2v1 {
                   throw new NotImplementedException($"GenerateCallStart: Unresolved reference to {id}");
                }
                break;
-            case Affix argAffix: cg.GenerateCallArgReferenceAffix(calledAffix,argAffix,proc.NeedsFinalization); break;
-            case Local lo: cg.GenerateCallArgReferenceLocal(calledAffix,lo); break;
             default:
                throw new NotImplementedException($"GenerateCallStart: Unknown argument type {arg.GetType()}");
          }

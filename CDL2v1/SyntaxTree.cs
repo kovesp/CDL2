@@ -1142,6 +1142,7 @@ namespace CDL2v1 {
          }
          return resolvedObject != null;
       }
+      public T? GetResolvedObject<T>(T obj) where T : CDL2Object => TryGetResolvedObject(obj.Id,out T? resolvedObject) ? resolvedObject : null;
       public CDL2Object? GetResolvedObject(ID Id) {
          CDL2Object? resolvedObject = null;
          if (Declarations.TryGetValue(Id,out CDL2Object? localObject)) {
