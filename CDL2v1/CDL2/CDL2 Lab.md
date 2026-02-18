@@ -371,24 +371,33 @@ extension may be any valid file extension and in no case determines the mode of 
 set command : set token, setting sequence option. 
 ```
 
-If no settings are given, all current settings are listed. The following is a list of settings.
+Display current settings or change them globally.
+
+   * If no settings are given, all current settings are listed with their current values in tabular form.
+   * In this command _only_ the otherwise required `-` may be omitted from the sattings name.
+   * If the first setting is `-list` (or just `list`), then rest of the command line should contain the
+     names of the settings whose values are to be listed. Example: 
+     `set -list nomacroinlining -NoProcInlining target`. If `list` itself is specified among the names
+      it is ignored since in this context it would always be shown as `true` instead of its actual global value.
+
+The following is a list of settings.
 
 ##### Command Settings
 
 | Setting Name | Type   | Default | Description |
 |--------------|--------|---------|-------------|
 | list         | bool   | false  | Commands that support this option will list appropriate object instead of taking action. See the undo and redo commands.
-| inv          | bool   | false  | Apply the command to the INV list entry of the object.
-| ext          | bool   | false  | Apply the command to the EXT list entry of the object.
-| abstr        | bool   | false  | Apply the command to the ABSTR list entry of the object.
-| import       | bool   | false  | Apply the command to the IMPORT list entry of the object.
-| export       | bool   | false  | Apply the command to the EXPORT list entry of the object.
+| inv          | bool   | false  | Apply the command to the `INV` list entry of the object.
+| ext          | bool   | false  | Apply the command to the `EXT` list entry of the object.
+| abstr        | bool   | false  | Apply the command to the `ABSTR` list entry of the object.
+| import       | bool   | false  | Apply the command to the `IMPORT` list entry of the object.
+| export       | bool   | false  | Apply the command to the `EXPORT` list entry of the object.
 | prompt       | bool   | false  | For destructive commands, prompt before making changes.
 | settag       | string |        | Sets a tag on an undo or redo entry.
 | tag          | string |        | Selects the undo or redo entry with the given tag.
 | separate     | bool   | false  | For code generation, see the `generate` command.
-| before       | bool   | false  | Apply the command before the selected object(s).
-| refs         | bool   | true   | For the `rename` command, rename all referrences to this object.
+| before       | bool   | false  | Apply the command to the objectbefore the selected object.
+| refs         | bool   | true   | For the `rename` command, rename all references to this object.
 | file         | string | ""     | The file to use. Used by commands that read or write files.
 
 

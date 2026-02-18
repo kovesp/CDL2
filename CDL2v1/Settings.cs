@@ -127,7 +127,7 @@ namespace CDL2v1 {
             return $"{Name.PadRight(Settings.Instance.MaxNameLength)} {type,-8} {longOption} {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
          }
       }
-      public string DisplayString => $"{Name}: {Value}";
+      public string DisplayString => $"{Name}: {Value?.ToString()??""}";
    }
 
    public class Settings {

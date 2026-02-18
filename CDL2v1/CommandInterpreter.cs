@@ -33,6 +33,7 @@
 // </auto-gen>
 
 using System.Collections.Immutable;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -323,16 +324,18 @@ namespace CDL2v1 {
          }
          return result.ToString();
       }
-      public record class ParsedSetting(string Name,SettingType Type,object? Value,object? currentValue) {
+      public record class ParsedSetting(string Name,SettingType Type,object? Value,object? CurrentValue,bool IgnoreSet) {
          public readonly string Name = Name.ToLower();
          public readonly SettingType Type = Type;
          public object? Value = Value; // A setting handler can update it
-         public object? PreviousValue = currentValue;
+         public object? PreviousValue = CurrentValue;
          public bool IsValid => Value is not null;
+         public bool IgnoreSet = IgnoreSet;
 
-         public static readonly ParsedSetting Invalid = new ("",SettingType.String,null,null);
+         public static readonly ParsedSetting Invalid = new ("",SettingType.String,null,null,false);
 
          public bool SetSetting(Action<string> reporter) {
+            if (IgnoreSet) return true; // used by the set command in display mode
             if (IsValid) {
                PreviousValue = Type switch {
                   SettingType.Boolean => Settings.SettingValue<bool>(Name),
@@ -365,11 +368,11 @@ namespace CDL2v1 {
       /// <summary>
       /// Parse a setting of the form -name[+|-] or -name[:|=]value.
       /// Note that the leading - is removed and is optional for the set command.
-      /// This works becasue the call ensures that the - is present when required.
+      /// This works because the call ensures that the - is present when required.
       /// </summary>
       /// <param name="setting"></param>
       /// <returns></returns>
-      private ParsedSetting ParseSetting(string settingString) {
+      private ParsedSetting ParseSetting(string settingString, bool ignoreSet = false) {
          string[] parts = settingString.TrimStart('-').Split([':','='],2);
          string settingName = parts[0].ToLower().TrimEnd('+','-');
          if (Settings.SpecificAbbreviations.TryGetValue(settingName,out string? fullName)) settingName = fullName;
@@ -394,19 +397,19 @@ namespace CDL2v1 {
             }
             switch (setting.SettingType) {
                case SettingType.Boolean:
-                  return new ParsedSetting(setting.Name,SettingType.Boolean,boolValue,null);
+                  return new ParsedSetting(setting.Name,SettingType.Boolean,boolValue,null,ignoreSet);
                case SettingType.Integer:
                   if (parts.Length == 1) {
-                     return new ParsedSetting(setting.Name,SettingType.Integer,0,null);
+                     return new ParsedSetting(setting.Name,SettingType.Integer,0,null,ignoreSet);
                   } else if (int.TryParse(parts[1],out int intValue)) {
-                     return new ParsedSetting(setting.Name,SettingType.Integer,intValue,null);
+                     return new ParsedSetting(setting.Name,SettingType.Integer,intValue,null,ignoreSet);
                   } else {
                      ReportProblem(Note.InvalidSettingValue,setting.SettingType,setting.Name,parts[1]);
                   }
                   break;
                case SettingType.String:
                   if (parts.Length == 1) {
-                     return new ParsedSetting(setting.Name,SettingType.String,"",null);
+                     return new ParsedSetting(setting.Name,SettingType.String,"",null,ignoreSet);
                   } else if (parts[1].StartsWith('"')) {
                      parts[1] = Regex.Replace(parts[1].Trim('"'),@"\$(.)",m => m.Groups[1].Value switch {
                         "S" or "s" => " ",
@@ -417,21 +420,21 @@ namespace CDL2v1 {
                         _ => m.Value
                      });
                   }
-                  return new ParsedSetting(setting.Name,SettingType.String,parts[1],null);
+                  return new ParsedSetting(setting.Name,SettingType.String,parts[1],null,ignoreSet);
                case SettingType.Double:
                   if (parts.Length == 1) {
-                     return new ParsedSetting(setting.Name,SettingType.Double,0.0,null);
+                     return new ParsedSetting(setting.Name,SettingType.Double,0.0,null,ignoreSet);
                   } else if (double.TryParse(parts[1],out double doubleValue)) {
-                     return new ParsedSetting(setting.Name,SettingType.Double,doubleValue,null);
+                     return new ParsedSetting(setting.Name,SettingType.Double,doubleValue,null,ignoreSet);
                   } else {
                      ReportProblem(Note.InvalidSettingValue,setting.SettingType,setting.Name,parts[1]);
                   }
                   break;
                case SettingType.Severity:
                   if (parts.Length == 1) {
-                     return new ParsedSetting(setting.Name,SettingType.Severity,Severity.Error,null);
+                     return new ParsedSetting(setting.Name,SettingType.Severity,Severity.Error,null,ignoreSet);
                   } else if (Enum.TryParse(parts[1],out Severity severityValue)) {
-                     return new ParsedSetting(setting.Name,SettingType.Severity,severityValue,null);
+                     return new ParsedSetting(setting.Name,SettingType.Severity,severityValue,null,ignoreSet);
                   } else {
                      ReportProblem(Note.InvalidSettingValue,setting.SettingType,setting.Name,parts[1]);
                   }
@@ -487,10 +490,12 @@ namespace CDL2v1 {
          commandType = Abbreviation<CommandType>.Identify(verb.ToLower());
          if (commandType == CommandType.set) {
             args = "";
-            settings = [.. commandParts.Skip(1).Select(ParseSetting)];
+            IEnumerable<string> settingParts = commandParts.Skip(1);
+            bool settingDisplayMode = settingParts.Any() && settingParts.First().Trim('-','+') == "list";
+            settings = [.. settingParts.Select(part => ParseSetting(part,settingDisplayMode && part != "list"))];
          } else {
             args = string.Join(' ',commandParts.Skip(1).Where(part => !part.StartsWith('-')));
-            settings = [.. commandParts.Skip(1).Where(part => part.StartsWith('-')).Select(ParseSetting)];
+            settings = [.. commandParts.Skip(1).Where(part => part.StartsWith('-')).Select(part => ParseSetting(part, false))];
          }
       }
 
@@ -526,6 +531,7 @@ namespace CDL2v1 {
       /// <param name="isSet">True when setting the value, false when resetting.</param>
       /// <param name="setting">The setting to modify.</param>
       private static void SetAutoSaveInterval(bool isSet,ParsedSetting setting) {
+         if (setting.IgnoreSet) return;
          int interval = isSet ? (int)setting.Value! : (int)setting.PreviousValue!;
          Database.Instance.ConfigureAutoSave(interval);
       }
@@ -538,6 +544,7 @@ namespace CDL2v1 {
       /// <param name="isSet">Indicates whether the target is intended to be set. This parameter does not affect the result.</param>
       /// <param name="setting">The setting to modify.</param>
       private static void SetTarget(bool isSet,ParsedSetting setting) {
+         if (setting.IgnoreSet) return;
          string cg = isSet ? (string)setting.Value! : (string)setting.PreviousValue!;
          CodeGenerator.AvailableCodeGenerators.ContainsKey(cg);
       }
@@ -549,6 +556,7 @@ namespace CDL2v1 {
       /// current implementation.</param>
       /// <param name="setting">The setting to modify.</param>
       private static void SetProgram(bool isSet,ParsedSetting setting) {
+         if (setting.IgnoreSet) return;
          string name = isSet ? (string)setting.Value! : (string)setting.PreviousValue!;
          Program? prog = null;
          if (name.IsNotNullEmptyOrWhitespace) prog = Database.Instance.ProgramByName(name);
@@ -627,14 +635,7 @@ namespace CDL2v1 {
                      InterpretCommandPrint(args); break;
 
                   case CommandType.set:
-                     // Modify settings so that the reset actually sets the new values
-                     if (settings.Count == 0) {
-                        // List the current settings
-                        DisplaySettings();
-                     } else {
-                        ResetSettings = false;
-                     }
-                     break;
+                     InterpretCommandSet(settings,ref ResetSettings); break;
                   case CommandType.status:
                      InterpretCommandStatus(args); break;
 
@@ -704,6 +705,36 @@ namespace CDL2v1 {
             }
          }
          SetStatus();
+      }
+
+      /// <summary>
+      /// Interprets a collection of parsed settings commands and determines whether to display current settings or
+      /// modify the reset behavior based on the provided input.
+      /// </summary>
+      /// <remarks>If the settings list is empty, the method displays all current settings. If the first
+      /// setting is 'list', it displays either all settings or only those specified after 'list'. For other commands,
+      /// the reset behavior is not triggered.</remarks>
+      /// <param name="settings">A list of parsed settings commands to process. If the list is empty or the first command is 'list', the method
+      /// displays current or specified settings.</param>
+      /// <param name="ResetSettings">A reference to a Boolean value that indicates whether the settings should be reset. Set to false if the
+      /// command does not require a reset.</param>
+      private void InterpretCommandSet(IEnumerable<ParsedSetting> settings,ref bool ResetSettings) {
+         // Modify settings so that the reset actually sets the new values
+         if (!settings.Any()) {
+            // List the current settings
+            DisplaySettings();
+         } else if (settings.First().Name == "list") {
+            // List all the other settings specified or all if none were
+            if (settings.Count() == 1) {
+               DisplaySettings();
+            } else {
+               settings = settings.Where(ps => ps.Name != "list");
+               foreach (ParsedSetting setting in settings) setting.IgnoreSet = true; // prevent changing settings with default values
+               DisplaySettings(settings);
+            }
+         } else {
+            ResetSettings = false;
+         }
       }
 
       /// <summary>
@@ -956,10 +987,23 @@ namespace CDL2v1 {
          }
       }
 
-      private void DisplaySettings() {
-         WriteLine(Settings.AllSettings.First().ToTabularString(title: true)!);
-         foreach (ISetting setting in Settings.AllSettings.OrderBy(s => s.Name)) {
-            WriteLine(setting.ToTabularString()!);
+      /// <summary>
+      /// Displays application settings in a tabular format, optionally filtering the output to include only the
+      /// specified settings.
+      /// </summary>
+      /// <remarks>If no parsed settings are specified, all available settings are displayed. The first
+      /// setting in the output is used as a table header.</remarks>
+      /// <param name="parsedSettings">An optional collection of parsed settings used to filter which settings are displayed. If provided, only
+      /// settings with names matching those in the collection are shown.</param>
+      private void DisplaySettings(IEnumerable<ParsedSetting>? parsedSettings = null) {
+         IEnumerable<ISetting> settings = Settings.AllSettings;
+         if (parsedSettings is not null && parsedSettings.Any()) {
+            IEnumerable<string> parsedSettingNames = parsedSettings!.Select(ps => ps.Name).Distinct();
+            settings = settings.Where(s=>parsedSettingNames.Contains(s.Name.ToLower()));
+            foreach (ISetting setting in settings.OrderBy(s => s.Name)) WriteLine(setting.DisplayString);
+         } else {
+            WriteLine(settings.First().ToTabularString(title:true)!);
+            foreach (ISetting setting in settings.OrderBy(s => s.Name)) WriteLine(setting.ToTabularString(title:false)!);
          }
       }
 

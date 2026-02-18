@@ -391,7 +391,7 @@ namespace CDL2v1 {
          foreach (string settingName in pragmas.Keys) {
             ParsedSetting? parsedTarget = settings.FirstOrDefault(s => s.Name == settingName);
             if (parsedTarget is null) {
-               parsedTarget = new ParsedSetting(settingName,SettingType.String,pragmas[settingName],null);
+               parsedTarget = new ParsedSetting(settingName,SettingType.String,pragmas[settingName],null,false);
                if (parsedTarget.SetSetting(reporter)) settings.Add(parsedTarget);
             }
          }
