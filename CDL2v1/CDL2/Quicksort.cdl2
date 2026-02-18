@@ -343,7 +343,7 @@ MODULE quicksort.
          INV subtract, incr.
 
          # The lower and upper bounds of the data array. #
-         CONST lwb=1, upb=100.
+         CONST lwb=1, upb=1_000.
 
          CONST max size of list to show=100.
 
@@ -537,18 +537,28 @@ MODULE quicksort.
             divide+cdl2 elapsed+builtin elapsed+ratio, show msg no newline+"Ratio: ", show number+ratio, show msg+".".
          
          # Test builtin function.
-         ACTION show user and code generation date -gen date -user:
-            BUILTIN date+gen date, show msg no newline+"Code generated on ", show msg+gen date,
+         ACTION show user and code generation date -gen date -gen time -user:
+            BUILTIN date+gen date, BUILTIN time+gen time,
+              show msg no newline+"Code generated on ", show msg no newline+gen date, show msg no newline+" at ", show msg+gen time,
             BUILTIN environment variable+"USERNAME"+user, show msg no newline+"User: ", show msg+user.
          
          # Test conditional compilation with built-in tests.
+         ACTION show cg options:
+            show target, show proc inlining, show macro inlining, show msg+".".
          ACTION show target:
-            BUILTIN is target+"PowerShell", show msg+"Target: PowerShell.";
-            BUILTIN is target+"CSharp", show msg+"Target: C#.";
-            BUILTIN is target+"C", show msg+"Target: C.";
+            BUILTIN is target+"PowerShell", show msg no newline+"Target: PowerShell";
+            BUILTIN is target+"CSharp", show msg no newline+"Target: C#";
+            BUILTIN is target+"C", show msg no newline+"Target: C";
             show msg+"Target: unknown".
+         ACTION show proc inlining:
+            BUILTIN is option+"NoProcInlining", show msg no newline+", NoProcInlining";
+            show msg no newline+", ProcInlining".
+         ACTION show macro inlining:
+            BUILTIN is option+"NoMacroInining", show msg no newline+", NoMacroInlining";
+            show msg no newline+", MacroInlining".
+
       ENDSEC sorter.
-      PRELUDE show user and code generation date, show target.
+      PRELUDE show user and code generation date, show cg options.
       ROOT run demo.
    ENDLAY sort.
 ENDMOD quicksort.

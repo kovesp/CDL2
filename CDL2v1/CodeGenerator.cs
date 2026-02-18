@@ -308,10 +308,10 @@ namespace CDL2v1 {
       /// <param name="inlining"></param>
       private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,List<IActualArg>? args = null,Parameters? parameters = null,bool inlining = false) {
          parameters = new(parameters,macro.Affixes,args ?? []);
-         cg.GenerateMacroBodyStart(macro);
-         if (!inlining) GenerateLocalInitializers(macro);
          bool first = true;
          if (cg.TargetRequiresMacroSpliting && macro.CanFail) { // Target spliting is only needed for macros that can fail.
+            cg.GenerateMacroBodyStart(macro);
+            if (!inlining) GenerateLocalInitializers(macro);
             (List<IElement> beforeLast, List<IElement> lastExpression) parts = TargetCodeGenerator.SplitMacroBody(macro,cg.StatementSeparator);
             foreach (IElement elem in parts.beforeLast) {
                GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
@@ -323,15 +323,18 @@ namespace CDL2v1 {
                first = false;
             }
             if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
+            cg.GenerateMacroBodyEnd(macro);
          } else {
             if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
+            if (!inlining) GenerateLocalInitializers(macro);
+            cg.GenerateMacroBodyStart(macro);
             foreach (IElement elem in macro.elements) {
                GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
                first = false;
             }
+            cg.GenerateMacroBodyEnd(macro);
             if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
          }
-         cg.GenerateMacroBodyEnd(macro);
       }
 
       /// <summary>

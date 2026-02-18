@@ -131,7 +131,7 @@ namespace CDL2v1 {
          switch (call.id.CanonicalName) {
             case "isoption":
                if (call.TryGetActual(out STRING? option1)) {
-                  return Settings.TryGetSettingValue(option1.value,out _);
+                  return Settings.TryGetSettingValue(option1.value,out object? v) && v is bool b && b;
                } else {
                   return false;
                }
