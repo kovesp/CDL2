@@ -110,7 +110,17 @@ Enter | Execute the command or
       | Enter a single line CDL2 object terminated by a period.
 ↑     | Previous command in history.
 ↓     | Next command in history.
+Tab   | Complete command, setting, or selector name (if possible).
 F1    | Show this help message.
+
+Editing keys in completion menu (when visible):
+Key   | Action
+---
+↑/↓   | Navigate items
+Tab   | Cycle through items
+Enter | Select current item
+Space | Select current item
+Esc   | Cancel menu
 """;
 
       // Background brushes for input field
@@ -447,7 +457,7 @@ F1    | Show this help message.
 
          // Handle keyboard navigation on the menu itself
          _activeCompletionMenu.PreviewKeyDown += (s,e) => {
-            if (e.Key == Key.Down) {
+            if (e.Key == Key.Down || e.Key == Key.Tab) {
                _selectedCompletionIndex = (_selectedCompletionIndex + 1) % _currentCompletions.Length;
                UpdateCompletionSelection();
                e.Handled = true;
@@ -455,7 +465,7 @@ F1    | Show this help message.
                _selectedCompletionIndex = (_selectedCompletionIndex - 1 + _currentCompletions.Length) % _currentCompletions.Length;
                UpdateCompletionSelection();
                e.Handled = true;
-            } else if (e.Key == Key.Enter) {
+            } else if (e.Key == Key.Enter || e.Key == Key.Space) {
                ApplyCompletion(_currentCompletions[_selectedCompletionIndex]);
                e.Handled = true;
             } else if (e.Key == Key.Escape) {

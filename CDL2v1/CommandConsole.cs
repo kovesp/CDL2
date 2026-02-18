@@ -101,9 +101,11 @@ F1          | Show this help message
 
 Tab Completion Menu (when shown):
   ↑/↓       | Navigate items
+  Tab       | Cycle through items
   PgUp/PgDn | Navigate by page
   Home/End  | Jump to first/last item
   Enter     | Select current item
+  Space     | Select current item
   Esc       | Cancel menu
 """;
       private Action<string>? inputProcessor;
@@ -1188,7 +1190,7 @@ Tab Completion Menu (when shown):
                   // Cancel - clear menu and return null
                   ClearCompletionMenu(menuLeft,menuTop,menuWidth,menuHeight);
                   return null;
-               } else if (key.Key == ConsoleKey.Enter) {
+               } else if (key.Key == ConsoleKey.Enter || key.Key == ConsoleKey.Spacebar) {
                   // Select current item
                   ClearCompletionMenu(menuLeft,menuTop,menuWidth,menuHeight);
                   return completions[selectedIndex];
@@ -1197,7 +1199,7 @@ Tab Completion Menu (when shown):
                      selectedIndex--;
                      if (selectedIndex < scrollOffset) scrollOffset = selectedIndex;
                   }
-               } else if (key.Key == ConsoleKey.DownArrow) {
+               } else if (key.Key == ConsoleKey.DownArrow || key.Key == ConsoleKey.Tab) {
                   if (selectedIndex < completions.Length - 1) {
                      selectedIndex++;
                      if (selectedIndex >= scrollOffset + visibleItems) scrollOffset = selectedIndex - visibleItems + 1;

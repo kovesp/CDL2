@@ -175,10 +175,10 @@ namespace CDL2v1 {
 
       public static readonly Note NoEffect = new(Severity.Warning,101,"Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten = new(Severity.Warning,102,"Output affix {0} whose value has not been read passed to output in {1}");
-      public static readonly Note TransputAffixOverwritten = new(Severity.Warning,103,"Transput affix (0} whose action has not been read passed to output in {1}");
-      public static readonly Note VariableNotRead = new(Severity.Warning,104,"Variable {0} was assigned a action which was never read");
-      public static readonly Note VariableNotWritten = new(Severity.Warning,105,"Variable {0} was read, but never assigned a action");
-      public static readonly Note VariableMayNotHaveBeenRead = new(Severity.Warning,106,"Variable {0} was assigned a action, but may not have been read");
+      public static readonly Note TransputAffixOverwritten = new(Severity.Warning,103,"Transput affix (0} whose value has not been read passed to output in {1}");
+      public static readonly Note VariableNotRead = new(Severity.Warning,104,"Variable {0} was assigned a value which was never read");
+      public static readonly Note VariableNotWritten = new(Severity.Warning,105,"Variable {0} was read, but never assigned a value");
+      public static readonly Note VariableMayNotHaveBeenRead = new(Severity.Warning,106,"Variable {0} was assigned a value, but may not have been read");
       public static readonly Note AbstractionsInTopLayer = new(Severity.Warning,107,"There are abstractions in the top layer of the module");
       public static readonly Note UninitializedOutputPassedAsInput = new(Severity.Warning,110,"Output affix {0} that has not been set passed as input or transput in call {1}");
       public static readonly Note InputAffixPassedToOutput = new(Severity.Warning,111,"Input affix {0} passed to output or transput in call {0}");

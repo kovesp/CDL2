@@ -210,10 +210,14 @@ namespace CDL2v1 {
          new Setting<bool>(    "undo",               NoOption,             false,          "Can be used in the list command to display the undo stack."),
          new Setting<bool>(    "redo",               NoOption,             false,          "Can be used in the list command to display the redo stack."),
          
+         new Setting<bool>(    "error",              NoOption,             false,          "On the list command shows all error notes on the object and its children."),
+         new Setting<bool>(    "warning",            NoOption,             false,          "On the list command shows all error and warning notes on the object and its children."),
+         new Setting<bool>(    "info",               NoOption,             false,          "On the list command shows all error, warning, and info notes on the object and its children."),
+         
          new Setting<bool>(    "selectors",          NoOption,             false,          "Used in the help command to list avaialble selectors."),
          new Setting<bool>(    "settings",           NoOption,             false,          "Used in the help command to list avaialble settings."),
 
-         new Setting<bool>(    "DebugCommands",      NoOption,             false,         "Display the parsed command."),
+         new Setting<bool>(    "DebugCommands",      NoOption,             false,          "Display the parsed command."),
       ];
 
       public record struct NameCompletion(IEnumerable<ISetting> Matches,int MatchLength);
@@ -253,6 +257,9 @@ namespace CDL2v1 {
          { "f","file" },
          { "o","settings" },
          { "s","selectors" },
+         { "e","error"  },
+         { "w","warning" },
+         { "i","info" },
       }.ToImmutableDictionary();
       public static readonly ImmutableDictionary<string,string> ReverseSpecificAbbreviations =
          SpecificAbbreviations.ToImmutableDictionary(kvp => kvp.Value,kvp => kvp.Key);

@@ -376,13 +376,18 @@ namespace CDL2v1 {
       private ParsedSetting ParseSetting(string settingString, bool ignoreSet = false) {
          string[] parts = settingString.TrimStart('-').Split([':','='],2);
          string settingName = parts[0].ToLower().TrimEnd('+','-');
-         if (Settings.SpecificAbbreviations.TryGetValue(settingName,out string? fullName)) settingName = fullName;
-         Settings.NameCompletion completions = Settings.MatchingSetting(settingName);
-         if (completions.Matches.Count() > 1) {
-            ReportProblem(Note.AmbiguousSettingName,settingName,string.Join(",",completions.Matches.Select(s => s.Name)));
-            return ParsedSetting.Invalid;
-         } else if (completions.Matches.Count() == 1) {
-            settingName = completions.Matches.First().Name;
+         if (Settings.SpecificAbbreviations.TryGetValue(settingName,out string? fullName)) {
+            // If there is a specific abbreviation, we use that.
+            // This allows us to have disjoint abbreviations that would otherwise be ambiguous.
+            settingName = fullName;
+         } else {
+            Settings.NameCompletion completions = Settings.MatchingSetting(settingName);
+            if (completions.Matches.Count() > 1) {
+               ReportProblem(Note.AmbiguousSettingName,settingName,string.Join(",",completions.Matches.Select(s => s.Name)));
+               return ParsedSetting.Invalid;
+            } else if (completions.Matches.Count() == 1) {
+               settingName = completions.Matches.First().Name;
+            }
          }
          bool hasBoolSuffix = parts[0].EndsWith('+') || parts[0].EndsWith('-');
          bool boolValue = ! parts[0].EndsWith('-');
@@ -945,7 +950,7 @@ namespace CDL2v1 {
                programs = Database.Instance.ProgramObjects;
             }
          }
-         foreach (Program program in Database.Instance.ProgramObjects) {
+         foreach (Program program in programs) {
             WriteInfo($"Analyzing {program}");
             program.AnalysisRequired = true;
             SemanticAnalyzer analyzer = program.SemanticAnalyzer;

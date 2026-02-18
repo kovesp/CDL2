@@ -170,13 +170,20 @@ namespace CDL2v1 {
          // Must be lowercase letters (or empty for just '-')
          if (settingPrefix.Length > 0 && !char.IsAsciiLetterLower(settingPrefix[0])) return false;
 
-         // Get all setting names that match the prefix (case-insensitive)
-         string[] completions = [.. Settings.AllSettings
+         string[] completions;
+         if (Settings.SpecificAbbreviations.TryGetValue(settingPrefix,out string? fullName)) {
+            // If there is a specific abbreviation, we use that.
+            // This allows us to have disjoint abbreviations that would otherwise be ambiguous.
+            completions = ["-"+fullName];
+         } else {
+            // Get all setting names that match the prefix (case-insensitive)
+            completions = [.. Settings.AllSettings
                                     .Select(s => s.Name.ToLower())
                                     .Where(name => name.StartsWith(settingPrefix,StringComparison.OrdinalIgnoreCase))
                                     .Select(name => "-" + name)  // Always prepend '-' to completions
                                     .Distinct()
                                     .Order()];
+         }
 
          if (completions.Length == 0) return false;
 
