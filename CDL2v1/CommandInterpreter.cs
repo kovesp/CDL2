@@ -331,6 +331,7 @@ namespace CDL2v1 {
          public object? PreviousValue = CurrentValue;
          public bool IsValid => Value is not null;
          public bool IgnoreSet = IgnoreSet;
+         public string IgnoreSetMarker => IgnoreSet ? "*" : " ";
 
          public static readonly ParsedSetting Invalid = new ("",SettingType.String,null,null,false);
 
@@ -358,10 +359,10 @@ namespace CDL2v1 {
          }
 
          public override string ToString() => Type switch {
-            SettingType.Boolean => $"-{Name}{(Value is null ? "" : (bool)Value ? "+" : "-")} ",
-            SettingType.Integer => $"-{Name}={Value} ",
-            SettingType.String => $"-{Name}=\"{Value}\" ",
-            _ => $"-{Name}=<unknown type> "
+            SettingType.Boolean => $"{IgnoreSetMarker}-{Name}{(Value is null ? "" : (bool)Value ? "+" : "-")} ",
+            SettingType.Integer => $"{IgnoreSetMarker}-{Name}={Value} ",
+            SettingType.String => $"{IgnoreSetMarker}-{Name}=\"{Value}\" ",
+            _ => $"{IgnoreSetMarker}-{Name}=<unknown type> "
          };
       }
 
@@ -696,7 +697,7 @@ namespace CDL2v1 {
          } finally {
             // Restore previous settings (unless it is a set command
             if (ResetSettings) {
-               foreach (ParsedSetting setting in settings) {
+               foreach (ParsedSetting setting in settings.Where(s=>!s.IgnoreSet)) {
                   if (Settings.IsValidSetting(setting.Name)) {
                      if (SetHandlers.TryGetValue(setting.Name,out Action<bool,ParsedSetting>? handler)) handler(false,setting);
                      Settings.SettingValue(setting.Name,setting.Type,setting.PreviousValue!,CommandOverride: false);
