@@ -38,16 +38,23 @@ namespace CDL2v1 {
 
       protected Emitter emitter = new EmitterSink();
 
+      public virtual bool RequiresPredeclaration => false;
+      public virtual void GenerateDeclaration(Algorithm algorithm) { }
+
       #region Helpers
       protected void Newline(bool optional = false) {
          if (optional) emitter.EmitnlOption(); else emitter.Emitnl();
       }
-      protected void EmitUnitStartComment(Container unit) => emitter.Emitnl($"# Begin {unit.ContainerName}");
-      protected void EmitUnitEndComment(Container unit) => emitter.Emitnl($"# End {unit.ContainerName}");
+      protected void EmitUnitStartComment(Container unit) => emitter.Emitnl($"{LineComment} Begin {unit.ContainerName}");
+      protected void EmitUnitEndComment(Container unit) => emitter.Emitnl($"{LineComment} End {unit.ContainerName}");
       protected void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl("# ",line);
+         foreach (string line in comment.Split('\n')) emitter.Emitnl($"{LineComment} {line}");
       }
 
+      /// <summary>
+      /// Override when constructing a sublcalss if required
+      /// </summary>
+      protected string LineComment = "//";
       protected (string Start, string End) NestedComment = ("/*", "*/");
 
       public void IncrementIndent() => emitter.IndentLevel++;

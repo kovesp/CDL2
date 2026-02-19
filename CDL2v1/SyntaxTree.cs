@@ -1609,6 +1609,9 @@ namespace CDL2v1 {
          if (this is Procedure procedure) procedure.group.Dispose();
          Database.Instance.NamedElements.Remove(GUID);
       }
+
+      public virtual bool IsInlinable(Reachable reachable) => false;
+
    }
 
    /// <summary>
@@ -1642,6 +1645,8 @@ namespace CDL2v1 {
       public Macro(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section) : base(id,affixes,locals,algorithmType,bodyType,section) { }
       [JsonConstructor]
       public Macro() : base() { } // For deserialization
+
+      public override bool IsInlinable(Reachable _) => IsInlineMacro && Settings.InliningMacros;
 
       public override IEnumerable<Var> GetReferencedVariables() => elements.OfType<ID>().Select(id => Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
    }
@@ -1768,8 +1773,8 @@ namespace CDL2v1 {
       /// It is inlinable if n*m <= the threshold specified in the settings.
       /// <param name="reachable">The reachability graph.</param>
       /// </summary>
-      public bool IsInlinable(Reachable reachable) {
-         if (Settings.SettingValue<bool>("NoProcInlining"))
+      public override bool IsInlinable(Reachable reachable) {
+         if (!Settings.InliningProcs)
             return false;
          if (IsConditionalCompilationOff || IsConditionalCompilationOn)
             return false;  // Handled explicitly by the code generator.

@@ -278,10 +278,11 @@ MODULE c kernel.
          ACTION start timer = start " = clock();".
          ACTION stop timer  = stop " = clock();".
          
-         FUNCTION get elapsed time+elapsed> = "$l " elapsed " = [long](" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC)".
+         FUNCTION get elapsed time+elapsed> 
+            = "$l " elapsed " = (long)((" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC);".
 
          ACTION show elapsed time = 
-            "printf($"Elapsed time: %.0f milliseconds\n$", (double)(" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC);".
+            "printf($"Elapsed time: %.0f milliseconds\n$", ((double)(" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC));".
       ENDSEC timer.
 
       SECTION messages.
@@ -326,9 +327,11 @@ MODULE c kernel.
          
          
          # Sort the array using qsort. For execution time comparison. #
+         # For this to work, include
+         #    int cmplong(const void *a, const void *b) { return (*(long*)a - *(long*)b);
+         # in CDL2.h which is automatically included in C code generator output.
          ACTION sort data = 
-            "$Lint cmp(const void *a, const void *b) { return (*(long*)a - *(long*)b); }"
-            "$Lqsort(" data "_array, " upb " - " lwb " + 1, sizeof(long), cmp);".  
+            "$Lqsort(" data "_array, " upb " - " lwb " + 1, sizeof(long), cmplong);".  
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD c kernel.

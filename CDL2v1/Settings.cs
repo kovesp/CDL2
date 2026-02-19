@@ -36,6 +36,7 @@
 using System.Collections.Immutable;
 using System.CommandLine;
 using System.ComponentModel;
+using System.Configuration;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -313,6 +314,9 @@ namespace CDL2v1 {
       public static string LabDBPath => Path.Combine(OutputDirectory,LabDBName);
 
       public static bool LabMode => SettingValue<bool>("Lab") && !SettingValue<bool>("ParseOnly");
+
+      public static bool InliningProcs => ! SettingValue<bool>("NoProcInlining");
+      public static bool InliningMacros => ! SettingValue<bool>("NoMacroInlining");
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static object? SettingValue(string name) => Setting<object>(name);

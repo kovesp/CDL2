@@ -338,6 +338,15 @@ namespace CDL2v1 {
 
       #region Algorithm Common
       /// <summary>
+      /// Some taget languages require (e.g., C) procedures to be declared befor call.
+      /// The code genrator must return true for that to happen.
+      /// </summary>
+      /// <returns></returns>
+      bool RequiresPredeclaration => false;
+      void GenerateDeclaration(Algorithm algorithm);
+
+
+      /// <summary>
       /// This called to start generating the header for an algorithm.
       /// It typically generates the name of the algorithm using the syntax of the target language.
       /// </summary>

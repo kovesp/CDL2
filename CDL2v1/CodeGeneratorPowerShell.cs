@@ -54,6 +54,7 @@ namespace CDL2v1 {
          DataType = dataType;
          DT = $"[{DataType}]";
          NestedComment = ("<#", "#>");
+         LineComment = "#";
       }
 
       private static readonly string ProgramHeaderPattern = @"

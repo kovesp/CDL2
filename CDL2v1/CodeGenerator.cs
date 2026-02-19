@@ -93,11 +93,17 @@ namespace CDL2v1 {
             GenerateObjects<Var>(Reachable.Objects.OfType<Var>(),GenerateVar);
             GenerateObjects<LIST>(Reachable.Objects.OfType<LIST>(),GenerateList);
 
-
-            GenerateObjects<Macro>(Reachable.Objects.OfType<Macro>(),GenerateMacro);
-            GenerateObjects<Procedure>(Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic),GenerateProcedure);
-            GenerateObjects<Procedure>(Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic),GenerateProcedure,"Synthetic Procedure");
-            //GenerateObjects<Procedure>(section.LudeProcedures,          GenerateProcedure,"Lude Procedure"); // The above already generates these
+            IEnumerable<Macro> macros = Reachable.Objects.OfType<Macro>();
+            IEnumerable<Procedure> procedures = Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic);
+            IEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic);
+            if (cg.RequiresPredeclaration) {
+               GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Pre-Declaration");
+               GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Pre-Declaration");
+               GenerateObjects<Procedure>(syntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Pre-Decalration");
+            }
+            GenerateObjects<Macro>(macros,GenerateMacro);
+            GenerateObjects<Procedure>(procedures,GenerateProcedure);
+            GenerateObjects<Procedure>(syntheticProcedures,GenerateProcedure,"Synthetic Procedure");
 
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
@@ -201,12 +207,21 @@ namespace CDL2v1 {
          GenerateObjects<Var>(section.Variables,GenerateVar);
          GenerateObjects<LIST>(section.Lists,GenerateList);
 
+         if (cg.RequiresPredeclaration) {
+            GenerateObjects<Macro>(section.Macros,GeneratePredeclaration,"Macro Declrations");
+            GenerateObjects<Procedure>(section.NonSyntheticProcedures,GeneratePredeclaration,"Procedure Declrations");
+            GenerateObjects<Procedure>(section.SyntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Declrations");
+         }
+
          GenerateObjects<Macro>(section.Macros,GenerateMacro);
          GenerateObjects<Procedure>(section.NonSyntheticProcedures,GenerateProcedure);
          GenerateObjects<Procedure>(section.SyntheticProcedures,GenerateProcedure,"Synthetic Procedure");
-         //GenerateObjects<Procedure>(section.LudeProcedures,          GenerateProcedure,"Lude Procedure"); // The above already generates these
 
          cg.GenerateSectionEnd(section);
+      }
+
+      private void GeneratePredeclaration(Algorithm alg,int _) {
+         if (!alg.IsInlinable(Reachable)) cg.GenerateDeclaration(alg);
       }
 
       /// <summary>
@@ -279,7 +294,7 @@ namespace CDL2v1 {
       /// <param name="macro"></param>
       /// <param name="_"></param>
       private void GenerateMacro(Macro macro,int _) {
-         if (!Settings.SettingValue<bool>("NoMacroInlining") && macro.IsInlineMacro) {
+         if (Settings.InliningMacros && macro.IsInlineMacro) {
             GenerateAlgorithmComment(macro);
             cg.GenerateComment("Macro inlined");
          } else {
@@ -488,14 +503,9 @@ namespace CDL2v1 {
       /// <param name="variables"></param>
       private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
          GenerateAlgorithmComment(alg);
+
          cg.GenerateAlgorithmHeaderStart(alg);
-         if (alg.Affixes.Count > 0) {
-            cg.GenerateAffix(alg.Affixes[0],alg.Affixes[0].affixDir,alg.CanFail);
-            foreach (Affix affix in alg.Affixes.Skip(1)) {
-               cg.GenerateAffixSeparator();
-               cg.GenerateAffix(affix,affix.affixDir,alg.CanFail);
-            }
-         }
+         GenerateAlgorithmAffixes(cg,alg);
          cg.GenerateAlgorithmHeaderEnd(alg);
 
          cg.GenerateAffixAndVariableInitializationStart(alg);
@@ -505,6 +515,22 @@ namespace CDL2v1 {
          }
          GenerateLocalInitializers(CollectLocals(alg));
          cg.GenerateAffixAndVariableInitializationEnd(alg);
+      }
+
+      /// <summary>
+      /// Generates the affix declarations in the header.
+      /// Can be used by target code generators.
+      /// </summary>
+      /// <param name="cg"></param>
+      /// <param name="alg"></param>
+      public static void GenerateAlgorithmAffixes(ICodeGenerator cg,Algorithm alg) {
+         if (alg.Affixes.Count > 0) {
+            cg.GenerateAffix(alg.Affixes[0],alg.Affixes[0].affixDir,alg.CanFail);
+            foreach (Affix affix in alg.Affixes.Skip(1)) {
+               cg.GenerateAffixSeparator();
+               cg.GenerateAffix(affix,affix.affixDir,alg.CanFail);
+            }
+         }
       }
 
       /// <summary>
@@ -606,9 +632,9 @@ namespace CDL2v1 {
          if (!call.IsConditionalCompilationOn && !call.IsBuiltin) {
             Algorithm? called = call.Called;
             if (called is not null) {
-               if (called is Macro macro && !Settings.SettingValue<bool>("NoMacroInlining") && macro.IsInlineMacro) {
+               if (called is Macro macro && Settings.InliningMacros && macro.IsInlineMacro) {
                   locals.AddAll(macro.Locals);
-               } else if (called is Procedure proc && !Settings.SettingValue<bool>("NoProcInlining")  && proc.IsInlinable(Reachable)) {
+               } else if (called is Procedure proc && Settings.InliningProcs  && proc.IsInlinable(Reachable)) {
                   locals.AddAll(proc.Locals);
                   CollectLocals(proc.group,locals);
                }
@@ -715,11 +741,11 @@ namespace CDL2v1 {
          } else {
             Algorithm? called = call.Called;
             if (called is not null) {
-               if (!Settings.SettingValue<bool>("NoMacroInlining") && called is Macro macro && macro.IsInlineMacro) {
+               if (Settings.InliningMacros && called is Macro macro && macro.IsInlineMacro) {
                   cg.GenerateComment($"Inlining macro call -> {call}");
                   GenerateAlgorithmComment(called,nl: false);
                   GenerateMacroBody(macro,proc,[.. call.Args],parameters,inlining: true);
-               } else if (!Settings.SettingValue<bool>("NoProcInlining") && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
+               } else if (Settings.InliningProcs && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
                   GenerateAlgorithmComment(called,nl:false);
                   // GenerateLocalInitializers(calledProc); // Propagated up to containing proc
