@@ -665,6 +665,7 @@ namespace CDL2v1 {
          bool removed;
 
          int i = 1;
+         int lastRemoved = -1;
          foreach (Alternative alternative in group.Alternatives) {
             removed = false;
             if (suppressRest) {
@@ -673,9 +674,10 @@ namespace CDL2v1 {
             } else if (alternative.IsConditionalCompilationOff) {           // Ignore this alternative
                cg.GenerateComment($"Alternative {i} removed by conditional compilation OFF");
                removed = true;
+               lastRemoved = i;
             } else {
                suppressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
-               cg.GenerateAlternativeStart(proc,group,i);
+               cg.GenerateAlternativeStart(proc,group,i,lastRemoved == i-1);
                GenerateAlternative(proc,group,alternative,suppressRest || group.Alternatives.Count == i);
                cg.GenerateAlternativeEnd(proc,group,i,alternative,removed);
             }

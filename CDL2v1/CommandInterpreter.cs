@@ -383,8 +383,11 @@ namespace CDL2v1 {
          } else {
             Settings.NameCompletion completions = Settings.MatchingSetting(settingName);
             if (completions.Matches.Count() > 1) {
-               ReportProblem(Note.AmbiguousSettingName,settingName,string.Join(",",completions.Matches.Select(s => s.Name)));
-               return ParsedSetting.Invalid;
+               if (!completions.Matches.Any(setting => setting.Name.ToLower() == settingName.ToLower())) {
+                  // Unless there is a setting with a full match, report the problem
+                  ReportProblem(Note.AmbiguousSettingName,settingName,string.Join(",",completions.Matches.Select(s => s.Name)));
+                  return ParsedSetting.Invalid;
+               }
             } else if (completions.Matches.Count() == 1) {
                settingName = completions.Matches.First().Name;
             }

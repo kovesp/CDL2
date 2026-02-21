@@ -50,9 +50,15 @@ MODULE powershell kernel.
       ENDSEC arithmetic.
 
       SECTION command line.
-         EXPORT command line argument count, command line argument.
+         EXPORT command line argument count, command line argument, is command line argument, is command line argument numeric, get program name.
+
          FUNCTION command line argument count+count> = "$L" count " = $args.Count;".
          FUNCTION command line argument+>n+arg> = "$L" arg " = $args[" n "];".
+         TEST is command line argument+>n*arg =
+            "$L ($args[(int)" n "] -eq " arg ")". 
+         TEST is command line argument numeric+>n+number> =
+            "$L (" number " = $args[(int)" n "] -as [long]) -ne $null".
+         FUNCTION get program name+prog name> = "$L" prog name " = $MyInvocation.MyCommand.Name;".
       ENDSEC command line.
 
       SECTION touch.
@@ -114,15 +120,15 @@ MODULE powershell kernel.
          ACTION set element to+>p+>q =
             data ".Item(" p "," data ".Item(" q "))".
 
-         TEST is data sorted macro -i -r =
+         TEST is data sorted macro +>to -i -r =
             "$l " r " = 1"
-            "$l for (" i " = " lwb " ; " i " -lt " upb " ; " i "++) {"
+            "$l for (" i " = " lwb " ; " i " -lt " to " ; " i "++) {"
             "$l    if (" data ".Item(" i ") -gt " data ".Item(" i " + 1)) { " r " = 0; break }"
             "$l }"
             "$l [bool]" r.
-         
+
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data = data ".array = " data ".array | Sort-Object".
+         ACTION sort data+>to = "$L" data ".array[0..(" to " - " lwb ")] = " data ".array[0..(" to " - " lwb ")] | Sort-Object".
          ACTION show native sorter: show msg no newline+"Sort-Object".
       ENDSEC data.
    ENDLAY kernel.
@@ -178,9 +184,15 @@ MODULE csharp kernel.
       ENDSEC arithmetic.
 
       SECTION command line.
-         EXPORT command line argument count, command line argument.
+         EXPORT command line argument count, command line argument, is command line argument, is command line argument numeric, get program name.
+
          FUNCTION command line argument count+count> = "$L" count " = Program.args.Length;".
          FUNCTION command line argument+>n+arg> = "$L" arg " = Program.args[" n "];".
+         TEST is command line argument+>n*arg =
+            "$L Program.args[(int)" n "] == " arg. 
+         TEST is command line argument numeric+>n+number> =
+            "$L long.TryParse(Program.args[(int)" n "], out " number ")".
+         FUNCTION get program name+prog name> = "$L" prog name " = System.Environment.GetCommandLineArgs()[0];".
       ENDSEC command line.
 
       SECTION touch.
@@ -239,18 +251,18 @@ MODULE csharp kernel.
          ACTION set element to+>p+>q =
             data "[" p "] = " data "[" q "];".
 
-         TEST is data sorted macro -i -r =
+         TEST is data sorted macro +>to -i -r =
             r " = 1;"
-            "$Lfor (" i " = " lwb "; " i " < " upb "; " i "++) {"
+            "$Lfor (" i " = " lwb "; " i " < " to "; " i "++) {"
             "$L   if (" data "[" i "] > " data "[" i " + 1]) {"
             "$L      " r " = 0;"
             "$L      break;"
             "$L   }"
             "$L}"
             "$L" r " == 1" .
-         
+
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data = "System.Array.Sort(" data ".array);".
+         ACTION sort data+>to = "System.Array.Sort(" data ".array, 0, " to " - " lwb " + 1);".
          ACTION show native sorter: show msg no newline+".Net System.Array.Sort".
       ENDSEC data.
    ENDLAY kernel.
@@ -306,9 +318,14 @@ MODULE c kernel.
       ENDSEC arithmetic.
 
       SECTION command line.
-         EXPORT command line argument count, command line argument.
-         FUNCTION command line argument count+count> = "$L" count " = _argc;".
-         FUNCTION command line argument+>n+arg> = "$L" arg " = _argv[(int)" n "];".
+         EXPORT command line argument count, is command line argument, is command line argument numeric, get program name.
+
+         FUNCTION command line argument count+count> = "$L" count " = _argc - 1;".
+         TEST is command line argument+>n*arg =
+            "strcmp(_argv[(int)" n " + 1]," arg ") == 0".            
+         TEST is command line argument numeric+>n+number> =
+            "sscanf(_argv[(int)" n " + 1], $"%ld$", &" number ") == 1".
+         FUNCTION get program name+prog name> = "$L" prog name " = _argv[0];".
       ENDSEC command line.
 
       SECTION touch.
@@ -376,22 +393,22 @@ MODULE c kernel.
          ACTION set element to+>p+>q =
             "CDL2_LIST_SET(" data ", " p ", CDL2_LIST_GET(" data ", " q "));".
 
-         TEST is data sorted macro -i -r =
+         TEST is data sorted macro +>to -i -r =
             r " = 1;"
-            "$Lfor (" i " = " lwb "; " i " < " upb "; " i "++) {"
+            "$Lfor (" i " = " lwb "; " i " < " to "; " i "++) {"
             "$L   if (CDL2_LIST_GET(" data ", " i ") > CDL2_LIST_GET(" data ", " i " + 1)) {"
             "$L      " r " = 0;"
             "$L      break;"
             "$L   }"
             "$L}"
             "$L" r " == 1" .
-         
-         
+
+
          # Sort the array using qsort. For execution time comparison. #
          # For this to work, include
          #    int cmplong(const void *a, const void *b) { return (*(long*)a - *(long*)b);
          # in CDL2.h which is automatically included in C code generator output.
-         ACTION sort data = "$Lqsort(" data "_array, " upb " - " lwb " + 1, sizeof(long), cmplong);".
+         ACTION sort data+>to = "$Lqsort(" data "_array, " to " - " lwb " + 1, sizeof(long), cmplong);".
          ACTION show native sorter: show msg no newline+"C qsort(_,_,cmplong)".
       ENDSEC data.
    ENDLAY kernel.
@@ -405,23 +422,37 @@ MODULE quicksort.
          ABSTR lwb, upb, get data size.
          EXT lwb, upb, max size of list to show, min random, max random, get data size.
          EXPORT lwb, upb, min random, max random.
-         INV subtract, incr.
+         INV subtract, incr, decr, min, gt, ge, make, command line argument count, is command line argument numeric.
+         INV arg1, arg2, arg3.
+         INV show msg, show msg no newline, show number.
 
          # The lower and upper bounds of the data array. #
-         CONST lwb=1, upb=1_000.
+         CONST lwb=1, upb=1_000_000.
+
+         # The actual number of items to sort. Must be less than upb. #
+         VAR number to sort.
+         CONST default number to sort=10_000.
 
          CONST max size of list to show=100.
 
          # The range of random numbers. #
          CONST min random=0, max random=200.
 
-         # The size of the list to be sorted as a variable. Just to exercise VARs.
-         FUNCTION get data size +size>: subtract+upb+lwb+size, incr+size.
+         FUNCTION get data size +size>: 
+            make+size+number to sort.
+         ACTION set number to sort+>number-list size:
+            subtract+upb+lwb+list size, decr+list size, min+number+list size+number to sort.         
+
+         ACTION proccess command line -arg count -count -number:
+            set number to sort+default number to sort, command line argument count+count,
+            (ge+count+arg1, is command line argument numeric+arg1+number, set number to sort+number;
+             show msg no newline+"Using default number of items to sort: ", show number+number to sort, show msg+".").
       ENDSEC parametrization.
+      PRELUDE proccess command line.
 
       SECTION arithmetic.
-         ABSTR incr, decr, greater, less, less or equal, le, lt, gt, ge, add, halve, make, make string, random, divide.
-         EXT make, make string, random, incr, less or equal, le, lt, subtract.
+         ABSTR incr, decr, greater, less, less or equal, le, lt, gt, ge, add, halve, make, make string, random, divide, min, max.
+         EXT make, make string, random, incr, less or equal, le, lt, gt, ge, subtract, decr, min, max.
 
          IMPORT incr, decr, incr with, decr with.
          IMPORT add, subtract, multiply, divide, remainder, modulo, halve.
@@ -456,15 +487,28 @@ MODULE quicksort.
          TEST less or equal+>a+>b.
          TEST less+>a+>b: lt+a+b.
 
+         FUNCTION min+>a+>b+min>:
+            less+a+b, make+min+a;
+            make+min+b.
+
+         FUNCTION max+>a+>b+max>:
+            less+a+b, make+max+b;
+            make+max+a.
+
          FUNCTION random+>min+>max+r>.
       ENDSEC arithmetic.
 
       SECTION command line.
-         IMPORT command line argument count, command line argument.
-         ABSTR command line argument count, command line argument.
+         IMPORT command line argument count, is command line argument, is command line argument numeric, get program name.
+         ABSTR command line argument count, is command line argument, is command line argument numeric, get program name.
+         EXT command line argument count, is command line argument, is command line argument numeric, get program name, arg1, arg2, arg3.
+
+         CONST arg1=1, arg2=2, arg3=3.
 
          FUNCTION command line argument count+count>.
-         FUNCTION command line argument+>n+arg>.
+         TEST is command line argument+>n*arg.
+         TEST is command line argument numeric+>n+number>.
+         FUNCTION get program name+prog name>.
       ENDSEC command line.
 
       SECTION touch.
@@ -479,9 +523,9 @@ MODULE quicksort.
 
       SECTION data.
          ABSTR smaller element, swap element, get element, set element, set element to, dump data, is data sorted macro.
-         ABSTR sort data, initialize data, show native sorter.
+         ABSTR sort data, initialize data, show native sorter, data upb.
 
-         INV show msg, show msg no newline, show number, le, lt, incr, random, make, max size of list to show.
+         INV show msg, show msg no newline, show number, le, lt, incr, random, make, subtract, decr, max size of list to show.
          INV lwb, upb, get data size, min random, max random.
 
          IMPORT smaller element, swap element, get element, set element, set element to, is data sorted macro.
@@ -499,12 +543,15 @@ MODULE quicksort.
          FUNCTION get element +>i+v>.
          ACTION set element +>i+>v.
          ACTION set element to+>p+>q.
-         TEST is data sorted macro.
-         ACTION sort data.
+         TEST is data sorted macro+>to.
+         ACTION sort data+>to.
          ACTION show native sorter.
 
-         ACTION dump list -i-e:
-            make+i+lwb, get element+i+e, show number+e,
+         FUNCTION data upb+actual upb> -number to sort:
+            get data size+number to sort, subtract+number to sort+lwb+actual upb, decr+actual upb.
+
+         ACTION dump list -i-e-upb:
+            data upb+upb, make+i+lwb, get element+i+e, show number+e,
               (lt+i+upb, incr+i, show msg no newline+", ",get element+i+e, show number+e, *;
                show msg+"").
 
@@ -515,8 +562,8 @@ MODULE quicksort.
 
          
          # Fill the array with random integers. #
-         ACTION initialize data -i -r:
-            make+i+lwb,
+         ACTION initialize data -i -r -upb:
+             data upb+upb, make+i+lwb,
               (le+i+upb, random+min random+max random+r, set element+i+r, incr+i, *;
               show msg+"").
       ENDSEC data.
@@ -551,7 +598,7 @@ MODULE quicksort.
          INV show msg, show msg no newline, show number, is data sorted macro, less or equal.
          INV start timer, stop timer, show elapsed time, get elapsed time.
          INV touch in, touch out.
-         INV initialize data, sort data, show native sorter.
+         INV initialize data, sort data, show native sorter, data upb.
 
          ACTION quicksort +>from +>to -p -q:
             less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
@@ -581,8 +628,8 @@ MODULE quicksort.
             smaller element+q+m;
             decr+q, *.
 
-         TEST is data unsorted procedure +unsorted at>  -i -j -ei -ej:
-            make+i+lwb, make+j+i, incr+j,
+         TEST is data unsorted procedure+unsorted at>  -i -j -ei -ej -upb:
+            make+i+lwb, make+j+i, incr+j, data upb+upb,
                (next: less+i+upb, get element+i+ei, get element+j+ej,
                   (less or equal+ei+ej, incr+i, incr+j, *next;
                    make+unsorted at+i
@@ -591,30 +638,31 @@ MODULE quicksort.
                 
          TEST use macro for sortedness test: +.
 
-         PREDICATE is data sorted:
-            use macro for sortedness test, is data sorted macro;
+         PREDICATE is data sorted +>to:
+            use macro for sortedness test, is data sorted macro+to;
             show unsorted with location.
 
          PREDICATE show unsorted with location -pos:
             is data unsorted procedure+pos, show msg no newline+"Unsorted at ", show number+pos, show msg+".", -;
             +.
 
-         ACTION verify data sorted * which:
-            is data sorted, show msg no newline+which, show msg+" data is sorted.";
+         ACTION verify data sorted * which +>to:
+            is data sorted+to, show msg no newline+which, show msg+" data is sorted.";
             show msg no newline+which, show msg+" data is not sorted.".
 
          CONST zero = 0.
-         ACTION run demo -data size -cdl2 elapsed -builtin elapsed -ratio:
-            initialize data,
-            dump data+"Data before sorting: ", verify data sorted+"Random",
+         ACTION run demo -data size -cdl2 elapsed -builtin elapsed -ratio -to:
+            data upb+to, initialize data,
+            dump data+"Data before sorting: ", verify data sorted+"Random"+to,
+
             get data size+data size,
             show msg no new line+"Running quicksort on list of ", show number+data size, show msg+" elements.",
-            start timer, quicksort+lwb+upb, stop timer, get elapsed time+cdl2 elapsed, show elapsed time,
-            dump data+"Data after sorting: ", verify data sorted+"Quicksort-ed",
+            start timer, quicksort+lwb+to, stop timer, get elapsed time+cdl2 elapsed, show elapsed time,
+            dump data+"Data after sorting: ", verify data sorted+"Quicksort-ed"+to,
 
             initialize data,
             show msg no newline +"Running native (", show native sorter, show msg+") sort on list.",
-            start timer, sort data, stop timer, get elapsed time+builtin elapsed, show elapsed time,
+            start timer, sort data+to, stop timer, get elapsed time+builtin elapsed, show elapsed time,
             (gt+builtin elapsed+zero, divide+cdl2 elapsed+builtin elapsed+ratio, 
                show msg no newline+"Ratio: ", show number+ratio, show msg+".";
              +).
@@ -645,7 +693,7 @@ MODULE quicksort.
       ROOT run demo.
    ENDLAY sort.
 ENDMOD quicksort.
-PRELUDE sorter.
+PRELUDE parametrization, sorter.
 ROOT sorter.
 
 #PRAGMA Target=PowerShell file=psort#

@@ -47,7 +47,11 @@ namespace CDL2v1 {
          emitter.Emitnl("#include \"CDL2.h\"");
          emitter.Emitnl();
          emitter.Emitnl($"#define BOOL {DataType}");
+         emitter.Emitnl($"#define TRUE 1");
+         emitter.Emitnl($"#define FALSE 0");
          emitter.Emitnl($"#define VALUE {DataType}");
+         emitter.Emitnl("int _argc;");
+         emitter.Emitnl("char **_argv;");
          GenerateStandardMacros();
          emitter.Emitnl();
          base.GenerateComment("===============================================================================");
@@ -93,8 +97,6 @@ namespace CDL2v1 {
 
       public void GenerateProgramLudesStart() {
          emitter.Emitnl();
-         emitter.Emitnl("int _argc;");
-         emitter.Emitnl("char **_argv;");
          emitter.Emitnl("int main(int argc, char *argv[]) {");
          IncrementIndent();
          emitter.Emitnl("_argc = argc;");
@@ -115,7 +117,7 @@ namespace CDL2v1 {
       void ICodeGenerator.GenerateSourceComment(bool nl) => emitter.NlEmit(nl?"\n":"",sourceEmitter.Content);
 
       public new void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl("/* ",line," */");
+         foreach (string line in comment.Split('\n')) emitter.Emitnl($"{LineComment} ",line);
       }
 
       public void GenerateComment(PrettyPrinter pp) => emitter.Emit(pp.Emitter.Content);
@@ -124,7 +126,7 @@ namespace CDL2v1 {
 
       public void GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items,string typeName) where T : NamedElement {
          int n = items.Count();
-         if (n > 0) emitter.NlEmitnl($"\n/* ##### {n} {typeName}{(n != 1 ? "s" : "")} ##### */\n");
+         if (n > 0) emitter.NlEmitnl($"\n{BlockComment.Start} ##### {n} {typeName}{(n != 1 ? "s" : "")} ##### {BlockComment.End}\n");
       }
 
       public void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items,string typeName) where T : NamedElement { }
@@ -197,7 +199,7 @@ namespace CDL2v1 {
       }
 
       public void GenerateProcedureEnd(Procedure proc) {
-         emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "return 1;" : "return 0;" : "return;");
+         emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "return TRUE;" : "return FALSE;" : "return;");
          DecrementIndent();
          emitter.NlEmitnl("}");
       }
@@ -207,41 +209,43 @@ namespace CDL2v1 {
       private void GenerateLabel() => emitter.Emitnl(labelPrefix + labelCounter++ + ":");
       public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) {
          labelCounter = 0;
-         IncrementIndent();
       }
 
-      public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) => DecrementIndent();
+      public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) {}
 
-      public void GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber) {
+      public void GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber,bool supressLabel) {
          GenerateComment($"Alternative {alternativeNumber}");
-         if (alternativeNumber > 1) GenerateLabel();
+         if (!supressLabel && alternativeNumber > 1) GenerateLabel();
+         IncrementIndent();
       }
 
       public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
-            emitter.Emitnl(proc.CanFail ? "return 1;" : "return;");
+            emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "goto Finalization;" : "return TRUE;" : "return;");
+         DecrementIndent();
          GenerateComment($"End Alternative {alternativeNumber}");
       }
 
       public void GenerateGroupStart(Procedure proc,Group group) {
          GenerateComment($"Group {CName(group.Id)}");
          if (proc.ReferrencesGroup(group.Id)) emitter.Emitnl(CName(group.Id) + ":");
+         IncrementIndent();
       }
 
-      public void GenerateGroupEnd(Procedure proc,Group group) => GenerateComment($"End Group {CName(group.Id)}");
+      public void GenerateGroupEnd(Procedure proc,Group group) {
+         DecrementIndent();
+         GenerateComment($"End Group {CName(group.Id)}");
+      }
 
       public void GenerateCallStart(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
-         if (called.CanFail) {
-            emitter.Emit("if (! ",CName(called),"(");
-         } else {
-            emitter.Emit(CName(called),"(");
-         }
+         if (called.CanFail) emitter.Emit("if (! ");
+         emitter.Emit(CName(called),"(");
       }
 
       public void GenerateCallEnd(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
             if (lastAlternative) {
-               emitter.Emit(")) return 0;");
+               emitter.Emit(")) return FALSE;");
             } else {
                emitter.Emit(")) goto " + labelPrefix + labelCounter + ";");
             }
@@ -251,8 +255,8 @@ namespace CDL2v1 {
          Newline();
       }
 
-      public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("return 0;");
-      public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl(proc.CanFail ? "return 1;" : "return;");
+      public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("return FALSE;");
+      public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl(proc.CanFail ? "return TRUE;" : "return;");
       public void GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit(1);");
       public void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail) 
          => emitter.Emitnl("goto "+(label.IsAnonymous ? CName(group.Id) : CName(label)) + ";");
@@ -339,7 +343,10 @@ namespace CDL2v1 {
       }
 
       public void GenerateAffixAndVariableFinalizationStart(Algorithm algorithm) {
-         if (algorithm.NeedsFinalization) GenerateComment("Finalization");
+         if (algorithm.NeedsFinalization) {
+            emitter.Emitnl("return FALSE;");
+            emitter.Emitnl("Finalization:");
+         }
       }
 
       public void GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) {

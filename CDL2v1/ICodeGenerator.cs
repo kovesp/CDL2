@@ -516,14 +516,15 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      /// <param name="i"></param>
-      void GenerateAlternativeStart(Procedure proc,Group group,int i);
+      /// <param name="i">The alternative number within the group</param>
+      /// <param name="supressLabel">Whether to suppress the label for this alternative</param>
+      void GenerateAlternativeStart(Procedure proc,Group group,int i,bool supressLabel = false);
       /// <summary>
       /// Generate the end of alternative i int he group.
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      /// <param name="i"></param>
+      /// <param name="i">The alternative number within the group</param>
       /// <param name="alternative"></param>
       /// <param name="removed">Set if the alternative tail was skipped due to conditional compilation.</param>
       /// 
