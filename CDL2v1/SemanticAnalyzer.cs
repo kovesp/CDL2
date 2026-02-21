@@ -808,16 +808,19 @@ namespace CDL2v1 {
 
       private bool AnalyzeBuiltinCallArgs(Call call,Procedure proc) {
          // Verify that all arguments are strings for tests and strings except for the last for functions, the last has to be a local.
-         foreach (IActualArg arg in call.Args.SkipLast(1)) {
-            if (arg is not STRING) {
-               proc.AddNote(PhaseName,Note.InvalidStringArg,arg,call);
+         List<IActualArg> args = call.Args;
+         if (args.Count != 0) {
+            foreach (IActualArg arg in args.SkipLast(1)) {
+               if (arg is not STRING) {
+                  proc.AddNote(PhaseName,Note.InvalidBuiltinArg,call,arg,"arguments","string");
+                  return true;
+               }
+            }
+            IActualArg lastArg = args.Last();
+            if (Builtin.IsTest(call) ? lastArg is not STRING : lastArg is not Local) {
+               proc.AddNote(PhaseName,Note.InvalidBuiltinArg,call,lastArg,"last argument","local");
                return true;
             }
-         }
-         IActualArg lastArg = call.Args.Last();
-         if (Builtin.IsTest(call) ? lastArg is not STRING : lastArg is not Local) {
-            proc.AddNote(PhaseName,Note.InvalidStringArg,lastArg,call);
-            return true;
          }
          return false;
       }

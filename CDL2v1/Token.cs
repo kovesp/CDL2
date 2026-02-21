@@ -118,6 +118,7 @@ namespace CDL2v1 {
             { "T", "\t" },
             { "t", "\t" },
             { "\"", "\"" },
+            { "#",  "$#" },
             { "$", "$" },
          };
          Escape2Char.Values.Distinct().ToList().ForEach(v => Char2Escape[v] = Escape2Char.First(kvp => kvp.Value == v).Key.ToUpper());

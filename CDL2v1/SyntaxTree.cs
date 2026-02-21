@@ -1700,6 +1700,8 @@ namespace CDL2v1 {
          }
       }
 
+      public bool ReferrencesGroup(ID label,bool includeAnon=true) => group.ReferencesGroup(label,includeAnon);
+
       /// <summary>
       /// The parser will set this if a repeat operator references the procedure itself.
       /// </summary>
@@ -2008,6 +2010,8 @@ namespace CDL2v1 {
          return null;
       }
 
+      [JsonIgnore] public bool HasAnonymousRepeat => lastCall.type == LCT.Repeat && lastCall.label!.IsAnonymousGroup;
+
       internal int CallCount() => calls.Count + (lastCall.type == LCT.Standard ? 1 : 0) + (lastCall.type == LCT.Group ? lastCall.group!.CallCount() : 0);
 
       /// <summary>
@@ -2088,9 +2092,23 @@ namespace CDL2v1 {
       /// Only anonymous repeat operators are considered because labeled repeats are handle when the label is placed.
       /// </summary>
       public bool HasAnAnonymousRepeat() {
+         foreach (Alternative alternative in Alternatives) if (alternative.HasAnonymousRepeat) return true;
+         return false;
+      }
+
+      /// <summary>
+      /// Check whether this group has a repeat which references the label with a repeat.
+      /// </summary>
+      /// <param name="label">The id in a repeat operator.</param>
+      /// <param name="includeAnon">Whether to include anonymous groups in the check.</param>
+      /// <returns>True if the group references the specified label, false otherwise.</returns>
+      public bool ReferencesGroup(ID label,bool includeAnon=true) {
          foreach (Alternative alternative in Alternatives) {
-            if (alternative.lastCall.type == LCT.Repeat && alternative.lastCall.label! == ID.AnonID)
-               return true;
+            if (alternative.lastCall.type == LastCallType.Repeat) {
+               if (alternative.lastCall.label! == label || (includeAnon && alternative.lastCall.label!.IsAnonymous && Id == label)) return true;
+            } else if (alternative.lastCall.type == LastCallType.Group) {
+               if (alternative.lastCall.group!.ReferencesGroup(label)) return true;
+            }
          }
          return false;
       }
@@ -2162,8 +2180,11 @@ namespace CDL2v1 {
 
       private static string EscapedCDL2(string str) {
          StringBuilder sb = new();
-         foreach (char c in str) {
-            if (Token.Char2Escape.TryGetValue(c.ToString(),out string? escape)) {
+         for (int i = 0 ; i < str.Length ; i++) {
+            char c = str[i];
+            if (i<str.Length-1 && Token.Char2Escape.TryGetValue(str[i..(i+1)],out string? _)) {
+               sb.Append(str[i..(i + 1)]);
+            } else if (Token.Char2Escape.TryGetValue(c.ToString(),out string? escape)) {
                sb.Append($"${escape}");
             } else {
                sb.Append(c);

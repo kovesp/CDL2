@@ -144,8 +144,12 @@ namespace CDL2Generated {
 
       #region Prelude, Postlude, Root
       void ICodeGenerator.GenerateProgramLudesStart() {
+         emitter.Emitnl("// Command line arguments support");
+         emitter.Emitnl("private static readonly string[] args;");
+         emitter.Emitnl();
          emitter.Emitnl("public static void Main(string[] args) {");
          IncrementIndent();
+         emitter.Emitnl("Program.args = args;");
          emitter.Emitnl("try {");
          IncrementIndent();
       }
@@ -386,20 +390,19 @@ namespace CDL2Generated {
 
       #region Groups
       void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
-         GenerateComment("Group");
-         if (!group.IsSynthetic) emitter.Emit(group.Id.CanonicalName,": ");
+         GenerateComment($"Group {CSName(group.Id)}");
+         if (!group.Id.IsAnonymousGroup && proc.ReferrencesGroup(group.Id,includeAnon:false)) emitter.Emitnl(CSName(group.Id) + ":");
          if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("while (true) {");
          ifDepth.Push(0);
          IncrementIndent();
       }
-
       void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
          bool hasWhile = group.HasAnonymousRepeat || !group.IsSynthetic;
          if (hasWhile) emitter.Emitnl("break;");
          DecrementIndent();
          ifDepth.Pop();
          if (hasWhile) emitter.Emitnl("}");
-         GenerateComment("End Group");
+         GenerateComment($"End Group {CSName(group.Id)}");
       }
       #endregion Groups
 
@@ -442,7 +445,7 @@ namespace CDL2Generated {
          => emitter.Emit(calledAffix.IsOutput ? "ref " : "",CSName(v,needFinalization ? "_" : ""));
 
       void ICodeGenerator.GenerateRepeat(Procedure proc,Group group,ID label,bool canFail) {
-         if (label.IsAnonymous) {
+         if (label.IsAnonymousGroup) {
             emitter.Emitnl("continue;");
          } else {
             emitter.Emitnl("goto ",label.CanonicalName,";");
@@ -487,6 +490,7 @@ namespace CDL2Generated {
       private static string CSName(Affix affix,string suffix = "") => "a_" + affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CSName(Local local,string suffix = "") => "l_" + local.Id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CSName(Var var,string suffix = "") => "v_" + var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
+      private static string CSName(ID id,string suffix = "") => id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CSArgName(IActualArg arg,string suffix = "") => arg switch {
          Affix a => CSName(a,suffix),
          Local l => CSName(l,suffix),

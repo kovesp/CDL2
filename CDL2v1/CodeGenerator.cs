@@ -430,7 +430,7 @@ namespace CDL2v1 {
          switch (elem) {
             case INT i: cg.GenerateMacroElementInt(i.value); break;
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
-            case STRING s: cg.GenerateMacroElementString(s.value,firstElement: first,quoted: false); break;
+            case STRING s: GenerateMacroElementString(s,first:first,quoted:false); break;
             case ID id:
                if (macro.TryGetAffix(id,out Affix aff)) {
                   if (parameters.TryGetValue(aff,out IActualArg? arg)) {
@@ -454,8 +454,8 @@ namespace CDL2v1 {
                            }
                            break;
                         case Affix aa: cg.GenerateMacroElementAffix(aa,callingProc.CanFail); break;
-                        case STRING s: cg.GenerateMacroElementString(s.value,firstElement: false,quoted: true); break;
-                        default: 
+                        case STRING s: GenerateMacroElementString(s,first: false,quoted: true); break;
+                        default:
                            Debugger.Break();
                            throw new NotImplementedException($"GenerateMacro: Reference to unresolved element {arg}");
                      }
@@ -480,6 +480,10 @@ namespace CDL2v1 {
                throw new NotImplementedException($"GenerateMacro: Unknown element type {elem.GetType()}");
          }
       }
+
+      private void GenerateMacroElementString(STRING s,bool first,bool quoted)
+         => cg.GenerateMacroElementString(s.value.Replace("$#",cg.LineComment),firstElement: first,quoted:quoted);
+
       /// <summary>
       /// Generate the finalizers for all affixes and variables that need it.
       /// Variables and output and transput affixes can only be modified if the algorithm succeeds. Therefore generated local variables
@@ -646,7 +650,7 @@ namespace CDL2v1 {
       /// Generate the body of a procedure.
       /// </summary>
       /// <param name="proc"></param>
-      private void GenerateProcedureBody(Procedure proc) => GenerateAlternatives(proc,proc.group);
+      private void GenerateProcedureBody(Procedure proc) => GenerateGroup(proc,proc.group);
       /// <summary>
       /// Generate the alternatives for argAffix procedure.
       /// This method manages the conditional compilation of the alternatives based on whether the first call in the alternative is conditional compilation on or off.
@@ -662,19 +666,19 @@ namespace CDL2v1 {
 
          int i = 1;
          foreach (Alternative alternative in group.Alternatives) {
-            cg.GenerateAlternativeStart(proc,group,i);
             removed = false;
             if (suppressRest) {
-               cg.GenerateComment($"Alternative suppressed by previous conditional compilation ON");
+               cg.GenerateComment($"Alternative {i} suppressed by previous conditional compilation ON");
                removed = true;
             } else if (alternative.IsConditionalCompilationOff) {           // Ignore this alternative
-               cg.GenerateComment($"Alternative removed by conditional compilation OFF");
+               cg.GenerateComment($"Alternative {i} removed by conditional compilation OFF");
                removed = true;
             } else {
                suppressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
+               cg.GenerateAlternativeStart(proc,group,i);
                GenerateAlternative(proc,group,alternative,suppressRest || group.Alternatives.Count == i);
+               cg.GenerateAlternativeEnd(proc,group,i,alternative,removed);
             }
-            cg.GenerateAlternativeEnd(proc,group,i,alternative,removed);
 
             i++;
          }

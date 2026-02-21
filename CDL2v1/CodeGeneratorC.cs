@@ -93,8 +93,12 @@ namespace CDL2v1 {
 
       public void GenerateProgramLudesStart() {
          emitter.Emitnl();
+         emitter.Emitnl("int _argc;");
+         emitter.Emitnl("char **_argv;");
          emitter.Emitnl("int main(int argc, char *argv[]) {");
          IncrementIndent();
+         emitter.Emitnl("_argc = argc;");
+         emitter.Emitnl("_argv = argv;");
          emitter.Emitnl("/* Program Ludes */");
       }
 
@@ -179,86 +183,56 @@ namespace CDL2v1 {
       public void GenerateMacroElementVar(Var v,bool canFail,bool inlined = false) => emitter.Emit(CName(v,canFail && !inlined ? "_" : ""));
       public void GenerateMacroElementList(LIST l) => emitter.Emit(CName(l));
       public void GenerateMacroElementLocal(Local local,Affix calledAffix) => emitter.Emit(CName(local));
-      public void GenerateMacroElementAffix(Affix affix,bool canFail) => emitter.Emit((affix.IsOutput ? "*" : "") + CName(affix,canFail && affix.IsOutput ? "_" : ""));
+      /// <summary>
+      /// ALways generate *a as (*a) to ensure ++ and -- work correctly.
+      /// </summary>
+      /// <param name="affix"></param>
+      /// <param name="canFail"></param>
+      public void GenerateMacroElementAffix(Affix affix,bool canFail) 
+         => emitter.Emit((affix.IsOutput ? "(*" : "") + CName(affix,canFail && affix.IsOutput ? "_" : "")+ (affix.IsOutput ? ")" : ""));
 
       #region Procedures
-      private ModifiableStack ifDepth = [];
-
       public void GenerateProcedureStart(Procedure proc) {
          emitter.Emitnl();
-         ifDepth.Push(0);
       }
 
       public void GenerateProcedureEnd(Procedure proc) {
-         ifDepth.Pop();
          emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "return 1;" : "return 0;" : "return;");
          DecrementIndent();
          emitter.NlEmitnl("}");
       }
 
       private int labelCounter;
-      private const string labelPrefix = "L"; 
-      private void GenerateLabel() {
-         emitter.Emitnl(labelPrefix + labelCounter++ + ":");
-      }
+      private const string labelPrefix = "L";
+      private void GenerateLabel() => emitter.Emitnl(labelPrefix + labelCounter++ + ":");
       public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) {
-         labelCounter = 1;
-         //if (proc.NeedsWrapper) {
-         //   emitter.Emitnl("while (1) {");
-         //   IncrementIndent();
-         //}
+         labelCounter = 0;
          IncrementIndent();
       }
 
-      public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) {
-         DecrementIndent();
-         //if (proc.NeedsWrapper) {
-         //   emitter.Emitnl(proc.CanFail ? "return 0;" : "return;");
-         //   DecrementIndent();
-         //   emitter.Emitnl("}");
-         //}
-      }
-
+      public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) => DecrementIndent();
 
       public void GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber) {
          GenerateComment($"Alternative {alternativeNumber}");
-         GenerateLabel();
+         if (alternativeNumber > 1) GenerateLabel();
       }
 
       public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
-            //emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? "break;" : "return 1;") : "return;");
             emitter.Emitnl(proc.CanFail ? "return 1;" : "return;");
-         while (ifDepth > 0) {
-            DecrementIndent();
-            ifDepth--;
-            //emitter.Emitnl("}");
-         }
          GenerateComment($"End Alternative {alternativeNumber}");
       }
 
       public void GenerateGroupStart(Procedure proc,Group group) {
-         GenerateComment("Group");
-         if (!group.Id.IsAnonymous) emitter.Emitnl(CName(group.Id) + ":");
-         //if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("while (1) {");
-         //ifDepth.Push(0);
-         //IncrementIndent();
+         GenerateComment($"Group {CName(group.Id)}");
+         if (proc.ReferrencesGroup(group.Id)) emitter.Emitnl(CName(group.Id) + ":");
       }
 
-      public void GenerateGroupEnd(Procedure proc,Group group) {
-         //bool hasDo = group.HasAnonymousRepeat || !group.IsSynthetic;
-         //if (hasDo) emitter.Emitnl("break;");
-         //DecrementIndent();
-         //ifDepth.Pop();
-         //if (hasDo) emitter.Emitnl("}");
-         GenerateComment("End Group");
-      }
+      public void GenerateGroupEnd(Procedure proc,Group group) => GenerateComment($"End Group {CName(group.Id)}");
 
       public void GenerateCallStart(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
             emitter.Emit("if (! ",CName(called),"(");
-            //ifDepth++;
-            //IncrementIndent();
          } else {
             emitter.Emit(CName(called),"(");
          }
@@ -266,7 +240,11 @@ namespace CDL2v1 {
 
       public void GenerateCallEnd(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
-            emitter.Emit(")) goto "+labelPrefix+labelCounter+";");
+            if (lastAlternative) {
+               emitter.Emit(")) return 0;");
+            } else {
+               emitter.Emit(")) goto " + labelPrefix + labelCounter + ";");
+            }
          } else {
             emitter.Emit(");");
          }
@@ -274,10 +252,10 @@ namespace CDL2v1 {
       }
 
       public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("return 0;");
-      public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl("return 1;");
+      public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl(proc.CanFail ? "return 1;" : "return;");
       public void GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit(1);");
       public void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail) 
-         => emitter.Emitnl("goto "+(label.IsAnonymous ? labelPrefix + (labelCounter-1) : CName(label)) + ";");
+         => emitter.Emitnl("goto "+(label.IsAnonymous ? CName(group.Id) : CName(label)) + ";");
 
       public void GenerateActualArgSeparator() => emitter.Emit(", ");
       public void GenerateCallArgString(string value) => emitter.Emit("\"",value.Replace("\"","\\\""),"\"");
@@ -290,7 +268,7 @@ namespace CDL2v1 {
 
       public void GenerateCallArgReferenceAffix(Affix calledAffix,Affix callingAffix,bool needFinalization) {
          if (calledAffix.IsOutput) {
-            if (callingAffix.IsOutput) emitter.Emit("&",CName(callingAffix,needFinalization ? "_" : ""));
+            if (callingAffix.IsOutput) emitter.Emit(needFinalization ? "&" : "",CName(callingAffix,needFinalization ? "_" : ""));
             else emitter.Emit(CName(callingAffix));
          } else {
             emitter.Emit(callingAffix.IsOutput ? "*" : "",CName(callingAffix,needFinalization && callingAffix.IsOutput ? "_" : ""));

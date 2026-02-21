@@ -53,9 +53,10 @@ namespace CDL2v1 {
       public CodeGeneratorPowerShell(string dataType) : base() {
          DataType = dataType;
          DT = $"[{DataType}]";
-         NestedComment = ("<#", "#>");
-         LineComment = "#";
       }
+
+      public override string LineComment => "#";
+      public override (string Start,string End) BlockComment => ("<#","#>");
 
       private static readonly string ProgramHeaderPattern = @"
 #cspell:disable

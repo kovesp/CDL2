@@ -52,10 +52,10 @@ namespace CDL2v1 {
       }
 
       /// <summary>
-      /// Override when constructing a sublcalss if required
+      /// Override when constructing a subclass if required
       /// </summary>
-      protected string LineComment = "//";
-      protected (string Start, string End) NestedComment = ("/*", "*/");
+      public virtual string LineComment => "//";
+      public virtual (string Start, string End) BlockComment => ("/*", "*/");
 
       public void IncrementIndent() => emitter.IndentLevel++;
       public void DecrementIndent() => emitter.IndentLevel--;
@@ -119,7 +119,7 @@ namespace CDL2v1 {
 
       protected static readonly Random Random = new();
       protected string RandomInitialValue => Random.Next(0,int.MaxValue).ToString()
-         + $"  {NestedComment.Start} Random value to catch uninitialized VARs, LOCALs, and output AFFIXes {NestedComment.End}";
+         + $"  {BlockComment.Start} Random value to catch uninitialized VARs, LOCALs, and output AFFIXes {BlockComment.End}";
       #endregion Helpers
 
    }

@@ -68,6 +68,7 @@ namespace CDL2v1 {
          "isoptionvalue",
          "isenvironmentvariable",
          "istarget",
+         "isdebug",
       ];
 
       /// <summary>
@@ -135,6 +136,8 @@ namespace CDL2v1 {
                } else {
                   return false;
                }
+            case "isdebug":               
+               return Settings.SettingValue<bool>("Debug"); 
             case "isoptionvalue":
                if (call.TryGetActual(out STRING? option2) && call.TryGetActual(out STRING? value,1)) {
                   return Settings.TryGetSettingValue(option2.value,out object? settingValue) && (string)(settingValue??"") == value.value;

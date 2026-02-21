@@ -172,6 +172,7 @@ namespace CDL2v1 {
       public static readonly Note MissingSettingValue = new(Severity.Error,076,"Missing or too many setting values: {0}");
       public static readonly Note InvalidSettingSuffix = new(Severity.Error,077,"The {0} setting {1} cannot have a suffix");
       public static readonly Note AmbiguousSettingName = new(Severity.Error,078,"'{0}' matches {{{1}}}");
+      public static readonly Note InvalidBuiltinArg = new(Severity.Error,079,"The {2} of {0} must be a {3}, not {1}");
 
       public static readonly Note NoEffect = new(Severity.Warning,101,"Procedure has no effect tough is declared as {0}");
       public static readonly Note OutputAffixOverwritten = new(Severity.Warning,102,"Output affix {0} whose value has not been read passed to output in {1}");

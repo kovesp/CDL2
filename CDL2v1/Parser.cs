@@ -422,7 +422,15 @@ namespace CDL2v1 {
          }
       }
 
+      private int GroupCounter;
+      public const string GroupIDLabelPrefix = "G";
+      private void SetGroupId(Group group) {
+         if (group.Id == ID.AnonID) group.Id = new ID($"{GroupIDLabelPrefix}{GroupCounter++}");
+      }
+
       private bool ParseProcedureBody(Procedure proc,ParseMode mode) {
+         GroupCounter = 0;
+         SetGroupId(proc.group);
          if (!ParseAlternatives(proc,group: proc.group,mode: mode,out proc.group.Alternatives)) {
             if (mode == ParseMode.Full) ReportError("Expected alternatives");
             return false;
@@ -543,6 +551,7 @@ namespace CDL2v1 {
             return false;
          }
          Group group = new(label,[],containingAlternative.GUID,synthetic: label is null);
+         SetGroupId(group);
          if (!ParseAlternatives(proc,group,mode,out group.Alternatives)) {
             if (mode == ParseMode.Full) ReportError("Expected alternatives in group");
             return false;

@@ -426,6 +426,10 @@ namespace CDL2v1 {
       #endregion Algorithm Common
 
       #region Macros
+
+      string LineComment { get; }
+      (string Start, string End) BlockComment { get; }
+
       /// <summary>
       /// Gets a value indicating whether the target requires macro splitting during processing.
       /// </summary>

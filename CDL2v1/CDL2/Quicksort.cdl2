@@ -5,12 +5,12 @@
 MODULE powershell kernel.
    LAYER kernel.
       SECTION arithmetic.
-         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, random.
+         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, make string, random.
          EXT gt, lt, ge, le, eq, ne.
 
          EXPORT incr, decr, incr with, decr with.
          EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
-         EXPORT make, random.
+         EXPORT make, make string, random.
          EXPORT gt, lt, ge, le, eq, ne.
          EXPORT less or equal.
 
@@ -35,6 +35,7 @@ MODULE powershell kernel.
 
          FUNCTION halve +>a> = a " /= 2".
          FUNCTION make +a>+>b = a " = " b.
+         FUNCTION make string +a>*b = a " = " b.
 
          TEST eq+>a+>b = a " -eq " b.
          TEST ne+>a+>b = a " -ne " b.
@@ -47,6 +48,20 @@ MODULE powershell kernel.
 
          FUNCTION random+>min+>max+r> = r " = Get-Random -Minimum " min " -Maximum (" max "+1)".
       ENDSEC arithmetic.
+
+      SECTION command line.
+         EXPORT command line argument count, command line argument.
+         FUNCTION command line argument count+count> = "$L" count " = $args.Count;".
+         FUNCTION command line argument+>n+arg> = "$L" arg " = $args[" n "];".
+      ENDSEC command line.
+
+      SECTION touch.
+         EXPORT touch in, touch out, touch trans.
+
+         FUNCTION touch in+>v = "[void]" v ";".
+         FUNCTION touch out+v> = "[void]" v ";".
+         FUNCTION touch trans+>v> = "[void]" v ";".
+      ENDSEC touch.
 
       SECTION timer.
          EXPORT start timer, stop timer, show elapsed time, get elapsed time.
@@ -78,7 +93,8 @@ MODULE powershell kernel.
 
       SECTION data.
          EXPORT smaller element, swap element, get element, set element, set element to, is data sorted macro.
-         EXPORT sort data.
+         EXPORT sort data, show native sorter.
+         INV show msg no newline.
 
          IMPORT lwb, upb.
          CONST lwb, upb.
@@ -106,7 +122,8 @@ MODULE powershell kernel.
             "$l [bool]" r.
          
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data = "[Array]::Sort(" data ".Array)".  
+         ACTION sort data = data ".array = " data ".array | Sort-Object".
+         ACTION show native sorter: show msg no newline+"Sort-Object".
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD powershell kernel.
@@ -116,12 +133,12 @@ ENDMOD powershell kernel.
 MODULE csharp kernel.
    LAYER kernel.
       SECTION arithmetic.
-         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, random.
+         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, make string, random.
          EXT gt, lt, ge, le, eq, ne.
 
          EXPORT incr, decr, incr with, decr with.
          EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
-         EXPORT make, random.
+         EXPORT make, make string, random.
          EXPORT gt, lt, ge, le, eq, ne.
          EXPORT less or equal.
 
@@ -146,6 +163,7 @@ MODULE csharp kernel.
 
          FUNCTION halve +>a> = a " /= 2;".
          FUNCTION make +a>+>b = a " = " b ";".
+         FUNCTION make string +a>*b = a " = " b.
 
          TEST eq+>a+>b = a " == " b.
          TEST ne+>a+>b = a " != " b.
@@ -159,9 +177,23 @@ MODULE csharp kernel.
          FUNCTION random+>min+>max+r> = r " = System.Random.Shared.Next((int)" min ", (int)" max " + 1);".
       ENDSEC arithmetic.
 
+      SECTION command line.
+         EXPORT command line argument count, command line argument.
+         FUNCTION command line argument count+count> = "$L" count " = Program.args.Length;".
+         FUNCTION command line argument+>n+arg> = "$L" arg " = Program.args[" n "];".
+      ENDSEC command line.
+
+      SECTION touch.
+         EXPORT touch in, touch out, touch trans.
+
+         FUNCTION touch in+>v = "(void)" v.
+         FUNCTION touch out+v> = "(void)" v.
+         FUNCTION touch trans+>v> = "(void)" v.
+      ENDSEC touch.
+
       SECTION timer.
          EXPORT start timer, stop timer, show elapsed time, get elapsed time.
-         INV subtract,divide.
+         INV subtract, divide.
 
          VAR start, stop.
 
@@ -187,7 +219,8 @@ MODULE csharp kernel.
 
       SECTION data.
          EXPORT smaller element, swap element, get element, set element, set element to,is data sorted macro.
-         EXPORT sort data.
+         EXPORT sort data, show native sorter.
+         INV show msg no newline.
 
          IMPORT lwb, upb.
          CONST lwb, upb.
@@ -217,7 +250,8 @@ MODULE csharp kernel.
             "$L" r " == 1" .
          
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data = "System.Array.Sort(" data ".array);".  
+         ACTION sort data = "System.Array.Sort(" data ".array);".
+         ACTION show native sorter: show msg no newline+".Net System.Array.Sort".
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD csharp kernel.
@@ -227,12 +261,12 @@ ENDMOD csharp kernel.
 MODULE c kernel.
    LAYER kernel.
       SECTION arithmetic.
-         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, random.
+         EXT incr, decr, incr with, decr with, add, subtract, multiply, divide, remainder, modulo, halve, make, make string, random.
          EXT gt, lt, ge, le, eq, ne.
 
          EXPORT incr, decr, incr with, decr with.
          EXPORT add, subtract, multiply, divide, remainder, modulo, halve.
-         EXPORT make, random.
+         EXPORT make, make string, random.
          EXPORT gt, lt, ge, le, eq, ne.
          EXPORT less or equal.
 
@@ -257,6 +291,7 @@ MODULE c kernel.
 
          FUNCTION halve +>a> = a " /= 2;".
          FUNCTION make +a>+>b = a " = " b ";".
+         FUNCTION make string +a>*b = a " = " b.
 
          TEST eq+>a+>b = a " == " b.
          TEST ne+>a+>b = a " != " b.
@@ -269,6 +304,31 @@ MODULE c kernel.
 
          FUNCTION random+>min+>max+r> = r " = " min " + rand() % ((" max ") - (" min ") + 1);".
       ENDSEC arithmetic.
+
+      SECTION command line.
+         EXPORT command line argument count, command line argument.
+         FUNCTION command line argument count+count> = "$L" count " = _argc;".
+         FUNCTION command line argument+>n+arg> = "$L" arg " = _argv[(int)" n "];".
+      ENDSEC command line.
+
+      SECTION touch.
+         EXPORT touch in, touch out, touch trans.
+
+         FUNCTION touch in+>v = "(void)" v.
+         FUNCTION touch out+v> = "(void)" v.
+         FUNCTION touch trans+>v> = "(void)" v.
+      ENDSEC touch.
+      
+      SECTION debug.
+         INV show msg.
+
+         ACTION system pause = 
+            "$L system($"pause$");".
+         ACTION pause:
+            BUILTIN is debug, show msg+"Paused for debugger attach", system pause;
+            +.
+      ENDSEC debug.
+      PRELUDE pause.
 
       SECTION timer.
          EXPORT start timer, stop timer, show elapsed time, get elapsed time.
@@ -296,7 +356,8 @@ MODULE c kernel.
 
       SECTION data.
          EXPORT smaller element, swap element, get element, set element, set element to,is data sorted macro.
-         EXPORT sort data.
+         EXPORT sort data, show native sorter.
+         INV show msg no newline.
 
          IMPORT lwb, upb.
          CONST lwb, upb.
@@ -330,11 +391,12 @@ MODULE c kernel.
          # For this to work, include
          #    int cmplong(const void *a, const void *b) { return (*(long*)a - *(long*)b);
          # in CDL2.h which is automatically included in C code generator output.
-         ACTION sort data = 
-            "$Lqsort(" data "_array, " upb " - " lwb " + 1, sizeof(long), cmplong);".  
+         ACTION sort data = "$Lqsort(" data "_array, " upb " - " lwb " + 1, sizeof(long), cmplong);".
+         ACTION show native sorter: show msg no newline+"C qsort(_,_,cmplong)".
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD c kernel.
+PRELUDE debug.
 
 #=================================================================================
 MODULE quicksort.
@@ -358,12 +420,12 @@ MODULE quicksort.
       ENDSEC parametrization.
 
       SECTION arithmetic.
-         ABSTR incr, decr, greater, less, less or equal, le, lt, add, halve, make, random, divide.
-         EXT make, random, incr, less or equal, le, lt, subtract.
+         ABSTR incr, decr, greater, less, less or equal, le, lt, gt, ge, add, halve, make, make string, random, divide.
+         EXT make, make string, random, incr, less or equal, le, lt, subtract.
 
          IMPORT incr, decr, incr with, decr with.
          IMPORT add, subtract, multiply, divide, remainder, modulo, halve.
-         IMPORT make, random.
+         IMPORT make, make string, random.
          IMPORT gt, lt, ge, le, eq, ne.
          IMPORT less or equal.
 
@@ -381,6 +443,7 @@ MODULE quicksort.
 
          FUNCTION halve +>a>.
          FUNCTION make +a>+>b.
+         FUNCTION make string+a>*b.
 
          TEST gt+>a+>b.
          TEST ne+>a+>b.
@@ -396,23 +459,33 @@ MODULE quicksort.
          FUNCTION random+>min+>max+r>.
       ENDSEC arithmetic.
 
+      SECTION command line.
+         IMPORT command line argument count, command line argument.
+         ABSTR command line argument count, command line argument.
+
+         FUNCTION command line argument count+count>.
+         FUNCTION command line argument+>n+arg>.
+      ENDSEC command line.
+
       SECTION touch.
          ABSTR touch in, touch out, touch trans.
+         EXT touch in, touch out, touch trans.
+         IMPORT touch in, touch out, touch trans.
 
-         FUNCTION touch in+>v = "".
-         FUNCTION touch out+v> = "".
-         FUNCTION touch trans+>v> = "".
+         FUNCTION touch in+>v.
+         FUNCTION touch out+v>.
+         FUNCTION touch trans+>v>.
       ENDSEC touch.
 
       SECTION data.
          ABSTR smaller element, swap element, get element, set element, set element to, dump data, is data sorted macro.
-         ABSTR sort data, initialize data.
+         ABSTR sort data, initialize data, show native sorter.
 
          INV show msg, show msg no newline, show number, le, lt, incr, random, make, max size of list to show.
          INV lwb, upb, get data size, min random, max random.
 
          IMPORT smaller element, swap element, get element, set element, set element to, is data sorted macro.
-         IMPORT sort data.
+         IMPORT sort data, show native sorter.
 
          # Here for test purposes only. #
          VAR unused.
@@ -427,7 +500,8 @@ MODULE quicksort.
          ACTION set element +>i+>v.
          ACTION set element to+>p+>q.
          TEST is data sorted macro.
-         ACTION sort data.  
+         ACTION sort data.
+         ACTION show native sorter.
 
          ACTION dump list -i-e:
             make+i+lwb, get element+i+e, show number+e,
@@ -472,12 +546,12 @@ MODULE quicksort.
    LAYER sort.
       SECTION sorter.
          INV lwb, upb.
-         INV less, make, add, halve, incr, decr, divide.
+         INV less, gt, make, add, halve, incr, decr, divide.
          INV swap element, get element, smaller element, dump data, get data size.
          INV show msg, show msg no newline, show number, is data sorted macro, less or equal.
          INV start timer, stop timer, show elapsed time, get elapsed time.
          INV touch in, touch out.
-         INV initialize data, sort data.
+         INV initialize data, sort data, show native sorter.
 
          ACTION quicksort +>from +>to -p -q:
             less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
@@ -517,15 +591,19 @@ MODULE quicksort.
                 
          TEST use macro for sortedness test: +.
 
-         PREDICATE is data sorted -where:
-            use macro for sortedness test, touch out+where, touch in+where, is data sorted macro;
-            is data unsorted procedure+where, show msg no newline+"Unsorted at ", show number+where, show msg+".", -;
+         PREDICATE is data sorted:
+            use macro for sortedness test, is data sorted macro;
+            show unsorted with location.
+
+         PREDICATE show unsorted with location -pos:
+            is data unsorted procedure+pos, show msg no newline+"Unsorted at ", show number+pos, show msg+".", -;
             +.
 
          ACTION verify data sorted * which:
             is data sorted, show msg no newline+which, show msg+" data is sorted.";
             show msg no newline+which, show msg+" data is not sorted.".
 
+         CONST zero = 0.
          ACTION run demo -data size -cdl2 elapsed -builtin elapsed -ratio:
             initialize data,
             dump data+"Data before sorting: ", verify data sorted+"Random",
@@ -535,9 +613,11 @@ MODULE quicksort.
             dump data+"Data after sorting: ", verify data sorted+"Quicksort-ed",
 
             initialize data,
-            show msg+"Running .NET sort on list.",
+            show msg no newline +"Running native (", show native sorter, show msg+") sort on list.",
             start timer, sort data, stop timer, get elapsed time+builtin elapsed, show elapsed time,
-            divide+cdl2 elapsed+builtin elapsed+ratio, show msg no newline+"Ratio: ", show number+ratio, show msg+".".
+            (gt+builtin elapsed+zero, divide+cdl2 elapsed+builtin elapsed+ratio, 
+               show msg no newline+"Ratio: ", show number+ratio, show msg+".";
+             +).
          
          # Test builtin function.
          ACTION show user and code generation date -gen date -gen time -user:
@@ -585,6 +665,6 @@ ENDPROG csharp sort.
 #PRAGMA Target=C file=csort#
 PROGRAM c sort.
    PART c kernel, quicksort.
-   PRELUDE quicksort.
+   PRELUDE c kernel, quicksort.
    ROOT quicksort.
 ENDPROG c sort.

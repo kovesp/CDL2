@@ -50,6 +50,7 @@ namespace CDL2v1 {
       public ID Id => this;
 
       public bool IsAnonymous => this == AnonID;
+      public bool IsAnonymousGroup => IsAnonymous || Name.StartsWith(Parser.GroupIDLabelPrefix);
 
       /// <summary>
       /// Returns the ID for the given token. If the ID does not exist, it is created.
