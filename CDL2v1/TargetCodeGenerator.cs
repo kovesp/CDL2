@@ -67,7 +67,7 @@ namespace CDL2v1 {
       /// <param name="separator"></param>
       /// <returns></returns>
       protected static bool HasMultipleStatments(Macro macro,string separator = ";") {
-         Regex regex = BuildSeparatorRegex(separator);
+         Regex regex = SeparatorRegex(separator);
          return macro.elements.OfType<STRING>().Any(str => regex.IsMatch(str.value));
       }
 
@@ -81,10 +81,10 @@ namespace CDL2v1 {
       /// <returns>A tuple containing two lists: the first list includes all elements up to and including the last separator, and
       /// the second list contains all elements following the last separator. If no separator is found, the first list
       /// is empty and the second contains all elements.</returns>
-      public static (List<IElement> beforeLast, List<IElement> lastExpression) SplitMacroBody(Macro macro,string separator = ";") {
+      public static (List<IElement> beforeLast, List<IElement> lastExpression) SplitMacroBodyIntoStatements(Macro macro,string separator) {
          if (macro.elements.Count == 0) return ([],[]);
 
-         Regex regex = BuildSeparatorRegex(separator);
+         Regex regex = SeparatorRegex(separator);
 
          int lastSeparatorIndex = -1;
          for (int i = macro.elements.Count - 1 ; i >= 0 ; i--) {
@@ -112,7 +112,7 @@ namespace CDL2v1 {
          return (beforeLast, lastExpression);
       }
 
-      private static Regex BuildSeparatorRegex(string separator) {
+      private static Regex SeparatorRegex(string separator) {
          string pattern = $@"(?<!['""])(?:\n|{Regex.Escape(separator)})(?![^'""]*['""])";
          return new Regex(pattern,RegexOptions.Compiled);
       }

@@ -324,33 +324,27 @@ namespace CDL2v1 {
       private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,List<IActualArg>? args = null,Parameters? parameters = null,bool inlining = false) {
          parameters = new(parameters,macro.Affixes,args ?? []);
          bool first = true;
+         List<IElement> lastExpression;
+
+         cg.GenerateMacroBodyStart(macro);
          if (cg.TargetRequiresMacroSpliting && macro.CanFail) { // Target spliting is only needed for macros that can fail.
-            cg.GenerateMacroBodyStart(macro);
-            if (!inlining) GenerateLocalInitializers(macro);
-            (List<IElement> beforeLast, List<IElement> lastExpression) parts = TargetCodeGenerator.SplitMacroBody(macro,cg.StatementSeparator);
-            foreach (IElement elem in parts.beforeLast) {
+            (List<IElement> beforeLast,lastExpression) = TargetCodeGenerator.SplitMacroBodyIntoStatements(macro,cg.StatementSeparator);
+            foreach (IElement elem in beforeLast) {
                GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
                first = false;
             }
-            if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
-            foreach (IElement elem in parts.lastExpression) {
-               GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
-               first = false;
-            }
-            if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
-            cg.GenerateMacroBodyEnd(macro);
          } else {
-            if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
-            if (!inlining) GenerateLocalInitializers(macro);
-            cg.GenerateMacroBodyStart(macro);
-            foreach (IElement elem in macro.elements) {
-               GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
-               first = false;
-            }
-            cg.GenerateMacroBodyEnd(macro);
-            if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
+            lastExpression = macro.elements;
          }
+         if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
+         foreach (IElement elem in lastExpression) {
+            GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
+            first = false;
+         }
+         if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
+         cg.GenerateMacroBodyEnd(macro);
       }
+
 
       /// <summary>
       /// Represents a list of parameters for an Algorithm call.
@@ -594,7 +588,8 @@ namespace CDL2v1 {
       /// <returns>A set of local variables defined in the provided algorithm. Returns an empty set if the algorithm is not a
       /// Procedure.</returns>
       /// <remarks>Since proc.Locals always generates a new set, there is no need to copy it.</remarks>
-      private Set<Local> CollectLocals(Algorithm algorithm) => algorithm is Procedure procedure ? CollectLocals(procedure.group,procedure.Locals) : [];
+      private Set<Local> CollectLocals(Algorithm algorithm) 
+         => algorithm is Procedure procedure ? CollectLocals(procedure.group,procedure.Locals) : algorithm.Locals;
 
       /// <summary>
       /// Collects the locals of inlined calls in the group and adds them to locals.

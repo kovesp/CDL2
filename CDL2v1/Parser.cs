@@ -305,7 +305,7 @@ namespace CDL2v1 {
          ParseLudes(currentSection);
       }
 
-      private static readonly List<TT> bodyTypes = [TT.INLINEPROCBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
+      private static readonly List<TT> bodyTypes = [TT.PROCINLINEBODY,TT.MACROPROCBODY,TT.MACROBODY,TT.PROCBODY];
       private bool ParseAlgorithm(Notes notes,[NotNullWhen(true)] out Algorithm? algorithm,ParseMode mode = ParseMode.Full,
             Func<NamedElement,bool>? canReplace = null,NamedElement? contextObj = null) {
          Debug.Assert(currentSection != null);
@@ -344,7 +344,7 @@ namespace CDL2v1 {
                // Full declaration with body
                if (!ParseLocals(mode,out Set<Local> locals)) return false;
                if (tokens.CanConsume(bodyTypes,out Token bodyType)) {
-                  if (bodyType.type == TT.PROCBODY || bodyType.type == TT.INLINEPROCBODY) {
+                  if (bodyType.type == TT.PROCBODY || bodyType.type == TT.PROCINLINEBODY) {
                      // Parse the code body
                      algorithm = new Procedure(id,affixes,locals,algType,bodyType.type,currentSection);
                      algorithm.AddNotes(PhaseName,notes);

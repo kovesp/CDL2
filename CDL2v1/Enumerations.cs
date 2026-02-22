@@ -104,7 +104,7 @@ namespace CDL2v1 {
       LABELSEP = 11,  // Alias for COLON
       PROCBODY = 11,  // Alias for COLON
       LISTBOUNDSEP = 11,  // Alias for COLON
-      INLINEPROCBODY = 12,
+      PROCINLINEBODY = 12,
       EQUALS = 13,
       MACROBODY = 13,  // Alias for EQUALS
       MACROPROCBODY = 14,

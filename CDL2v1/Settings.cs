@@ -319,6 +319,8 @@ namespace CDL2v1 {
       public static bool InliningProcs => ! SettingValue<bool>("NoProcInlining");
       public static bool InliningMacros => ! SettingValue<bool>("NoMacroInlining");
 
+      public static bool Debug => SettingValue<bool>("Debug");
+
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static object? SettingValue(string name) => Setting<object>(name);
 

@@ -40,6 +40,7 @@ namespace CDL2v1 {
          emitter.Emitnl($" * Settings: {settings}");
          emitter.Emitnl($" */");
          emitter.Emitnl();
+         emitter.Emitnl("#define _CRT_SECURE_NO_WARNINGS");
          emitter.Emitnl("#include <stdio.h>");
          emitter.Emitnl("#include <stdlib.h>");
          emitter.Emitnl("#include <time.h>");
@@ -50,6 +51,13 @@ namespace CDL2v1 {
          emitter.Emitnl($"#define TRUE 1");
          emitter.Emitnl($"#define FALSE 0");
          emitter.Emitnl($"#define VALUE {DataType}");
+         emitter.Emitnl($"#define PREDICATE BOOL");
+         emitter.Emitnl($"#define TEST BOOL");
+         emitter.Emitnl($"#define ACTION void");
+         emitter.Emitnl($"#define FUNCTION void");
+         emitter.Emitnl($"#define PROC");
+         emitter.Emitnl($"#define MACRO");
+         emitter.Emitnl();
          emitter.Emitnl("int _argc;");
          emitter.Emitnl("char **_argv;");
          GenerateStandardMacros();
@@ -99,6 +107,7 @@ namespace CDL2v1 {
          emitter.Emitnl();
          emitter.Emitnl("int main(int argc, char *argv[]) {");
          IncrementIndent();
+         if (Settings.Debug) emitter.Emitnl("debug_pause();");
          emitter.Emitnl("_argc = argc;");
          emitter.Emitnl("_argv = argv;");
          emitter.Emitnl("/* Program Ludes */");
@@ -150,19 +159,19 @@ namespace CDL2v1 {
       }
 
       public void GenerateMacroBodyStart(Macro macro) {
-         if (macro.NeedsFinalization) IncrementIndent();
+         //if (macro.NeedsFinalization) IncrementIndent();
       }
 
       public void GenerateMacroBodyEnd(Macro macro) {
-         if (macro.NeedsFinalization) DecrementIndent();
+         //if (macro.NeedsFinalization) DecrementIndent();
       }
 
       public void GenerateReturnExpressionStart(Macro macro) {
-         if (macro.CanFail) emitter.Emit("return ");
+         if (macro.CanFail) emitter.Emit(macro.NeedsFinalization ? "if (" : "return ");
       }
 
       public void GenerateReturnExpressionEnd(Macro macro) {
-         if (macro.CanFail) emitter.Emitnl(";");
+         if (macro.CanFail) emitter.Emitnl(macro.NeedsFinalization ? ") goto Finalization; " : ";");
       }
 
       public void GenerateMacroInlineStart(Macro macro) { }
@@ -190,8 +199,17 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="affix"></param>
       /// <param name="canFail"></param>
-      public void GenerateMacroElementAffix(Affix affix,bool canFail) 
-         => emitter.Emit((affix.IsOutput ? "(*" : "") + CName(affix,canFail && affix.IsOutput ? "_" : "")+ (affix.IsOutput ? ")" : ""));
+      public void GenerateMacroElementAffix(Affix affix,bool canFail) {
+         if (affix.IsOutput) {
+            if (canFail) {
+               emitter.Emit(CName(affix,"_"));
+            } else {
+               emitter.Emit("(*"+CName(affix),")");
+            }
+         } else {
+            emitter.Emit(CName(affix));
+         }
+      }
 
       #region Procedures
       public void GenerateProcedureStart(Procedure proc) {
@@ -288,7 +306,9 @@ namespace CDL2v1 {
          emitter.Emitnl(");");
       }
 
-      public void GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"{(alg.CanFail ? "BOOL" : "void")} {CName(alg)}(");
+      //public void GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"{(alg.CanFail ? "BOOL" : "void")} {CName(alg)}(");
+      public void GenerateAlgorithmHeaderStart(Algorithm alg) 
+         => emitter.Emit($"{alg.BodyType switch { TT.PROCBODY or TT.PROCINLINEBODY => "PROC", _ => "MACRO" }} {alg.AlgorithmType} {CName(alg)}(");
       public void GenerateAlgorithmHeaderEnd(Algorithm alg) {
          emitter.Emitnl(") {");
          IncrementIndent();
@@ -350,7 +370,10 @@ namespace CDL2v1 {
       }
 
       public void GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) {
-         if (algorithm.NeedsFinalization) GenerateComment("End Finalization");
+         if (algorithm.NeedsFinalization) {
+            GenerateComment("End Finalization");
+            emitter.Emitnl("return TRUE;");
+         }
       }
 
       public void GenerateAffixAndVariableFinalizer(Algorithm alg,IFailureProtected item,bool isVar) {

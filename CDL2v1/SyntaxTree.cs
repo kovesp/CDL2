@@ -1787,7 +1787,7 @@ namespace CDL2v1 {
             return false;
 
          // The procedure meets the basic criteria for inlinabilty. Apply inlining parameters if appropriate.
-         return BodyType == TT.INLINEPROCBODY ||
+         return BodyType == TT.PROCINLINEBODY ||
                   GetInliningParameters(reachable).NumberOfCallsInProc == 1 ||
                   GetInliningParameters(reachable).NumberOfTimesCalled <= 1 ||
                   GetInliningParameters(reachable).Inlinability <= GetInliningParameters(reachable).MaxInlineCalls;
@@ -2182,7 +2182,7 @@ namespace CDL2v1 {
          StringBuilder sb = new();
          for (int i = 0 ; i < str.Length ; i++) {
             char c = str[i];
-            if (i<str.Length-1 && Token.Char2Escape.TryGetValue(str[i..(i+1)],out string? _)) {
+            if (i<str.Length-1 && Token.Char2Escape.TryGetValue(str[i..(i+1)],out string? esc) && esc == "#") {
                sb.Append(str[i..(i + 1)]);
             } else if (Token.Char2Escape.TryGetValue(c.ToString(),out string? escape)) {
                sb.Append($"${escape}");

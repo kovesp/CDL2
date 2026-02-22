@@ -336,17 +336,6 @@ MODULE c kernel.
          FUNCTION touch trans+>v> = "(void)" v.
       ENDSEC touch.
       
-      SECTION debug.
-         INV show msg.
-
-         ACTION system pause = 
-            "$L system($"pause$");".
-         ACTION pause:
-            BUILTIN is debug, show msg+"Paused for debugger attach", system pause;
-            +.
-      ENDSEC debug.
-      PRELUDE pause.
-
       SECTION timer.
          EXPORT start timer, stop timer, show elapsed time, get elapsed time.
 
@@ -413,7 +402,6 @@ MODULE c kernel.
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD c kernel.
-PRELUDE debug.
 
 #=================================================================================
 MODULE quicksort.
@@ -441,12 +429,12 @@ MODULE quicksort.
          FUNCTION get data size +size>: 
             make+size+number to sort.
          ACTION set number to sort+>number-list size:
-            subtract+upb+lwb+list size, decr+list size, min+number+list size+number to sort.         
+            subtract+upb+lwb+list size, incr+list size, min+number+list size+number to sort.         
 
-         ACTION proccess command line -arg count -count -number:
-            set number to sort+default number to sort, command line argument count+count,
-            (ge+count+arg1, is command line argument numeric+arg1+number, set number to sort+number;
-             show msg no newline+"Using default number of items to sort: ", show number+number to sort, show msg+".").
+         ACTION proccess command line -arg count -number:
+            set number to sort+default number to sort, command line argument count+arg count,
+            (gt+arg count+arg1, is command line argument numeric+arg1+number, set number to sort+number;
+             +).
       ENDSEC parametrization.
       PRELUDE proccess command line.
 
@@ -503,7 +491,7 @@ MODULE quicksort.
          ABSTR command line argument count, is command line argument, is command line argument numeric, get program name.
          EXT command line argument count, is command line argument, is command line argument numeric, get program name, arg1, arg2, arg3.
 
-         CONST arg1=1, arg2=2, arg3=3.
+         CONST arg1=0, arg2=1, arg3=2.
 
          FUNCTION command line argument count+count>.
          TEST is command line argument+>n*arg.
@@ -713,6 +701,6 @@ ENDPROG csharp sort.
 #PRAGMA Target=C file=csort#
 PROGRAM c sort.
    PART c kernel, quicksort.
-   PRELUDE c kernel, quicksort.
+   PRELUDE quicksort.
    ROOT quicksort.
 ENDPROG c sort.
