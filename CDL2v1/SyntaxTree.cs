@@ -1329,11 +1329,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="obj"></param>
       /// <returns></returns>
-      public override bool Equals(object? obj) => obj is CDL2Object @object && EqualityComparer<ID>.Default.Equals(Id,@object.Id);
+      public override bool Equals(object? obj) => obj is CDL2Object c2obj && Id == c2obj.Id;
+
       public override int GetHashCode() => HashCode.Combine(Id,GUID);
 
       public static bool operator ==(CDL2Object? left,CDL2Object? right) => EqualityComparer<CDL2Object>.Default.Equals(left,right);
       public static bool operator !=(CDL2Object? left,CDL2Object? right) => !(left == right);
+
 
       /// <summary>
       /// Remove references to this object from the parent section, and from siblings.
@@ -2086,6 +2088,22 @@ namespace CDL2v1 {
       [JsonIgnore] public bool HasAnonymousRepeat => HasAnAnonymousRepeat();
       [JsonIgnore] public bool HasNoAnonymousRepeat => !HasAnonymousRepeat;
       [JsonIgnore] public bool CanFail => Alternatives.Any(alternative => alternative.lastCall.type == LastCallType.Fail) || Alternatives.Last().CanFail;
+
+      /// <summary>
+      /// Gets the number of live alternatives (ones that have not been removed by conditional compilation
+      /// </summary>
+      public int LiveAlternatives { 
+         get {
+            int live = 0;
+            foreach (Alternative alt in Alternatives) {
+               if (alt.IsConditionalCompilationOff) continue;  // Don't count it, it will be removed.
+               live++;                                         // The current one is live, so count it.
+               if (alt.IsConditionalCompilationOn) break;      // If the current one is slected with conditional compilation, the rest will be removed.
+            }
+            return live;
+         } 
+      }
+
       /// <summary>
       /// The group has an alternative which has at least one anonymous repeat operator.
       /// Required for target languages (e.g., PowerShell) that have to use a loop to simulate goto-s.

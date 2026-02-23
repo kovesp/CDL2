@@ -431,12 +431,12 @@ MODULE quicksort.
          ACTION set number to sort+>number-list size:
             subtract+upb+lwb+list size, incr+list size, min+number+list size+number to sort.         
 
-         ACTION proccess command line -arg count -number:
+         ACTION process command line -arg count -number:
             set number to sort+default number to sort, command line argument count+arg count,
             (gt+arg count+arg1, is command line argument numeric+arg1+number, set number to sort+number;
              +).
       ENDSEC parametrization.
-      PRELUDE proccess command line.
+      PRELUDE process command line.
 
       SECTION arithmetic.
          ABSTR incr, decr, greater, less, less or equal, le, lt, gt, ge, add, halve, make, make string, random, divide, min, max.

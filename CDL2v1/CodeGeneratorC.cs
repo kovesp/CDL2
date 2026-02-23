@@ -66,6 +66,7 @@ namespace CDL2v1 {
          emitter.Emitnl();
          EmitUnitStartComment(program);
          emitter.Emitnl();
+         LabelCounter = 0;
       }
 
       private void GenerateStandardMacros() {
@@ -174,8 +175,18 @@ namespace CDL2v1 {
          if (macro.CanFail) emitter.Emitnl(macro.NeedsFinalization ? ") goto Finalization; " : ";");
       }
 
-      public void GenerateMacroInlineStart(Macro macro) { }
-      public void GenerateMacroInlineEnd(Macro macro) { }
+      private readonly Stack<int> FinalizationLabels = [];
+      public void GenerateMacroInlineStart(Macro macro) {
+         // if (macro.NeedsFinalization) FinalizationLabels.Push(NextLabel);
+         if (macro.CanFail) emitter.Emit("if (!(");
+      }
+      public void GenerateMacroInlineEnd(Macro macro) {
+         if (macro.CanFail) {
+            emitter.Emitnl($")) goto {Label};");
+         } else {
+            emitter.Emitnl();
+         }
+      }
 
       public void GenerateMacroElementInt(long value) => emitter.Emit(value);
       public void GenerateMacroElementFloat(double value) => emitter.Emit(value);
@@ -222,12 +233,12 @@ namespace CDL2v1 {
          emitter.NlEmitnl("}");
       }
 
-      private int labelCounter;
+      private int LabelCounter = 0;
       private const string labelPrefix = "L";
-      private void GenerateLabel() => emitter.Emitnl(labelPrefix + labelCounter++ + ":");
-      public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) {
-         labelCounter = 0;
-      }
+      private void GenerateLabel() => emitter.Emitnl(labelPrefix + NextLabel + ":");
+      private string Label => labelPrefix + LabelCounter;
+      private int NextLabel => LabelCounter++;
+      public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) { }
 
       public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) {}
 
@@ -242,6 +253,7 @@ namespace CDL2v1 {
             emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "goto Finalization;" : "return TRUE;" : "return;");
          DecrementIndent();
          GenerateComment($"End Alternative {alternativeNumber}");
+         if (group.LiveAlternatives == 1 && proc.CanFail) GenerateLabel();
       }
 
       public void GenerateGroupStart(Procedure proc,Group group) {
@@ -265,7 +277,7 @@ namespace CDL2v1 {
             if (lastAlternative) {
                emitter.Emit(")) return FALSE;");
             } else {
-               emitter.Emit(")) goto " + labelPrefix + labelCounter + ";");
+               emitter.Emit($")) goto {Label};");
             }
          } else {
             emitter.Emit(");");
