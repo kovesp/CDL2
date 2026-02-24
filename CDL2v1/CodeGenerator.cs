@@ -40,6 +40,7 @@ using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Windows.Documents;
 
 namespace CDL2v1 {
    /// <summary>
@@ -298,7 +299,6 @@ namespace CDL2v1 {
             GenerateAlgorithmComment(macro);
             cg.GenerateComment("Macro inlined");
          } else {
-            Section section = macro.ParentElement<Section>()!;
             IEnumerable<Var> variables = macro.GetReferencedVariables();
             cg.GenerateMacroStart(macro);
             GenerateAlgorithmHeader(macro,variables);
@@ -314,15 +314,15 @@ namespace CDL2v1 {
       /// <param name="macro"></param>
       /// <param name="callingProc"></param>
       /// <param name="args"></param>
-      /// <param name="parameters"></param>
+      /// <param name="aList"></param>
       /// <remarks>
       /// Note that GenerateReturnExpression start and end must either do nothing (as e.g., for PowerShell)
       /// or generate code that returns the value of the expression. In that case it must itself check that whether
       /// the macro can fail.
       /// </remarks>
       /// <param name="inlining"></param>
-      private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,List<IActualArg>? args = null,Parameters? parameters = null,bool inlining = false) {
-         parameters = new(parameters,macro.Affixes,args ?? []);
+      private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,List<IActualArg>? args = null,AList? aList = null,bool inlining = false) {
+         aList = new(aList,macro.Affixes,args ?? []);
          bool first = true;
          List<IElement> lastExpression;
 
@@ -330,7 +330,7 @@ namespace CDL2v1 {
          if (cg.TargetRequiresMacroSpliting && macro.CanFail) { // Target spliting is only needed for macros that can fail.
             (List<IElement> beforeLast,lastExpression) = TargetCodeGenerator.SplitMacroBodyIntoStatements(macro,cg.StatementSeparator);
             foreach (IElement elem in beforeLast) {
-               GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
+               GenerateMacroElement(macro,macro.Section!,callingProc,aList,first,elem);
                first = false;
             }
          } else {
@@ -338,7 +338,7 @@ namespace CDL2v1 {
          }
          if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
          foreach (IElement elem in lastExpression) {
-            GenerateMacroElement(macro,macro.Section!,callingProc,parameters,first,elem);
+            GenerateMacroElement(macro,macro.Section!,callingProc,aList,first,elem);
             first = false;
          }
          if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
@@ -347,24 +347,28 @@ namespace CDL2v1 {
 
 
       /// <summary>
-      /// Represents a list of parameters for an Algorithm call.
+      /// Represents a list of affix mappings for an Algorithm call.
+      /// This is essentially an association list as pioneered by Lisp.
       /// </summary>
-      private class Parameters : List<Parameters.Parameter> {
+      private class AList : List<AList.AffixMapping> {
          /// <summary>
-         /// Represents an Algorithm call parameter.
          /// Maps an affix to the actual argument.
          /// </summary>
          /// <param name="i">The ordinal of the argument. Not currently used.</param>
          /// <param name="affix"></param>
          /// <param name="arg"></param>
-         internal struct Parameter(int i,Affix affix,IActualArg arg) {
-            public int argNo = i;
+         internal struct AffixMapping(int i,Affix affix,IActualArg arg) {
             public Affix affix = affix;
             public IActualArg arg = arg;
-            public override string ToString() => $"[{argNo}] {affix} -> {arg}";
+#if DEBUG
+            public int argNo = i;
+            public override readonly string ToString() => $"[{argNo}] {affix} -> {arg}";
+#else
+            public override readonly string ToString() => $"{affix} -> {arg}";
+#endif
          }
 
-         private Parameters() : base() { }
+         private AList() : base() { }
 
          /// <summary>
          /// Construct a parameter list from a list of affixes and actual arguments.
@@ -373,14 +377,14 @@ namespace CDL2v1 {
          /// When generating standalone macros, args may be empty while affixes exist - in this case, affixes without args
          /// will be treated as formal parameters by GenerateMacroElement.
          /// </summary>
-         /// <param name="parameters"></param>
+         /// <param name="aList"></param>
          /// <param name="affixes"></param>
          /// <param name="args"></param>
-         public Parameters(Parameters? parameters,List<Affix> affixes,List<IActualArg> args) : base() {
-            parameters ??= [];
+         public AList(AList? aList,List<Affix> affixes,List<IActualArg> args) : base() {
+            aList ??= [];
             int argCount = Math.Min(affixes.Count,args.Count);
             for (int i = 0 ; i < argCount ; i++) {
-               Add(new Parameter(i,affixes[i],args[i] is Affix aff && parameters.TryGetValue(aff,out IActualArg? arg) ? arg! : args[i]));
+               Add(new AffixMapping(i,affixes[i],args[i] is Affix aff && aList.TryGetValue(aff,out IActualArg? arg) ? arg : args[i]));
             }
          }
          /// <summary>
@@ -389,45 +393,61 @@ namespace CDL2v1 {
          /// <param name="affix"></param>
          /// <param name="arg"></param>
          /// <returns></returns>
-         public bool TryGetValue(Affix affix,out IActualArg? arg) {
-            foreach (Parameter subst in this) {
+         public bool TryGetValue(Affix affix,out IActualArg arg) {
+            foreach (AffixMapping subst in this) {
                if (subst.affix == affix) {
                   arg = subst.arg;
                   return true;
                }
             }
-            arg = null;
+            arg = affix;
             return false;
          }
+         /// <summary>
+         /// Retrieves the value associated with the specified argument if it is of type Affix; otherwise, returns the
+         /// original argument.
+         /// </summary>
+         /// <remarks>If the provided argument is not of type Affix, this method returns the argument
+         /// unchanged.</remarks>
+         /// <param name="arg">The argument for which to retrieve the value. If this argument is of type Affix, its associated value is
+         /// returned.</param>
+         /// <returns>An instance of IActualArg representing the value associated with the argument if it is an Affix; otherwise,
+         /// the original argument.</returns>
+         public IActualArg GetValue(IActualArg arg) { 
+            if (arg is Affix affix) TryGetValue(affix,out arg);
+            return arg;
+         }
+         
          public bool TryGetValue(ID id,out IActualArg? arg) {
-            foreach (Parameter subst in this) {
+            foreach (AffixMapping subst in this) {
                if (subst.affix.Id == id) {
                   arg = subst.arg;
                   return true;
                }
             }
-            arg = null;
+            arg = id;
             return false;
          }
       }
+
       /// <summary>
       /// 
       /// </summary>
       /// <param name="macro"></param>
       /// <param name="section"></param>
       /// <param name="callingProc"></param>
-      /// <param name="parameters"></param>
+      /// <param name="aList"></param>
       /// <param name="first"></param>
       /// <param name="elem"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateMacroElement(Macro macro,Section section,Procedure? callingProc,Parameters parameters,bool first,IElement elem) {
+      private void GenerateMacroElement(Macro macro,Section section,Procedure? callingProc,AList aList,bool first,IElement elem) {
          switch (elem) {
             case INT i: cg.GenerateMacroElementInt(i.value); break;
             case FLOAT f: cg.GenerateMacroElementFloat(f.value); break;
             case STRING s: GenerateMacroElementString(s,first:first,quoted:false); break;
             case ID id:
                if (macro.TryGetAffix(id,out Affix aff)) {
-                  if (parameters.TryGetValue(aff,out IActualArg? arg)) {
+                  if (aList.TryGetValue(aff,out IActualArg? arg)) {
                      Debug.Assert(callingProc is not null,$"GenerateMacro: Calling procedure is null for inlined macro {macro}");
                      if (arg is ID aid) {
                         if (section.TryGetDeclaration(aid,out CDL2Object? argObj) && argObj is IActualArg aaArg) {
@@ -687,17 +707,17 @@ namespace CDL2v1 {
       /// <param name="group"></param>
       /// <param name="alternative"></param>
       /// <param name="isLast"></param>
-      /// <param name="parameters"></param>
+      /// <param name="aList"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast,Parameters? parameters = null) {
+      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast,AList? aList = null) {
          List<Call> calls = alternative.calls;
          bool canFail = false;
          foreach (Call call in calls) {
-            GenerateCall(proc,call,canFail,parameters: parameters);
+            GenerateCall(proc,call,canFail,currentAList: aList);
             canFail = canFail || call.CanFail;
          }
          switch (alternative.lastCall.type) {
-            case LCT.Standard: GenerateCall(proc,alternative.lastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,parameters); break;
+            case LCT.Standard: GenerateCall(proc,alternative.lastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,aList); break;
             case LCT.Fail: cg.GenerateFail(proc,group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
             case LCT.Abort: cg.GenerateAbort(proc,group); break;
@@ -732,9 +752,9 @@ namespace CDL2v1 {
       /// <param name="canFail"></param>
       /// <param name="onlyCallInAlternative"></param>
       /// <param name="lastAlternative"></param>
-      /// <param name="parameters"></param>
+      /// <param name="currentAList"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative = false,bool lastAlternative = false,Parameters? parameters = null) {
+      private void GenerateCall(Procedure proc,Call call,bool canFail = false,bool onlyCallInAlternative = false,bool lastAlternative = false,AList? currentAList = null) {
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          if (call.IsBuiltin && Builtin.IsFunction(call)) {
             // Ignore the call here. The value of the builtin will be inserted directly where needed.
@@ -745,23 +765,16 @@ namespace CDL2v1 {
                if (Settings.InliningMacros && called is Macro macro && macro.IsInlineMacro) {
                   cg.GenerateComment($"Inlining macro call -> {call}");
                   GenerateAlgorithmComment(called,nl: false);
-                  GenerateMacroBody(macro,proc,[.. call.Args],parameters,inlining: true);
+                  GenerateMacroBody(macro,proc,[.. call.Args],currentAList,inlining: true);
                } else if (Settings.InliningProcs && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
                   GenerateAlgorithmComment(called,nl:false);
-                  // GenerateLocalInitializers(calledProc); // Propagated up to containing proc
-                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new Parameters(parameters,calledProc.Affixes,[.. call.Args]));
+                  // The following works because currently only procedures with a single alternative are inlineable.
+                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new AList(currentAList,calledProc.Affixes,[.. call.Args]));
                } else {
                   cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);
-                  parameters = new Parameters(parameters,called.Affixes,call.Args);
-                  if (parameters.Count > 0) {
-                     int i = 0;
-                     GenerateActualArg(proc,call,called.Affixes[i++],call.Args.First());
-                     foreach (IActualArg arg in call.Args.Skip(1)) {
-                        cg.GenerateActualArgSeparator();
-                        GenerateActualArg(proc,call,called.Affixes[i++],arg);
-                     }
-                  }
+                  AList aList = new(currentAList,called.Affixes,call.Args);
+                  called.Affixes.GenerateJoinedSequence(GenerateActualArg(proc,call,aList),cg.GenerateActualArgSeparator);
                   cg.GenerateCallEnd(called,proc,canFail,onlyCallInAlternative,lastAlternative);
                }
             } else {
@@ -770,6 +783,7 @@ namespace CDL2v1 {
          }
       }
 
+      private Action<IActualArg> GenerateActualArg(Procedure proc,Call call,AList aList) => aff => GenerateActualArg(proc,call,(Affix)aff,aList.GetValue(aff));
       private void GenerateActualArg(Procedure proc,Call call,Affix calledAffix,IActualArg arg) {
          Section callProcSection = call.ContainingProc.Section!;
          switch (arg) {

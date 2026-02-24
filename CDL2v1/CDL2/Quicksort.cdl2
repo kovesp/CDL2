@@ -673,7 +673,7 @@ MODULE quicksort.
             BUILTIN is option+"NoProcInlining", show msg no newline+", NoProcInlining";
             show msg no newline+", ProcInlining".
          ACTION show macro inlining:
-            BUILTIN is option+"NoMacroInining", show msg no newline+", NoMacroInlining";
+            BUILTIN is option+"NoMacroInlining", show msg no newline+", NoMacroInlining";
             show msg no newline+", MacroInlining".
 
       ENDSEC sorter.

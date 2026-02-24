@@ -704,6 +704,19 @@ namespace CDL2v1 {
             return false;
          }
       }
+
+      /// <summary>
+      /// Retrieves a named element of the specified type from the collection by its unique identifier.
+      /// </summary>
+      /// <remarks>This method ensures type safety by only returning elements that match the specified type
+      /// parameter. Use this method when you need to retrieve a strongly-typed named element by its GUID.</remarks>
+      /// <typeparam name="T">The type of named element to retrieve. Must inherit from NamedElement.</typeparam>
+      /// <param name="guid">The unique identifier of the named element to retrieve.</param>
+      /// <returns>The named element of type T that is associated with the specified GUID.</returns>
+      /// <exception cref="Exception">Thrown if a named element of type T with the specified GUID does not exist in the collection.</exception>
+      public T GetNamedElement<T>(Guid guid) where T : NamedElement 
+         => NamedElements.TryGetValue(guid,out NamedElement? namedElem) && namedElem is T elem ? elem : throw new Exception($"{typeof(T).Name} with GUID {guid} not found in NamedElements");
+ 
       public bool IsNamedElement<T>(string name) where T : NamedElement => NamedElements.Values.OfType<T>().Any(elem => elem.Id == name);
       public bool IsNamedElement<T>(ID id) where T : NamedElement => IsNamedElement<T>(id.CanonicalName);
 

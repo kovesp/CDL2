@@ -38,6 +38,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 using static CDL2v1.Logger;
 
@@ -414,6 +415,9 @@ namespace CDL2v1 {
 
       private bool ParseMacroBody(Macro macro,ParseMode mode) {
          ParseElementList(macro,macro.elements,"ID, Affix, Local, STRING, INT, or FLOAT",mode);
+         IElement? first = macro.elements.FirstOrDefault();
+         if (first is not null && first is STRING str) macro.elements[0] = new STRING(Regex.Replace(str.value,"^ *\n","",RegexOptions.Compiled));
+
          if (!tokens.CanConsume(TT.END)) {
             if (mode == ParseMode.Full) ReportError("Expected .");
             return false;
@@ -803,7 +807,7 @@ namespace CDL2v1 {
           return c;
       }
       /// <summary>
-      /// Parse the elements of a constant declaration.
+      /// Parse the elements of a constant or macro declaration.
       /// </summary>
       /// <param Id="c"></param>
       /// <exception cref="Exception"></exception>

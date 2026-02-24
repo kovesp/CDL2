@@ -2,7 +2,7 @@
 //=======================================================================
 // <copyright file="Extensions.cs" company="Peter Köves">
 //     Copyright (c) Peter Köves, 2025. All rights reserved.
-//     Licensed under the MIT License. See _LICENSE file in the project root
+//     Licensed under the MIT License. See _LICENSE file in the project rootFextension
 //     for full license information.
 // </copyright>
 //=======================================================================
@@ -41,6 +41,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Windows.Documents;
 
 namespace CDL2v1 {
    public class Set<T> : HashSet<T>, ISet<T> {
@@ -527,6 +528,22 @@ namespace CDL2v1 {
          public IEnumerable<T> OptMap(bool condition,Func<IEnumerable<T>,IEnumerable<T>> func) => condition ? func(source) : source;
          public IEnumerable<T> OptWhere(Func<T,bool>? pred = null) => pred is not null ? source.Where(pred) : source;
          public Set<T> ToSet => [.. source];
+
+         /// <summary>
+         /// Executes the specified action on each element of the sequence, inserting a joiner action between each element.
+         /// </summary>
+         /// <param name="action">The action to execute on each element.</param>
+         /// <param name="joiner">The action to execute between elements.</param>
+         public void GenerateJoinedSequence(Action<T> action,Action joiner) {
+            if (source.Any()) {
+               action(source.First());
+               foreach (T item in source.Skip(1)) {
+                  joiner();
+                  action(item);
+               }
+            }
+         }
+
 
          /// <summary>
          /// Deconstructs an enumerable into a tuple of two elements.

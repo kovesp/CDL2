@@ -280,7 +280,12 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateAffixAndVariableInitializationStart(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("Initialization"); }
       void ICodeGenerator.GenerateAffixAndVariableInitializationEnd(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("End Initialization"); }
       void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("Finalization"); }
-      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("End Finalization"); }
+      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) {
+         if (algorithm.NeedsFinalization) {
+            GenerateComment("End Finalization");
+            emitter.Emitnl("return true;");
+         }
+      }
 
       void ICodeGenerator.GenerateAffixAndVariableFinalizer(Algorithm alg,IFailureProtected var,bool isVar) {
          switch (var is Affix affix ? affix.affixDir : AD.transput) {
@@ -323,20 +328,33 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateMacroElementAffix(Affix affix,bool macroCanFail) => emitter.Emit(CSName(affix,macroCanFail && affix.IsOutput ? "_" : ""));
       void ICodeGenerator.GenerateMacroElementLocal(Local loc,Affix aff) => emitter.Emit(CSName(loc));
 
-      void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
-         if (macro.NeedsFinalization) IncrementIndent();
-      }
+      void ICodeGenerator.GenerateMacroBodyStart(Macro macro) { }
 
-      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro) {
-         if (macro.NeedsFinalization) DecrementIndent();
-      }
+      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro) { }
 
       void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) {
-         if (macro.CanFail) emitter.Emit("return ");
+         if (macro.CanFail) {
+            if (macro.NeedsFinalization) {
+               emitter.Emitnl("while (true) {");
+               IncrementIndent();
+               emitter.Emit("if (");
+            } else {
+               emitter.Emit("return ");
+            }
+         }
       }
 
       void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro) {
-         if (macro.CanFail) emitter.Emitnl(";");
+         if (macro.CanFail) {
+            if (macro.NeedsFinalization) {
+               emitter.Emitnl(") break;");
+               emitter.Emitnl("return false;");
+               DecrementIndent();
+               emitter.Emitnl("}");
+            } else {
+               emitter.Emit(";");
+            }
+         }
       }
 
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);

@@ -1406,8 +1406,11 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(12)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
       [JsonInclude][JsonPropertyOrder(13)] public Set<Guid> localGuids = [];   // The locals of this algorithm.
 
-      [JsonIgnore] public List<Affix> Affixes => [.. affixGuids.Select(guid => NamedElement.From<Affix>(guid)!)];
-      [JsonIgnore] public Set<Local> Locals => [.. localGuids.Select(guid => NamedElement.From<Local>(guid)!)];
+      [JsonIgnore] private List<Affix>? _affixes = null;
+      [JsonIgnore] private Set<Local>? _locals = null;
+      [JsonIgnore] public List<Affix> Affixes => _affixes ??= [.. affixGuids.Select(guid => Database.Instance.GetNamedElement<Affix>(guid))];
+      [JsonIgnore] public Set<Local> Locals   => _locals  ??= [.. localGuids.Select(guid => Database.Instance.GetNamedElement<Local>(guid))];
+
 
       public bool IsAlgorithmType(RW algorithmType) => AlgorithmType == algorithmType;
       public bool IsAction => IsAlgorithmType(RW.ACTION);
