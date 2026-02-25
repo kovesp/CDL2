@@ -145,7 +145,7 @@ namespace CDL2Generated {
       #region Prelude, Postlude, Root
       void ICodeGenerator.GenerateProgramLudesStart() {
          emitter.Emitnl("// Command line arguments support");
-         emitter.Emitnl("private static readonly string[] args;");
+         emitter.Emitnl("private static string[] args = [];");
          emitter.Emitnl();
          emitter.Emitnl("public static void Main(string[] args) {");
          IncrementIndent();

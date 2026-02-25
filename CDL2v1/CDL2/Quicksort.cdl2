@@ -262,7 +262,7 @@ MODULE csharp kernel.
             "$L" r " == 1" .
 
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data+>to = "System.Array.Sort(" data ".array, 0, " to " - " lwb " + 1);".
+         ACTION sort data+>to = "System.Array.Sort(" data ".array, 0, (int)" to " - (int)" lwb " + 1);".
          ACTION show native sorter: show msg no newline+".Net System.Array.Sort".
       ENDSEC data.
    ENDLAY kernel.
