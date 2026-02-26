@@ -52,13 +52,16 @@ MODULE powershell kernel.
       SECTION command line.
          EXPORT command line argument count, command line argument, is command line argument, is command line argument numeric, get program name.
 
-         FUNCTION command line argument count+count> = "$L" count " = $args.Count;".
-         FUNCTION command line argument+>n+arg> = "$L" arg " = $args[" n "];".
+         FUNCTION command line argument count+count> =
+            "$L" count " = $$script:args.Count".
+         FUNCTION command line argument+>n+arg> =
+            "$L" arg " = $$script:args[" n "]".
          TEST is command line argument+>n*arg =
-            "$L ($args[(int)" n "] -eq " arg ")". 
+            "$L ($$script:args[[int]" n "] -eq " arg ")". 
          TEST is command line argument numeric+>n+number> =
-            "$L (" number " = $args[(int)" n "] -as [long]) -ne $null".
-         FUNCTION get program name+prog name> = "$L" prog name " = $MyInvocation.MyCommand.Name;".
+            "$L $null -ne (" number " = $$script:args[[int]" n "] -as [long])".
+         FUNCTION get program name+prog name> =
+            "$L" prog name " = $$MyInvocation.MyCommand.Name;".
       ENDSEC command line.
 
       SECTION touch.
@@ -128,8 +131,10 @@ MODULE powershell kernel.
             "$l [bool]" r.
 
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data+>to = "$L" data ".array[0..(" to " - " lwb ")] = " data ".array[0..(" to " - " lwb ")] | Sort-Object".
-         ACTION show native sorter: show msg no newline+"Sort-Object".
+         ACTION sort data+>to =
+            "$L[Array]::Sort(" data ".array, " lwb ", " to " - " lwb " + 1)".
+         ACTION show native sorter:
+            show msg no newline+"[Array]::Sort".
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD powershell kernel.
@@ -186,13 +191,16 @@ MODULE csharp kernel.
       SECTION command line.
          EXPORT command line argument count, command line argument, is command line argument, is command line argument numeric, get program name.
 
-         FUNCTION command line argument count+count> = "$L" count " = Program.args.Length;".
-         FUNCTION command line argument+>n+arg> = "$L" arg " = Program.args[" n "];".
+         FUNCTION command line argument count+count> =
+            "$L" count " = Program.args.Length;".
+         FUNCTION command line argument+>n+arg> =
+            "$L" arg " = Program.args[" n "];".
          TEST is command line argument+>n*arg =
             "$L Program.args[(int)" n "] == " arg. 
          TEST is command line argument numeric+>n+number> =
-            "$L long.TryParse(Program.args[(int)" n "], out " number ")".
-         FUNCTION get program name+prog name> = "$L" prog name " = System.Environment.GetCommandLineArgs()[0];".
+            "$Llong.TryParse(Program.args[(int)" n "], out " number ")".
+         FUNCTION get program name+prog name> =
+            "$L" prog name " = System.Environment.GetCommandLineArgs()[0];".
       ENDSEC command line.
 
       SECTION touch.
@@ -259,11 +267,13 @@ MODULE csharp kernel.
             "$L      break;"
             "$L   }"
             "$L}"
-            "$L" r " == 1" .
+            "$L" r " == 1".
 
          # Sort the array using the built-in sort method. For execution time comparison. #
-         ACTION sort data+>to = "System.Array.Sort(" data ".array, 0, (int)" to " - (int)" lwb " + 1);".
-         ACTION show native sorter: show msg no newline+".Net System.Array.Sort".
+         ACTION sort data+>to =
+            "System.Array.Sort(" data ".array, 0, (int)" to " - (int)" lwb " + 1);".
+         ACTION show native sorter: 
+            show msg no newline+".Net System.Array.Sort".
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD csharp kernel.
@@ -320,12 +330,14 @@ MODULE c kernel.
       SECTION command line.
          EXPORT command line argument count, is command line argument, is command line argument numeric, get program name.
 
-         FUNCTION command line argument count+count> = "$L" count " = _argc - 1;".
+         FUNCTION command line argument count+count> =
+            "$L" count " = _argc - 1;".
          TEST is command line argument+>n*arg =
-            "strcmp(_argv[(int)" n " + 1]," arg ") == 0".            
+            "$Lstrcmp(_argv[(int)" n " + 1]," arg ") == 0".            
          TEST is command line argument numeric+>n+number> =
-            "sscanf(_argv[(int)" n " + 1], $"%ld$", &" number ") == 1".
-         FUNCTION get program name+prog name> = "$L" prog name " = _argv[0];".
+            "$Lsscanf(_argv[(int)" n " + 1], $"%ld$", &" number ") == 1".
+         FUNCTION get program name+prog name> =
+            "$L" prog name " = _argv[0];".
       ENDSEC command line.
 
       SECTION touch.
@@ -344,11 +356,11 @@ MODULE c kernel.
          ACTION start timer = start " = clock();".
          ACTION stop timer  = stop " = clock();".
          
-         FUNCTION get elapsed time+elapsed> 
-            = "$l " elapsed " = (long)((" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC);".
+         FUNCTION get elapsed time+elapsed> =
+            "$L" elapsed " = (long)((" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC);".
 
          ACTION show elapsed time = 
-            "printf($"Elapsed time: %.0f milliseconds\n$", ((double)(" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC));".
+            "$Lprintf($"Elapsed time: %.0f milliseconds\n$", ((double)(" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC));".
       ENDSEC timer.
 
       SECTION messages.
@@ -397,8 +409,10 @@ MODULE c kernel.
          # For this to work, include
          #    int cmplong(const void *a, const void *b) { return (*(long*)a - *(long*)b);
          # in CDL2.h which is automatically included in C code generator output.
-         ACTION sort data+>to = "$Lqsort(" data "_array, " to " - " lwb " + 1, sizeof(long), cmplong);".
-         ACTION show native sorter: show msg no newline+"C qsort(_,_,cmplong)".
+         ACTION sort data+>to = 
+            "$Lqsort(" data "_array, " to " - " lwb " + 1, sizeof(long), cmplong);".
+         ACTION show native sorter:
+            show msg no newline+"C qsort(_,_,cmplong)".
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD c kernel.

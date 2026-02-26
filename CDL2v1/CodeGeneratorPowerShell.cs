@@ -237,8 +237,8 @@ function Remove-Const([string[]]$names) {
       #endregion Data Declarations
 
       #region Algorithm Common
-      void ICodeGenerator.GenerateAlgorithmHeaderStart(Algorithm proc) => emitter.Emit($"function {PSName(proc)}(");
-      void ICodeGenerator.GenerateAlgorithmHeaderEnd(Algorithm proc) {
+      void ICodeGenerator.GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"function {PSName(alg)}(");
+      void ICodeGenerator.GenerateAlgorithmHeaderEnd(Algorithm alg) {
          emitter.Emitnl(") {");
          IncrementIndent();
       }
@@ -289,7 +289,12 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateAffixAndVariableInitializationStart(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("Initialization"); }
       void ICodeGenerator.GenerateAffixAndVariableInitializationEnd(Algorithm alg) { if (alg.NeedsFinalization) GenerateComment("End Initialization"); }
       void ICodeGenerator.GenerateAffixAndVariableFinalizationStart(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("Finalization"); }
-      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) { if (algorithm.NeedsFinalization) GenerateComment("End Finalization"); }
+      void ICodeGenerator.GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) {
+         if (algorithm.NeedsFinalization) {
+            GenerateComment("End Finalization");
+            emitter.Emitnl("return $true");
+         }
+      }
 
       void ICodeGenerator.GenerateAffixAndVariableFinalizer(Algorithm alg,IFailureProtected var,bool isVar) {
          switch (var is Affix affix ? affix.affixDir : AD.transput) {
@@ -352,8 +357,12 @@ function Remove-Const([string[]]$names) {
          if (macro.NeedsFinalization) DecrementIndent();
       }
 
-      void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) { }
-      void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro) { }
+      void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) {
+         if (macro.CanFail && macro.NeedsFinalization) emitter.Emit("if (! (");
+      }
+      void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro) {
+         if (macro.CanFail && macro.NeedsFinalization) emitter.Emitnl(")) { return $false }");
+      }
 
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
       void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) {
