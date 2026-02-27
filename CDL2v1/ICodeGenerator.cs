@@ -134,6 +134,9 @@ namespace CDL2v1 {
    ///         GenerateModuleEnd                                     at the end of the module
    /// </remarks>
    public interface ICodeGenerator {
+
+      void SetCodeGenerator(CodeGenerator generator);
+
       #region Programs, Modules, Layers, Sections
       /// <summary>
       /// This is called at the start of the program.

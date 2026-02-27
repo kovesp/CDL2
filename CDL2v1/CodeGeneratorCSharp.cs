@@ -41,6 +41,10 @@ namespace CDL2v1 {
       #region Instance and Static Variables, Constructors
       private readonly string DataType;
 
+      private CodeGenerator? cg = null;
+      public void SetCodeGenerator(CodeGenerator cg) => this.cg = cg;
+
+
       /// <summary>
       /// Constructor for the C# code generator.
       /// </summary>

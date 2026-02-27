@@ -534,13 +534,14 @@ namespace CDL2v1 {
          /// </summary>
          /// <param name="action">The action to execute on each element.</param>
          /// <param name="joiner">The action to execute between elements.</param>
-         public void GenerateJoinedSequence(Action<T> action,Action joiner) {
+         public void GenerateJoinedSequence(Action<T> action,Action joiner,Action? terminator=null) {
             if (source.Any()) {
                action(source.First());
                foreach (T item in source.Skip(1)) {
                   joiner();
                   action(item);
                }
+               terminator?.Invoke();
             }
          }
 

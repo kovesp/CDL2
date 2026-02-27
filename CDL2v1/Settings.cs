@@ -220,6 +220,8 @@ namespace CDL2v1 {
 
          new Setting<bool>(    "DebugCommands",      NoOption,             false,          "Display the parsed command."),
          new Setting<bool>(    "Debug",              NoOption,             false,          "May be used via BUILTIN is debug"),
+         new Setting<bool>(    "backtrace",          NoOption,             false,          "Generate backtrace information. My be ignored by some code generators."),
+         new Setting<bool>(    "trace",              NoOption,             false,          "Generate trace information. May be ignored by some code generators."),
       ];
 
       public record struct NameCompletion(IEnumerable<ISetting> Matches,int MatchLength);

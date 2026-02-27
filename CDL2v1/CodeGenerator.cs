@@ -599,7 +599,7 @@ namespace CDL2v1 {
       /// <returns>A set of local variables defined in the provided algorithm. Returns an empty set if the algorithm is not a
       /// Procedure.</returns>
       /// <remarks>Since proc.Locals always generates a new set, there is no need to copy it.</remarks>
-      private Set<Local> CollectLocals(Algorithm alg) => alg switch { 
+      public Set<Local> CollectLocals(Algorithm alg) => alg switch { 
          Procedure proc  => CollectLocals(proc.group,[.. proc.Locals]), 
          Macro     macro => macro.IsInlinable() ? [] : [.. macro.Locals],
          _ => []
@@ -883,6 +883,7 @@ namespace CDL2v1 {
                   }
                   emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = !Settings.SettingValue<bool>("CGDebug") };
                   CodeGenerator codeGenerator = new(cg,CDL2.Compiler,problemReporter);
+                  cg.SetCodeGenerator(codeGenerator);
                   codeGenerator.GenerateCode(program,emitter,$"{Settings.Display("MaxInlineCalls","NoProcInlining","NoMacroInlining")}");
                   problemReporter(Note.CodeGenDone,[target,program,targetFileName]);
                } catch (Exception ex) {

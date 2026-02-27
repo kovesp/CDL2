@@ -16,6 +16,7 @@
 //=======================================================================
 // </auto-gen>
 
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 
@@ -31,6 +32,12 @@ namespace CDL2v1 {
 
       public CodeGeneratorC(string dataType) : base() => DataType = dataType;
 
+      private CodeGenerator? cg = null;
+      public void SetCodeGenerator(CodeGenerator cg) => this.cg = cg;
+
+      private bool IsBacktrace => Settings.SettingValue<bool>("backtrace");
+      private bool IsTrace => Settings.SettingValue<bool>("trace");
+
       public void GenerateProgramStart(Program program,Emitter emitter,string settings,bool isSeparate = false) {
          this.emitter = emitter;
          emitter.Emitnl("/*cspell:disable*/");
@@ -42,6 +49,7 @@ namespace CDL2v1 {
          emitter.Emitnl($"#define VALUE {DataType}");
          emitter.Emitnl();
          emitter.Emitnl("#include \"CDL2.h\"");
+         if (Settings.SettingValue<bool>("backtrace") || Settings.SettingValue<bool>("trace")) emitter.Emitnl("#include \"CDL2Trace.h\"");
          emitter.Emitnl();
          emitter.Emitnl("int _argc;");
          emitter.Emitnl("char **_argv;");
@@ -266,9 +274,46 @@ namespace CDL2v1 {
       //public void GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"{(alg.CanFail ? "BOOL" : "void")} {CName(alg)}(");
       public void GenerateAlgorithmHeaderStart(Algorithm alg) 
          => emitter.Emit($"{alg.BodyType switch { TT.PROCBODY or TT.PROCINLINEBODY => "PROC", _ => "MACRO" }} {alg.AlgorithmType} {CName(alg)}(");
+
+      private string C2AffType(Affix aff) => aff.affixDir switch { 
+         AD.input    => "C2_AFF_INPUT", 
+         AD.output   => "C2_AFF_OUTPUT", 
+         AD.transput => "C2_AFF_TRANSPUT",
+         AD.NONE     => "C2_AFF_STRING",
+         _           => throw new NotImplementedException()
+      };
       public void GenerateAlgorithmHeaderEnd(Algorithm alg) {
          emitter.Emitnl(") {");
          IncrementIndent();
+
+         if (IsBacktrace || IsTrace) {
+            void emitComma() => emitter.Emit(",");
+            void emitArrayEnd() => emitter.Emitnl(");");
+            string algType = $"C2_ALG_{alg.AlgorithmType}";
+            Set<Local> locals = cg.CollectLocals(alg);
+            if (alg.Affixes.Count > 0) {
+               emitter.Emit($"VALUE[] C2AffValues = (");
+               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit(CName(aff)),emitComma,emitArrayEnd);
+
+               emitter.Emit($"char*[] C2AffNames = (");
+               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"\"{CName(aff)}\""),emitComma,emitArrayEnd);
+
+
+               emitter.Emit($"C2AffType[] C2AffTypes = (");
+               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit(C2AffType(aff)),emitComma,emitArrayEnd);
+            }
+            if (locals.Count > 0) {
+               emitter.Emit($"VALUE[] C2Locals = (");
+               locals.GenerateJoinedSequence(local => emitter.Emit(CName(local)),emitComma,emitArrayEnd);
+
+               emitter.Emit($"char*[] C2localNames = (\"");
+               locals.GenerateJoinedSequence(local => emitter.Emit($"\"{CName(local)}\""),emitComma,emitArrayEnd);
+            }
+            emitter.Emitnl($"c2push_callstack_frame({algType},\"{alg.Id}\",{alg.Affixes.Count},&C2AffValues,&C2AffNames,&C2AffTypes,{locals.Count},&C2Locals,&C2LocalNames)");
+         }
+         if (IsTrace) {
+            emitter.Emit($"c2TraceEnter();");
+         }
       }
 
       public void GenerateAffix(Affix affix,AffixDir dir,bool canFail) {
