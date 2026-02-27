@@ -379,6 +379,15 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="local"></param>
       void GenerateLocal(Local local);
+      /// <summary>
+      /// Generates trace data for the specified local variables to facilitate detailed analysis during debugging.
+      /// </summary>
+      /// <remarks>This method is intended for use in debugging scenarios where understanding the state of
+      /// local variables is crucial. Ensure that the collection is not null before calling this method.</remarks>
+      /// <param name="locals">A collection of local variables for which trace data will be generated. Each local variable must be valid and
+      /// properly initialized.</param>
+      void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals);
+
 
       /// <summary>
       /// This called to perform initialization of affixes and variables used in the algorithm.

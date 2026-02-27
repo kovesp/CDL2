@@ -250,7 +250,8 @@ function Remove-Const([string[]]$names) {
       /// The latter should be made impossible by semantic analysis.
       /// </summary>
       /// <param name="local"></param>
-      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT,PSVar(local)," = ",RandomInitialValue);
+      void ICodeGenerator.GenerateLocal(Local local) { }
+      public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) { }
       void ICodeGenerator.GenerateAffix(Affix affix,AD dir,bool algorithmCanFail) {
          switch (dir) {
             case AD.input:

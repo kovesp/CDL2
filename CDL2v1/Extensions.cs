@@ -541,8 +541,8 @@ namespace CDL2v1 {
                   joiner();
                   action(item);
                }
-               terminator?.Invoke();
             }
+            terminator?.Invoke();
          }
 
 

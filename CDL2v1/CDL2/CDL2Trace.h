@@ -7,11 +7,14 @@
 #include <stdlib.h>
 #endif
 
+#define RETURNV(res) return c2TraceExit(res)
+#define RETURN {c2TraceExit(TRUE);return;}
+
 #define CALL_STACK_MAX_DEPTH 10000
 
-enum C2AlgType  { C2_ALG_PREDICATE, C2_ALG_TEST, C2_ALG_ACTION, C2_ALG_FUNCTION };
-enum C2DataType { C2_DATA_CONST, C2_DATA_VAR, C2_DATA_LIST, C2_DATA_STRING };
-enum C2AffType  { C2_AFF_INPUT, C2_AFF_OUTPUT, C2_AFF_TRANSPUT, C2_AFF_STRING };
+typedef enum { C2_ALG_PREDICATE, C2_ALG_TEST, C2_ALG_ACTION, C2_ALG_FUNCTION } C2AlgType;
+typedef enum { C2_DATA_CONST, C2_DATA_VAR, C2_DATA_LIST, C2_DATA_STRING } C2DataType;
+typedef enum { C2_AFF_INPUT, C2_AFF_OUTPUT, C2_AFF_TRANSPUT, C2_AFF_STRING } C2AffType;
 
 struct C2CallStackFrame {
     C2AlgType type;
@@ -19,7 +22,6 @@ struct C2CallStackFrame {
     int nargs;
     VALUE* args;
     char** argnames;
-    C2DataType* argtypes;
     C2AffType* affTypes;
     int nlocals;
     VALUE** locals;
@@ -35,14 +37,17 @@ struct C2Data {
 
 const char* c2AlgType(int depth) {
    switch (c2_callstack[depth].type) {
-      case C2_ALG_PROC: return "PROC";
-      case C2_ALG_MACRO: return "MACRO";
+      case C2_ALG_PREDICATE: return "PREDICATE";
+      case C2_ALG_TEST: return "TEST";
+      case C2_ALG_ACTION: return "ACTION";
+      case C2_ALG_FUNCTION: return "FUNCTION";
       default: return "UNKNOWN";
    }
 }  
 
-void c2push_callstack_frame(C2AlgType type, char* name, int nargs, VALUE* args, char** argnames, 
-            C2DataType* argtypes, C2AffType* affTypes,int nlocals, VALUE** locals, char** localnames) {
+void c2push_callstack_frame(C2AlgType type, char* name, 
+                              int nargs, VALUE* args, char** argnames, C2AffType* affTypes,
+                              int nlocals, VALUE** locals, char** localnames) {
    if (c2_sp >= CALL_STACK_MAX_DEPTH-1) {
        fprintf(stderr, "Call stack overflow\n");
        exit(1);
@@ -53,7 +58,6 @@ void c2push_callstack_frame(C2AlgType type, char* name, int nargs, VALUE* args, 
    c2_callstack[c2_sp].nargs = nargs;
    c2_callstack[c2_sp].args = args;
    c2_callstack[c2_sp].argnames = argnames;
-   c2_callstack[c2_sp].argtypes = argtypes;
    c2_callstack[c2_sp].affTypes = affTypes;
    c2_callstack[c2_sp].nlocals = nlocals;
    c2_callstack[c2_sp].locals = locals;
@@ -106,14 +110,15 @@ void c2TraceEnter() {
    c2PrintStackFrame(c2_sp,TRUE,ENTER_MARKER);
    c2traceREPL();
 }
-// These are call before the corresponding c2_pop_callstack_frame so call information is still on the stack.
-void c2TraceExitSucceed() {
-   c2PrintStackFrame(c2_sp,FALSE,SUCCEED_MARKER);
+// Called before the corresponding c2_pop_callstack_frame so call information is still on the stack.
+int c2TraceExit(int v) {
+   if (v == FALSE) {
+      c2PrintStackFrame(c2_sp, FALSE, FAIL_MARKER);
+   } else {
+      c2PrintStackFrame(c2_sp, FALSE, FAIL_MARKER);
+   }
    c2traceREPL();
-}
-void c2TraceExitFail() {
-   c2PrintStackFrame(c2_sp,FALSE,FAIL_MARKER);
-   c2traceREPL();
+   return v;
 }
 // Called for the abort operator
 void c2TraceExitAbort() {

@@ -26,6 +26,8 @@ void debug_pause() {
 #define BOOL VALUE
 #define TRUE 1
 #define FALSE 0
+#define RETURNV(res) return res
+#define RETURN return
 #define PREDICATE BOOL
 #define TEST BOOL
 #define ACTION void

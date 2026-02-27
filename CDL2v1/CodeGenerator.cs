@@ -95,12 +95,13 @@ namespace CDL2v1 {
             GenerateObjects<LIST>(Reachable.Objects.OfType<LIST>(),GenerateList);
 
             IEnumerable<Macro>     macros              = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable());
-            IEnumerable<Procedure> procedures          = Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic && !proc.IsInlinable(Reachable));
-            IEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic && !proc.IsInlinable(Reachable));
+            IEnumerable<Procedure> procedures          = Reachable.Objects.OfType<Procedure>()
+                                                            .Where(proc => !proc.IsSynthetic && !proc.IsConditionalCompilation() && !proc.IsInlinable(Reachable));
+            IEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic);
             if (cg.RequiresPredeclaration) {
-               GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Pre-Declaration");
-               GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Pre-Declaration");
-               GenerateObjects<Procedure>(syntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Pre-Decalration");
+               GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Forward Declaration");
+               GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Forward Declaration");
+               GenerateObjects<Procedure>(syntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Forward Decalration");
             }
             GenerateObjects<Macro>(macros,GenerateMacro);
             GenerateObjects<Procedure>(procedures,GenerateProcedure);
@@ -528,7 +529,7 @@ namespace CDL2v1 {
             foreach (Affix affix in alg.Affixes) cg.GenerateAffixAndVariableInitializer(alg,affix);
             foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg,var,isVar: true);
          }
-         GenerateLocalInitializers(CollectLocals(alg));
+         GenerateLocalInitializers(alg,CollectLocals(alg));
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
 
@@ -553,9 +554,10 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alg">The algorithm containing the local variables for which initializers will be generated. Cannot be null.</param>
       /// <remarks>Notice that nothing is genrated for built-in result locals ... these are virtual.</remarks>
-      private void GenerateLocalInitializers(Algorithm alg) => GenerateLocalInitializers(alg.Locals);
-      private void GenerateLocalInitializers(IEnumerable<Local> locals) {
+      private void GenerateLocalInitializers(Algorithm alg) => GenerateLocalInitializers(alg,alg.Locals);
+      private void GenerateLocalInitializers(Algorithm alg,IEnumerable<Local> locals) {
          foreach (Local local in locals) if (!local.IsBuiltinResult) cg.GenerateLocal(local);
+         cg.GenerateTraceEnter(alg,locals);
       }
 
       /// <summary>
@@ -600,7 +602,7 @@ namespace CDL2v1 {
       /// Procedure.</returns>
       /// <remarks>Since proc.Locals always generates a new set, there is no need to copy it.</remarks>
       public Set<Local> CollectLocals(Algorithm alg) => alg switch { 
-         Procedure proc  => CollectLocals(proc.group,[.. proc.Locals]), 
+         Procedure proc  => CollectLocals(proc.group,[.. proc.Locals.Where(local=>!local.IsBuiltinResult)]), 
          Macro     macro => macro.IsInlinable() ? [] : [.. macro.Locals],
          _ => []
       };
@@ -648,7 +650,7 @@ namespace CDL2v1 {
                if (called is Macro macro && Settings.InliningMacros && macro.IsInlineMacro) {
                   locals.AddAll(macro.Locals);
                } else if (called is Procedure proc && Settings.InliningProcs  && proc.IsInlinable(Reachable)) {
-                  locals.AddAll(proc.Locals);
+                  locals.AddAll(proc.Locals.Where(local => !local.IsBuiltinResult));
                   CollectLocals(proc.group,locals);
                }
             }

@@ -81,7 +81,7 @@ namespace CDL2v1 {
          EmitUnitEndComment(program);
       }
 
-      void ICodeGenerator.GenerateSourceComment(bool nl) => emitter.NlEmit(nl?"\n":"",sourceEmitter.Content);
+      void ICodeGenerator.GenerateSourceComment(bool nl) => emitter.NlEmit(nl ? "\n" : "",sourceEmitter.Content);
 
       public new void GenerateComment(string comment) {
          foreach (string line in comment.Split('\n')) emitter.Emitnl($"{LineComment} ",line);
@@ -116,16 +116,16 @@ namespace CDL2v1 {
          emitter.NlEmitnl("}");
       }
 
-      public void GenerateMacroBodyStart(Macro macro,bool inlining) {}
+      public void GenerateMacroBodyStart(Macro macro,bool inlining) { }
 
-      public void GenerateMacroBodyEnd(Macro macro,bool inlining) {}
+      public void GenerateMacroBodyEnd(Macro macro,bool inlining) { }
 
       public void GenerateReturnExpressionStart(Macro macro) {
-         if (macro.CanFail) emitter.Emit(macro.NeedsFinalization ? "if (" : "return ");
+         if (macro.CanFail) emitter.Emit(macro.NeedsFinalization ? "if (" : "RETURNV(");
       }
 
       public void GenerateReturnExpressionEnd(Macro macro) {
-         if (macro.CanFail) emitter.Emitnl(macro.NeedsFinalization ? ") goto Finalization; " : ";");
+         if (macro.CanFail) emitter.Emitnl(macro.NeedsFinalization ? ") goto Finalization; " : ");");
       }
 
       private readonly Stack<int> FinalizationLabels = [];
@@ -168,7 +168,7 @@ namespace CDL2v1 {
             if (canFail) {
                emitter.Emit(CName(affix,"_"));
             } else {
-               emitter.Emit("(*"+CName(affix),")");
+               emitter.Emit("(*" + CName(affix),")");
             }
          } else {
             emitter.Emit(CName(affix));
@@ -181,7 +181,7 @@ namespace CDL2v1 {
       }
 
       public void GenerateProcedureEnd(Procedure proc) {
-         emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "return TRUE;" : "return FALSE;" : "return;");
+         emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "RETURNV(TRUE);" : "RETURNV(FALSE);" : "RETURN;");
          DecrementIndent();
          emitter.NlEmitnl("}");
       }
@@ -193,7 +193,7 @@ namespace CDL2v1 {
       private int NextLabel => LabelCounter++;
       public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) { }
 
-      public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) {}
+      public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) { }
 
       public void GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber,bool supressLabel) {
          GenerateComment($"Alternative {alternativeNumber}");
@@ -203,7 +203,7 @@ namespace CDL2v1 {
 
       public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
-            emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "goto Finalization;" : "return TRUE;" : "return;");
+            emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "goto Finalization;" : "RETURNV(TRUE);" : "RETURN;");
          DecrementIndent();
          GenerateComment($"End Alternative {alternativeNumber}");
          if (group.LiveAlternatives == 1 && proc.CanFail) GenerateLabel();
@@ -228,7 +228,7 @@ namespace CDL2v1 {
       public void GenerateCallEnd(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
             if (lastAlternative) {
-               emitter.Emit(")) return FALSE;");
+               emitter.Emit(")) RETURN(FALSE);");
             } else {
                emitter.Emit($")) goto {Label};");
             }
@@ -238,11 +238,11 @@ namespace CDL2v1 {
          Newline();
       }
 
-      public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("return FALSE;");
-      public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl(proc.CanFail ? "return TRUE;" : "return;");
+      public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("RETURNV(FALSE);");
+      public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl(proc.CanFail ? "RETURNV(TRUE);" : "RETURN;");
       public void GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit(1);");
-      public void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail) 
-         => emitter.Emitnl("goto "+(label.IsAnonymous ? CName(group.Id) : CName(label)) + ";");
+      public void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail)
+         => emitter.Emitnl("goto " + (label.IsAnonymous ? CName(group.Id) : CName(label)) + ";");
 
       public void GenerateActualArgSeparator() => emitter.Emit(", ");
       public void GenerateCallArgString(string value) => emitter.Emit("\"",value.Replace("\"","\\\""),"\"");
@@ -272,47 +272,60 @@ namespace CDL2v1 {
       }
 
       //public void GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"{(alg.CanFail ? "BOOL" : "void")} {CName(alg)}(");
-      public void GenerateAlgorithmHeaderStart(Algorithm alg) 
+      public void GenerateAlgorithmHeaderStart(Algorithm alg)
          => emitter.Emit($"{alg.BodyType switch { TT.PROCBODY or TT.PROCINLINEBODY => "PROC", _ => "MACRO" }} {alg.AlgorithmType} {CName(alg)}(");
 
-      private string C2AffType(Affix aff) => aff.affixDir switch { 
-         AD.input    => "C2_AFF_INPUT", 
-         AD.output   => "C2_AFF_OUTPUT", 
+      private string C2AffType(Affix aff) => aff.affixDir switch {
+         AD.input => "C2_AFF_INPUT",
+         AD.output => "C2_AFF_OUTPUT",
          AD.transput => "C2_AFF_TRANSPUT",
-         AD.NONE     => "C2_AFF_STRING",
-         _           => throw new NotImplementedException()
+         AD.NONE => "C2_AFF_STRING",
+         _ => throw new NotImplementedException()
       };
       public void GenerateAlgorithmHeaderEnd(Algorithm alg) {
          emitter.Emitnl(") {");
          IncrementIndent();
 
+         EmitAffixesTraceData(alg);
+      }
+
+      private void EmitAffixesTraceData(Algorithm alg) {
          if (IsBacktrace || IsTrace) {
             void emitComma() => emitter.Emit(",");
-            void emitArrayEnd() => emitter.Emitnl(");");
-            string algType = $"C2_ALG_{alg.AlgorithmType}";
-            Set<Local> locals = cg.CollectLocals(alg);
+            void emitArrayEnd() => emitter.Emitnl("};");
+
             if (alg.Affixes.Count > 0) {
-               emitter.Emit($"VALUE[] C2AffValues = (");
+               emitter.Emit($"VALUE C2AffValues[] = {{");
                alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit(CName(aff)),emitComma,emitArrayEnd);
 
-               emitter.Emit($"char*[] C2AffNames = (");
-               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"\"{CName(aff)}\""),emitComma,emitArrayEnd);
+               emitter.Emit($"char* C2AffNames[] = {{");
+               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"\"{aff.Id}\""),emitComma,emitArrayEnd);
 
 
-               emitter.Emit($"C2AffType[] C2AffTypes = (");
+               emitter.Emit($"C2AffType C2AffTypes[] = {{");
                alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit(C2AffType(aff)),emitComma,emitArrayEnd);
             }
-            if (locals.Count > 0) {
-               emitter.Emit($"VALUE[] C2Locals = (");
-               locals.GenerateJoinedSequence(local => emitter.Emit(CName(local)),emitComma,emitArrayEnd);
-
-               emitter.Emit($"char*[] C2localNames = (\"");
-               locals.GenerateJoinedSequence(local => emitter.Emit($"\"{CName(local)}\""),emitComma,emitArrayEnd);
-            }
-            emitter.Emitnl($"c2push_callstack_frame({algType},\"{alg.Id}\",{alg.Affixes.Count},&C2AffValues,&C2AffNames,&C2AffTypes,{locals.Count},&C2Locals,&C2LocalNames)");
          }
-         if (IsTrace) {
-            emitter.Emit($"c2TraceEnter();");
+      }
+
+      public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) {  
+         void emitComma() => emitter.Emit(",");
+         void emitArrayEnd() => emitter.Emitnl("};");
+         string localsRefs;
+         if (IsBacktrace || IsTrace) {
+            if (locals.Any()) {
+               emitter.Emit($"VALUE C2Locals[] = {{");
+               locals.GenerateJoinedSequence(local => emitter.Emit("&" + CName(local)),emitComma,emitArrayEnd);
+
+               emitter.Emit($"char* C2LocalNames[] = {{");
+               locals.GenerateJoinedSequence(local => emitter.Emit($"\"{local.Id}\""),emitComma,emitArrayEnd);
+               localsRefs = $"{locals.Count()},&C2Locals,&C2LocalNames";
+            } else {
+               localsRefs = "0,(VALUE**)0,(char**)0";
+            }
+            string affRefs = alg.Affixes.Count == 0 ? "0,(VALUE*)0,(char**)0,(C2AffType*)0" : $"{alg.Affixes.Count},&C2AffValues,&C2AffNames,&C2AffTypes";
+            emitter.Emitnl($"c2push_callstack_frame(C2_ALG_{alg.AlgorithmType},\"{alg.Id}\",{affRefs},{localsRefs});");
+            if (IsTrace) emitter.Emit($"c2TraceEnter();");
          }
       }
 
@@ -366,7 +379,7 @@ namespace CDL2v1 {
 
       public void GenerateAffixAndVariableFinalizationStart(Algorithm algorithm) {
          if (algorithm.NeedsFinalization) {
-            emitter.Emitnl("return FALSE;");
+            emitter.Emitnl("RETURNV(FALSE);");
             emitter.Emitnl("Finalization:");
          }
       }
@@ -374,7 +387,7 @@ namespace CDL2v1 {
       public void GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) {
          if (algorithm.NeedsFinalization) {
             GenerateComment("End Finalization");
-            emitter.Emitnl("return TRUE;");
+            emitter.Emitnl("RETURNV(TRUE);");
          }
       }
 
