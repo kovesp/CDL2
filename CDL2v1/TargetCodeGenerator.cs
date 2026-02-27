@@ -61,60 +61,67 @@ namespace CDL2v1 {
       public void DecrementIndent() => emitter.IndentLevel--;
 
       /// <summary>
-      /// Return true if the macro contains multiple statements separated by the given separator.
+      /// Return true if the macro contains multiple statements separated by any of the given separators.
       /// </summary>
       /// <param name="macro"></param>
-      /// <param name="separator"></param>
+      /// <param name="separators"></param>
       /// <returns></returns>
-      protected static bool HasMultipleStatments(Macro macro,string separator = ";") {
-         Regex regex = SeparatorRegex(separator);
-         return macro.elements.OfType<STRING>().Any(str => regex.IsMatch(str.value));
-      }
+      protected static bool HasMultipleStatments(Macro macro,Regex separators) =>
+         macro.Elements.OfType<STRING>().Any(str => FindLastSeparator(str.value,separators).position >= 0);
 
       /// <summary>
-      /// Splits the elements of a macro into two groups based on the last occurrence of a specified separator.
+      /// Splits the elements of a macro into two groups based on the last occurrence of any specified separator.
       /// </summary>
-      /// <remarks>The separator is matched against string elements using a regular expression. This method
-      /// does not modify the original macro or its elements.</remarks>
+      /// <remarks>The method searches backwards through macro elements to find the first STRING element that contains
+      /// any separator. Within that STRING, it finds the last separator and splits the STRING at that point, keeping
+      /// the separator with the first part. This method does not modify the original macro or its elements.</remarks>
       /// <param name="macro">The macro whose elements are to be split. Must not be null.</param>
-      /// <param name="separator">The string value used to identify the separator element. Defaults to ";" if not specified.</param>
+      /// <param name="separators">Array of separator strings (e.g., [";", "\n"] for PowerShell).</param>
       /// <returns>A tuple containing two lists: the first list includes all elements up to and including the last separator, and
       /// the second list contains all elements following the last separator. If no separator is found, the first list
       /// is empty and the second contains all elements.</returns>
-      public static (List<IElement> beforeLast, List<IElement> lastExpression) SplitMacroBodyIntoStatements(Macro macro,string separator) {
-         if (macro.elements.Count == 0) return ([],[]);
-
-         Regex regex = SeparatorRegex(separator);
-
-         int lastSeparatorIndex = -1;
-         for (int i = macro.elements.Count - 1 ; i >= 0 ; i--) {
-            if (macro.elements[i] is STRING str && regex.IsMatch(str.value)) {
-               lastSeparatorIndex = i;
-               break;
-            }
-         }
+      public static (List<IElement> beforeLast, List<IElement> lastExpression) SplitMacroBody(Macro macro,Regex separators) {
+         if (macro.Elements.Count == 0) return ([],[]);
 
          List<IElement> beforeLast = [];
          List<IElement> lastExpression = [];
 
-         if (lastSeparatorIndex == -1) {
-            lastExpression.AddRange(macro.elements);
-         } else {
-            for (int i = 0 ; i <= lastSeparatorIndex ; i++) {
-               beforeLast.Add(macro.elements[i]);
-            }
+         for (int i = macro.Elements.Count - 1 ; i >= 0 ; i--) {
+            if (macro.Elements[i] is STRING str) {
+               (int position, string separator) = FindLastSeparator(str.value,separators);
+               if (position >= 0) {
+                  for (int j = 0 ; j < i ; j++) beforeLast.Add(macro.Elements[j]);
 
-            for (int i = lastSeparatorIndex + 1 ; i < macro.elements.Count ; i++) {
-               lastExpression.Add(macro.elements[i]);
+                  int newlineIndex = separator.IndexOf('\n');
+                  int splitAt = position + separator.Length;
+                  string beforeSeparator = str.value.Substring(0,splitAt);
+                  string afterSeparator = str.value.Substring(splitAt);
+
+                  if (beforeSeparator.Length > 0) beforeLast.Add(new STRING(beforeSeparator));
+                  if (afterSeparator.Length > 0) lastExpression.Add(new STRING(afterSeparator));
+
+                  for (int j = i + 1 ; j < macro.Elements.Count ; j++) lastExpression.Add(macro.Elements[j]);
+
+                  return (beforeLast, lastExpression);
+               }
             }
          }
 
+         lastExpression.AddRange(macro.Elements);
          return (beforeLast, lastExpression);
       }
 
-      private static Regex SeparatorRegex(string separator) {
-         string pattern = $@"(?<!['""])(?:\n|{Regex.Escape(separator)})(?![^'""]*['""])";
-         return new Regex(pattern,RegexOptions.Compiled);
+      private static (int position, string separator) FindLastSeparator(string value,Regex separators) {
+         Match match = separators.Match(value);
+         Match lastMatch = match;
+
+         while (match.Success) {
+            lastMatch = match;
+            match = match.NextMatch();
+         }
+
+         if (lastMatch.Success) return (lastMatch.Index, lastMatch.Value);
+         return (-1, "");
       }
 
       protected static readonly Random Random = new();

@@ -489,20 +489,20 @@ namespace CDL2v1 {
       private static void ReportError(Container unit,string message) => Logger.ReportError($"{unit.ContainerName}: {message}");
 
       private void AnalyzeMacro(Macro macro) {
-         List<IElement> originalelements = [.. macro.elements];
-         macro.elements.Clear();
+         List<IElement> originalelements = [.. macro.Elements];
+         macro.Elements.Clear();
          foreach (IElement elem in originalelements) {
             if (elem is ID id) {
                if (macro.Affixes.TryGetValueWithId(id,out Affix? affix)) {
-                  macro.elements.Add(affix!.Id);
+                  macro.Elements.Add(affix!.Id);
                } else if (macro.Locals.TryGetValueWithId(id,out Local? local)) {
-                  macro.elements.Add(local!.Id);
+                  macro.Elements.Add(local!.Id);
                } else {
-                  macro.elements.Add(ResolveIdToDeclaringId<Macro,CDL2Object>(macro.Section!,macro,id,
+                  macro.Elements.Add(ResolveIdToDeclaringId<Macro,CDL2Object>(macro.Section!,macro,id,
                      Note.UnresolvedMacroElement,Note.InvalidMacroElement,ensure: x => x is IDataElement));
                }
             } else {
-               macro.elements.Add(elem);
+               macro.Elements.Add(elem);
             }
          }
       }

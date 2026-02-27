@@ -35,11 +35,11 @@
 
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorPowerShell : TargetCodeGenerator, ICodeGenerator {
-      public bool TargetRequiresMacroSpliting => false;
-      public string StatementSeparator => ";";
+      public Regex StatementSeparators => new(@";|\}\n*|\n+");
 
       #region Instance and Static Variables, Constructors
       private readonly string DataType;
@@ -342,18 +342,10 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateMacroElementLocal(Local loc,Affix calledAffix) => emitter.Emit(PSVar(loc));
 
-      void ICodeGenerator.GenerateMacroBodyStart(Macro macro) {
+      void ICodeGenerator.GenerateMacroBodyStart(Macro macro,bool inlining) {
          if (macro.NeedsFinalization) IncrementIndent();
-         if (macro.CanFail && HasMultipleStatments(macro)) {
-            emitter.Emitnl("@(");
-            IncrementIndent();
-         }
       }
-      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro) {
-         if (macro.CanFail && HasMultipleStatments(macro)) {
-            DecrementIndent();
-            emitter.NlEmitnl(")[-1]");
-         }
+      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro,bool inlining) {
          if (macro.NeedsFinalization) DecrementIndent();
       }
 

@@ -33,12 +33,10 @@
 
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorCSharp : TargetCodeGenerator, ICodeGenerator {
-      public bool TargetRequiresMacroSpliting => true;
-
-      public string StatementSeparator => ";";
 
       #region Instance and Static Variables, Constructors
       private readonly string DataType;
@@ -328,9 +326,9 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateMacroElementAffix(Affix affix,bool macroCanFail) => emitter.Emit(CSName(affix,macroCanFail && affix.IsOutput ? "_" : ""));
       void ICodeGenerator.GenerateMacroElementLocal(Local loc,Affix aff) => emitter.Emit(CSName(loc));
 
-      void ICodeGenerator.GenerateMacroBodyStart(Macro macro) { }
+      void ICodeGenerator.GenerateMacroBodyStart(Macro macro,bool inlining) { }
 
-      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro) { }
+      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro,bool inlining) { }
 
       void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) {
          if (macro.CanFail) {

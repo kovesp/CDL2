@@ -94,9 +94,9 @@ namespace CDL2v1 {
             GenerateObjects<Var>(Reachable.Objects.OfType<Var>(),GenerateVar);
             GenerateObjects<LIST>(Reachable.Objects.OfType<LIST>(),GenerateList);
 
-            IEnumerable<Macro> macros = Reachable.Objects.OfType<Macro>();
-            IEnumerable<Procedure> procedures = Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic);
-            IEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic);
+            IEnumerable<Macro>     macros              = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable());
+            IEnumerable<Procedure> procedures          = Reachable.Objects.OfType<Procedure>().Where(proc => !proc.IsSynthetic && !proc.IsInlinable(Reachable));
+            IEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic && !proc.IsInlinable(Reachable));
             if (cg.RequiresPredeclaration) {
                GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Pre-Declaration");
                GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Pre-Declaration");
@@ -295,10 +295,7 @@ namespace CDL2v1 {
       /// <param name="macro"></param>
       /// <param name="_"></param>
       private void GenerateMacro(Macro macro,int _) {
-         if (Settings.InliningMacros && macro.IsInlineMacro) {
-            GenerateAlgorithmComment(macro);
-            cg.GenerateComment("Macro inlined");
-         } else {
+         if (!Settings.InliningMacros || !macro.IsInlineMacro) {
             IEnumerable<Var> variables = macro.GetReferencedVariables();
             cg.GenerateMacroStart(macro);
             GenerateAlgorithmHeader(macro,variables);
@@ -326,15 +323,15 @@ namespace CDL2v1 {
          bool first = true;
          List<IElement> lastExpression;
 
-         cg.GenerateMacroBodyStart(macro);
-         if (cg.TargetRequiresMacroSpliting && macro.CanFail) { // Target spliting is only needed for macros that can fail.
-            (List<IElement> beforeLast,lastExpression) = TargetCodeGenerator.SplitMacroBodyIntoStatements(macro,cg.StatementSeparator);
+         cg.GenerateMacroBodyStart(macro,inlining);
+         if (macro.CanFail) { // Split the elements so the conditional logic can be applied to the last expression.
+            (List<IElement> beforeLast,lastExpression) = TargetCodeGenerator.SplitMacroBody(macro,cg.StatementSeparators);
             foreach (IElement elem in beforeLast) {
                GenerateMacroElement(macro,macro.Section!,callingProc,aList,first,elem);
                first = false;
             }
          } else {
-            lastExpression = macro.elements;
+            lastExpression = macro.Elements;
          }
          if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
          foreach (IElement elem in lastExpression) {
@@ -342,7 +339,7 @@ namespace CDL2v1 {
             first = false;
          }
          if (inlining) cg.GenerateMacroInlineEnd(macro); else cg.GenerateReturnExpressionEnd(macro);
-         cg.GenerateMacroBodyEnd(macro);
+         cg.GenerateMacroBodyEnd(macro,inlining);
       }
 
 
@@ -582,13 +579,7 @@ namespace CDL2v1 {
       private void GenerateProcedure(Procedure proc,int _) {
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
-         } else if (!proc.IsSynthetic && proc.IsInlinable(Reachable)) { // TODO: Inline synthetics if applicable
-            GenerateAlgorithmComment(proc);
-            cg.GenerateComment($"Procedure inlined");
-         //} else if (!proc.IsSynthetic && proc.GetInliningParameters(Reachable).NumberOfTimesCalled == 0) {
-         //   GenerateAlgorithmComment(proc);
-         //   cg.GenerateComment($"Procedure not invoked");
-         } else {
+         } else if (proc.IsSynthetic || !proc.IsInlinable(Reachable)) { 
             IEnumerable<Var> variables = proc.GetReferencedVariables();            
             cg.GenerateProcedureStart(proc);
             GenerateAlgorithmHeader(proc,variables);
@@ -604,12 +595,15 @@ namespace CDL2v1 {
       /// Collects the locals defined by the group itself as well as inlined calls.
       /// Applies only to Procedures. Locals for macros are handled in GenerateMacroBody.
       /// </summary>
-      /// /// <param name="algorithm">The algorithm from which to collect local variables. Must be of type Procedure to retrieve its locals.</param>
+      /// /// <param name="alg">The algorithm from which to collect local variables. Must be of type Procedure to retrieve its locals.</param>
       /// <returns>A set of local variables defined in the provided algorithm. Returns an empty set if the algorithm is not a
       /// Procedure.</returns>
       /// <remarks>Since proc.Locals always generates a new set, there is no need to copy it.</remarks>
-      private Set<Local> CollectLocals(Algorithm algorithm) 
-         => algorithm is Procedure procedure ? CollectLocals(procedure.group,procedure.Locals) : algorithm.Locals;
+      private Set<Local> CollectLocals(Algorithm alg) => alg switch { 
+         Procedure proc  => CollectLocals(proc.group,[.. proc.Locals]), 
+         Macro     macro => macro.IsInlinable() ? [] : [.. macro.Locals],
+         _ => []
+      };
 
       /// <summary>
       /// Collects the locals of inlined calls in the group and adds them to locals.

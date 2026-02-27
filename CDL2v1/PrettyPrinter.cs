@@ -792,11 +792,11 @@ namespace CDL2v1 {
       public void Print(Macro macro) {
          PrintAlgorithmHeader(macro);
          Indented(() => {
-            Debug.Assert(macro.elements.Count != 0,"macro elements list is empty");
+            Debug.Assert(macro.Elements.Count != 0,"macro elements list is empty");
 
-            IElement elem1 = macro.elements.First();
+            IElement elem1 = macro.Elements.First();
             bool wasID = PrintMacroElement(elem1,withNl: false);
-            foreach (IElement elem in macro.elements.Skip(1)) {
+            foreach (IElement elem in macro.Elements.Skip(1)) {
                wasID = PrintMacroElement(elem,withSpace: true,wasID: wasID);
             }
             EmitSeparatorWithNL(TT.END);

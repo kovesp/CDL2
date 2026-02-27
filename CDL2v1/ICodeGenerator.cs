@@ -33,6 +33,8 @@
 //=======================================================================
 // </auto-gen>
 
+using System.Text.RegularExpressions;
+
 namespace CDL2v1 {
    /// <summary>
    /// Interface for target code generators.
@@ -430,11 +432,8 @@ namespace CDL2v1 {
       string LineComment { get; }
       (string Start, string End) BlockComment { get; }
 
-      /// <summary>
-      /// Gets a value indicating whether the target requires macro splitting during processing.
-      /// </summary>
-      bool TargetRequiresMacroSpliting { get; }
-      string StatementSeparator { get; }
+      Regex StatementSeparators => new(@";|\}\n*");
+
       /// <summary>
       /// This is called at the start of a macro.
       /// </summary>
@@ -450,12 +449,14 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="macro"></param>
       /// 
-      void GenerateMacroBodyStart(Macro macro);
+      /// <param name="inlining"></param>
+      void GenerateMacroBodyStart(Macro macro,bool inlining = false);
       /// <summary>
       /// This is called at the end of the body of a macro.
       /// </summary>
       /// <param name="macro"></param>
-      void GenerateMacroBodyEnd(Macro macro);
+      /// <param name="inlining"></param>
+      void GenerateMacroBodyEnd(Macro macro,bool inlining = false);
       /// <summary>
       /// Begins generation of a return expression for the specified macro.
       /// </summary>

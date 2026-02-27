@@ -414,9 +414,9 @@ namespace CDL2v1 {
       }
 
       private bool ParseMacroBody(Macro macro,ParseMode mode) {
-         ParseElementList(macro,macro.elements,"ID, Affix, Local, STRING, INT, or FLOAT",mode);
-         IElement? first = macro.elements.FirstOrDefault();
-         if (first is not null && first is STRING str) macro.elements[0] = new STRING(Regex.Replace(str.value,"^ *\n","",RegexOptions.Compiled));
+         ParseElementList(macro,macro.Elements,"ID, Affix, Local, STRING, INT, or FLOAT",mode);
+         IElement? first = macro.Elements.FirstOrDefault();
+         if (first is not null && first is STRING str) macro.Elements[0] = new STRING(Regex.Replace(str.value,"^ *\n","",RegexOptions.Compiled));
 
          if (!tokens.CanConsume(TT.END)) {
             if (mode == ParseMode.Full) ReportError("Expected .");

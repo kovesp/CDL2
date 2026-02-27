@@ -1639,7 +1639,7 @@ namespace CDL2v1 {
    public class Macro : Algorithm {
       [JsonInclude]
       [JsonPropertyOrder(60)]
-      public List<IElement> elements = [];
+      public List<IElement> Elements = [];
 
       /// <param Id="Id"></param>
       /// <param Id="affixes"></param>
@@ -1651,9 +1651,9 @@ namespace CDL2v1 {
       [JsonConstructor]
       public Macro() : base() { } // For deserialization
 
-      public override bool IsInlinable(Reachable _) => IsInlineMacro && Settings.InliningMacros;
+      public override bool IsInlinable(Reachable? _ = null) => IsInlineMacro && Settings.InliningMacros;
 
-      public override IEnumerable<Var> GetReferencedVariables() => elements.OfType<ID>().Select(id => Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
+      public override IEnumerable<Var> GetReferencedVariables() => Elements.OfType<ID>().Select(id => Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
    }
    /// <summary>
    /// Represents a procedure in the syntax tree.

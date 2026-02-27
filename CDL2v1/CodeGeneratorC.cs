@@ -17,13 +17,12 @@
 // </auto-gen>
 
 using System.Reflection.Emit;
+using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorC : TargetCodeGenerator, ICodeGenerator {
       public string FileExtension => "c";
-      public string StatementSeparator => ";";
       public override bool RequiresPredeclaration => true;
-      public bool TargetRequiresMacroSpliting => true;
 
       private readonly EmitterString sourceEmitter = new(prefix: "// ");
       public Emitter SourceEmitter => sourceEmitter;
@@ -40,68 +39,18 @@ namespace CDL2v1 {
          emitter.Emitnl($" * Settings: {settings}");
          emitter.Emitnl($" */");
          emitter.Emitnl();
-         emitter.Emitnl("#define _CRT_SECURE_NO_WARNINGS");
-         emitter.Emitnl("#include <stdio.h>");
-         emitter.Emitnl("#include <stdlib.h>");
-         emitter.Emitnl("#include <time.h>");
+         emitter.Emitnl($"#define VALUE {DataType}");
          emitter.Emitnl();
          emitter.Emitnl("#include \"CDL2.h\"");
          emitter.Emitnl();
-         emitter.Emitnl($"#define BOOL {DataType}");
-         emitter.Emitnl($"#define TRUE 1");
-         emitter.Emitnl($"#define FALSE 0");
-         emitter.Emitnl($"#define VALUE {DataType}");
-         emitter.Emitnl($"#define PREDICATE BOOL");
-         emitter.Emitnl($"#define TEST BOOL");
-         emitter.Emitnl($"#define ACTION void");
-         emitter.Emitnl($"#define FUNCTION void");
-         emitter.Emitnl($"#define PROC");
-         emitter.Emitnl($"#define MACRO");
-         emitter.Emitnl();
          emitter.Emitnl("int _argc;");
          emitter.Emitnl("char **_argv;");
-         GenerateStandardMacros();
          emitter.Emitnl();
          base.GenerateComment("===============================================================================");
          emitter.Emitnl();
          EmitUnitStartComment(program);
          emitter.Emitnl();
          LabelCounter = 0;
-      }
-
-      private void GenerateStandardMacros() {
-         emitter.Emitnl("/* CDL2 Standard Macros for Lists */");
-         emitter.Emitnl("#define CDL2_DECLARE_LIST(name, lwb, upb) \\");
-         emitter.Emitnl("    VALUE name##_array[(upb) - (lwb) + 1]; \\");
-         emitter.Emitnl("    VALUE name##_lwb = (lwb); \\");
-         emitter.Emitnl("    VALUE name##_upb = (upb)");
-         emitter.Emitnl();
-         emitter.Emitnl("#define CDL2_LIST_GET(name, i) \\");
-         emitter.Emitnl("    ((i) < name##_lwb || (i) > name##_upb ? \\");
-         emitter.Emitnl("        (fprintf(stderr, \"Index out of bounds: %ld not in [%ld..%ld]\\\\n\", (VALUE)(i), name##_lwb, name##_upb), exit(1), 0) : \\");
-         emitter.Emitnl("        name##_array[(i) - name##_lwb])");
-         emitter.Emitnl();
-         emitter.Emitnl("#define CDL2_LIST_SET(name, i, value) \\");
-         emitter.Emitnl("    do { \\");
-         emitter.Emitnl("        if ((i) < name##_lwb || (i) > name##_upb) { \\");
-         emitter.Emitnl("            fprintf(stderr, \"Index out of bounds: %ld not in [%ld..%ld]\\\\n\", (VALUE)(i), name##_lwb, name##_upb); \\");
-         emitter.Emitnl("            exit(1); \\");
-         emitter.Emitnl("        } \\");
-         emitter.Emitnl("        name##_array[(i) - name##_lwb] = (value); \\");
-         emitter.Emitnl("    } while(0)");
-         emitter.Emitnl();
-         emitter.Emitnl("#define CDL2_LIST_SWAP(name, i, j) \\");
-         emitter.Emitnl("    do { \\");
-         emitter.Emitnl("        VALUE temp; \\");
-         emitter.Emitnl("        if ((i) < name##_lwb || (i) > name##_upb || (j) < name##_lwb || (j) > name##_upb) { \\");
-         emitter.Emitnl("            fprintf(stderr, \"Index out of bounds in swap\\\\n\"); \\");
-         emitter.Emitnl("            exit(1); \\");
-         emitter.Emitnl("        } \\");
-         emitter.Emitnl("        temp = name##_array[(i) - name##_lwb]; \\");
-         emitter.Emitnl("        name##_array[(i) - name##_lwb] = name##_array[(j) - name##_lwb]; \\");
-         emitter.Emitnl("        name##_array[(j) - name##_lwb] = temp; \\");
-         emitter.Emitnl("    } while(0)");
-         emitter.Emitnl();
       }
 
       public void GenerateProgramLudesStart() {
@@ -159,13 +108,9 @@ namespace CDL2v1 {
          emitter.NlEmitnl("}");
       }
 
-      public void GenerateMacroBodyStart(Macro macro) {
-         //if (macro.NeedsFinalization) IncrementIndent();
-      }
+      public void GenerateMacroBodyStart(Macro macro,bool inlining) {}
 
-      public void GenerateMacroBodyEnd(Macro macro) {
-         //if (macro.NeedsFinalization) DecrementIndent();
-      }
+      public void GenerateMacroBodyEnd(Macro macro,bool inlining) {}
 
       public void GenerateReturnExpressionStart(Macro macro) {
          if (macro.CanFail) emitter.Emit(macro.NeedsFinalization ? "if (" : "return ");

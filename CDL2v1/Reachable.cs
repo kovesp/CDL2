@@ -230,7 +230,7 @@ namespace CDL2v1 {
          }
       }
       private void CollectReachableObjects(Macro macro) {
-         foreach (IElement element in macro.elements) {
+         foreach (IElement element in macro.Elements) {
             switch (element) {
                case Affix:
                case Local:

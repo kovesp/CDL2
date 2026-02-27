@@ -373,7 +373,7 @@ MODULE c kernel.
       ENDSEC messages.
 
       SECTION data.
-         EXPORT smaller element, swap element, get element, set element, set element to,is data sorted macro.
+         EXPORT smaller element, swap element, get element, set element, set element to, is data sorted macro.
          EXPORT sort data, show native sorter.
          INV show msg no newline.
 
@@ -407,12 +407,12 @@ MODULE c kernel.
 
          # Sort the array using qsort. For execution time comparison. #
          # For this to work, include
-         #    int cmplong(const void *a, const void *b) { return (*(long*)a - *(long*)b);
+         #    int cmpvalue(const void *a, const void *b) { return (*(VALUE*)a - *(VALUE*)b);
          # in CDL2.h which is automatically included in C code generator output.
          ACTION sort data+>to = 
-            "$Lqsort(" data "_array, " to " - " lwb " + 1, sizeof(long), cmplong);".
+            "$Lqsort(" data "_array, " to " - " lwb " + 1, sizeof(VALUE), cmpvalue);".
          ACTION show native sorter:
-            show msg no newline+"C qsort(_,_,cmplong)".
+            show msg no newline+"C qsort(_,_,cmpvalue)".
       ENDSEC data.
    ENDLAY kernel.
 ENDMOD c kernel.
