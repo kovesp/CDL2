@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #endif
 
+#undef RETURNV
+#undef RETURN
 #define RETURNV(res) return c2TraceExit(res)
 #define RETURN {c2TraceExit(TRUE);return;}
 
@@ -16,7 +18,7 @@ typedef enum { C2_ALG_PREDICATE, C2_ALG_TEST, C2_ALG_ACTION, C2_ALG_FUNCTION } C
 typedef enum { C2_DATA_CONST, C2_DATA_VAR, C2_DATA_LIST, C2_DATA_STRING } C2DataType;
 typedef enum { C2_AFF_INPUT, C2_AFF_OUTPUT, C2_AFF_TRANSPUT, C2_AFF_STRING } C2AffType;
 
-struct C2CallStackFrame {
+typedef struct {
     C2AlgType type;
     char* name;
     int nargs;
@@ -26,17 +28,17 @@ struct C2CallStackFrame {
     int nlocals;
     VALUE** locals;
     char** localnames;
-};
+} C2StackFrame;
 
-C2CallStackFrame c2_callstack[CALL_STACK_MAX_DEPTH];
-int c2_sp = -1;
+C2StackFrame C2Stack[CALL_STACK_MAX_DEPTH];
+int C2SP = -1;
 
-struct C2Data {
-
-};
+//struct C2Data {
+//
+//};
 
 const char* c2AlgType(int depth) {
-   switch (c2_callstack[depth].type) {
+   switch (C2Stack[depth].type) {
       case C2_ALG_PREDICATE: return "PREDICATE";
       case C2_ALG_TEST: return "TEST";
       case C2_ALG_ACTION: return "ACTION";
@@ -48,27 +50,27 @@ const char* c2AlgType(int depth) {
 void c2push_callstack_frame(C2AlgType type, char* name, 
                               int nargs, VALUE* args, char** argnames, C2AffType* affTypes,
                               int nlocals, VALUE** locals, char** localnames) {
-   if (c2_sp >= CALL_STACK_MAX_DEPTH-1) {
+   if (C2SP >= CALL_STACK_MAX_DEPTH-1) {
        fprintf(stderr, "Call stack overflow\n");
        exit(1);
    }
-   c2_sp++;
-   c2_callstack[c2_sp].type = type;
-   c2_callstack[c2_sp].name = name;
-   c2_callstack[c2_sp].nargs = nargs;
-   c2_callstack[c2_sp].args = args;
-   c2_callstack[c2_sp].argnames = argnames;
-   c2_callstack[c2_sp].affTypes = affTypes;
-   c2_callstack[c2_sp].nlocals = nlocals;
-   c2_callstack[c2_sp].locals = locals;
-   c2_callstack[c2_sp].localnames = localnames;
+   C2SP++;
+   C2Stack[C2SP].type = type;
+   C2Stack[C2SP].name = name;
+   C2Stack[C2SP].nargs = nargs;
+   C2Stack[C2SP].args = args;
+   C2Stack[C2SP].argnames = argnames;
+   C2Stack[C2SP].affTypes = affTypes;
+   C2Stack[C2SP].nlocals = nlocals;
+   C2Stack[C2SP].locals = locals;
+   C2Stack[C2SP].localnames = localnames;
 }
 void c2pop_callstack_frame() {
-   if (c2_sp < 0) {
+   if (C2SP < 0) {
        fprintf(stderr, "Call stack underflow\n");
        exit(1);
    }
-   c2_sp--;
+   C2SP--;
 }
 
 #define ENTER_MARKER ">"
@@ -76,16 +78,24 @@ void c2pop_callstack_frame() {
 #define FAIL_MARKER "-"
 #define NO_MARKER ""
 
+typedef enum { ENTER, EXIT, FAIL, ABORT } TraceExitType;
+
+// Forward declarations
+void c2PrintStackFrame(int depth, BOOL indent, char* marker);
+void c2TraceEnter();
+int  c2TraceExit(int v);
+void c2TraceExitAbort();
+void c2traceREPL();
+
+// Function declarations
 void c2Backtrace() {
     fprintf(stderr, "Call stack (most recent call last):\n");
-    for (int i = c2_sp - 1; i >= 0; i--) {
+    for (int i = C2SP - 1; i >= 0; i--) {
       c2PrintStackFrame(i,FALSE,NO_MARKER);
    }
    fprintf(stderr, ")\n");
 }
 
-
-enum TraceExitType { ENTER, EXIT, FAIL, ABORT };
 
 void c2PrintStackFrame(int depth,BOOL indent, char* marker) {
    static char indentation_buffer[256];
@@ -95,10 +105,10 @@ void c2PrintStackFrame(int depth,BOOL indent, char* marker) {
        indentation = indentation_buffer;
    }
 
-   fprintf(stderr, "%s%s%s%s(",indentation,marker,c2AlgType(depth),c2_callstack[depth].name);
-   for (int i = 0; i < c2_callstack[depth].nargs; i++) {
-      fprintf(stderr, "%s=%ld", c2_callstack[depth].argnames[i], c2_callstack[depth].args[i]);
-      if (i < c2_callstack[depth].nargs - 1) {
+   fprintf(stderr, "%s%s%s%s(",indentation,marker,c2AlgType(depth),C2Stack[depth].name);
+   for (int i = 0; i < C2Stack[depth].nargs; i++) {
+      fprintf(stderr, "%s=%ld", C2Stack[depth].argnames[i], C2Stack[depth].args[i]);
+      if (i < C2Stack[depth].nargs - 1) {
          fprintf(stderr, ", ");
       }
    }
@@ -107,15 +117,15 @@ void c2PrintStackFrame(int depth,BOOL indent, char* marker) {
 
 // Called after c2_push_callstack_frame so call information is on the stack.
 void c2TraceEnter() {
-   c2PrintStackFrame(c2_sp,TRUE,ENTER_MARKER);
+   c2PrintStackFrame(C2SP,TRUE,ENTER_MARKER);
    c2traceREPL();
 }
 // Called before the corresponding c2_pop_callstack_frame so call information is still on the stack.
 int c2TraceExit(int v) {
    if (v == FALSE) {
-      c2PrintStackFrame(c2_sp, FALSE, FAIL_MARKER);
+      c2PrintStackFrame(C2SP, FALSE, FAIL_MARKER);
    } else {
-      c2PrintStackFrame(c2_sp, FALSE, FAIL_MARKER);
+      c2PrintStackFrame(C2SP, FALSE, FAIL_MARKER);
    }
    c2traceREPL();
    return v;
