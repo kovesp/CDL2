@@ -16,6 +16,7 @@
 //=======================================================================
 // </auto-gen>
 
+using System.ComponentModel;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text.RegularExpressions;
@@ -293,17 +294,22 @@ namespace CDL2v1 {
          if (IsBacktrace || IsTrace) {
             void emitComma() => emitter.Emit(",");
             void emitArrayEnd() => emitter.Emitnl("};");
+            string affDiscriminator(Affix aff) => aff.IsOutput ? "PTR" : aff.IsString ? "STR" : "VAL";
 
             if (alg.Affixes.Count > 0) {
-               emitter.Emit($"VALUE C2AffValues[] = {{");
-               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit(CName(aff)),emitComma,emitArrayEnd);
+               emitter.Emit("C2DataValue C2AffValues[] = {");
+               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"{affDiscriminator(aff)}({CName(aff)})"),emitComma,emitArrayEnd);
 
-               emitter.Emit($"char* C2AffNames[] = {{");
+               emitter.Emit("char* C2AffNames[] = {");
                alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"\"{aff.Id}\""),emitComma,emitArrayEnd);
 
 
-               emitter.Emit($"C2AffType C2AffTypes[] = {{");
+               emitter.Emit("C2AffType C2AffTypes[] = {");
                alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit(C2AffType(aff)),emitComma,emitArrayEnd);
+            } else {
+               emitter.Emitnl("C2DataValue C2AffValues[1];");
+               emitter.Emitnl("char* C2AffNames[1];");
+               emitter.Emitnl("C2AffType C2AffTypes[1];");
             }
          }
       }
@@ -311,19 +317,19 @@ namespace CDL2v1 {
       public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) {  
          void emitComma() => emitter.Emit(",");
          void emitArrayEnd() => emitter.Emitnl("};");
-         string localsRefs;
          if (IsBacktrace || IsTrace) {
             if (locals.Any()) {
-               emitter.Emit($"VALUE C2Locals[] = {{");
+               emitter.Emit("VALUE* C2Locals[] = {");
                locals.GenerateJoinedSequence(local => emitter.Emit("&" + CName(local)),emitComma,emitArrayEnd);
 
-               emitter.Emit($"char* C2LocalNames[] = {{");
+               emitter.Emit("char* C2LocalNames[] = {");
                locals.GenerateJoinedSequence(local => emitter.Emit($"\"{local.Id}\""),emitComma,emitArrayEnd);
-               localsRefs = $"{locals.Count()},&C2Locals,&C2LocalNames";
             } else {
-               localsRefs = "0,(VALUE**)0,(char**)0";
+               emitter.Emitnl("VALUE* C2Locals[1];");
+               emitter.Emitnl("char* C2LocalNames[1];");
             }
-            string affRefs = alg.Affixes.Count == 0 ? "0,(VALUE*)0,(char**)0,(C2AffType*)0" : $"{alg.Affixes.Count},&C2AffValues,&C2AffNames,&C2AffTypes";
+            string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";
+            string localsRefs = $"{locals.Count()},C2Locals,C2LocalNames";
             emitter.Emitnl($"c2push_callstack_frame(C2_ALG_{alg.AlgorithmType},\"{alg.Id}\",{affRefs},{localsRefs});");
             if (IsTrace) emitter.Emit($"c2TraceEnter();");
          }
