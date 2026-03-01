@@ -855,3 +855,22 @@ FUNCTION environment variable*name+value>.
 The output affix is set to the value of the given environment variable. If the variable is not defined,
 the output affix is set to the empty string. The builtin `is option` can be used
 to distinguish between a variable being undefined or set to the empty string.
+
+## CDL2 Debugger and Backtrace Facility
+
+Code generators may implment the CDL2 Debugger described in this section. Currently only the C code
+generator supports it. Similarly, the backtrace facility described in this section is only supported
+by the C code generator. Note however, that for PowerShell and C#, the generated code uses
+the builtin language mechanism to generate a backtrace.
+
+Backtrace in C is enabled by setting the `-backtrace` setting which is set by  default.
+Truning it off will result in some what smaller code size and a bit faster code, 
+but you will not get a backtrace when an error occurs. Note that the backtrace is generated
+for all run-time errors caught by the language libaries and the OS, the abort operator,
+and any call on the C `exit` function with a non-zero exit code. 
+ 
+The CDL2 Debugger is a simple command line debugger that allows you to set spypoints (aka breakpoints),
+step through code, and inspect variables and lists. 
+It is invoked by setting the `-trace` setting in addtion to `-backtrace`.
+The debugger will stop at the first Lude of the program and accept commands.
+The following sections list the avilable command.

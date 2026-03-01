@@ -35,11 +35,15 @@ void debug_pause() {
 #define PROC
 #define MACRO
 
+#define ADD_LIST(name,value,lwb,upb)
+#define ADD_VAR(name,value)
+
 /* CDL2 Standard Macros for Lists */
 #define CDL2_DECLARE_LIST(name, lwb, upb) \
     VALUE name##_array[(upb) - (lwb) + 1]; \
     VALUE name##_lwb = (lwb); \
-    VALUE name##_upb = (upb)
+    VALUE name##_upb = (upb); \
+    ADD_LIST(name,&name##_array,lwb,upb)
 
 #define CDL2_LIST_GET(name, i) \
     ((i) < name##_lwb || (i) > name##_upb ? \
@@ -66,6 +70,10 @@ void debug_pause() {
         name##_array[(i) - name##_lwb] = name##_array[(j) - name##_lwb]; \
         name##_array[(j) - name##_lwb] = temp; \
     } while(0)
+
+#define DECLARE_VAR(name,initial) \
+    VALUE name = initial; \
+    ADD_VAR(name, &name)
 
 //==============================================================================
 // Place any C code here that cannot be contained in macros.

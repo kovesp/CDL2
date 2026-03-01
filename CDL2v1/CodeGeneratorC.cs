@@ -107,14 +107,15 @@ namespace CDL2v1 {
 
       public void GenerateConstantEnd(Const constant) => emitter.Emitnl();
 
-      public void GenerateVar(Var v) => emitter.Emitnl("VALUE ",CName(v)," = ",RandomInitialValue,";");
+      public void GenerateVar(Var v) => emitter.Emitnl($"DECLARE_VAR({CName(v)},{Random.Next(0,int.MaxValue)});");
 
       public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("CDL2_DECLARE_LIST(",CName(list),", ",CName(lwb),", ",CName(upb),");");
 
       public void GenerateMacroStart(Macro macro) => emitter.NlEmit("\n",sourceEmitter.Content);
       public void GenerateMacroEnd(Macro macro) {
+         if (!macro.CanFail) emitter.NlEmitnl("RETURN;");
          DecrementIndent();
-         emitter.NlEmitnl("}");
+         emitter.Emitnl("}");
       }
 
       public void GenerateMacroBodyStart(Macro macro,bool inlining) { }
@@ -291,6 +292,10 @@ namespace CDL2v1 {
       }
 
       private void EmitAffixesTraceData(Algorithm alg) {
+
+      }
+
+      public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) {  
          if (IsBacktrace || IsTrace) {
             void emitComma() => emitter.Emit(",");
             void emitArrayEnd() => emitter.Emitnl("};");
@@ -307,17 +312,10 @@ namespace CDL2v1 {
                emitter.Emit("C2AffType C2AffTypes[] = {");
                alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit(C2AffType(aff)),emitComma,emitArrayEnd);
             } else {
-               emitter.Emitnl("C2DataValue C2AffValues[1];");
-               emitter.Emitnl("char* C2AffNames[1];");
-               emitter.Emitnl("C2AffType C2AffTypes[1];");
+               emitter.Emitnl("C2DataValue C2AffValues[]={PTR(0)};");
+               emitter.Emitnl("char* C2AffNames[]={\"\"};");
+               emitter.Emitnl("C2AffType C2AffTypes[]={C2_AFF_INPUT};");
             }
-         }
-      }
-
-      public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) {  
-         void emitComma() => emitter.Emit(",");
-         void emitArrayEnd() => emitter.Emitnl("};");
-         if (IsBacktrace || IsTrace) {
             if (locals.Any()) {
                emitter.Emit("VALUE* C2Locals[] = {");
                locals.GenerateJoinedSequence(local => emitter.Emit("&" + CName(local)),emitComma,emitArrayEnd);
@@ -330,8 +328,12 @@ namespace CDL2v1 {
             }
             string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";
             string localsRefs = $"{locals.Count()},C2Locals,C2LocalNames";
-            emitter.Emitnl($"c2push_callstack_frame(C2_ALG_{alg.AlgorithmType},\"{alg.Id}\",{affRefs},{localsRefs});");
-            if (IsTrace) emitter.Emit($"c2TraceEnter();");
+            string id = alg.Id.Name;
+            if (alg.IsSynthetic) {
+               id = alg.FQN();
+            }
+            emitter.Emitnl($"c2push_callstack_frame(C2_ALG_{alg.AlgorithmType},\"{id}\",{affRefs},{localsRefs});");
+            if (IsTrace) emitter.Emitnl("c2TraceEnter();");
          }
       }
 
