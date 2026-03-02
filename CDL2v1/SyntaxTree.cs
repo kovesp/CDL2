@@ -518,12 +518,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="separator"></param>
       /// <returns></returns>
-      public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
+      public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false,bool quoted = false) {
          string sectionName = AncestorContainer<Section>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
          string layerName = AncestorContainer<Layer>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
          string moduleName = AncestorContainer<Module>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
          string objectName = Id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
-         return $"{moduleName}{separator}{layerName}{separator}{sectionName}{(IsSynthetic ? separator + separator : separator)}{objectName}";
+         string fqn = $"{moduleName}{separator}{layerName}{separator}{sectionName}{(IsSynthetic ? separator + separator : separator)}{objectName}";
+         return quoted ? fqn.Quoted() : fqn;
       }
       /// <summary>
       /// Element display name, i.e. MOD mod LAY lay SEC sec declared.
@@ -1254,6 +1255,8 @@ namespace CDL2v1 {
          get => Module?.Modified ?? false;
          set => Module?.Modified = value;
       }
+
+      public string Quoted(string quote = "\"") => Id.Quoted(quote);
 
       public override string FQDN(bool WithInterface = false) {
          InterfaceTypes interfaceTypes = GetInterfaces();

@@ -36,9 +36,6 @@ namespace CDL2v1 {
       private CodeGenerator? cg = null;
       public void SetCodeGenerator(CodeGenerator cg) => this.cg = cg;
 
-      private bool IsBacktrace => Settings.SettingValue<bool>("backtrace");
-      private bool IsTrace => Settings.SettingValue<bool>("trace");
-
       public void GenerateProgramStart(Program program,Emitter emitter,string settings,bool isSeparate = false) {
          this.emitter = emitter;
          emitter.Emitnl("/*cspell:disable*/");
@@ -61,6 +58,40 @@ namespace CDL2v1 {
          emitter.Emitnl();
          LabelCounter = 0;
       }
+
+
+      void GenerateDebugInfoProcsStart(IEnumerable<Algorithm>[] procs) {
+         string procDesc(Algorithm proc) => $"{{{proc.Section!.FQN(separator: ".",quoted: true)},{proc.Quoted()},{proc.FQN()},FALSE,FALSE}}";
+         IEnumerable<Algorithm> allProcs = procs.SelectMany(p => p);
+         if (allProcs.Any()) {
+            emitter.Emitnl("C2ProcInfo[] = {");
+            emitter.Emitnl(procDesc(allProcs.First()!));
+            foreach (Algorithm proc in allProcs.Skip(1)) emitter.Emitnl(",",procDesc(proc));
+            emitter.Emitnl("};");
+         }
+      }
+      void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) {
+         string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",quoted: true)},{var.Quoted()},{var.FQN()}}}";
+         if (vars.Any()) {
+            emitter.Emitnl("C2VarInfo[] = {");
+            emitter.Emitnl(VarDesc(vars.First()!));
+            foreach (Var var in vars.Skip(1)) emitter.Emitnl(",",VarDesc(var));
+            emitter.Emitnl("};");
+         }
+      }
+
+      void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) {
+         string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",quoted: true)},{list.Quoted()},{list.FQN()},{list.Section!.GetResolvedObject(list.lwb)},{list.Section!.GetResolvedObject(list.upb)}}}";
+
+         emitter.Emitnl("C2ListInfo[] = {");
+         if (lists.Any()) {
+            emitter.Emitnl("C2ListInfo[] = {");
+            emitter.Emitnl(ListDesc(lists.First()!));
+            foreach (LIST list in lists.Skip(1)) emitter.Emitnl(",",ListDesc(list));
+            emitter.Emitnl("};");
+         }
+      }
+
 
       public void GenerateProgramLudesStart() {
          emitter.Emitnl();
@@ -107,9 +138,15 @@ namespace CDL2v1 {
 
       public void GenerateConstantEnd(Const constant) => emitter.Emitnl();
 
-      public void GenerateVar(Var v) => emitter.Emitnl($"DECLARE_VAR({CName(v)},{Random.Next(0,int.MaxValue)});");
+      public void GenerateVar(Var v) {
+         emitter.Emitnl("DECLARE_VAR(",CName(v),",",Random.Next(0,int.MaxValue),");");
+         if (Settings.IsBacktrace) emitter.Emitnl("c2AddVar(\"",v.Id.Name,"\",",CName(v),");");
+      }
 
-      public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("CDL2_DECLARE_LIST(",CName(list),", ",CName(lwb),", ",CName(upb),");");
+      public void GenerateList(LIST list,Const lwb,Const upb) {
+         emitter.Emitnl("DECLARE_LIST(",CName(list),",",CName(lwb),",",CName(upb),");");
+         if (Settings.IsBacktrace) emitter.Emitnl("c2AddList(\"",list.Id.Name,"\",",CName(list),",",CName(lwb),",",CName(upb),");");
+      }
 
       public void GenerateMacroStart(Macro macro) => emitter.NlEmit("\n",sourceEmitter.Content);
       public void GenerateMacroEnd(Macro macro) {
@@ -296,7 +333,7 @@ namespace CDL2v1 {
       }
 
       public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) {  
-         if (IsBacktrace || IsTrace) {
+         if (Settings.IsBacktrace) {
             void emitComma() => emitter.Emit(",");
             void emitArrayEnd() => emitter.Emitnl("};");
             string affDiscriminator(Affix aff) => aff.IsOutput ? "PTR" : aff.IsString ? "STR" : "VAL";
@@ -333,7 +370,7 @@ namespace CDL2v1 {
                id = alg.FQN();
             }
             emitter.Emitnl($"c2push_callstack_frame(C2_ALG_{alg.AlgorithmType},\"{id}\",{affRefs},{localsRefs});");
-            if (IsTrace) emitter.Emitnl("c2TraceEnter();");
+            if (Settings.IsTrace) emitter.Emitnl("c2TraceEnter();");
          }
       }
 

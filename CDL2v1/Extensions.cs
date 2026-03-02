@@ -643,6 +643,8 @@ namespace CDL2v1 {
          /// <returns></returns>
          public string WithNoWhitespace => string.IsNullOrEmpty(s) ? s : Regex.Replace(s,@"\s+","",RegexOptions.Compiled);
 
+         public string Quoted(string quote="\"") => $"{quote}{s}{quote}";
+
          public string IntensifyColor(double factor) {
             if (factor < 1) throw new ArgumentOutOfRangeException(nameof(factor),"IntensifyColor: Factor must be greater than or equal to 1.");
             return ScaleColor(s,factor);

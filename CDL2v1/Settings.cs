@@ -318,8 +318,11 @@ namespace CDL2v1 {
 
       public static bool LabMode => SettingValue<bool>("Lab") && !SettingValue<bool>("ParseOnly");
 
-      public static bool InliningProcs  => ! SettingValue<bool>("NoProcInlining");
-      public static bool InliningMacros => ! SettingValue<bool>("NoMacroInlining");
+      public static bool IsBacktrace => IsTrace || SettingValue<bool>("backtrace");
+      public static bool IsTrace => SettingValue<bool>("trace");
+
+      public static bool InliningProcs  => ! (SettingValue<bool>("trace") || SettingValue<bool>("NoProcInlining"));
+      public static bool InliningMacros => ! (SettingValue<bool>("trace") || SettingValue<bool>("NoMacroInlining"));
 
       public static bool Debug => SettingValue<bool>("Debug");
 

@@ -886,7 +886,7 @@ namespace CDL2v1 {
                   emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = !Settings.SettingValue<bool>("CGDebug") };
                   CodeGenerator codeGenerator = new(cg,CDL2.Compiler,problemReporter);
                   cg.SetCodeGenerator(codeGenerator);
-                  codeGenerator.GenerateCode(program,emitter,$"{Settings.Display("MaxInlineCalls","NoProcInlining","NoMacroInlining")}");
+                  codeGenerator.GenerateCode(program,emitter,$"{Settings.Display("MaxInlineCalls","NoProcInlining","NoMacroInlining","backtrace","trace")}");
                   problemReporter(Note.CodeGenDone,[target,program,targetFileName]);
                } catch (Exception ex) {
                   problemReporter(Note.CodeGenError,[target,targetFileName,ex.Message]);
