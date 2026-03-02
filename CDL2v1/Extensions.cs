@@ -643,7 +643,26 @@ namespace CDL2v1 {
          /// <returns></returns>
          public string WithNoWhitespace => string.IsNullOrEmpty(s) ? s : Regex.Replace(s,@"\s+","",RegexOptions.Compiled);
 
-         public string Quoted(string quote="\"") => $"{quote}{s}{quote}";
+         /// <summary>
+         /// Returns the string enclosed in quotes, optionally escaping special characters.
+         /// </summary>
+         /// <param name="quote">The quote character(s) to use. Default is double quote.</param>
+         /// <param name="escape">If true, escapes special characters like backslash, quotes, newlines, etc.</param>
+         /// <returns>The quoted string with optional escaping.</returns>
+         public string Quoted(string quote="\"",bool escape=false) => escape ? $"{quote}{s.Escape()}{quote}" : $"{quote}{s}{quote}";
+
+         /// <summary>
+         /// Escapes special characters in the string for use in string literals.
+         /// </summary>
+         /// <returns>The escaped string.</returns>
+         public string Escape() {
+            if (string.IsNullOrEmpty(s)) return s;
+            return s.Replace("\\","\\\\")
+                    .Replace("\"","\\\"")
+                    .Replace("\n","\\n")
+                    .Replace("\r","\\r")
+                    .Replace("\t","\\t");
+         }
 
          public string IntensifyColor(double factor) {
             if (factor < 1) throw new ArgumentOutOfRangeException(nameof(factor),"IntensifyColor: Factor must be greater than or equal to 1.");

@@ -40,6 +40,7 @@ using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Windows.Controls.Ribbon.Primitives;
 using System.Windows.Documents;
 
 namespace CDL2v1 {
@@ -90,9 +91,12 @@ namespace CDL2v1 {
             cg.GenerateProgramStart(program,emitter,settings,isSeparate: false);  // Generate the overall scaffolding
 
 
+            IEnumerable<Var> allVars = Reachable.Objects.OfType<Var>();
+            IEnumerable<LIST> allLists = Reachable.Objects.OfType<LIST>();
+
             GenerateObjects<Const>(Reachable.Objects.OfType<Const>(),GenerateConstant);
-            GenerateObjects<Var>(Reachable.Objects.OfType<Var>(),GenerateVar);
-            GenerateObjects<LIST>(Reachable.Objects.OfType<LIST>(),GenerateList);
+            GenerateObjects<Var>(allVars,GenerateVar);
+            GenerateObjects<LIST>(allLists,GenerateList);
 
             IEnumerable<Macro>     macros              = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable());
             IEnumerable<Procedure> procedures          = Reachable.Objects.OfType<Procedure>()
@@ -101,11 +105,35 @@ namespace CDL2v1 {
             if (cg.RequiresPredeclaration) {
                GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Forward Declaration");
                GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Forward Declaration");
-               GenerateObjects<Procedure>(syntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Forward Decalration");
+               GenerateObjects<Procedure>(syntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Forward Declaration");
             }
             GenerateObjects<Macro>(macros,GenerateMacro);
             GenerateObjects<Procedure>(procedures,GenerateProcedure);
             GenerateObjects<Procedure>(syntheticProcedures,GenerateProcedure,"Synthetic Procedure");
+            if (cg.SupportsDebug && Settings.IsBacktrace) {
+               cg.GenerateDebugInfoStart();
+               IEnumerable<Algorithm> allProcs = [.. macros, .. procedures, .. syntheticProcedures];
+
+               if (cg.SupportsSimpleDebug) {
+                  cg.GenerateDebugInfoProcsStart(allProcs);
+                  cg.GenerateDebugInfoVarsStart(allVars);
+                  cg.GenerateDebugInfoListsStart(allLists);
+               } else {
+                  cg.GenerateDebugInfoProcsStart(allProcs);
+                  foreach (Algorithm proc in allProcs) cg.GenerateDebugInfoProc(proc);
+                  cg.GenerateDebugInfoProcsEnd(allProcs);
+
+                  cg.GenerateDebugInfoVarsStart(allVars);
+                  foreach (Var var in allVars) cg.GenerateDebugInfoVar(var);
+                  cg.GenerateDebugInfoVarsEnd(allVars);
+
+                  cg.GenerateDebugInfoListsStart(allLists);
+                  foreach (LIST list in allLists) cg.GenerateDebugInfoList( list);
+                  cg.GenerateDebugInfoListEnd(allLists);
+               }
+               cg.GenerateDebugInfoEnd();
+            }
+
 
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();

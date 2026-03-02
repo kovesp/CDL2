@@ -603,19 +603,20 @@ namespace CDL2v1 {
 
       #region Debug Support
       bool SupportsDebug => false;
+      bool SupportsSimpleDebug => false;
       /// <summary>
       /// Since most code generators will not implement these, default empty implementations are provided.
       /// </summary>
       void GenerateDebugInfoStart() { }
-      void GenerateDebugInfoProcsStart(IEnumerable<Algorithm>[] procs) { }
+      void GenerateDebugInfoProcsStart(IEnumerable<Algorithm> procs) { }
       void GenerateDebugInfoProc(Algorithm proc) { }
-      void GenerateDebugInfoProcsEnd(IEnumerable<Algorithm>[] procs) { }
-      void GenerateDebugInfoVarsStart(IEnumerable<Var>[] vars) { }
+      void GenerateDebugInfoProcsEnd(IEnumerable<Algorithm> procs) { }
+      void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) { }
       void GenerateDebugInfoVar(Var var) { }
-      void GenerateDebugInfoVarsEnd(IEnumerable<Var>[] vars) { }
-      void GenerateDebugInfoListsStart(IEnumerable<LIST>[] lists) { }
+      void GenerateDebugInfoVarsEnd(IEnumerable<Var> vars) { }
+      void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) { }
       void GenerateDebugInfoList(LIST list) { }
-      void GenerateDebugInfoListEnd(LIST list) { }
+      void GenerateDebugInfoListEnd(IEnumerable<LIST> list) { }
       void GenerateDebugInfoEnd() { }
 
 

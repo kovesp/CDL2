@@ -19,6 +19,7 @@
 using System.ComponentModel;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Reflection.Metadata;
 using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
@@ -35,6 +36,9 @@ namespace CDL2v1 {
 
       private CodeGenerator? cg = null;
       public void SetCodeGenerator(CodeGenerator cg) => this.cg = cg;
+
+      public bool SupportsDebug => true;
+      public bool SupportsSimpleDebug => true;
 
       public void GenerateProgramStart(Program program,Emitter emitter,string settings,bool isSeparate = false) {
          this.emitter = emitter;
@@ -60,35 +64,43 @@ namespace CDL2v1 {
       }
 
 
-      void GenerateDebugInfoProcsStart(IEnumerable<Algorithm>[] procs) {
-         string procDesc(Algorithm proc) => $"{{{proc.Section!.FQN(separator: ".",quoted: true)},{proc.Quoted()},{proc.FQN()},FALSE,FALSE}}";
-         IEnumerable<Algorithm> allProcs = procs.SelectMany(p => p);
-         if (allProcs.Any()) {
-            emitter.Emitnl("C2ProcInfo[] = {");
-            emitter.Emitnl(procDesc(allProcs.First()!));
-            foreach (Algorithm proc in allProcs.Skip(1)) emitter.Emitnl(",",procDesc(proc));
-            emitter.Emitnl("};");
+      public void GenerateDebugInfoStart() => emitter.NlEmitnl($"\n{BlockComment.Start} ##### Debug Information ##### {BlockComment.End}\n");
+      public void GenerateDebugInfoEnd() => emitter.NlEmitnl($"\n{BlockComment.Start} ##### End Debug Information ##### {BlockComment.End}\n");
+      public void GenerateDebugInfoProcsStart(IEnumerable<Algorithm> procs) {
+         static string procDesc(Algorithm proc) {
+            string code = ""; // Get the pretty printed code here
+            return $"{{{proc.Section!.FQN(separator: ".",quoted: true)},{proc.Quoted()},{code.Quoted()},FALSE,FALSE}}";
+         }
+         if (procs.Any()) {
+            emitter.Emitnl("C2ProcInfo[] c2Procs = {");
+            IncrementIndent();
+            emitter.Emit(procDesc(procs.First()!));
+            foreach (Algorithm proc in procs.Skip(1)) emitter.Emit(",\n",procDesc(proc));
+            DecrementIndent();
+            emitter.Emitnl("\n};");
          }
       }
-      void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) {
-         string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",quoted: true)},{var.Quoted()},{var.FQN()}}}";
+      public void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) {
+         static string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",quoted: true)},{var.Quoted()},{var.FQN()}}}";
          if (vars.Any()) {
-            emitter.Emitnl("C2VarInfo[] = {");
-            emitter.Emitnl(VarDesc(vars.First()!));
-            foreach (Var var in vars.Skip(1)) emitter.Emitnl(",",VarDesc(var));
-            emitter.Emitnl("};");
+            emitter.Emitnl("C2VarInfo[] c2Vars = {");
+            IncrementIndent();
+            emitter.Emit(VarDesc(vars.First()!));
+            foreach (Var var in vars.Skip(1)) emitter.Emit(",\n",VarDesc(var));
+            DecrementIndent();
+            emitter.Emitnl("\n};");
          }
       }
 
-      void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) {
-         string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",quoted: true)},{list.Quoted()},{list.FQN()},{list.Section!.GetResolvedObject(list.lwb)},{list.Section!.GetResolvedObject(list.upb)}}}";
-
-         emitter.Emitnl("C2ListInfo[] = {");
+      public void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) {
+         static string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",quoted: true)},{list.Quoted()},{list.FQN()},{list.Section!.GetResolvedObject(list.lwb)},{list.Section!.GetResolvedObject(list.upb)}}}";
          if (lists.Any()) {
-            emitter.Emitnl("C2ListInfo[] = {");
-            emitter.Emitnl(ListDesc(lists.First()!));
-            foreach (LIST list in lists.Skip(1)) emitter.Emitnl(",",ListDesc(list));
-            emitter.Emitnl("};");
+            emitter.Emitnl("C2ListInfo[] c2Lists = {");
+            IncrementIndent();
+            emitter.Emit(ListDesc(lists.First()!));
+            foreach (LIST list in lists.Skip(1)) emitter.Emit(",\n",ListDesc(list));
+            DecrementIndent();
+            emitter.Emitnl("\n};");
          }
       }
 

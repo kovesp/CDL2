@@ -519,7 +519,7 @@ namespace CDL2v1 {
       /// <param name="separator"></param>
       /// <returns></returns>
       public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false,bool quoted = false) {
-         string sectionName = AncestorContainer<Section>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string sectionName = (this is Section sec ? sec : AncestorContainer<Section>())!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
          string layerName = AncestorContainer<Layer>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
          string moduleName = AncestorContainer<Module>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
          string objectName = Id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
