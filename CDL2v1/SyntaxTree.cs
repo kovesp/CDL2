@@ -519,11 +519,27 @@ namespace CDL2v1 {
       /// <param name="separator"></param>
       /// <returns></returns>
       public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false,bool quoted = false) {
-         string sectionName = (this is Section sec ? sec : AncestorContainer<Section>())!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string layerName = AncestorContainer<Layer>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string moduleName = AncestorContainer<Module>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
-         string objectName = Id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
-         string fqn = $"{moduleName}{separator}{layerName}{separator}{sectionName}{(IsSynthetic ? separator + separator : separator)}{objectName}";
+         string format(NamedElement elem) => elem.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+         string fqn;
+         switch (this) {
+            case Program _:
+            case Module _:
+               fqn = $"{format(this)}";
+               break;
+            case Layer _:
+               fqn = $"{format(Module!)}{separator}{separator}{format(this)}";
+               break;
+            case Section _:
+               fqn = $"{format(Module!)}{separator}{format(Layer!)}{separator}{format(this)}";
+               break;
+            default:
+               string sectionName = AncestorContainer<Section>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+               string layerName = AncestorContainer<Layer>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+               string moduleName = AncestorContainer<Module>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+               string objectName = Id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
+               fqn = $"{moduleName}{separator}{layerName}{separator}{sectionName}{(IsSynthetic ? separator + separator : separator)}{objectName}";
+               break;
+         }
          return quoted ? fqn.Quoted() : fqn;
       }
       /// <summary>

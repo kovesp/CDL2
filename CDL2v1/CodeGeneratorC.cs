@@ -66,40 +66,59 @@ namespace CDL2v1 {
 
       public void GenerateDebugInfoStart() => emitter.NlEmitnl($"\n{BlockComment.Start} ##### Debug Information ##### {BlockComment.End}\n");
       public void GenerateDebugInfoEnd() => emitter.NlEmitnl($"\n{BlockComment.Start} ##### End Debug Information ##### {BlockComment.End}\n");
+      /// <summary>
+      /// Generate the information that will be used by the debugger. Note that the information is sorted on the ID of the objects
+      /// to allow binary search to be used to look up names. by ID.
+      /// </summary>
+      /// <param name="procs"></param>
       public void GenerateDebugInfoProcsStart(IEnumerable<Algorithm> procs) {
          static string procDesc(Algorithm proc) {
             string code = ""; // Get the pretty printed code here
-            return $"{{{proc.Section!.FQN(separator: ".",quoted: true)},{proc.Quoted()},{code.Quoted()},FALSE,FALSE}}";
+            return $"{{{proc.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{proc.Quoted()},{code.Quoted()},FALSE,FALSE}}";
          }
+         emitter.Emitnl($"int c2ProcsCount = {procs.Count()};");
          if (procs.Any()) {
             emitter.Emitnl("C2ProcInfo c2Procs[] = {");
             IncrementIndent();
-            emitter.Emit(procDesc(procs.First()!));
-            foreach (Algorithm proc in procs.Skip(1)) emitter.Emit(",\n",procDesc(proc));
+            IOrderedEnumerable<Algorithm> sortedProcs = procs.OrderBy(p => p.Id.Name);
+            emitter.Emit(procDesc(sortedProcs.First()!));
+            foreach (Algorithm proc in sortedProcs.Skip(1)) emitter.Emit(",\n",procDesc(proc));
             DecrementIndent();
             emitter.Emitnl("\n};");
          }
       }
+      /// <summary>
+      /// Generates and emits debug information for a collection of variable definitions.
+      /// </summary>
+      /// <remarks>If the collection is empty, no output is generated. The variables are sorted by their
+      /// names before emission, and the emitted format includes the fully qualified name, quoted representation, and a
+      /// reference to the variable's C name.</remarks>
+      /// <param name="vars">The collection of variables to generate debug information for. Each variable is represented by a Var object,
+      /// which contains details necessary for the debug information.</param>
       public void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) {
-         static string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",quoted: true)},{var.Quoted()},&{CName(var)}}}";
+         static string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{var.Quoted()},&{CName(var)}}}";
+         emitter.Emitnl($"int c2VarsCount = {vars.Count()};");
          if (vars.Any()) {
             emitter.Emitnl("C2VarInfo c2Vars[] = {");
             IncrementIndent();
-            emitter.Emit(VarDesc(vars.First()!));
-            foreach (Var var in vars.Skip(1)) emitter.Emit(",\n",VarDesc(var));
+            IOrderedEnumerable<Var> sortedVars = vars.OrderBy(v => v.Id.Name);
+            emitter.Emit(VarDesc(sortedVars.First()!));
+            foreach (Var var in sortedVars.Skip(1)) emitter.Emit(",\n",VarDesc(var));
             DecrementIndent();
             emitter.Emitnl("\n};");
          }
       }
 
       public void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) {
-         static string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",quoted: true)},{list.Quoted()},&{CName(list)}_array,"+
+         static string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{list.Quoted()},&{CName(list)}_array,"+
                            $"{CName(list.Section!.GetResolvedObject(list.lwb)!)},{CName(list.Section!.GetResolvedObject(list.upb)!)}}}";
          if (lists.Any()) {
+            emitter.Emitnl($"int c2ListsCount = {lists.Count()};");
             emitter.Emitnl("C2ListInfo c2Lists[] = {");
             IncrementIndent();
-            emitter.Emit(ListDesc(lists.First()!));
-            foreach (LIST list in lists.Skip(1)) emitter.Emit(",\n",ListDesc(list));
+            IOrderedEnumerable<LIST> sortedLists = lists.OrderBy(l => l.Id.Name);
+            emitter.Emit(ListDesc(sortedLists.First()!));
+            foreach (LIST list in sortedLists.Skip(1)) emitter.Emit(",\n",ListDesc(list));
             DecrementIndent();
             emitter.Emitnl("\n};");
          }
