@@ -386,7 +386,7 @@ namespace CDL2v1 {
       /// local variables is crucial. Ensure that the collection is not null before calling this method.</remarks>
       /// <param name="locals">A collection of local variables for which trace data will be generated. Each local variable must be valid and
       /// properly initialized.</param>
-      void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals);
+      void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals,int algIndex) { }
 
 
       /// <summary>

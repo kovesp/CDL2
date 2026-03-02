@@ -98,21 +98,25 @@ namespace CDL2v1 {
             GenerateObjects<Var>(allVars,GenerateVar);
             GenerateObjects<LIST>(allLists,GenerateList);
 
-            IEnumerable<Macro>     macros              = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable());
-            IEnumerable<Procedure> procedures          = Reachable.Objects.OfType<Procedure>()
-                                                            .Where(proc => !proc.IsSynthetic && !proc.IsConditionalCompilation() && !proc.IsInlinable(Reachable));
-            IEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic);
+            IOrderedEnumerable<Macro>     macros              = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable()).OrderBy(p => p.Id.Name);
+            IOrderedEnumerable<Procedure> procedures          = Reachable.Objects.OfType<Procedure>()
+                                                            .Where(proc => !proc.IsSynthetic && !proc.IsConditionalCompilation() && !proc.IsInlinable(Reachable))
+                                                            .OrderBy(p => p.Id.Name);
+            IOrderedEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic).OrderBy(p => p.Id.Name);
+
+            IOrderedEnumerable<Algorithm> allProcs = ((IEnumerable<Algorithm>)[.. macros,.. procedures,.. syntheticProcedures]).OrderBy(p => p.Id.Name);
+            Dictionary<CDL2Object,int> procIndex = allProcs.Select((proc,index) => (proc,index)).ToDictionary(pair => (CDL2Object)pair.proc,pair => pair.index);
+
             if (cg.RequiresPredeclaration) {
                GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Forward Declaration");
                GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Forward Declaration");
                GenerateObjects<Procedure>(syntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Forward Declaration");
             }
-            GenerateObjects<Macro>(macros,GenerateMacro);
-            GenerateObjects<Procedure>(procedures,GenerateProcedure);
-            GenerateObjects<Procedure>(syntheticProcedures,GenerateProcedure,"Synthetic Procedure");
+            GenerateObjects<Macro>(macros,GenerateMacro,itemIndex:procIndex);
+            GenerateObjects<Procedure>(procedures,GenerateProcedure,itemIndex:procIndex);
+            GenerateObjects<Procedure>(syntheticProcedures,GenerateProcedure,"Synthetic Procedure",itemIndex:procIndex);
             if (cg.SupportsDebug && Settings.IsBacktrace) {
                cg.GenerateDebugInfoStart();
-               IEnumerable<Algorithm> allProcs = [.. macros, .. procedures, .. syntheticProcedures];
 
                if (cg.SupportsSimpleDebug) {
                   cg.GenerateDebugInfoProcsStart(allProcs);
@@ -250,7 +254,7 @@ namespace CDL2v1 {
          cg.GenerateSectionEnd(section);
       }
 
-      private void GeneratePredeclaration(Algorithm alg,int _) {
+      private void GeneratePredeclaration(Algorithm alg,int _,int __) {
          if (!alg.IsInlinable(Reachable)) cg.GenerateDeclaration(alg);
       }
 
@@ -259,7 +263,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="list"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateList(LIST list,int _) {
+      private void GenerateList(LIST list,int _,int __) {
          Section section = list.ParentElement<Section>()!;
          if (section.TryGetDeclaration(list.lwb,out Const? lwb) && section.TryGetDeclaration(list.upb,out Const? upb)) {
             cg.GenerateList(list,lwb!,upb!);
@@ -272,7 +276,7 @@ namespace CDL2v1 {
       /// Generate code for a variable.
       /// </summary>
       /// <param name="v"></param>
-      private void GenerateVar(Var v,int _) => cg.GenerateVar(v);
+      private void GenerateVar(Var v,int _,int __) => cg.GenerateVar(v);
 
       /// <summary>
       /// Generate code for a list of objects
@@ -281,7 +285,7 @@ namespace CDL2v1 {
       /// <param name="items"></param>
       /// <param name="generate"></param>
       /// <param name="specialType"></param>
-      private void GenerateObjects<T>(IEnumerable<NamedElement> items,Action<T,int> generate,string? specialType = null) where T : CDL2Object {
+      private void GenerateObjects<T>(IEnumerable<NamedElement> items,Action<T,int,int> generate,string? specialType = null,Dictionary<CDL2Object,int>? itemIndex=null) where T : CDL2Object {
          if (items.Any()) {
 #if AllignNames
             int maxNameLength = items.Select(item=>item.Id.InternalName.Length).Max();
@@ -289,7 +293,7 @@ namespace CDL2v1 {
             int maxNameLength = 0;
 #endif
             cg.GenerateObjectSectionStart<T>(items,specialType ?? typeof(T).Name);
-            foreach (T item in items.Cast<T>()) generate(item,maxNameLength);
+            foreach (T item in items.Cast<T>()) generate(item,maxNameLength,itemIndex is null ? 0 : itemIndex[item]);
             cg.GenerateObjectSectionEnd<T>(items,typeof(T).Name);
          }
       }
@@ -298,7 +302,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="constant"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateConstant(Const constant,int _) {
+      private void GenerateConstant(Const constant,int _,int __) {
          Section section = constant.ParentElement<Section>()!;
          cg.GenerateConstantStart(constant);
          foreach (IElement elem in constant.elements) {
@@ -323,11 +327,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="macro"></param>
       /// <param name="_"></param>
-      private void GenerateMacro(Macro macro,int _) {
+      private void GenerateMacro(Macro macro,int _,int index) {
          if (!Settings.InliningMacros || !macro.IsInlineMacro) {
             IEnumerable<Var> variables = macro.GetReferencedVariables();
             cg.GenerateMacroStart(macro);
-            GenerateAlgorithmHeader(macro,variables);
+            GenerateAlgorithmHeader(macro,variables,index);
             GenerateMacroBody(macro);
             FinalizeAffixesAndVariables(macro,variables);
             cg.GenerateMacroEnd(macro);
@@ -545,7 +549,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alg"></param>
       /// <param name="variables"></param>
-      private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables) {
+      private void GenerateAlgorithmHeader(Algorithm alg,IEnumerable<Var> variables,int algIndex) {
          GenerateAlgorithmComment(alg);
 
          cg.GenerateAlgorithmHeaderStart(alg);
@@ -557,7 +561,7 @@ namespace CDL2v1 {
             foreach (Affix affix in alg.Affixes) cg.GenerateAffixAndVariableInitializer(alg,affix);
             foreach (Var var in variables) cg.GenerateAffixAndVariableInitializer(alg,var,isVar: true);
          }
-         GenerateLocalInitializers(alg,CollectLocals(alg));
+         GenerateLocalInitializers(alg,algIndex,CollectLocals(alg));
          cg.GenerateAffixAndVariableInitializationEnd(alg);
       }
 
@@ -582,10 +586,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alg">The algorithm containing the local variables for which initializers will be generated. Cannot be null.</param>
       /// <remarks>Notice that nothing is genrated for built-in result locals ... these are virtual.</remarks>
-      private void GenerateLocalInitializers(Algorithm alg) => GenerateLocalInitializers(alg,alg.Locals);
-      private void GenerateLocalInitializers(Algorithm alg,IEnumerable<Local> locals) {
+      /// <param name="algIndex"></param>
+      private void GenerateLocalInitializers(Algorithm alg,int algIndex) => GenerateLocalInitializers(alg,algIndex,alg.Locals);
+      private void GenerateLocalInitializers(Algorithm alg,int algIndex,IEnumerable<Local> locals) {
          foreach (Local local in locals) if (!local.IsBuiltinResult) cg.GenerateLocal(local);
-         cg.GenerateTraceEnter(alg,locals);
+         cg.GenerateTraceEnter(alg,locals,algIndex);
       }
 
       /// <summary>
@@ -606,13 +611,13 @@ namespace CDL2v1 {
       /// If the procedures is conditional compilation or it is inlined, only the algorithm comment is generated.
       /// </summary>
       /// <param name="proc"></param>
-      private void GenerateProcedure(Procedure proc,int _) {
+      private void GenerateProcedure(Procedure proc,int _,int index) {
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
          } else if (proc.IsSynthetic || !proc.IsInlinable(Reachable)) { 
             IEnumerable<Var> variables = proc.GetReferencedVariables();            
             cg.GenerateProcedureStart(proc);
-            GenerateAlgorithmHeader(proc,variables);
+            GenerateAlgorithmHeader(proc,variables,index);
             cg.GenerateProcedureBodyStart(proc,proc.ProcedureBodyType);
             GenerateProcedureBody(proc);
             cg.GenerateProcedureBodyEnd(proc,proc.ProcedureBodyType);

@@ -34,52 +34,58 @@
 // Types and data structures
 /////////////////////////////////////////////////////////////////////////////////
 typedef enum { C2_ALG_PREDICATE, C2_ALG_TEST, C2_ALG_ACTION, C2_ALG_FUNCTION } C2AlgType;
-typedef enum { C2_DATA_VAR, C2_DATA_LIST } C2DataType;
 typedef enum { C2_AFF_INPUT, C2_AFF_OUTPUT, C2_AFF_TRANSPUT, C2_AFF_STRING } C2AffType;
 typedef enum { TRACE_ENTER, TRACE_EXIT, TRACE_FAIL, TRACE_ABORT } TraceExitType;
 
 typedef union { VALUE val; VALUE* ptr; char* str; } C2DataValue;
 
 typedef struct {
-   C2AlgType type;
-   char* name;
-   int nargs;
-   C2DataValue* args;
-   char** argnames;
-   C2AffType* affTypes;
-   int nlocals;
-   VALUE** locals;
-   char** localnames;
-   BOOL spypoint;
+   int procInfoIndex;
+   C2DataValue*   args;
+   VALUE*         locals;
+   BOOL           spypoint;
 } C2StackFrame;
 
 typedef struct C2ProcInfo {
-   char* container;
-   char* name;
-   char* code;
-   BOOL spypoint;
-   BOOL steppoint;
+   char*       container;
+   char*       name;
+   C2AlgType   type;
+   int         nargs;
+   char**      argnames;
+   C2AffType*  affTypes;
+   int         nlocals;
+   char**      localnames;
+   char*       code;
+   BOOL        spypoint;
+   BOOL        steppoint;
 } C2ProcInfo;
 
 typedef struct C2VarInfo {
-   char* container;
-   char* name;
-   VALUE* value;
+   char*    container;
+   char*    name;
+   VALUE*   value;
 } C2VarInfo;
 typedef struct C2ListInfo {
-   char* container;
-   char* name;
-   VALUE* value;
-   int lwb;
-   int upb;
+   char*    container;
+   char*    name;
+   VALUE*   value;
+   int      lwb;
+   int      upb;
 } C2ListInfo;
+
+typedef struct C2DebugInfo {
+   int         procCount;
+   C2ProcInfo* procs;
+   int         varCount;
+   C2VarInfo*  vars;
+   int         listCount;
+   C2ListInfo* lists;
+} C2DebugInfo;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Globals
 /////////////////////////////////////////////////////////////////////////////////
-C2ProcInfo* C2Procs = NULL;
-C2VarInfo* C2Vars = NULL;
-C2ListInfo* C2Lists = NULL;
+C2DebugInfo* c2DebugInfo;
 
 #define CALL_STACK_MAX_DEPTH 10000
 C2StackFrame C2Stack[CALL_STACK_MAX_DEPTH];
@@ -97,14 +103,11 @@ BOOL C2Going = FALSE;               // Going means run without further debugging
 /////////////////////////////////////////////////////////////////////////////////
 void c2PrintStackFrame(int depth, BOOL indent, char* marker, BOOL newline, TraceExitType type);
 void c2TraceEnter();
-int  c2TraceExit(int v);
+BOOL c2TraceExit(int v);
 void c2TraceExitAbort();
 void c2traceREPL(int depth,TraceExitType type);
 void c2PrintAff(int depth,int i, TraceExitType type);
 void c2Backtrace();
-void c2AddProc(const char* name, char* code);
-void c2AddList(const char* name, VALUE* array, int lwb, int upb);
-void c2AddVar(const char* name, VALUE* var);
 C2ProcInfo* c2FindProc(char* name);
 C2VarInfo* c2FindVar(char* name);
 C2ListInfo* c2FindList(char* list);
@@ -157,38 +160,51 @@ static void c2Exit(int code) {
 /////////////////////////////////////////////////////////////////////////////////
 
 
-// C2ProcInfo* c2FindProc(char* name) {
-//    if (C2Procs == NULL) {
-//       fprintf(stderr, "C2Procs==NULL ... this is not possible");
-//       exit(1);
-//    }
-//    for (C2ProcInfo* p = C2Procs; p != NULL; p = p->next) {
-//       if (c2MatchName(name, p->name)) return p;
-//    }
-//    return NULL;
-// }
+// Name extractor functions for generic search
+char* c2GetProcName(int index) { return c2DebugInfo->procs[index].name; }
+char* c2GetVarName(int index)  { return c2DebugInfo->vars[index].name; }
+char* c2GetListName(int index) { return c2DebugInfo->lists[index].name; }
 
-// C2VarInfo* c2FindVar(char* name) {
-//    if (C2Vars == NULL) {
-//       fprintf(stderr, "C2Vars==NULL ... this is not possible");
-//       exit(1);
-//    }
-//    for (C2VarInfo* p = C2Vars; p != NULL; p = p->next) {
-//       if (c2MatchName(name, p->name)) return p;
-//    }
-//    return NULL;
-// }
+// Generic binary search function
+int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
+   int left = 0;
+   int right = count - 1;
+   
+   while (left <= right) {
+      int mid = (left + right) / 2;
+      char* clean_name = c2RemoveBlanks(name);
+      char* clean_target = c2RemoveBlanks(getNameFunc(mid));
+      int cmp = strcmp(clean_name, clean_target);
+      
+      if (cmp == 0 || c2StartsWith(clean_target, clean_name)) {
+         free(clean_name);
+         free(clean_target);
+         return mid;
+      } else if (cmp < 0) {
+         right = mid - 1;
+      } else {
+         left = mid + 1;
+      }
+      free(clean_name);
+      free(clean_target);
+   }
+   return -1;
+}
 
-// C2ListInfo* c2FindList(char* name) {
-//    if (C2Lists == NULL) {
-//       fprintf(stderr, "C2Lists==NULL ... this is not possible");
-//       exit(1);
-//    }
-//    for (C2ListInfo* p = C2Lists; p != NULL; p = p->next) {
-//       if (c2MatchName(name, p->name)) return p;
-//    }
-//    return NULL;
-// }
+C2ProcInfo* c2FindProc(char* name) {
+   int index = c2GenericFind(name, c2DebugInfo->procCount, c2GetProcName);
+   return index >= 0 ? &c2DebugInfo->procs[index] : NULL;
+}
+
+C2VarInfo* c2FindVar(char* name) {
+   int index = c2GenericFind(name, c2DebugInfo->varCount, c2GetVarName);
+   return index >= 0 ? &c2DebugInfo->vars[index] : NULL;
+}
+
+C2ListInfo* c2FindList(char* name) {
+   int index = c2GenericFind(name, c2DebugInfo->listCount, c2GetListName);
+   return index >= 0 ? &c2DebugInfo->lists[index] : NULL;
+}
 
 BOOL c2StartsWith(char* str, char* prefix) {
    while (*prefix != '\0') {
@@ -358,7 +374,7 @@ int c2_get_special_key() {
 
 
 char* c2AlgType(int depth) {
-   switch (C2Stack[depth].type) {
+   switch (c2DebugInfo->procs[C2Stack[depth].procInfoIndex].type) {
       case C2_ALG_PREDICATE: return "PREDICATE";
       case C2_ALG_TEST: return "TEST";
       case C2_ALG_ACTION: return "ACTION";
@@ -367,23 +383,17 @@ char* c2AlgType(int depth) {
    }
 }  
 
-void c2push_callstack_frame(C2AlgType type, char* name, 
-   int nargs, C2DataValue args[], char* argnames[], C2AffType affTypes[],
-   int nlocals, VALUE* locals[], char* localnames[]) {
-      if (C2SP >= CALL_STACK_MAX_DEPTH-1) {
-         fprintf(stderr, "Call stack overflow\n");
-         exit(1);
-      }
-      C2SP++;
-      C2Stack[C2SP].type = type;
-      C2Stack[C2SP].name = name;
-      C2Stack[C2SP].nargs = nargs;
-      C2Stack[C2SP].args = args;
-      C2Stack[C2SP].argnames = argnames;
-      C2Stack[C2SP].affTypes = affTypes;
-      C2Stack[C2SP].nlocals = nlocals;
-      C2Stack[C2SP].locals = locals;
-      C2Stack[C2SP].localnames = localnames;
+void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE* locals) {
+   if (C2SP >= CALL_STACK_MAX_DEPTH-1) {
+      fprintf(stderr, "Call stack overflow\n");
+      exit(1);
+   }
+
+   C2SP++;
+   C2Stack[C2SP].procInfoIndex = procIndex;
+   C2Stack[C2SP].args = args;
+   C2Stack[C2SP].locals = locals;
+   C2Stack[C2SP].spypoint = FALSE;
 }
 
 void c2pop_callstack_frame() {
@@ -392,6 +402,16 @@ void c2pop_callstack_frame() {
       exit(1);
    }
    C2SP--;
+}
+
+BOOL c2SetSpyPoint(char* procName, BOOL set) {
+   C2ProcInfo* proc = c2FindProc(procName);
+   if (proc != NULL) {
+      proc->spypoint = set;
+      return TRUE;
+   } else {
+      return FALSE;
+   }
 }
    
 #define ENTER_MARKER ">"
@@ -409,13 +429,16 @@ char * C2Marker(TraceExitType type) {
 }
 
 void c2Backtrace() {
-   fprintf(stderr, "Call stack (most recent call last):\n");
+   fprintf(stderr, "\n===== Stack backtrace (most recent call last):\n");
    for (int i = C2SP - 1; i >= 0; i--) {
       c2PrintStackFrame(i,FALSE,NO_MARKER,TRUE,TRACE_EXIT);
    }
+   fprintf(stderr, "===== Backtrace ends\n");
 }   
    
 void c2PrintStackFrame(int depth,BOOL indent, char* marker,BOOL newline,TraceExitType type) {
+   C2StackFrame frame = C2Stack[depth];
+   C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    static char indentation_buffer[256];
    char * indentation = "";
    if (indent) {
@@ -423,24 +446,26 @@ void c2PrintStackFrame(int depth,BOOL indent, char* marker,BOOL newline,TraceExi
       indentation = indentation_buffer;
    }
    if (!newline) fprintf(stderr,"\n"); // Print a newline before the stack frame when used as debugger prompt
-   fprintf(stderr, "%s%s%s %s",indentation,marker,c2AlgType(depth),C2Stack[depth].name);
-   if (type != TRACE_FAIL) for (int i = 0; i < C2Stack[depth].nargs; i++) c2PrintAff(depth, i,type);
+   fprintf(stderr, "%s%s%s %s",indentation,marker,c2AlgType(depth),procInfo.name);
+   if (type != TRACE_FAIL) for (int i = 0; i < procInfo.nargs; i++) c2PrintAff(depth, i,type);
    fprintf(stderr,newline ? "\n" : ": ");
 }
 
 void c2PrintAff(int depth,int i, TraceExitType type) {
-   char* name = C2Stack[depth].argnames[i];
-      switch (C2Stack[depth].affTypes[i]) {
-      case C2_AFF_INPUT:    fprintf(stderr, "+>%s=%ld", name,C2Stack[depth].args[i].val); break;
+   C2StackFrame frame = C2Stack[depth];
+   C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
+   char* name = procInfo.argnames[i];
+   switch (procInfo.affTypes[i]) {
+      case C2_AFF_INPUT:    fprintf(stderr, "+>%s=%ld", name,frame.args[i].val); break;
       case C2_AFF_OUTPUT:   
          if (type == TRACE_ENTER) {
             fprintf(stderr, "+%s>",name);
          } else {
-            fprintf(stderr, "+%s>=%ld",name,*C2Stack[depth].args[i].ptr);
+            fprintf(stderr, "+%s>=%ld",name,*frame.args[i].ptr);
          }
          break;
-      case C2_AFF_TRANSPUT: fprintf(stderr, "+>%s>=%ld",name,*C2Stack[depth].args[i].ptr); break;
-      case C2_AFF_STRING:   fprintf(stderr, "*%s=%s",   name,C2Stack[depth].args[i].str); break;
+      case C2_AFF_TRANSPUT: fprintf(stderr, "+>%s>=%ld",name,*frame.args[i].ptr); break;
+      case C2_AFF_STRING:   fprintf(stderr, "*%s=%s",   name,frame.args[i].str); break;
       default: fprintf(stderr, "+??");
    }
 }
@@ -481,7 +506,7 @@ void c2TraceEnter() {
    c2traceREPL(C2SP, TRACE_ENTER);
 }
 // Called without popping the stack, so it must do it.
-int c2TraceExit(int v) {
+BOOL c2TraceExit(int v) {
    if (C2Going) {
       // If we are going, just return without showing trace output
       return v;

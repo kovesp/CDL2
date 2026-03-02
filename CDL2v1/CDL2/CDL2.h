@@ -7,6 +7,10 @@
 #define CDL2H
 #define _CRT_SECURE_NO_WARNINGS
 
+#ifndef VALUE
+#define VALUE long
+#endif
+
 //Add any necessary includes here.
 #include <stdio.h>
 #include <stdlib.h>

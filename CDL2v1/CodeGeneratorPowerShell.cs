@@ -251,7 +251,6 @@ function Remove-Const([string[]]$names) {
       /// </summary>
       /// <param name="local"></param>
       void ICodeGenerator.GenerateLocal(Local local) { }
-      public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) { }
       void ICodeGenerator.GenerateAffix(Affix affix,AD dir,bool algorithmCanFail) {
          switch (dir) {
             case AD.input:

@@ -16,7 +16,10 @@
 //=======================================================================
 // </auto-gen>
 
+using Microsoft.VisualBasic;
+
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
@@ -64,27 +67,56 @@ namespace CDL2v1 {
       }
 
 
-      public void GenerateDebugInfoStart() => emitter.NlEmitnl($"\n{BlockComment.Start} ##### Debug Information ##### {BlockComment.End}\n");
-      public void GenerateDebugInfoEnd() => emitter.NlEmitnl($"\n{BlockComment.Start} ##### End Debug Information ##### {BlockComment.End}\n");
+      public void GenerateDebugInfoStart() {
+         emitter.NlEmitnl($"\n{BlockComment.Start} ##### Debug Information ##### {BlockComment.End}\n");
+         emitter.Emitnl("C2DebugInfo c2_DebugInfo = {");
+         IncrementIndent();
+      }
+      enum C2AlgType { C2_ALG_PREDICATE, C2_ALG_TEST, C2_ALG_ACTION, C2_ALG_FUNCTION };
+      private static string AlgType(Algorithm proc) => (proc.AlgorithmType switch {
+         RW.PREDICATE => C2AlgType.C2_ALG_PREDICATE.ToString(),
+         RW.TEST => C2AlgType.C2_ALG_TEST.ToString(),
+         RW.ACTION => C2AlgType.C2_ALG_ACTION.ToString(),
+         RW.FUNCTION => C2AlgType.C2_ALG_FUNCTION.ToString(),
+         _ => ""
+      });
+      private static string AffType(Algorithm proc,int i) => C2AffType(proc.Affixes[i]);
+      public void GenerateDebugInfoEnd() {
+         DecrementIndent();
+         emitter.Emitnl("};");
+         emitter.NlEmitnl($"\n{BlockComment.Start} ##### End Debug Information ##### {BlockComment.End}\n");
+      }
       /// <summary>
       /// Generate the information that will be used by the debugger. Note that the information is sorted on the ID of the objects
       /// to allow binary search to be used to look up names. by ID.
       /// </summary>
       /// <param name="procs"></param>
       public void GenerateDebugInfoProcsStart(IEnumerable<Algorithm> procs) {
-         static string procDesc(Algorithm proc) {
-            string code = ""; // Get the pretty printed code here
-            return $"{{{proc.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{proc.Quoted()},{code.Quoted()},FALSE,FALSE}}";
+         static string procDesc(Algorithm proc) {      
+            string container = proc.Section!.FQN(separator: ".",replacement: " ",quoted: true);
+            string name = proc.Quoted();
+            string type = AlgType(proc).ToString(); 
+            int nargs = proc.Affixes.Count;
+            //string argnames = "{" +(nargs == 0 ? "\"\"" : string.Join(",",proc.Affixes.Select(aff => aff.Id.Quoted()))) + "}";
+            //string affTypes = nargs == 0 ? "C2_AFF_INPUT" : "{"+string.Join(",",proc.Affixes.Select(aff => C2AffType(aff)))+"}";
+            string argnames = nargs == 0 ? "NULL" : "(char*[]){"+string.Join(",",proc.Affixes.Select(aff => aff.Id.Quoted()))+"}";
+            string affTypes = nargs == 0 ? "NULL" : "(C2AffType[]){"+string.Join(",",proc.Affixes.Select(aff => C2AffType(aff)))+"}";
+            int nlocals = proc.Locals.Count;
+            //string localnames = "{" + (nlocals == 0 ? "\"\"" : string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))) + "}";
+            string localnames = nlocals == 0 ? "NULL" : "(char*[]){" + string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))+"}";
+            string code = "".Quoted(); // Get the pretty printed code here
+            return $"{{{container},{name},{type},{nargs},{argnames},{affTypes},{nlocals},{localnames},{code},FALSE,FALSE}}";
          }
-         emitter.Emitnl($"int c2ProcsCount = {procs.Count()};");
+
          if (procs.Any()) {
-            emitter.Emitnl("C2ProcInfo c2Procs[] = {");
+            emitter.Emitnl($"{procs.Count()},(C2ProcInfo[]){{");
             IncrementIndent();
-            IOrderedEnumerable<Algorithm> sortedProcs = procs.OrderBy(p => p.Id.Name);
-            emitter.Emit(procDesc(sortedProcs.First()!));
-            foreach (Algorithm proc in sortedProcs.Skip(1)) emitter.Emit(",\n",procDesc(proc));
+            emitter.Emit(procDesc(procs.First()!));
+            foreach (Algorithm proc in procs.Skip(1)) emitter.Emit(",\n",procDesc(proc));
             DecrementIndent();
-            emitter.Emitnl("\n};");
+            emitter.NlEmit("},");
+         } else {
+            emitter.Emitnl("NULL,");
          }
       }
       /// <summary>
@@ -97,30 +129,32 @@ namespace CDL2v1 {
       /// which contains details necessary for the debug information.</param>
       public void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) {
          static string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{var.Quoted()},&{CName(var)}}}";
-         emitter.Emitnl($"int c2VarsCount = {vars.Count()};");
          if (vars.Any()) {
-            emitter.Emitnl("C2VarInfo c2Vars[] = {");
+            emitter.NlEmitnl($"{vars.Count()},(C2VarInfo[]){{");
             IncrementIndent();
             IOrderedEnumerable<Var> sortedVars = vars.OrderBy(v => v.Id.Name);
             emitter.Emit(VarDesc(sortedVars.First()!));
             foreach (Var var in sortedVars.Skip(1)) emitter.Emit(",\n",VarDesc(var));
             DecrementIndent();
-            emitter.Emitnl("\n};");
+            emitter.NlEmitnl("},");
+         } else {
+            emitter.NlEmitnl("NULL,");
          }
       }
 
       public void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) {
-         static string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{list.Quoted()},&{CName(list)}_array,"+
+         static string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{list.Quoted()},{CName(list)}_array,"+
                            $"{CName(list.Section!.GetResolvedObject(list.lwb)!)},{CName(list.Section!.GetResolvedObject(list.upb)!)}}}";
          if (lists.Any()) {
-            emitter.Emitnl($"int c2ListsCount = {lists.Count()};");
-            emitter.Emitnl("C2ListInfo c2Lists[] = {");
+            emitter.NlEmitnl($"{lists.Count()},(C2ListInfo[]){{");
             IncrementIndent();
             IOrderedEnumerable<LIST> sortedLists = lists.OrderBy(l => l.Id.Name);
             emitter.Emit(ListDesc(sortedLists.First()!));
             foreach (LIST list in sortedLists.Skip(1)) emitter.Emit(",\n",ListDesc(list));
             DecrementIndent();
-            emitter.Emitnl("\n};");
+            emitter.NlEmitnl("}");
+         } else {
+            emitter.Emitnl("NULL");
          }
       }
 
@@ -132,14 +166,15 @@ namespace CDL2v1 {
          if (Settings.Debug) emitter.Emitnl("debug_pause();");
          emitter.Emitnl("_argc = argc;");
          emitter.Emitnl("_argv = argv;");
-         emitter.Emitnl("/* Program Ludes */");
+         if (Settings.IsBacktrace) emitter.Emitnl("\nc2DebugInfo = &c2_DebugInfo;");
+         emitter.Emitnl();
       }
 
       public void GenerateProgramLudesEnd() { }
 
       public void GenerateProgramEnd(Program program,bool isSeparate = false) {
-         DecrementIndent();
          emitter.Emitnl("return 0;");
+         DecrementIndent();
          emitter.Emitnl("}");
          emitter.Emitnl();
          EmitUnitEndComment(program);
@@ -293,7 +328,7 @@ namespace CDL2v1 {
       public void GenerateCallEnd(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
             if (lastAlternative) {
-               emitter.Emit(")) RETURN(FALSE);");
+               emitter.Emit(")) RETURNV(FALSE);");
             } else {
                emitter.Emit($")) goto {Label};");
             }
@@ -340,12 +375,12 @@ namespace CDL2v1 {
       public void GenerateAlgorithmHeaderStart(Algorithm alg)
          => emitter.Emit($"{alg.BodyType switch { TT.PROCBODY or TT.PROCINLINEBODY => "PROC", _ => "MACRO" }} {alg.AlgorithmType} {CName(alg)}(");
 
-      private string C2AffType(Affix aff) => aff.affixDir switch {
+      private static string C2AffType(Affix aff) => aff.affixDir switch {
          AD.input => "C2_AFF_INPUT",
          AD.output => "C2_AFF_OUTPUT",
          AD.transput => "C2_AFF_TRANSPUT",
          AD.NONE => "C2_AFF_STRING",
-         _ => throw new NotImplementedException()
+         _ => ""
       };
       public void GenerateAlgorithmHeaderEnd(Algorithm alg) {
          emitter.Emitnl(") {");
@@ -353,41 +388,29 @@ namespace CDL2v1 {
 
          EmitAffixesTraceData(alg);
       }
+      private void EmitAffixesTraceData(Algorithm alg) { }
 
-      private void EmitAffixesTraceData(Algorithm alg) {
-
-      }
-
-      public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) {  
+      public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals,int algIndex) {  
          if (Settings.IsBacktrace) {
             void emitComma() => emitter.Emit(",");
             void emitArrayEnd() => emitter.Emitnl("};");
             string affDiscriminator(Affix aff) => aff.IsOutput ? "PTR" : aff.IsString ? "STR" : "VAL";
 
+            string affValues = "NULL";
             if (alg.Affixes.Count > 0) {
-               emitter.Emit("C2DataValue C2AffValues[] = {");
-               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"{affDiscriminator(aff)}({CName(aff)})"),emitComma,emitArrayEnd);
-
-               emitter.Emit("char* C2AffNames[] = {");
-               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"\"{aff.Id}\""),emitComma,emitArrayEnd);
-
-
-               emitter.Emit("C2AffType C2AffTypes[] = {");
-               alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit(C2AffType(aff)),emitComma,emitArrayEnd);
-            } else {
-               emitter.Emitnl("C2DataValue C2AffValues[]={PTR(0)};");
-               emitter.Emitnl("char* C2AffNames[]={\"\"};");
-               emitter.Emitnl("C2AffType C2AffTypes[]={C2_AFF_INPUT};");
+               affValues = "(C2DataValue[]){"+string.Join(",",alg.Affixes.Select(aff => $"{affDiscriminator(aff)}({CName(aff)})"))+"}";
+               //emitter.Emit("C2DataValue C2AffValues[] = {");
+               //alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"{affDiscriminator(aff)}({CName(aff)})"),emitComma,emitArrayEnd);
+            //} else {
+            //   emitter.Emitnl("C2DataValue C2AffValues[]={PTR(0)};");
             }
+            string localValues = "NULL";
             if (locals.Any()) {
-               emitter.Emit("VALUE* C2Locals[] = {");
-               locals.GenerateJoinedSequence(local => emitter.Emit("&" + CName(local)),emitComma,emitArrayEnd);
-
-               emitter.Emit("char* C2LocalNames[] = {");
-               locals.GenerateJoinedSequence(local => emitter.Emit($"\"{local.Id}\""),emitComma,emitArrayEnd);
-            } else {
-               emitter.Emitnl("VALUE* C2Locals[1];");
-               emitter.Emitnl("char* C2LocalNames[1];");
+               localValues = "(VALUE[]){" + string.Join(",",alg.Locals.Select(loc => $"{CName(loc)}")) + "}";
+            //   emitter.Emit("VALUE* C2Locals[] = {");
+            //   locals.GenerateJoinedSequence(local => emitter.Emit("&" + CName(local)),emitComma,emitArrayEnd);
+            //} else {
+            //   emitter.Emitnl("VALUE* C2Locals[1];");
             }
             string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";
             string localsRefs = $"{locals.Count()},C2Locals,C2LocalNames";
@@ -395,7 +418,7 @@ namespace CDL2v1 {
             if (alg.IsSynthetic) {
                id = alg.FQN();
             }
-            emitter.Emitnl($"c2push_callstack_frame(C2_ALG_{alg.AlgorithmType},\"{id}\",{affRefs},{localsRefs});");
+            emitter.Emitnl($"c2push_callstack_frame({algIndex},{affValues},{localValues});");
             if (Settings.IsTrace) emitter.Emitnl("c2TraceEnter();");
          }
       }
@@ -499,7 +522,7 @@ namespace CDL2v1 {
       public void GenerateImport(IProvidable importedItem) { }
 
       public void GenerateModuleLudeStart(RW ludeType,Module module,bool wrapped) {
-         emitter.Emitnl("/* MOD ",module.Id.Name," ",ludeType," */");
+         emitter.Emitnl($"{LineComment} MOD ",module.Id.Name," ",ludeType);
          if (wrapped) {
             string returnType = ludeType == RW.ROOT || ludeType == RW.PRELUDE || ludeType == RW.POSTLUDE ? "void" : "VALUE";
             string moduleName = $"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: false)}__{ludeType}";
@@ -508,6 +531,7 @@ namespace CDL2v1 {
             emitter.Emitnl("{");
             IncrementIndent();
          }
+         IncrementIndent();
       }
 
       public void GenerateModuleLudeEnd(RW ludeType,Module module,bool wrapped) {
@@ -515,11 +539,15 @@ namespace CDL2v1 {
             DecrementIndent();
             emitter.Emitnl("}");
          }
+         DecrementIndent();
       }
 
       public void GenerateModuleLude(RW ludeType,Module module,Section section) {
          Guid ludeGuid = section.LudeProcs[ludeType] ?? Guid.Empty;
-         if (ludeGuid != Guid.Empty && ludeGuid.ToCDL2Object<Procedure>() is Procedure lude) emitter.Emitnl(lude.FQN(camelCase: false,literalObjectName: true),"();");
+         if (ludeGuid != Guid.Empty && ludeGuid.ToCDL2Object<Procedure>() is Procedure lude) {
+            emitter.Emitnl($"{LineComment} {section} {ludeType}");
+            emitter.Emitnl(lude.FQN(camelCase: false,literalObjectName: true),"();");
+         }
       }
 
       public void GenerateLayerStart(Layer layer) { }

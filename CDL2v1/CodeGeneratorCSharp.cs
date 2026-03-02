@@ -237,7 +237,6 @@ namespace CDL2Generated {
 
       void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DataType," ",CSName(local)," = ",RandomInitialValue,";");
 
-      public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals) { }
 
       void ICodeGenerator.GenerateAffix(Affix affix,AD dir,bool algorithmCanFail) {
          switch (dir) {
