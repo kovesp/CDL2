@@ -72,7 +72,7 @@ namespace CDL2v1 {
             return $"{{{proc.Section!.FQN(separator: ".",quoted: true)},{proc.Quoted()},{code.Quoted()},FALSE,FALSE}}";
          }
          if (procs.Any()) {
-            emitter.Emitnl("C2ProcInfo[] c2Procs = {");
+            emitter.Emitnl("C2ProcInfo c2Procs[] = {");
             IncrementIndent();
             emitter.Emit(procDesc(procs.First()!));
             foreach (Algorithm proc in procs.Skip(1)) emitter.Emit(",\n",procDesc(proc));
@@ -81,9 +81,9 @@ namespace CDL2v1 {
          }
       }
       public void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) {
-         static string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",quoted: true)},{var.Quoted()},{var.FQN()}}}";
+         static string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",quoted: true)},{var.Quoted()},&{CName(var)}}}";
          if (vars.Any()) {
-            emitter.Emitnl("C2VarInfo[] c2Vars = {");
+            emitter.Emitnl("C2VarInfo c2Vars[] = {");
             IncrementIndent();
             emitter.Emit(VarDesc(vars.First()!));
             foreach (Var var in vars.Skip(1)) emitter.Emit(",\n",VarDesc(var));
@@ -93,9 +93,10 @@ namespace CDL2v1 {
       }
 
       public void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) {
-         static string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",quoted: true)},{list.Quoted()},{list.FQN()},{list.Section!.GetResolvedObject(list.lwb)},{list.Section!.GetResolvedObject(list.upb)}}}";
+         static string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",quoted: true)},{list.Quoted()},&{CName(list)}_array,"+
+                           $"{CName(list.Section!.GetResolvedObject(list.lwb)!)},{CName(list.Section!.GetResolvedObject(list.upb)!)}}}";
          if (lists.Any()) {
-            emitter.Emitnl("C2ListInfo[] c2Lists = {");
+            emitter.Emitnl("C2ListInfo c2Lists[] = {");
             IncrementIndent();
             emitter.Emit(ListDesc(lists.First()!));
             foreach (LIST list in lists.Skip(1)) emitter.Emit(",\n",ListDesc(list));
@@ -150,15 +151,9 @@ namespace CDL2v1 {
 
       public void GenerateConstantEnd(Const constant) => emitter.Emitnl();
 
-      public void GenerateVar(Var v) {
-         emitter.Emitnl("DECLARE_VAR(",CName(v),",",Random.Next(0,int.MaxValue),");");
-         if (Settings.IsBacktrace) emitter.Emitnl("c2AddVar(\"",v.Id.Name,"\",",CName(v),");");
-      }
+      public void GenerateVar(Var v) => emitter.Emitnl("DECLARE_VAR(",CName(v),",",Random.Next(0,int.MaxValue),");");
 
-      public void GenerateList(LIST list,Const lwb,Const upb) {
-         emitter.Emitnl("DECLARE_LIST(",CName(list),",",CName(lwb),",",CName(upb),");");
-         if (Settings.IsBacktrace) emitter.Emitnl("c2AddList(\"",list.Id.Name,"\",",CName(list),",",CName(lwb),",",CName(upb),");");
-      }
+      public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("DECLARE_LIST(",CName(list),",",CName(lwb),",",CName(upb),");");
 
       public void GenerateMacroStart(Macro macro) => emitter.NlEmit("\n",sourceEmitter.Content);
       public void GenerateMacroEnd(Macro macro) {

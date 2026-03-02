@@ -26,19 +26,6 @@
 #define RETURNV(res) return c2TraceExit(res)
 #define RETURN {c2TraceExit(TRUE);return;}
 
-// #undef DECLARE_VAR
-// #define DECLARE_VAR(sourceName,name,value) \
-//    VALUE name = value;\
-//    c2AddVar(sourceName,&name)
-
-// #undef DECLARE_LIST
-// #define DECLARE_LIST(sourceName,name, lwb, upb) \
-//    VALUE name##_array[(upb) - (lwb) + 1]; \
-//    VALUE name##_lwb = (lwb); \
-//    VALUE name##_upb = (upb); \
-//    c2AddList(sourceName,name##_array,lwb,upb)
-    
-
 #define VAL(aff) {.val=aff}
 #define PTR(aff) {.ptr=aff}
 #define STR(aff) {.str=aff}
@@ -75,15 +62,16 @@ typedef struct C2ProcInfo {
 } C2ProcInfo;
 
 typedef struct C2VarInfo {
+   char* container;
    char* name;
    VALUE* value;
 } C2VarInfo;
 typedef struct C2ListInfo {
+   char* container;
    char* name;
    VALUE* value;
    int lwb;
    int upb;
-   struct C2ListInfo* next;
 } C2ListInfo;
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -167,102 +155,40 @@ static void c2Exit(int code) {
 /////////////////////////////////////////////////////////////////////////////////
 // Implementation
 /////////////////////////////////////////////////////////////////////////////////
-void c2AddProc(const char* name, char* code) {
-   C2ProcInfo* newNode = malloc(sizeof(C2ProcInfo));
-   if (newNode == NULL) {
-      fprintf(stderr, "Out of memory\n");
-      exit(1);
-   }
 
-   newNode->name = name;
-   newNode->code = code;
-   newNode->spypoint = FALSE;
-   newNode->steppoint = FALSE;
-   newNode->next = NULL;
 
-   if (C2Procs == NULL) {
-      C2Procs = newNode;
-   } else {
-      C2ProcInfo* p = C2Procs;
-      while (p->next != NULL) p = p->next;
-      p->next = newNode;
-   }
-}
+// C2ProcInfo* c2FindProc(char* name) {
+//    if (C2Procs == NULL) {
+//       fprintf(stderr, "C2Procs==NULL ... this is not possible");
+//       exit(1);
+//    }
+//    for (C2ProcInfo* p = C2Procs; p != NULL; p = p->next) {
+//       if (c2MatchName(name, p->name)) return p;
+//    }
+//    return NULL;
+// }
 
-void c2AddList(const char* name, VALUE* value, int lwb, int upb) {
-   C2ListInfo* newNode = malloc(sizeof(C2ListInfo));
-   if (newNode == NULL) {
-      fprintf(stderr, "Out of memory\n");
-      exit(1);
-   }
+// C2VarInfo* c2FindVar(char* name) {
+//    if (C2Vars == NULL) {
+//       fprintf(stderr, "C2Vars==NULL ... this is not possible");
+//       exit(1);
+//    }
+//    for (C2VarInfo* p = C2Vars; p != NULL; p = p->next) {
+//       if (c2MatchName(name, p->name)) return p;
+//    }
+//    return NULL;
+// }
 
-   newNode->name = name;
-   newNode->value = value;
-   newNode->lwb = lwb;
-   newNode->upb = upb;
-   newNode->next = NULL;
-
-   if (C2Lists == NULL) {
-      C2Lists = newNode;
-   } else {
-      C2ListInfo* p = C2Lists;
-      while (p->next != NULL) p = p->next;
-      p->next = newNode;
-   }
-}
-
-void c2AddVar(const char* name, VALUE* value) {
-   C2VarInfo* newNode = malloc(sizeof(C2VarInfo));
-   if (newNode == NULL) {
-      fprintf(stderr, "Out of memory\n");
-      exit(1);
-   }
-
-   newNode->name = name;
-   newNode->value = value;
-   newNode->next = NULL;
-
-   if (C2Vars == NULL) {
-      C2Vars = newNode;
-   } else {
-      C2VarInfo* p = C2Vars;
-      while (p->next != NULL) p = p->next;
-      p->next = newNode;
-   }
-}
-
-C2ProcInfo* c2FindProc(char* name) {
-   if (C2Procs == NULL) {
-      fprintf(stderr, "C2Procs==NULL ... this is not possible");
-      exit(1);
-   }
-   for (C2ProcInfo* p = C2Procs; p != NULL; p = p->next) {
-      if (c2MatchName(name, p->name)) return p;
-   }
-   return NULL;
-}
-
-C2VarInfo* c2FindVar(char* name) {
-   if (C2Vars == NULL) {
-      fprintf(stderr, "C2Vars==NULL ... this is not possible");
-      exit(1);
-   }
-   for (C2VarInfo* p = C2Vars; p != NULL; p = p->next) {
-      if (c2MatchName(name, p->name)) return p;
-   }
-   return NULL;
-}
-
-C2ListInfo* c2FindList(char* name) {
-   if (C2Lists == NULL) {
-      fprintf(stderr, "C2Lists==NULL ... this is not possible");
-      exit(1);
-   }
-   for (C2ListInfo* p = C2Lists; p != NULL; p = p->next) {
-      if (c2MatchName(name, p->name)) return p;
-   }
-   return NULL;
-}
+// C2ListInfo* c2FindList(char* name) {
+//    if (C2Lists == NULL) {
+//       fprintf(stderr, "C2Lists==NULL ... this is not possible");
+//       exit(1);
+//    }
+//    for (C2ListInfo* p = C2Lists; p != NULL; p = p->next) {
+//       if (c2MatchName(name, p->name)) return p;
+//    }
+//    return NULL;
+// }
 
 BOOL c2StartsWith(char* str, char* prefix) {
    while (*prefix != '\0') {
