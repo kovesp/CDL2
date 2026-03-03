@@ -37,6 +37,28 @@ typedef enum { C2_ALG_PREDICATE, C2_ALG_TEST, C2_ALG_ACTION, C2_ALG_FUNCTION } C
 typedef enum { C2_AFF_INPUT, C2_AFF_OUTPUT, C2_AFF_TRANSPUT, C2_AFF_STRING } C2AffType;
 typedef enum { TRACE_ENTER, TRACE_EXIT, TRACE_FAIL, TRACE_ABORT } TraceExitType;
 
+typedef enum { BLACK = 0, RED = 1, GREEN = 2, YELLOW = 3, BLUE = 4, MAGENTA = 5, CYAN = 6, WHITE = 7, RESET = 8 } AnsiColor;
+#define ANSI_COLOR_RESET "\x1b[0m"
+char* ansi_fg(AnsiColor color) {
+   static char buffer[8];
+   if (color == RESET) {
+      return ANSI_COLOR_RESET;
+   }
+   else {
+      snprintf(buffer, sizeof(buffer), "\x1b[3%dm", color);
+      return buffer;
+   }
+}
+char* ansi_bg(AnsiColor color) {
+   static char buffer[8];
+   if (color == RESET) {
+      return ANSI_COLOR_RESET;
+   } else {
+      snprintf(buffer, sizeof(buffer), "\x1b[4%dm", color);
+      return buffer;
+   }
+}
+
 typedef union { VALUE val; VALUE* ptr; char* str; } C2DataValue;
 
 typedef struct {
@@ -96,6 +118,8 @@ int C2Skippoint= -1;                // The index of the stack frame we are skipp
 BOOL C2TraceWhileJumping = FALSE;   // Used to show trace output for intermediate calls while jumping or ...
 BOOL C2Jumping = FALSE;             // Jumping means run until the next spy point
 BOOL C2Going = FALSE;               // Going means run without further debugging
+BOOL C2StepOverSuccess = FALSE;     // Whether to step over the next exit
+BOOL C2StepOverFailure = FALSE;     // Whether to step over the next fail
 
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -420,12 +444,15 @@ BOOL c2SetSpyPoint(char* procName, BOOL set) {
 #define NO_MARKER ""
 
 char * C2Marker(TraceExitType type) {
+   char buffer[8];
+   
    switch (type) {
-      case TRACE_ENTER: return ENTER_MARKER;
-      case TRACE_EXIT: return SUCCEED_MARKER;
-      case TRACE_FAIL: return FAIL_MARKER;
+   case TRACE_ENTER:   sprintf(buffer, "%s%s", ansi_fg(CYAN), ENTER_MARKER); break;
+      case TRACE_EXIT: sprintf(buffer, "%s%s", ansi_fg(GREEN), SUCCEED_MARKER); break;
+      case TRACE_FAIL: sprintf(buffer, "%s%s", ansi_fg(RED), FAIL_MARKER); break;
       default: return NO_MARKER;
    }
+   return buffer;
 }
 
 void c2Backtrace() {
@@ -448,7 +475,7 @@ void c2PrintStackFrame(int depth,BOOL indent, char* marker,BOOL newline,TraceExi
    if (!newline) fprintf(stderr,"\n"); // Print a newline before the stack frame when used as debugger prompt
    fprintf(stderr, "%s%s%s %s",indentation,marker,c2AlgType(depth),procInfo.name);
    if (type != TRACE_FAIL) for (int i = 0; i < procInfo.nargs; i++) c2PrintAff(depth, i,type);
-   fprintf(stderr,newline ? "\n" : ": ");
+   fprintf(stderr,"%s%s", ansi_fg(RESET), newline ? "\n" : ": ");
 }
 
 void c2PrintAff(int depth,int i, TraceExitType type) {
@@ -509,9 +536,7 @@ void c2TraceEnter() {
 BOOL c2TraceExit(int v) {
    if (C2Going) {
       // If we are going, just return without showing trace output
-      return v;
-   }
-   if (C2Skippoint >=0) {
+   } else if (C2Skippoint >=0) {
       // We are skipping
       if (C2Skippoint == C2SP) {
          // We have reached the point we wanted to skip to, so stop skipping
@@ -521,9 +546,15 @@ BOOL c2TraceExit(int v) {
       }
    //} else if (C2Stack[C2SP].spypoint) {
       // Do spypoints apply to exits? for now, no.
-   }
-   if (!C2Jumping) {
+   } else if (v && C2StepOverSuccess) {
+      c2PrintStackFrame(C2SP, TRUE, C2Marker(TRACE_EXIT), FALSE, TRACE_EXIT);
+   } else if (!v && C2StepOverFailure) {
+      c2PrintStackFrame(C2SP, FALSE, C2Marker(TRACE_FAIL), FALSE, TRACE_FAIL);
+   } else if (!C2Jumping) {
       // We are not jumping, so stop
+      c2traceREPL(C2SP, v==FALSE ? TRACE_FAIL : TRACE_EXIT);
+   } else {
+      // We are stepping over, but this exit does not match our criteria to step over, so stop
       c2traceREPL(C2SP, v==FALSE ? TRACE_FAIL : TRACE_EXIT);
    }
    c2pop_callstack_frame();
@@ -539,31 +570,40 @@ void c2TraceExitAbort() {
 void c2traceREPL(int depth,TraceExitType type) {
    c2PrintStackFrame(depth,TRUE,C2Marker(type),FALSE,type);
    char command = c2_getch();
-   fprintf(stderr, "\x1B[33m%c\x1B[0m", command);
+   fprintf(stderr, "%s%c%s",ansi_fg(YELLOW),command, ansi_fg(RESET));
    switch (command) {
       case 'h':
-         fprintf(stderr, "\n\x1B[36mCommands:\n");
+         fprintf(stderr, "\n%sCommands:\n", ansi_fg(BLUE));
          fprintf(stderr, "  > ENTER - continue until the next trace point (step into)\n");
          fprintf(stderr, "  s TAB   - continue to the exit of the current call (step over)\n");
          fprintf(stderr, "  j SPC   - continue until the next spy point\n");
          fprintf(stderr, "  g END   - continue until the end\n");
          fprintf(stderr, "  b       - show a backtrace of the call stack\n");
-         fprintf(stderr, "  +       - set a spy point\n");
-         fprintf(stderr, "  -       - clear a spy point\n");
-         fprintf(stderr, "  q ESC   - quit the program\x1B[0m\n");
+         fprintf(stderr, "  +       - set a spy point, enter the procedure name\n");
+         fprintf(stderr, "            with argument +/- stop at that exit\n");
+         fprintf(stderr, "  -       - clear a spy point, enter the procedure name\n");
+         fprintf(stderr, "            with argument +/- don't stop at that exit\n");
+
+         fprintf(stderr, "  q ESC   - quit the program%s\n", ansi_fg(RESET));
          c2traceREPL(depth,type); // After showing help, ask for command again
          break;
       case '+':
       case '-':
-         fprintf(stderr, "\x1B[33m ");
-         char* procName = c2ReadLine();
-         fprintf(stderr, "\x1B[0m");
-         if (c2IsemptyOrWhitespace(procName)) {
+         fprintf(stderr, "%s ", ansi_fg(YELLOW));
+         char* arg = c2ReadLine();
+         fprintf(stderr, "%s", ansi_fg(RESET));
+         if (arg[0] == '+') {
+            C2StepOverSuccess = command == '-';
+            fprintf(stderr, "Will %s stop at success ports\n", C2StepOverSuccess ? "not" : "");
+         } else if(arg[0] == '-') {
+            C2StepOverFailure = command == '-';
+            fprintf(stderr, "Will %s stop at failure ports\n", C2StepOverFailure ? "not" : "");
+         } else if (c2IsemptyOrWhitespace(arg)) {
             fprintf(stderr, "Procedure name cannot be empty\n");
-         } else if (c2SetSpyPoint(procName, command == '+')) {
-            fprintf(stderr, "Spy point %s %s\n", command == '+' ? "set on" : "cleared from", procName);
+         } else if (c2SetSpyPoint(arg, command == '+')) {
+            fprintf(stderr, "Spy point %s %s\n", command == '+' ? "set on" : "cleared from", arg);
          } else {
-            fprintf(stderr, "No such procedure %s\n", procName);
+            fprintf(stderr, "No such procedure %s\n", arg);
          }
          c2traceREPL(depth,type); // After setting spy point, ask for command again
          break;
