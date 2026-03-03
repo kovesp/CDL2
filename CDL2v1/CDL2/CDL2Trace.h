@@ -539,21 +539,25 @@ void c2TraceExitAbort() {
 void c2traceREPL(int depth,TraceExitType type) {
    c2PrintStackFrame(depth,TRUE,C2Marker(type),FALSE,type);
    char command = c2_getch();
+   fprintf(stderr, "\x1B[33m%c\x1B[0m", command);
    switch (command) {
       case 'h':
-         fprintf(stderr, "Commands:\n");
-         fprintf(stderr, "  ENTER - continue until the next trace point\n");
-         fprintf(stderr, "  j SPC - continue until the next spy point\n");
-         fprintf(stderr, "  g END - continue until the end\n");
-         fprintf(stderr, "  s TAB - step to the next trace point\n");
-         fprintf(stderr, "  b     - show a backtrace of the call stack\n");
-         fprintf(stderr, "  + -   - set or clear a spy point\n");
-         fprintf(stderr, "  q ESC - quit the program\n");
+         fprintf(stderr, "\n\x1B[36mCommands:\n");
+         fprintf(stderr, "  > ENTER - continue until the next trace point (step into)\n");
+         fprintf(stderr, "  s TAB   - continue to the exit of the current call (step over)\n");
+         fprintf(stderr, "  j SPC   - continue until the next spy point\n");
+         fprintf(stderr, "  g END   - continue until the end\n");
+         fprintf(stderr, "  b       - show a backtrace of the call stack\n");
+         fprintf(stderr, "  +       - set a spy point\n");
+         fprintf(stderr, "  -       - clear a spy point\n");
+         fprintf(stderr, "  q ESC   - quit the program\x1B[0m\n");
          c2traceREPL(depth,type); // After showing help, ask for command again
          break;
       case '+':
       case '-':
+         fprintf(stderr, "\x1B[33m ");
          char* procName = c2ReadLine();
+         fprintf(stderr, "\x1B[0m");
          if (c2IsemptyOrWhitespace(procName)) {
             fprintf(stderr, "Procedure name cannot be empty\n");
          } else if (c2SetSpyPoint(procName, command == '+')) {
@@ -563,31 +567,39 @@ void c2traceREPL(int depth,TraceExitType type) {
          }
          c2traceREPL(depth,type); // After setting spy point, ask for command again
          break;
+      case '>':
       case '\r':
+         if (command == '>') fprintf(stderr, "\n");
          break;
       case KEY_END:
       case 'g':
+         fprintf(stderr, "\n");
          C2Going = TRUE;
          break;
       case ' ':
       case 'j':
+         fprintf(stderr, "\n");
          C2Jumping = TRUE;
          break;
       case '\t':
       case 's':
-         // skip
-         C2Skippoint = depth; // Skip until we return to the current stack frame
+         fprintf(stderr, "\n");
+         if (type == TRACE_ENTER) {
+            C2Skippoint = depth; // Skip until we return to the current stack frame
+         }
          break;
       case 'b':
+         fprintf(stderr, "\n");
          c2Backtrace();
          c2traceREPL(depth,type); // After showing backtrace, ask for command again
          break;
       case KEY_ESC:
       case 'q':
+         fprintf(stderr, "\nQuitting program.\n");
          exit(0);
          break;
       default:
-         fprintf(stderr, "Invalid command. enter 'h' for help.\n");
+         fprintf(stderr, "\nInvalid command. enter 'h' for help.\n");
          c2traceREPL(depth,type); // After invalid command, ask for command again
          break;
    }
