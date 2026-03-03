@@ -30,6 +30,15 @@
 #define PTR(aff) {.ptr=aff}
 #define STR(aff) {.str=aff}
 
+// Special key codes
+#define KEY_END 1001
+#define KEY_HOME 1002
+#define KEY_UP 1003
+#define KEY_DOWN 1004
+#define KEY_LEFT 1005
+#define KEY_RIGHT 1006
+#define KEY_ESC 27
+
 /////////////////////////////////////////////////////////////////////////////////
 // Types and data structures
 /////////////////////////////////////////////////////////////////////////////////
@@ -38,26 +47,7 @@ typedef enum { C2_AFF_INPUT, C2_AFF_OUTPUT, C2_AFF_TRANSPUT, C2_AFF_STRING } C2A
 typedef enum { TRACE_ENTER, TRACE_EXIT, TRACE_FAIL, TRACE_ABORT } TraceExitType;
 
 typedef enum { BLACK = 0, RED = 1, GREEN = 2, YELLOW = 3, BLUE = 4, MAGENTA = 5, CYAN = 6, WHITE = 7, RESET = 8 } AnsiColor;
-#define ANSI_COLOR_RESET "\x1b[0m"
-char* ansi_fg(AnsiColor color) {
-   static char buffer[8];
-   if (color == RESET) {
-      return ANSI_COLOR_RESET;
-   }
-   else {
-      snprintf(buffer, sizeof(buffer), "\x1b[3%dm", color);
-      return buffer;
-   }
-}
-char* ansi_bg(AnsiColor color) {
-   static char buffer[8];
-   if (color == RESET) {
-      return ANSI_COLOR_RESET;
-   } else {
-      snprintf(buffer, sizeof(buffer), "\x1b[4%dm", color);
-      return buffer;
-   }
-}
+
 
 typedef union { VALUE val; VALUE* ptr; char* str; } C2DataValue;
 
@@ -118,8 +108,8 @@ int C2Skippoint= -1;                // The index of the stack frame we are skipp
 BOOL C2TraceWhileJumping = FALSE;   // Used to show trace output for intermediate calls while jumping or ...
 BOOL C2Jumping = FALSE;             // Jumping means run until the next spy point
 BOOL C2Going = FALSE;               // Going means run without further debugging
-BOOL C2StepOverSuccess = FALSE;     // Whether to step over the next exit
-BOOL C2StepOverFailure = FALSE;     // Whether to step over the next fail
+BOOL C2StepOverSuccess = TRUE;      // Whether to step over the next exit
+BOOL C2StepOverFailure = TRUE;      // Whether to step over the next fail
 
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -145,257 +135,20 @@ void c2SignalHandler(int sig);
 void c2InitTrace();
 void c2Exit(int code);
 char * c2ReadLine();
+char c2_getch();
+char* ansi_fg(AnsiColor color);
+char* ansi_bg(AnsiColor color);
+
+
 
 /////////////////////////////////////////////////////////////////////////////////
-// Signal handler and exit wrapper - defined early so ALL code uses them
-/////////////////////////////////////////////////////////////////////////////////
-void c2SignalHandler(int sig) {
-   fprintf(stderr, "\n*** CDL2 Runtime Error: Caught signal %d ***\n", sig);
-   c2Backtrace();
-   _Exit(sig);  // Use _Exit directly to avoid recursion
-}
-
-void c2InitTrace() {
-   // Set up signal handlers to catch runtime errors
-   signal(SIGSEGV, c2SignalHandler);  // Segmentation fault
-   signal(SIGABRT, c2SignalHandler);  // Abort
-   signal(SIGFPE,  c2SignalHandler);  // Floating point exception
-   signal(SIGILL,  c2SignalHandler);  // Illegal instruction
-#ifndef _WIN32
-   signal(SIGBUS,  c2SignalHandler);  // Bus error (POSIX)
-#endif
-}
-
-static void c2Exit(int code) {
-   static BOOL exiting = FALSE;
-   if (!exiting && code != 0 && C2SP >= 0) {
-      exiting = TRUE;
-      fprintf(stderr, "\n*** CDL2 Program exiting with code %d ***\n", code);
-      c2Backtrace();
-   }
-   _Exit(code);
-}
-
 // Redefine exit() so all code below shows backtraces on errors
+/////////////////////////////////////////////////////////////////////////////////
 #define exit(code) c2Exit(code)
 
 /////////////////////////////////////////////////////////////////////////////////
 // Implementation
 /////////////////////////////////////////////////////////////////////////////////
-
-
-// Name extractor functions for generic search
-char* c2GetProcName(int index) { return c2DebugInfo->procs[index].name; }
-char* c2GetVarName(int index)  { return c2DebugInfo->vars[index].name; }
-char* c2GetListName(int index) { return c2DebugInfo->lists[index].name; }
-
-// Generic binary search function
-int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
-   int left = 0;
-   int right = count - 1;
-   
-   while (left <= right) {
-      int mid = (left + right) / 2;
-      char* clean_name = c2RemoveBlanks(name);
-      char* clean_target = c2RemoveBlanks(getNameFunc(mid));
-      int cmp = strcmp(clean_name, clean_target);
-      
-      if (cmp == 0 || c2StartsWith(clean_target, clean_name)) {
-         free(clean_name);
-         free(clean_target);
-         return mid;
-      } else if (cmp < 0) {
-         right = mid - 1;
-      } else {
-         left = mid + 1;
-      }
-      free(clean_name);
-      free(clean_target);
-   }
-   return -1;
-}
-
-C2ProcInfo* c2FindProc(char* name) {
-   int index = c2GenericFind(name, c2DebugInfo->procCount, c2GetProcName);
-   return index >= 0 ? &c2DebugInfo->procs[index] : NULL;
-}
-
-C2VarInfo* c2FindVar(char* name) {
-   int index = c2GenericFind(name, c2DebugInfo->varCount, c2GetVarName);
-   return index >= 0 ? &c2DebugInfo->vars[index] : NULL;
-}
-
-C2ListInfo* c2FindList(char* name) {
-   int index = c2GenericFind(name, c2DebugInfo->listCount, c2GetListName);
-   return index >= 0 ? &c2DebugInfo->lists[index] : NULL;
-}
-
-BOOL c2StartsWith(char* str, char* prefix) {
-   while (*prefix != '\0') {
-      if (*str != *prefix) {
-         return FALSE;
-      }
-      str++;
-      prefix++;
-   }
-   return TRUE;
-}
-
-BOOL c2MatchName(char* name1, char* name2) {
-   char* clean1 = c2RemoveBlanks(name1);
-   char* clean2 = c2RemoveBlanks(name2);
-   BOOL result = c2StartsWith(clean1, clean2);
-   free(clean1);
-   free(clean2);
-   return result;
-}
-
-char* c2RemoveBlanks(char* str) {
-   // First pass: count non-blank characters
-   int count = 0;
-   for (char* src = str; *src != '\0'; src++) {
-      if (*src != ' ') count++;
-   }
-
-   // Allocate exactly what we need
-   char* result = (char*)malloc(count + 1);
-   if (result == NULL) {
-      return NULL; // Memory allocation failed
-   }
-
-   // Second pass: copy non-blank characters
-   char* dst = result;
-   for (char* src = str; *src != '\0'; src++) {
-      if (*src != ' ') *dst++ = *src;
-   }
-   *dst = '\0';
-   return result;
-}
-
-BOOL c2IsemptyOrWhitespace(char* str) {
-   for (char* p = str; *p != '\0'; p++) {
-      if (*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') {
-         return FALSE;
-      }
-   }
-   return TRUE;
-}
-
-// Read line until Enter
-char* c2ReadLine() {
-    static char buffer[256];
-    int i = 0;
-    int ch;
-    while (i < 255 && (ch = getchar()) != '\n' && ch != '\r' && ch != EOF) {
-        buffer[i++] = ch;
-    }
-    buffer[i] = '\0';
-    return buffer;
-}
-
-// Cross-platform immediate character input
-char c2_getch() {
-#ifdef _WIN32
-    return _getch();
-#else
-    struct termios oldattr, newattr;
-    char ch;
-    tcgetattr(STDIN_FILENO, &oldattr);
-    newattr = oldattr;
-    newattr.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
-    ch = getchar();
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-    return ch;
-#endif
-}
-
-// Special key codes
-#define KEY_END 1001
-#define KEY_HOME 1002
-#define KEY_UP 1003
-#define KEY_DOWN 1004
-#define KEY_LEFT 1005
-#define KEY_RIGHT 1006
-#define KEY_ESC 27
-
-// Cross-platform special key detection
-int c2_get_special_key() {
-#ifdef _WIN32
-    int ch = _getch();
-    if (ch == 224) { // Extended key prefix on Windows
-        ch = _getch();
-        switch (ch) {
-            case 79: return KEY_END;     // END key
-            case 71: return KEY_HOME;    // HOME key
-            case 72: return KEY_UP;      // UP arrow
-            case 80: return KEY_DOWN;    // DOWN arrow
-            case 75: return KEY_LEFT;    // LEFT arrow
-            case 77: return KEY_RIGHT;   // RIGHT arrow
-        }
-    }
-    return ch; // Regular character
-#else
-    struct termios oldattr, newattr;
-    int ch;
-    tcgetattr(STDIN_FILENO, &oldattr);
-    newattr = oldattr;
-    newattr.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
-    
-    ch = getchar();
-    if (ch == 27) { // ESC sequence
-        // Set a short timeout to check if more characters are coming
-        fd_set readfds;
-        struct timeval timeout;
-        FD_ZERO(&readfds);
-        FD_SET(STDIN_FILENO, &readfds);
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 100000; // 100ms timeout
-        
-        if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
-            // More characters available - it's an escape sequence
-            ch = getchar();
-            if (ch == '[') {
-                ch = getchar();
-                switch (ch) {
-                    case 'F': 
-                        tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                        return KEY_END;    // END key
-                    case 'H': 
-                        tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                        return KEY_HOME;   // HOME key  
-                    case 'A': 
-                        tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                        return KEY_UP;     // UP arrow
-                    case 'B': 
-                        tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                        return KEY_DOWN;   // DOWN arrow
-                    case 'D': 
-                        tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                        return KEY_LEFT;   // LEFT arrow
-                    case 'C': 
-                        tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                        return KEY_RIGHT;  // RIGHT arrow
-                    case '4': 
-                        if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
-                            tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                            return KEY_END; // Alternative END key sequence
-                        }
-                        break;
-                }
-            }
-        } else {
-            // Timeout - it's just ESC pressed alone
-            tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-            return KEY_ESC;
-        }
-    }
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-    return ch; // Regular character
-#endif
-}
-
 
 char* c2AlgType(int depth) {
    switch (c2DebugInfo->procs[C2Stack[depth].procInfoIndex].type) {
@@ -444,7 +197,7 @@ BOOL c2SetSpyPoint(char* procName, BOOL set) {
 #define NO_MARKER ""
 
 char * C2Marker(TraceExitType type) {
-   char buffer[8];
+   static char buffer[8];
    
    switch (type) {
    case TRACE_ENTER:   sprintf(buffer, "%s%s", ansi_fg(CYAN), ENTER_MARKER); break;
@@ -642,5 +395,269 @@ void c2traceREPL(int depth,TraceExitType type) {
          fprintf(stderr, "\nInvalid command. enter 'h' for help.\n");
          c2traceREPL(depth,type); // After invalid command, ask for command again
          break;
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+// Utility functions
+/////////////////////////////////////////////////////////////////////////////////////
+
+// Name extractor functions for generic search
+char* c2GetProcName(int index) { return c2DebugInfo->procs[index].name; }
+char* c2GetVarName(int index) { return c2DebugInfo->vars[index].name; }
+char* c2GetListName(int index) { return c2DebugInfo->lists[index].name; }
+
+// Generic binary search function
+int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
+   int left = 0;
+   int right = count - 1;
+
+   while (left <= right) {
+      int mid = (left + right) / 2;
+      char* clean_name = c2RemoveBlanks(name);
+      char* clean_target = c2RemoveBlanks(getNameFunc(mid));
+      int cmp = strcmp(clean_name, clean_target);
+
+      if (cmp == 0 || c2StartsWith(clean_target, clean_name)) {
+         free(clean_name);
+         free(clean_target);
+         return mid;
+      }
+      else if (cmp < 0) {
+         right = mid - 1;
+      }
+      else {
+         left = mid + 1;
+      }
+      free(clean_name);
+      free(clean_target);
+   }
+   return -1;
+}
+
+C2ProcInfo* c2FindProc(char* name) {
+   int index = c2GenericFind(name, c2DebugInfo->procCount, c2GetProcName);
+   return index >= 0 ? &c2DebugInfo->procs[index] : NULL;
+}
+
+C2VarInfo* c2FindVar(char* name) {
+   int index = c2GenericFind(name, c2DebugInfo->varCount, c2GetVarName);
+   return index >= 0 ? &c2DebugInfo->vars[index] : NULL;
+}
+
+C2ListInfo* c2FindList(char* name) {
+   int index = c2GenericFind(name, c2DebugInfo->listCount, c2GetListName);
+   return index >= 0 ? &c2DebugInfo->lists[index] : NULL;
+}
+
+BOOL c2StartsWith(char* str, char* prefix) {
+   while (*prefix != '\0') {
+      if (*str != *prefix) {
+         return FALSE;
+      }
+      str++;
+      prefix++;
+   }
+   return TRUE;
+}
+
+BOOL c2MatchName(char* name1, char* name2) {
+   char* clean1 = c2RemoveBlanks(name1);
+   char* clean2 = c2RemoveBlanks(name2);
+   BOOL result = c2StartsWith(clean1, clean2);
+   free(clean1);
+   free(clean2);
+   return result;
+}
+
+char* c2RemoveBlanks(char* str) {
+   // First pass: count non-blank characters
+   int count = 0;
+   for (char* src = str; *src != '\0'; src++) {
+      if (*src != ' ') count++;
+   }
+
+   // Allocate exactly what we need
+   char* result = (char*)malloc(count + 1);
+   if (result == NULL) {
+      return NULL; // Memory allocation failed
+   }
+
+   // Second pass: copy non-blank characters
+   char* dst = result;
+   for (char* src = str; *src != '\0'; src++) {
+      if (*src != ' ') *dst++ = *src;
+   }
+   *dst = '\0';
+   return result;
+}
+
+BOOL c2IsemptyOrWhitespace(char* str) {
+   for (char* p = str; *p != '\0'; p++) {
+      if (*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') {
+         return FALSE;
+      }
+   }
+   return TRUE;
+}
+
+// Read line until Enter
+char* c2ReadLine() {
+   static char buffer[256];
+   int i = 0;
+   int ch;
+   while (i < 255 && (ch = getchar()) != '\n' && ch != '\r' && ch != EOF) {
+      buffer[i++] = ch;
+   }
+   buffer[i] = '\0';
+   return buffer;
+}
+
+// Cross-platform immediate character input
+char c2_getch() {
+#ifdef _WIN32
+   return _getch();
+#else
+   struct termios oldattr, newattr;
+   char ch;
+   tcgetattr(STDIN_FILENO, &oldattr);
+   newattr = oldattr;
+   newattr.c_lflag &= ~(ICANON | ECHO);
+   tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
+   ch = getchar();
+   tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+   return ch;
+#endif
+}
+
+// Cross-platform special key detection
+int c2_get_special_key() {
+#ifdef _WIN32
+   int ch = _getch();
+   if (ch == 224) { // Extended key prefix on Windows
+      ch = _getch();
+      switch (ch) {
+      case 79: return KEY_END;     // END key
+      case 71: return KEY_HOME;    // HOME key
+      case 72: return KEY_UP;      // UP arrow
+      case 80: return KEY_DOWN;    // DOWN arrow
+      case 75: return KEY_LEFT;    // LEFT arrow
+      case 77: return KEY_RIGHT;   // RIGHT arrow
+      }
+   }
+   return ch; // Regular character
+#else
+   struct termios oldattr, newattr;
+   int ch;
+   tcgetattr(STDIN_FILENO, &oldattr);
+   newattr = oldattr;
+   newattr.c_lflag &= ~(ICANON | ECHO);
+   tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
+
+   ch = getchar();
+   if (ch == 27) { // ESC sequence
+      // Set a short timeout to check if more characters are coming
+      fd_set readfds;
+      struct timeval timeout;
+      FD_ZERO(&readfds);
+      FD_SET(STDIN_FILENO, &readfds);
+      timeout.tv_sec = 0;
+      timeout.tv_usec = 100000; // 100ms timeout
+
+      if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
+         // More characters available - it's an escape sequence
+         ch = getchar();
+         if (ch == '[') {
+            ch = getchar();
+            switch (ch) {
+            case 'F':
+               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+               return KEY_END;    // END key
+            case 'H':
+               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+               return KEY_HOME;   // HOME key  
+            case 'A':
+               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+               return KEY_UP;     // UP arrow
+            case 'B':
+               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+               return KEY_DOWN;   // DOWN arrow
+            case 'D':
+               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+               return KEY_LEFT;   // LEFT arrow
+            case 'C':
+               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+               return KEY_RIGHT;  // RIGHT arrow
+            case '4':
+               if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
+                  tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+                  return KEY_END; // Alternative END key sequence
+               }
+               break;
+            }
+         }
+      }
+      else {
+         // Timeout - it's just ESC pressed alone
+         tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+         return KEY_ESC;
+      }
+   }
+   tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+   return ch; // Regular character
+#endif
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+// Signal handler and exit wrapper - defined early so ALL code uses them
+/////////////////////////////////////////////////////////////////////////////////
+void c2SignalHandler(int sig) {
+   fprintf(stderr, "\n*** CDL2 Runtime Error: Caught signal %d ***\n", sig);
+   c2Backtrace();
+   _Exit(sig);  // Use _Exit directly to avoid recursion
+}
+
+void c2InitTrace() {
+   // Set up signal handlers to catch runtime errors
+   signal(SIGSEGV, c2SignalHandler);  // Segmentation fault
+   signal(SIGABRT, c2SignalHandler);  // Abort
+   signal(SIGFPE, c2SignalHandler);  // Floating point exception
+   signal(SIGILL, c2SignalHandler);  // Illegal instruction
+#ifndef _WIN32
+   signal(SIGBUS, c2SignalHandler);  // Bus error (POSIX)
+#endif
+}
+
+static void c2Exit(int code) {
+   static BOOL exiting = FALSE;
+   if (!exiting && code != 0 && C2SP >= 0) {
+      exiting = TRUE;
+      fprintf(stderr, "\n*** CDL2 Program exiting with code %d ***\n", code);
+      c2Backtrace();
+   }
+   _Exit(code);
+}
+/////////////////////////////////////////////////////////////////////////////////
+// ANSI color codes for colored output
+//////////////////////////////////////////////////////////////////////////////////
+#define ANSI_COLOR_RESET "\x1b[0m"
+char* ansi_fg(AnsiColor color) {
+   static char buffer[8];
+   if (color == RESET) {
+      return ANSI_COLOR_RESET;
+   }
+   else {
+      snprintf(buffer, sizeof(buffer), "\x1b[3%dm", color);
+      return buffer;
+   }
+}
+char* ansi_bg(AnsiColor color) {
+   static char buffer[8];
+   if (color == RESET) {
+      return ANSI_COLOR_RESET;
+   }
+   else {
+      snprintf(buffer, sizeof(buffer), "\x1b[4%dm", color);
+      return buffer;
    }
 }

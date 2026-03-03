@@ -235,6 +235,7 @@ namespace CDL2v1 {
       }
       public void GenerateMacroInlineEnd(Macro macro) {
          if (macro.CanFail) {
+            ReferencedLabels.Add(Label);
             emitter.Emitnl($")) goto {Label};");
          } else {
             emitter.Emitnl();
@@ -288,8 +289,9 @@ namespace CDL2v1 {
 
       private int LabelCounter = 0;
       private const string labelPrefix = "L";
-      private void GenerateLabel() => emitter.Emitnl(labelPrefix + NextLabel + ":");
+      private void GenerateLabel() { if (ReferencedLabels.Contains(Label)) emitter.Emitnl(labelPrefix + NextLabel + ":"); }
       private string Label => labelPrefix + LabelCounter;
+      private Set<string> ReferencedLabels = [];
       private int NextLabel => LabelCounter++;
       public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) { }
 
@@ -330,6 +332,7 @@ namespace CDL2v1 {
             if (lastAlternative) {
                emitter.Emit(")) RETURNV(FALSE);");
             } else {
+               ReferencedLabels.Add(Label);
                emitter.Emit($")) goto {Label};");
             }
          } else {
