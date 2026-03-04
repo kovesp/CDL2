@@ -376,3 +376,5 @@ testlog.*.txt
 /CDL2v1/CDL2/*.c
 /CDL2v1/CDL2/*.ps1
 *.exe
+*.exe.cdl2debug
+

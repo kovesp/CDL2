@@ -1573,10 +1573,11 @@ void c2InitTrace() {
    // Set up signal handlers to catch runtime errors
    signal(SIGSEGV, c2SignalHandler);  // Segmentation fault
    signal(SIGABRT, c2SignalHandler);  // Abort
-   signal(SIGFPE, c2SignalHandler);  // Floating point exception
-   signal(SIGILL, c2SignalHandler);  // Illegal instruction
+   signal(SIGFPE, c2SignalHandler);   // Floating point exception
+   signal(SIGILL, c2SignalHandler);   // Illegal instruction
+   signal(SIGINT, c2SignalHandler);   // Ctrl-C interrupt
 #ifndef _WIN32
-   signal(SIGBUS, c2SignalHandler);  // Bus error (POSIX)
+   signal(SIGBUS, c2SignalHandler);   // Bus error (POSIX)
 #endif
 }
 
