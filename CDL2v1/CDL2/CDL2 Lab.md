@@ -871,6 +871,84 @@ and any call on the C `exit` function with a non-zero exit code.
  
 The CDL2 Debugger is a simple command line debugger that allows you to set spypoints (aka breakpoints),
 step through code, and inspect variables and lists. 
-It is invoked by setting the `-trace` setting in addtion to `-backtrace`.
+It is invoked by setting the `-trace` setting in addtion to `-backtrace` (it is actually enough to set
+`-trace` as that will force `backtrace`). Note that the `-trace` setting also forces `-nomacroinlining`
+and `-noprocinlining`.
+
 The debugger will stop at the first Lude of the program and accept commands.
-The following sections list the avilable command.
+
+The debugger will prompt with the type, name and affixes (together with their values) as apporpiate. The
+first character of the prompt is 
+
+* `>` for algorithm entry, e.g., `>FUNCTION subtract+>a=1000000+>b=1+c>:`,
+* `+` for successful exit, e.g., `+FUNCTION subtract+>a=1000000+>b=1+c>=999999`, and
+* `-` for failure exit from PREDICATEs and TESTs, e.g., `- TEST gt`.
+
+Note that by default the debugger does _not_ stop at the exit prots, but this can be changed.
+
+At the prompt, commands can be entered. All commands consist of a single characterThere are two kinds:
+* Some commands are acted on immediatly without waiting for anything else to be typed.
+* Others take areguments and are executed when the Enter key is pressed. These commands are recorded
+  in a command history and may be recalled using the up and down arrow keys.
+  When a command is recalled, it can be edited before re-submission.
+
+
+
+Note that what other debuggers call breakpoints, sw call spy points; what other debuggers call stack trace,
+we call backtrace.
+
+### Debugger Commands
+
+
+| Command | Name | I | Details |
+|---------|------|---|---------|
+| > ENTER | next | Y | Step into. Continue until the text port
+| s TAB   | step | Y | Step over. Continue until the exit port of the current call is reached. If exit ports are not being stopped at, continue to the next entry port.
+| j SPC   | jump | Y | Continue until the next spy point.
+| g END   | go   | Y | Continue until the end of the program.
+| b       | backtrace | Y | Print the backtrace.
+| q ESC   | quit  | Y | Exit the debugger and terminate the program.
+|   UP/DOWN | history | Y | Recall the previous/next command from the command history. The command may be edited before re-submission using HOME, END, LEFT, RIGHT, DELETE, BACKSPACE.
+| d       |decimal| N | Print value(s) in decimal. See below for arguments.
+| x       |hex    | N | Print value(s) in hexadecimal. See below for arguments.
+| c       |char   | N | Print value(s) as characters. See below for arguments.
+| l       |list   | N | List objects in the program. See below for arguments.
+| +       |set    | N | Set spy points or options. See below for arguments.
+| -       |clear  | N | Clear spy points or options. See below for arguments.|
+
+The command history, spy points and some settings are saved into a file with the name of the executing program
+and extension `.cdl2debug` (e.g., `csort.exe.cdl2debug`). Whever the debugger is invoked, these are reloaded
+from the file.
+
+#### Arguments for the print commands
+
+| Argument | Description |
+|----------|-------------|
+| name    | The name of an affix, or variable, or a list. The value is printed. For a list, the first N items are printed as per the current option setting.
+| list[...]| Elements of the list are printed in compact form. The ... specifies which elements to print. 
+| list(...) | Print one lement to a line with its index.
+| | Forms of ...: index, start:N, start:, :end, start-end, start-, -end. N is the number of elements. If any part of the range is omitted, the default number is printed.
+| | list[] is the same as list, and list() is the same as list but in per line format.
+
+#### Arguments for the list command
+
+| Argument | Description |
+|----------|-------------|
+| a pref | List algorithms whose name starts with the given prefix or all if prefix is omitted.
+| v pref | List variables whose name starts with the given prefix or all if prefix is omitted.
+| l pref | List lists whose name starts with the given prefix or all if prefix is omitted.
+| s pref | List spy points whose name starts with the given prefix or all if prefix is omitted.
+| o      | List the current options and their values.
+| h      | List the command history.
+
+#### Arguments for the set and clear commands
+
+| Argument | Description |
+|----------|-------------|
+| alg pref | Set/Clear spy points on algorithms whose name starts with the given prefix.
+| +        | Set or clear the option to stop at success exit ports. Default is set.
+| -        | Set or clear the option to stop at failure exit ports. Default is set.
+| =        | Set or clear the option to show objects with fully qualified names. Default is clear. Ludes are always show fully qualified.
+| # N      | For the `+` command, set the default number of items when printing lists. The `- #` command reset this to 10.
+| .        | Only for - (i.e., `- .`), clear the command history.
+
