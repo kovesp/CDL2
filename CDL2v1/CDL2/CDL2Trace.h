@@ -12,6 +12,14 @@
 
 #ifdef _WIN32
     #include <conio.h>
+    // Declare Windows API function to avoid including windows.h which conflicts with BOOL
+    #ifdef __cplusplus
+    extern "C" {
+    #endif
+    __declspec(dllimport) unsigned long __stdcall GetModuleFileNameA(void* hModule, char* lpFilename, unsigned long nSize);
+    #ifdef __cplusplus
+    }
+    #endif
 #else
     #include <termios.h>
     #include <unistd.h>
@@ -38,6 +46,7 @@
 #define KEY_DOWN 1004
 #define KEY_LEFT 1005
 #define KEY_RIGHT 1006
+#define KEY_DELETE 1007
 #define KEY_ESC 27
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -47,7 +56,10 @@ typedef enum { C2_ALG_PREDICATE, C2_ALG_TEST, C2_ALG_ACTION, C2_ALG_FUNCTION } C
 typedef enum { C2_AFF_INPUT, C2_AFF_OUTPUT, C2_AFF_TRANSPUT, C2_AFF_STRING } C2AffType;
 typedef enum { TRACE_ENTER, TRACE_EXIT, TRACE_FAIL, TRACE_ABORT } TraceExitType;
 
-typedef enum { BLACK = 0, RED = 1, GREEN = 2, YELLOW = 3, BLUE = 4, MAGENTA = 5, CYAN = 6, WHITE = 7, RESET = 8 } AnsiColor;
+typedef enum {
+   BLACK = 30, RED = 31, GREEN = 32, YELLOW = 33, BLUE = 34, MAGENTA = 35, CYAN = 36, WHITE = 37, RESET = 38, 
+   BRIGHT_BLACK = 90, BRIGHT_RED = 91, BRIGHT_GREEN = 92, BRIGHT_YELLOW = 93, BRIGHT_BLUE = 94, BRIGHT_MAGENTA = 95, BRIGHT_CYAN = 96, BRIGHT_WHITE = 97
+   } AnsiColor;
 
 
 typedef union { VALUE val; VALUE* ptr; char* str; } C2DataValue;
@@ -95,6 +107,17 @@ typedef struct C2DebugInfo {
    C2ListInfo* lists;
 } C2DebugInfo;
 
+typedef struct {
+   VALUE* values;
+   int count;
+   BOOL needsFree;
+   BOOL onePerLine;
+   int startIndex;
+   char* listName;
+   int lwb;
+   int upb;
+} C2EvalResult;
+
 /////////////////////////////////////////////////////////////////////////////////
 // Globals
 /////////////////////////////////////////////////////////////////////////////////
@@ -104,14 +127,23 @@ C2DebugInfo* c2DebugInfo;
 C2StackFrame C2Stack[CALL_STACK_MAX_DEPTH];
 int C2SP = -1;
 
-BOOL C2HonorSpyPoints = FALSE;      // Whther to honour spy points while skipping.
+BOOL C2HonorSpyPoints = FALSE;      // Whether to honour spy points while skipping.
 int C2Skippoint= -1;                // The index of the stack frame we are skipping to (used to know when to stop skipping)
 BOOL C2TraceWhileJumping = FALSE;   // Used to show trace output for intermediate calls while jumping or ...
 BOOL C2Jumping = FALSE;             // Jumping means run until the next spy point
 BOOL C2Going = FALSE;               // Going means run without further debugging
+
+// Saved settings
 BOOL C2StepOverSuccess = TRUE;      // Whether to step over the next exit
 BOOL C2StepOverFailure = TRUE;      // Whether to step over the next fail
 BOOL C2FullNames = FALSE;           // Whether to show full procedure names (including container) in stack frames, or just the procedure name
+int  C2DefaultListElements = 10;    // Default number of LIST elements to display
+
+// Command history
+#define C2_HISTORY_SIZE 100
+char* C2CommandHistory[C2_HISTORY_SIZE];
+int C2HistoryCount = 0;
+int C2HistoryIndex = 0;
 
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -139,10 +171,19 @@ BOOL c2StartsWith(char* str, char* prefix);
 BOOL c2MatchName(char* name1, char* name2);
 char* c2RemoveBlanks(char* str);
 BOOL c2IsemptyOrWhitespace(char* str);
+C2EvalResult c2EvaluateExpr(int depth, char* expr);
+void c2PrintValues(C2EvalResult* result, char format);
+void c2FreeEvalResult(C2EvalResult* result);
 void c2SignalHandler(int sig);
 void c2InitTrace();
 void c2Exit(int code);
 char * c2ReadLine();
+char* c2ReadLineWithHistory();
+char* c2ReadFullCommand();
+void c2AddToHistory(char* cmd);
+void c2SaveDebugState();
+void c2LoadDebugState();
+char* c2GetExecutablePath();
 char c2_getch();
 int c2_get_special_key();
 char* ansi_fg(AnsiColor color);
@@ -280,6 +321,7 @@ BOOL firstEntry = TRUE;
 void c2TraceEnter() {
    if (firstEntry) {
       c2InitTrace();  // Initialize signal handlers on first entry
+      c2LoadDebugState();  // Load saved debugger state
       fprintf(stderr, "CDL2 debugger v1.0, h for help\n");
       firstEntry = FALSE;
    }
@@ -355,87 +397,227 @@ void c2TraceExitAbort() {
 
 void c2traceREPL(int depth,TraceExitType type) {
    c2PrintStackFrame(depth, TRUE, C2Marker(type), ": ", type);
-   int command = c2_get_special_key();
-   // Translate special keys to commands so they can be echoed and handled in the same switch statement
-   switch (command) {
-      case '\r':    command = '>'; break;
-      case KEY_END: command = 'g'; break;
-      case ' ':     command = 'j'; break;
-      case '\t':    command = 's'; break;
-      case KEY_ESC: command = 'q'; break;
+
+   // Read command (supports single keys AND history recall with up/down)
+   char* fullCmd = c2ReadFullCommand();
+
+   // Skip leading whitespace
+   while (*fullCmd == ' ' || *fullCmd == '\t') fullCmd++;
+
+   // First character is the command
+   int command = fullCmd[0];
+   char* arg = fullCmd + 1;
+   // Skip space after command
+   while (*arg == ' ' || *arg == '\t') arg++;
+
+   // For commands that need arguments, check if we need to prompt
+   BOOL needsArg = (command == 'l' || command == 'd' || command == 'x' || 
+                    command == 'c' || command == '+' || command == '-');
+
+   if (needsArg && c2IsemptyOrWhitespace(arg)) {
+      // No argument provided - prompt for it
+      fprintf(stderr, " ");  // Add visual space if not already there
+      arg = c2ReadLineWithHistory();
+      // Build full command for history
+      char fullCmdBuf[258];
+      snprintf(fullCmdBuf, sizeof(fullCmdBuf), "%c %s", command, arg);
+      c2AddToHistory(fullCmdBuf);
+   } else {
+      // Just print newline - everything was already echoed
+      fprintf(stderr, "\n");
+
+      // Add full commands to history
+      if (command != '>' && command != 'g' && command != 'j' && 
+          command != 's' && command != 'b' && command != 'q' && command != 'h') {
+         c2AddToHistory(fullCmd);
+      }
    }
-   fprintf(stderr, "%s%c%s",ansi_fg(YELLOW),command, ansi_fg(RESET));
+
    switch (command) {
       case 'h':
-         fprintf(stderr, "\n%sCommands:\n", ansi_fg(BLUE));
+         fprintf(stderr, "\n\n%sCommands:\n", ansi_fg(BRIGHT_BLUE));
          fprintf(stderr, "  > ENTER - continue until the next trace point (step into)\n");
          fprintf(stderr, "  s TAB   - continue to the exit of the current call (step over)\n");
          fprintf(stderr, "  j SPC   - continue until the next spy point\n");
          fprintf(stderr, "  g END   - continue until the end\n");
          fprintf(stderr, "  b       - show a backtrace of the call stack\n");
+         fprintf(stderr, "    UP/DN - at main prompt recall previous commands in history\n");
          fprintf(stderr, "  q ESC   - quit the program\n\n");
          fprintf(stderr, "  d       - show arg in decimal\n");
          fprintf(stderr, "  x       - show arg in hex\n");
          fprintf(stderr, "  c       - show arg as character\n");
          fprintf(stderr, "            arg can be an affix, local, VAR, or LIST name\n");
-         fprintf(stderr, "            for a LIST it may be followed by [index] or [index:n] or [index1-index2]\n");
-         fprintf(stderr, "  l       - list ... with 'a <prefix>' algorithms, with 'v <prefix>' VARs, with 'l <prefix>' LISTs\n");
+         fprintf(stderr, "            LIST: [idx] [start:n] [start-end] [start:] [start-] [:end] [-end]\n");
+         fprintf(stderr, "            : or - alone shows %d elements; () shows one per line with index\n", C2DefaultListElements);
+         fprintf(stderr, "  l       - list ... with 'a <prefix>' algorithms, 'v <prefix>' VARs, 'l <prefix>' LISTs, 's <prefix>' spypoints, 'h' history\n");
          fprintf(stderr, "  +/-     - set(+) or clear (-) a spy point, enter the prefix(es) of the algorithm name(s)\n");
          fprintf(stderr, "            with argument + or - stop or not at that exit (default is don't stop)\n");
-         fprintf(stderr, "            with argument = show or not show full names (default is don't show, except for ludes)%s\n",ansi_fg(RESET));
-         c2traceREPL(depth,type); // After showing help, ask for command again
+         fprintf(stderr, "            with argument = show or not show full names (default is don't show, except for ludes)\n");
+         fprintf(stderr, "            with argument . clear command history%s\n",ansi_fg(RESET));
+         c2traceREPL(depth,type);
          break;
       case '+':
       case '-':
-         fprintf(stderr, "%s ", ansi_fg(YELLOW));
-         char* arg = c2ReadLine();
-         fprintf(stderr, "%s", ansi_fg(RESET));
-         if (arg[0] == '+') {
+         if (c2IsemptyOrWhitespace(arg)) {
+            fprintf(stderr, "Procedure name or option cannot be empty\n");
+         } else if (arg[0] == '+') {
             C2StepOverSuccess = command == '-';
             fprintf(stderr, "Will %s stop at success ports\n", C2StepOverSuccess ? "not" : "");
-         }
-         else if (arg[0] == '-') {
+         } else if (arg[0] == '-') {
             C2StepOverFailure = command == '-';
             fprintf(stderr, "Will %s stop at failure ports\n", C2StepOverFailure ? "not" : "");
          } else if (arg[0] == '=') {
             C2FullNames = command == '+';
             fprintf(stderr, "Will %s show full algorithm names\n", C2FullNames ? "now" : "no longer");
-         } else if (c2IsemptyOrWhitespace(arg)) {
-            fprintf(stderr, "Procedure name cannot be empty\n");
+         } else if (arg[0] == '.' && command == '-') {
+            // Clear command history
+            for (int i = 0; i < C2HistoryCount; i++) {
+               free(C2CommandHistory[i]);
+               C2CommandHistory[i] = NULL;
+            }
+            C2HistoryCount = 0;
+            fprintf(stderr, "Command history cleared\n");
          } else if (!c2SetSpyPoint(arg, command == '+')) {
             fprintf(stderr, "No such procedure %s\n", arg);
          }
-         c2traceREPL(depth,type); // After setting spy point, ask for command again
+         c2traceREPL(depth,type);
          break;
       case '>':
-         if (command == '>') fprintf(stderr, "\n");
          break;
       case 'g':
-         fprintf(stderr, "\n");
          C2Going = TRUE;
          break;
       case 'j':
-         fprintf(stderr, "\n");
          C2Jumping = TRUE;
          break;
       case 's':
-         fprintf(stderr, "\n");
          if (type == TRACE_ENTER) {
-            C2Skippoint = depth; // Skip until we return to the current stack frame
+            C2Skippoint = depth;
          }
          break;
       case 'b':
-         fprintf(stderr, "\n");
          c2Backtrace();
-         c2traceREPL(depth,type); // After showing backtrace, ask for command again
+         c2traceREPL(depth,type);
+         break;
+      case 'l':
+         if (c2IsemptyOrWhitespace(arg)) {
+            fprintf(stderr, "Argument required: 'a <prefix>' for algorithms, 'v <prefix>' for VARs, 'l <prefix>' for LISTs, 's' for spypoints, 'o' for options, 'h' for history\n");
+         } else {
+            char listType = arg[0];
+            char* prefix = arg + 1;
+            while (*prefix == ' ') prefix++;
+            if (*prefix == '\0') prefix = "";
+
+            if (listType == 'a') {
+               int count = 0;
+               C2ProcInfo** procs = c2FindProcs(prefix, &count);
+               if (procs != NULL && count > 0) {
+                  fprintf(stderr, "Found %d algorithm(s):\n", count);
+                  for (int i = 0; i < count; i++) {
+                     fprintf(stderr, "  %s %s.%s\n", 
+                        procs[i]->type == C2_ALG_PREDICATE ? "PREDICATE" :
+                        procs[i]->type == C2_ALG_TEST ? "TEST" :
+                        procs[i]->type == C2_ALG_ACTION ? "ACTION" : "FUNCTION",
+                        procs[i]->container, procs[i]->name);
+                  }
+                  free(procs);
+               } else {
+                  fprintf(stderr, "No algorithms found matching '%s'\n", prefix);
+               }
+            } else if (listType == 'v') {
+               int count = 0;
+               C2VarInfo** vars = c2FindVars(prefix, &count);
+               if (vars != NULL && count > 0) {
+                  fprintf(stderr, "Found %d VAR(s):\n", count);
+                  for (int i = 0; i < count; i++) {
+                     fprintf(stderr, "  VAR %s.%s = %ld\n", 
+                        vars[i]->container, vars[i]->name, *vars[i]->value);
+                  }
+                  free(vars);
+               } else {
+                  fprintf(stderr, "No VARs found matching '%s'\n", prefix);
+               }
+            } else if (listType == 'l') {
+               int count = 0;
+               C2ListInfo** lists = c2FindLists(prefix, &count);
+               if (lists != NULL && count > 0) {
+                  fprintf(stderr, "Found %d LIST(s):\n", count);
+                  for (int i = 0; i < count; i++) {
+                     fprintf(stderr, "  LIST %s.%s[%d:%d]\n", 
+                        lists[i]->container, lists[i]->name, lists[i]->lwb, lists[i]->upb);
+                  }
+                  free(lists);
+               } else {
+                  fprintf(stderr, "No LISTs found matching '%s'\n", prefix);
+               }
+            } else if (listType == 's') {
+               int count = 0;
+               C2ProcInfo** procs = c2FindProcs(prefix, &count);
+               int spyCount = 0;
+               if (procs != NULL && count > 0) {
+                  // First pass to count spypoints
+                  for (int i = 0; i < count; i++) {
+                     if (procs[i]->spypoint) spyCount++;
+                  }
+                  if (spyCount > 0) {
+                     fprintf(stderr, "Found %d spypoint(s):\n", spyCount);
+                     for (int i = 0; i < count; i++) {
+                        if (procs[i]->spypoint) {
+                           fprintf(stderr, "  %s %s.%s\n", 
+                              procs[i]->type == C2_ALG_PREDICATE ? "PREDICATE" :
+                              procs[i]->type == C2_ALG_TEST ? "TEST" :
+                              procs[i]->type == C2_ALG_ACTION ? "ACTION" : "FUNCTION",
+                              procs[i]->container, procs[i]->name);
+                        }
+                     }
+                  } else {
+                     fprintf(stderr, "No spy points found matching '%s'\n", prefix);
+                  }
+                  free(procs);
+               } else {
+                  fprintf(stderr, "No algorithms found matching '%s'\n", prefix);
+               }
+            } else if (listType == 'h') {
+               if (C2HistoryCount == 0) {
+                  fprintf(stderr, "No command history\n");
+               } else {
+                  fprintf(stderr, "Command history (%d command(s)):\n", C2HistoryCount);
+                  for (int i = 0; i < C2HistoryCount; i++) {
+                     if (C2CommandHistory[i] != NULL) {
+                        fprintf(stderr, "  %d: %s\n", i + 1, C2CommandHistory[i]);
+                     }
+                  }
+               }
+            } else {
+               fprintf(stderr, "Invalid list type '%c'. Use 'a' for algorithms, 'v' for VARs, 'l' for LISTs, 's' for spypoints, 'h' for history\n", listType);
+            }
+         }
+         c2traceREPL(depth,type);
+         break;
+      case 'd':
+      case 'x':
+      case 'c':
+         if (c2IsemptyOrWhitespace(arg)) {
+            fprintf(stderr, "Expression cannot be empty\n");
+         } else {
+            C2EvalResult result = c2EvaluateExpr(depth, arg);
+            if (result.values != NULL) {
+               c2PrintValues(&result, command);
+               c2FreeEvalResult(&result);
+            } else {
+               fprintf(stderr, "Cannot evaluate '%s'\n", arg);
+            }
+         }
+         c2traceREPL(depth,type);
          break;
       case 'q':
          fprintf(stderr, "\nQuitting program.\n");
+         c2SaveDebugState();
          exit(0);
          break;
       default:
-         fprintf(stderr, "\nInvalid command. enter 'h' for help.\n");
-         c2traceREPL(depth,type); // After invalid command, ask for command again
+         fprintf(stderr, "\nInvalid command '%c'. Enter 'h' for help.\n", command);
+         c2traceREPL(depth,type);
          break;
    }
 }
@@ -451,29 +633,20 @@ char* c2GetListName(int index) { return c2DebugInfo->lists[index].name; }
 
 // Generic binary search function - finds first match
 int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
-   int left = 0;
-   int right = count - 1;
+   char* clean_name = c2RemoveBlanks(name);
 
-   while (left <= right) {
-      int mid = (left + right) / 2;
-      char* clean_name = c2RemoveBlanks(name);
-      char* clean_target = c2RemoveBlanks(getNameFunc(mid));
-      int cmp = strcmp(clean_name, clean_target);
-
-      if (cmp == 0 || c2StartsWith(clean_target, clean_name)) {
-         free(clean_name);
-         free(clean_target);
-         return mid;
-      }
-      else if (cmp < 0) {
-         right = mid - 1;
-      }
-      else {
-         left = mid + 1;
-      }
-      free(clean_name);
+   // Linear search for prefix match (binary search doesn't work well for prefix matching)
+   for (int i = 0; i < count; i++) {
+      char* clean_target = c2RemoveBlanks(getNameFunc(i));
+      BOOL matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
       free(clean_target);
+      if (matches) {
+         free(clean_name);
+         return i;
+      }
    }
+
+   free(clean_name);
    return -1;
 }
 
@@ -605,6 +778,285 @@ C2ListInfo** c2FindLists(char* name, int* outCount) {
    return result;
 }
 
+C2EvalResult c2EvaluateExpr(int depth, char* expr) {
+   C2EvalResult result = { NULL, 0, FALSE, FALSE, 0 };
+
+   char nameBuf[256];
+   char* bracket = strchr(expr, '[');
+   char* paren = strchr(expr, '(');
+   BOOL useParens = FALSE;
+
+   if (paren != NULL && (bracket == NULL || paren < bracket)) {
+      bracket = paren;
+      useParens = TRUE;
+   }
+
+   int nameLen = bracket ? (int)(bracket - expr) : (int)strlen(expr);
+
+   if (nameLen >= 256) {
+      return result;
+   }
+
+   // If brackets/parens are used, ensure there's a name before them
+   if (bracket != NULL && nameLen == 0) {
+      return result;
+   }
+
+   strncpy(nameBuf, expr, nameLen);
+   nameBuf[nameLen] = '\0';
+
+   char* cleanName = c2RemoveBlanks(nameBuf);
+
+   // If brackets/parens are used, ensure there's a valid name before them
+   if (bracket != NULL && (cleanName == NULL || cleanName[0] == '\0')) {
+      if (cleanName != NULL) free(cleanName);
+      return result;
+   }
+
+   C2StackFrame frame = C2Stack[depth];
+   C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
+
+   // Check affixes
+   for (int i = 0; i < procInfo.nargs; i++) {
+      if (c2MatchName(procInfo.argnames[i], cleanName)) {
+         result.count = 1;
+         result.needsFree = TRUE;
+         result.values = (VALUE*)malloc(sizeof(VALUE));
+         if (result.values == NULL) {
+            free(cleanName);
+            return result;
+         }
+
+         switch (procInfo.affTypes[i]) {
+            case C2_AFF_INPUT:
+               result.values[0] = frame.args[i].val;
+               break;
+            case C2_AFF_OUTPUT:
+            case C2_AFF_TRANSPUT:
+               result.values[0] = *frame.args[i].ptr;
+               break;
+            case C2_AFF_STRING:
+               result.values[0] = frame.args[i].str ? (VALUE)strlen(frame.args[i].str) : 0;
+               break;
+         }
+         free(cleanName);
+         return result;
+      }
+   }
+
+   // Check locals
+   for (int i = 0; i < procInfo.nlocals; i++) {
+      if (c2MatchName(procInfo.localnames[i], cleanName)) {
+         result.count = 1;
+         result.needsFree = TRUE;
+         result.values = (VALUE*)malloc(sizeof(VALUE));
+         if (result.values != NULL) {
+            result.values[0] = frame.locals[i];
+         }
+         free(cleanName);
+         return result;
+      }
+   }
+
+   // Check VARs
+   C2VarInfo* var = c2FindVar(cleanName);
+   if (var != NULL) {
+      result.count = 1;
+      result.needsFree = TRUE;
+      result.values = (VALUE*)malloc(sizeof(VALUE));
+      if (result.values != NULL) {
+         result.values[0] = *var->value;
+      }
+      free(cleanName);
+      return result;
+   }
+
+   // Check LISTs
+   C2ListInfo* list = c2FindList(cleanName);
+   if (list != NULL) {
+      int startIdx = list->lwb;
+      int endIdx = list->upb;
+      int count = 1;
+
+      if (bracket != NULL) {
+         char* indexExpr = bracket + 1;
+         char closingChar = useParens ? ')' : ']';
+         char* closeBracket = strchr(indexExpr, closingChar);
+         if (closeBracket == NULL) {
+            free(cleanName);
+            return result;
+         }
+
+         char indexBuf[128];
+         strncpy(indexBuf, indexExpr, closeBracket - indexExpr);
+         indexBuf[closeBracket - indexExpr] = '\0';
+
+         // If empty brackets [], treat like no brackets
+         char* trimmed = indexBuf;
+         while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+         if (*trimmed == '\0') {
+            // Empty brackets - use default count from start
+            count = C2DefaultListElements;
+            endIdx = startIdx + count - 1;
+         } else {
+            char* colon = strchr(indexBuf, ':');
+            char* dash = strchr(indexBuf, '-');
+
+            if (colon != NULL) {
+               *colon = '\0';
+               if (indexBuf[0] == '\0') {
+                  // [:endIdx] form - end at endIdx, show default count elements
+                  endIdx = atoi(colon + 1);
+                  startIdx = endIdx - C2DefaultListElements + 1;
+                  count = C2DefaultListElements;
+               } else if (*(colon + 1) == '\0') {
+                  // [start:] - start at startIdx, show default count elements
+                  startIdx = atoi(indexBuf);
+                  endIdx = startIdx + C2DefaultListElements - 1;
+                  count = C2DefaultListElements;
+               } else {
+                  // [start:n] - start at startIdx, show n elements
+                  startIdx = atoi(indexBuf);
+                  count = atoi(colon + 1);
+                  endIdx = startIdx + count - 1;
+               }
+            } else if (dash != NULL) {
+               *dash = '\0';
+               if (indexBuf[0] == '\0') {
+                  // [-endIdx] form - end at endIdx, show default count elements
+                  endIdx = atoi(dash + 1);
+                  startIdx = endIdx - C2DefaultListElements + 1;
+                  count = C2DefaultListElements;
+               } else if (*(dash + 1) == '\0') {
+                  // [start-] - start at startIdx, show default count elements
+                  startIdx = atoi(indexBuf);
+                  endIdx = startIdx + C2DefaultListElements - 1;
+                  count = C2DefaultListElements;
+               } else {
+                  // [start-end] - from startIdx to endIdx
+                  startIdx = atoi(indexBuf);
+                  endIdx = atoi(dash + 1);
+                  count = endIdx - startIdx + 1;
+               }
+            } else {
+               startIdx = atoi(indexBuf);
+               endIdx = startIdx;
+               count = 1;
+            }
+         }
+      } else {
+         // No bracket - use default count from start
+         count = C2DefaultListElements;
+         endIdx = startIdx + count - 1;
+      }
+
+      result.onePerLine = useParens;
+
+      // Clamp to list bounds
+      if (startIdx < list->lwb) {
+         startIdx = list->lwb;
+      }
+      if (startIdx > list->upb) {
+         free(cleanName);
+         return result;
+      }
+      if (endIdx > list->upb) {
+         endIdx = list->upb;
+      }
+
+      count = endIdx - startIdx + 1;
+      if (count <= 0) {
+         free(cleanName);
+         return result;
+      }
+
+      result.count = count;
+      result.startIndex = startIdx;
+      result.onePerLine = useParens;
+      result.needsFree = TRUE;
+      result.lwb = list->lwb;
+      result.upb = list->upb;
+      result.listName = list->name;
+      result.values = (VALUE*)malloc(count * sizeof(VALUE));
+      if (result.values != NULL) {
+         for (int i = 0; i < count; i++) {
+            result.values[i] = list->value[startIdx - list->lwb + i];
+         }
+      }
+      free(cleanName);
+      return result;
+   }
+
+   free(cleanName);
+   return result;
+}
+
+void c2PrintValues(C2EvalResult* result, char format) {
+   if (result == NULL || result->values == NULL || result->count == 0) {
+      return;
+   }
+
+   if (result->onePerLine) {
+      // Print header with list name and bounds if this is a list
+      if (result->listName != NULL) {
+         fprintf(stderr, "%s(%d:%d)\n", result->listName, result->lwb, result->upb);
+      }
+
+      // Calculate width needed for the largest index
+      int maxIndex = result->startIndex + result->count - 1;
+      int width = snprintf(NULL, 0, "%d", maxIndex);
+
+      for (int i = 0; i < result->count; i++) {
+         fprintf(stderr, "%*d: ", width, result->startIndex + i);
+
+         switch (format) {
+            case 'd':
+               fprintf(stderr, "%ld\n", result->values[i]);
+               break;
+            case 'x':
+               fprintf(stderr, "0x%lx\n", result->values[i]);
+               break;
+            case 'c':
+               if (result->values[i] >= 32 && result->values[i] <= 126) {
+                  fprintf(stderr, "'%c'\n", (char)result->values[i]);
+               } else {
+                  fprintf(stderr, "'\\x%02lx'\n", result->values[i]);
+               }
+               break;
+         }
+      }
+   } else {
+      for (int i = 0; i < result->count; i++) {
+         if (i > 0) fprintf(stderr, ", ");
+
+         switch (format) {
+            case 'd':
+               fprintf(stderr, "%ld", result->values[i]);
+               break;
+            case 'x':
+               fprintf(stderr, "0x%lx", result->values[i]);
+               break;
+            case 'c':
+               if (result->values[i] >= 32 && result->values[i] <= 126) {
+                  fprintf(stderr, "'%c'", (char)result->values[i]);
+               } else {
+                  fprintf(stderr, "'\\x%02lx'", result->values[i]);
+               }
+               break;
+         }
+      }
+      fprintf(stderr, "\n");
+   }
+}
+
+void c2FreeEvalResult(C2EvalResult* result) {
+   if (result != NULL && result->needsFree && result->values != NULL) {
+      free(result->values);
+      result->values = NULL;
+      result->count = 0;
+   }
+}
+
 BOOL c2StartsWith(char* str, char* prefix) {
    while (*prefix != '\0') {
       if (*str != *prefix) {
@@ -656,7 +1108,7 @@ BOOL c2IsemptyOrWhitespace(char* str) {
    return TRUE;
 }
 
-// Read line until Enter
+// Read line until Enter (simple version without history)
 char* c2ReadLine() {
    static char buffer[256];
    int i = 0;
@@ -666,6 +1118,344 @@ char* c2ReadLine() {
    }
    buffer[i] = '\0';
    return buffer;
+}
+
+// Read full command with history support (used at main REPL prompt)
+char* c2ReadFullCommand() {
+   static char buffer[256];
+   static char tempBuffer[256];
+   int i = 0;
+   int cursorPos = 0;
+   int historyPos = C2HistoryCount;
+
+   buffer[0] = '\0';
+   tempBuffer[0] = '\0';
+
+   while (1) {
+      int ch = c2_get_special_key();
+
+      // Translate special keys to simple commands
+      if (ch == '\r' || ch == '\n') {
+         if (i == 0) {
+            strcpy(buffer, ">");
+         }
+         break;
+      } else if (ch == KEY_END && i == 0) {
+         // END key only works as 'g' command when buffer is empty
+         strcpy(buffer, "g");
+         break;
+      } else if (ch == ' ' && i == 0) {
+         // SPACE only works as 'j' command when buffer is empty
+         strcpy(buffer, "j");
+         break;
+      } else if (ch == '\t' && i == 0) {
+         // TAB only works as 's' command when buffer is empty
+         strcpy(buffer, "s");
+         break;
+      } else if (ch == KEY_ESC && i == 0) {
+         // ESC only works as 'q' command when buffer is empty
+         strcpy(buffer, "q");
+         break;
+      } else if (ch == KEY_LEFT) {
+         if (cursorPos > 0) {
+            cursorPos--;
+            fprintf(stderr, "\b");
+         }
+      } else if (ch == KEY_RIGHT) {
+         if (cursorPos < i) {
+            fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+            cursorPos++;
+         }
+      } else if (ch == KEY_HOME) {
+         // Move cursor to beginning
+         while (cursorPos > 0) {
+            cursorPos--;
+            fprintf(stderr, "\b");
+         }
+      } else if (ch == KEY_END) {
+         // Move cursor to end
+         while (cursorPos < i) {
+            fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+            cursorPos++;
+         }
+      } else if (ch == KEY_UP) {
+         // Find previous command
+         if (historyPos > 0) {
+            if (historyPos == C2HistoryCount && i > 0) {
+               strncpy(tempBuffer, buffer, sizeof(tempBuffer) - 1);
+               tempBuffer[sizeof(tempBuffer) - 1] = '\0';
+            }
+            historyPos--;
+            if (C2CommandHistory[historyPos] != NULL) {
+               // Clear current line
+               while (cursorPos < i) {
+                  fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+                  cursorPos++;
+               }
+               for (int j = 0; j < i; j++) fprintf(stderr, "\b \b");
+               // Copy and display history
+               strncpy(buffer, C2CommandHistory[historyPos], sizeof(buffer) - 1);
+               buffer[sizeof(buffer) - 1] = '\0';
+               i = (int)strlen(buffer);
+               cursorPos = i;
+               fprintf(stderr, "%s%s%s", ansi_fg(YELLOW), buffer, ansi_fg(RESET));
+            }
+         }
+      } else if (ch == KEY_DOWN) {
+         if (historyPos < C2HistoryCount) {
+            historyPos++;
+            // Clear current line
+            while (cursorPos < i) {
+               fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+               cursorPos++;
+            }
+            for (int j = 0; j < i; j++) fprintf(stderr, "\b \b");
+            if (historyPos == C2HistoryCount) {
+               // Restore temp buffer
+               strncpy(buffer, tempBuffer, sizeof(buffer) - 1);
+               buffer[sizeof(buffer) - 1] = '\0';
+            } else if (C2CommandHistory[historyPos] != NULL) {
+               strncpy(buffer, C2CommandHistory[historyPos], sizeof(buffer) - 1);
+               buffer[sizeof(buffer) - 1] = '\0';
+            }
+            i = (int)strlen(buffer);
+            cursorPos = i;
+            fprintf(stderr, "%s%s%s", ansi_fg(YELLOW), buffer, ansi_fg(RESET));
+            }
+         } else if (ch == 127 || ch == 8) { // Backspace
+            if (cursorPos > 0) {
+               // Delete character before cursor
+               memmove(&buffer[cursorPos - 1], &buffer[cursorPos], i - cursorPos + 1);
+               i--;
+               cursorPos--;
+               // Redraw from cursor to end
+               fprintf(stderr, "\b");
+               for (int j = cursorPos; j < i; j++) {
+                  fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
+               }
+               fprintf(stderr, " \b");
+               for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
+            }
+         } else if (ch == KEY_DELETE) { // Delete key
+            if (cursorPos < i) {
+               // Delete character at cursor
+               memmove(&buffer[cursorPos], &buffer[cursorPos + 1], i - cursorPos);
+               i--;
+               // Redraw from cursor to end
+               for (int j = cursorPos; j < i; j++) {
+                  fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
+               }
+               fprintf(stderr, " \b");
+               for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
+            }
+         } else if (ch == ' ' && i > 0) {
+            // SPACE as a regular character when editing (not at start)
+            if (cursorPos < i) {
+               memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
+            }
+            buffer[cursorPos] = ' ';
+            i++;
+            buffer[i] = '\0';
+            fprintf(stderr, "%s %s", ansi_fg(YELLOW), ansi_fg(RESET));
+            cursorPos++;
+         } else if (ch == '\t' && i > 0) {
+            // TAB is ignored when editing (could be used for completion in future)
+            // Do nothing - don't insert tab character
+         } else if (ch >= 32 && ch < 127 && i < 255) {
+            // Insert character at cursor
+            if (cursorPos < i) {
+               memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
+            }
+            buffer[cursorPos] = ch;
+            i++;
+            buffer[i] = '\0';
+            // Redraw from cursor to end
+            for (int j = cursorPos; j < i; j++) {
+               fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
+            }
+            cursorPos++;
+            for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
+
+            // Check if this is a single-letter command that should execute immediately
+            if (i == 1 && (ch == 'q' || ch == 'g' || ch == 'j' || ch == 's' ||
+                        ch == 'b' || ch == 'h' || ch == '>')) {
+            break;  // Execute immediately
+         }
+
+         // Commands that take arguments - echo space and add to buffer
+         if (i == 1 && (ch == 'l' || ch == 'd' || ch == 'x' || ch == 'c' || 
+                        ch == '+' || ch == '-')) {
+            fprintf(stderr, " ");  // Echo space after command letter
+            if (cursorPos < i) {
+               memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
+            }
+            buffer[cursorPos] = ' ';
+            i++;
+            cursorPos++;
+            buffer[i] = '\0';
+         }
+      }
+   }
+
+   return buffer;
+}
+
+// Read line with up/down arrow history support
+char* c2ReadLineWithHistory() {
+   static char buffer[256];
+   static char tempBuffer[256];
+   int i = 0;
+   int cursorPos = 0;
+   int historyPos = C2HistoryCount;
+
+   buffer[0] = '\0';
+   tempBuffer[0] = '\0';
+
+   while (1) {
+      int ch = c2_get_special_key();
+
+      if (ch == '\n' || ch == '\r') {
+         fprintf(stderr, "\n");
+         break;
+      } else if (ch == KEY_LEFT) {
+         if (cursorPos > 0) {
+            cursorPos--;
+            fprintf(stderr, "\b");
+         }
+      } else if (ch == KEY_RIGHT) {
+         if (cursorPos < i) {
+            fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+            cursorPos++;
+         }
+      } else if (ch == KEY_HOME) {
+         // Move cursor to beginning
+         while (cursorPos > 0) {
+            cursorPos--;
+            fprintf(stderr, "\b");
+         }
+      } else if (ch == KEY_END) {
+         // Move cursor to end
+         while (cursorPos < i) {
+            fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+            cursorPos++;
+         }
+      } else if (ch == KEY_UP) {
+         // Find previous command
+         if (historyPos > 0) {
+            if (historyPos == C2HistoryCount && i > 0) {
+               strncpy(tempBuffer, buffer, sizeof(tempBuffer) - 1);
+               tempBuffer[sizeof(tempBuffer) - 1] = '\0';
+            }
+            historyPos--;
+            if (C2CommandHistory[historyPos] != NULL) {
+               // Clear current line
+               while (cursorPos < i) {
+                  fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+                  cursorPos++;
+               }
+               for (int j = 0; j < i; j++) fprintf(stderr, "\b \b");
+               // Copy and display FULL command from history
+               strncpy(buffer, C2CommandHistory[historyPos], sizeof(buffer) - 1);
+               buffer[sizeof(buffer) - 1] = '\0';
+               i = (int)strlen(buffer);
+               cursorPos = i;
+               fprintf(stderr, "%s", buffer);
+            }
+         }
+      } else if (ch == KEY_DOWN) {
+         if (historyPos < C2HistoryCount) {
+            historyPos++;
+            // Clear current line
+            while (cursorPos < i) {
+               fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+               cursorPos++;
+            }
+            for (int j = 0; j < i; j++) fprintf(stderr, "\b \b");
+            if (historyPos == C2HistoryCount) {
+               // Restore temp buffer
+               strncpy(buffer, tempBuffer, sizeof(buffer) - 1);
+               buffer[sizeof(buffer) - 1] = '\0';
+            } else if (C2CommandHistory[historyPos] != NULL) {
+               // Copy and display FULL command from history
+               strncpy(buffer, C2CommandHistory[historyPos], sizeof(buffer) - 1);
+               buffer[sizeof(buffer) - 1] = '\0';
+            }
+            i = (int)strlen(buffer);
+            cursorPos = i;
+            fprintf(stderr, "%s", buffer);
+         }
+      } else if (ch == 127 || ch == 8) { // Backspace
+         if (cursorPos > 0) {
+            // Delete character before cursor
+            memmove(&buffer[cursorPos - 1], &buffer[cursorPos], i - cursorPos + 1);
+            i--;
+            cursorPos--;
+            // Redraw from cursor to end
+            fprintf(stderr, "\b");
+            for (int j = cursorPos; j < i; j++) {
+               fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
+            }
+            fprintf(stderr, " \b");
+            for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
+         }
+      } else if (ch == KEY_DELETE) { // Delete key
+         if (cursorPos < i) {
+            // Delete character at cursor
+            memmove(&buffer[cursorPos], &buffer[cursorPos + 1], i - cursorPos);
+            i--;
+            // Redraw from cursor to end
+            for (int j = cursorPos; j < i; j++) {
+               fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
+            }
+            fprintf(stderr, " \b");
+            for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
+         }
+      } else if (ch >= 32 && ch < 127 && i < 255) {
+         // Insert character at cursor
+         if (cursorPos < i) {
+            memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
+         }
+         buffer[cursorPos] = ch;
+         i++;
+         buffer[i] = '\0';
+         // Redraw from cursor to end
+         for (int j = cursorPos; j < i; j++) {
+            fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
+         }
+         cursorPos++;
+         for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
+      }
+   }
+
+   return buffer;
+}
+
+// Add command to history
+void c2AddToHistory(char* cmd) {
+   if (cmd == NULL || cmd[0] == '\0') return;
+
+   // Don't add duplicate of most recent command
+   if (C2HistoryCount > 0 && C2CommandHistory[C2HistoryCount - 1] != NULL &&
+       strcmp(C2CommandHistory[C2HistoryCount - 1], cmd) == 0) {
+      return;
+   }
+
+   // Free oldest if at capacity
+   if (C2HistoryCount >= C2_HISTORY_SIZE) {
+      free(C2CommandHistory[0]);
+      // Shift all entries down
+      for (int i = 0; i < C2_HISTORY_SIZE - 1; i++) {
+         C2CommandHistory[i] = C2CommandHistory[i + 1];
+      }
+      C2HistoryCount = C2_HISTORY_SIZE - 1;
+   }
+
+   // Add new command
+   C2CommandHistory[C2HistoryCount] = (char*)malloc(strlen(cmd) + 1);
+   if (C2CommandHistory[C2HistoryCount] != NULL) {
+      strcpy(C2CommandHistory[C2HistoryCount], cmd);
+      C2HistoryCount++;
+   }
 }
 
 // Cross-platform immediate character input
@@ -689,7 +1479,7 @@ char c2_getch() {
 int c2_get_special_key() {
 #ifdef _WIN32
    int ch = _getch();
-   if (ch == 224) { // Extended key prefix on Windows
+   if (ch == 0 || ch == 224) { // Extended key prefix on Windows (0 or 0xE0)
       ch = _getch();
       switch (ch) {
       case 79: return KEY_END;     // END key
@@ -698,6 +1488,7 @@ int c2_get_special_key() {
       case 80: return KEY_DOWN;    // DOWN arrow
       case 75: return KEY_LEFT;    // LEFT arrow
       case 77: return KEY_RIGHT;   // RIGHT arrow
+      case 83: return KEY_DELETE;  // DELETE key
       }
    }
    return ch; // Regular character
@@ -743,6 +1534,12 @@ int c2_get_special_key() {
             case 'C':
                tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
                return KEY_RIGHT;  // RIGHT arrow
+            case '3':
+               if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
+                  tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+                  return KEY_DELETE; // DELETE key
+               }
+               break;
             case '4':
                if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
                   tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
@@ -783,6 +1580,101 @@ void c2InitTrace() {
 #endif
 }
 
+// Get executable path
+char* c2GetExecutablePath() {
+   static char path[1024];
+#ifdef _WIN32
+   GetModuleFileNameA(NULL, path, sizeof(path));
+#else
+   ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
+   if (len != -1) {
+      path[len] = '\0';
+   } else {
+      path[0] = '\0';
+   }
+#endif
+   return path;
+}
+
+// Save debugger state to file
+void c2SaveDebugState() {
+   char* exePath = c2GetExecutablePath();
+   if (exePath[0] == '\0') return;
+
+   char debugFile[1280];
+   sprintf(debugFile, "%s.cdl2debug", exePath);
+
+   FILE* f = fopen(debugFile, "w");
+   if (f == NULL) return;
+
+   fprintf(f, "# CDL2 Debugger State\n");
+   fprintf(f, "StepOverSuccess=%d\n", C2StepOverSuccess);
+   fprintf(f, "StepOverFailure=%d\n", C2StepOverFailure);
+   fprintf(f, "FullNames=%d\n", C2FullNames);
+   fprintf(f, "DefaultListElements=%d\n", C2DefaultListElements);
+
+   fprintf(f, "\n# Spy Points\n");
+   for (int i = 0; i < c2DebugInfo->procCount; i++) {
+      if (c2DebugInfo->procs[i].spypoint) {
+         fprintf(f, "SpyPoint=%s.%s\n", c2DebugInfo->procs[i].container, c2DebugInfo->procs[i].name);
+      }
+   }
+
+   fprintf(f, "\n# Command History\n");
+   for (int i = 0; i < C2HistoryCount; i++) {
+      if (C2CommandHistory[i] != NULL) {
+         fprintf(f, "History=%s\n", C2CommandHistory[i]);
+      }
+   }
+
+   fclose(f);
+}
+
+// Load debugger state from file
+void c2LoadDebugState() {
+   char* exePath = c2GetExecutablePath();
+   if (exePath[0] == '\0') return;
+
+   char debugFile[1280];
+   sprintf(debugFile, "%s.cdl2debug", exePath);
+
+   FILE* f = fopen(debugFile, "r");
+   if (f == NULL) return;
+
+   char line[512];
+   while (fgets(line, sizeof(line), f) != NULL) {
+      // Remove newline
+      line[strcspn(line, "\r\n")] = '\0';
+
+      // Skip comments and empty lines
+      if (line[0] == '#' || line[0] == '\0') continue;
+
+      // Parse key=value
+      char* eq = strchr(line, '=');
+      if (eq == NULL) continue;
+
+      *eq = '\0';
+      char* key = line;
+      char* value = eq + 1;
+
+      if (strcmp(key, "StepOverSuccess") == 0) {
+         C2StepOverSuccess = atoi(value);
+      } else if (strcmp(key, "StepOverFailure") == 0) {
+         C2StepOverFailure = atoi(value);
+      } else if (strcmp(key, "FullNames") == 0) {
+         C2FullNames = atoi(value);
+      } else if (strcmp(key, "DefaultListElements") == 0) {
+         C2DefaultListElements = atoi(value);
+      } else if (strcmp(key, "SpyPoint") == 0) {
+         c2SetSpyPoint(value, TRUE);
+      } else if (strcmp(key, "History") == 0) {
+         c2AddToHistory(value);
+      }
+   }
+
+   fclose(f);
+}
+
 static void c2Exit(int code) {
    static BOOL exiting = FALSE;
    if (!exiting && code != 0 && C2SP >= 0) {
@@ -790,6 +1682,7 @@ static void c2Exit(int code) {
       fprintf(stderr, "\n*** CDL2 Program exiting with code %d ***\n", code);
       c2Backtrace();
    }
+   c2SaveDebugState();
    _Exit(code);
 }
 /////////////////////////////////////////////////////////////////////////////////
@@ -800,9 +1693,8 @@ char* ansi_fg(AnsiColor color) {
    static char buffer[8];
    if (color == RESET) {
       return ANSI_COLOR_RESET;
-   }
-   else {
-      snprintf(buffer, sizeof(buffer), "\x1b[3%dm", color);
+   } else {
+      snprintf(buffer, sizeof(buffer), "\x1b[%dm",color);
       return buffer;
    }
 }
@@ -812,7 +1704,7 @@ char* ansi_bg(AnsiColor color) {
       return ANSI_COLOR_RESET;
    }
    else {
-      snprintf(buffer, sizeof(buffer), "\x1b[4%dm", color);
+      snprintf(buffer, sizeof(buffer), "\x1b[%dm", color + 10);
       return buffer;
    }
 }
