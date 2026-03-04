@@ -297,7 +297,7 @@ void c2TraceEnter() {
 }
 // Called without popping the stack, so it must do it.
 BOOL c2TraceExit(int v) {
-   if (C2Going) {
+   if (C2Going || C2Jumping) {
       // If we are going, just return without showing trace output
    } else if (C2Skippoint >=0) {
       // We are skipping
