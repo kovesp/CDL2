@@ -33,6 +33,8 @@ namespace CDL2v1 {
       private readonly EmitterString sourceEmitter = new(prefix: "// ");
       public Emitter SourceEmitter => sourceEmitter;
 
+      private PrettyPrinter PPTrace = new(new EmitterAnsiString(),includeComments: false);
+
       private readonly string DataType;
 
       public CodeGeneratorC(string dataType) : base() => DataType = dataType;
@@ -92,7 +94,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="procs"></param>
       public void GenerateDebugInfoProcsStart(IEnumerable<Algorithm> procs) {
-         static string procDesc(Algorithm proc) {      
+         string procDesc(Algorithm proc) {      
             string container = proc.Section!.FQN(separator: ".",replacement: " ",quoted: true);
             string name = proc.Quoted();
             string type = AlgType(proc).ToString(); 
@@ -104,7 +106,9 @@ namespace CDL2v1 {
             int nlocals = proc.Locals.Count;
             //string localnames = "{" + (nlocals == 0 ? "\"\"" : string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))) + "}";
             string localnames = nlocals == 0 ? "NULL" : "(char*[]){" + string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))+"}";
-            string code = "".Quoted(); // Get the pretty printed code here
+            PPTrace.Emitter.Clear();
+            PPTrace.Print(proc);
+            string code = PPTrace.Emitter.Content.Quoted(escape:true); // Get the pretty printed code here
             return $"{{{container},{name},{type},{nargs},{argnames},{affTypes},{nlocals},{localnames},{code},FALSE,FALSE}}";
          }
 

@@ -450,6 +450,7 @@ void c2traceREPL(int depth,TraceExitType type) {
          fprintf(stderr, "            LIST: [idx] [start:n] [start-end] [start:] [start-] [:end] [-end]\n");
          fprintf(stderr, "            : or - alone shows %d elements; () shows one per line with index\n", C2DefaultListElements);
          fprintf(stderr, "  l       - list ... with 'a <prefix>' algorithms, 'v <prefix>' VARs, 'l <prefix>' LISTs, 's <prefix>' spypoints, 'o' options, 'h' history\n");
+         fprintf(stderr, "  t       - show CDL2 source code of algorithm(s) (no arg = current algorithm, or give prefix to match)\n");
          fprintf(stderr, "  +/-     - set(+) or clear (-) a spy point, enter the prefix(es) of the algorithm name(s)\n");
          fprintf(stderr, "            with argument + or - stop or not at that exit (default is don't stop)\n");
          fprintf(stderr, "            with argument = show or not show full names (default is don't show, except for ludes)\n");
@@ -618,6 +619,35 @@ void c2traceREPL(int depth,TraceExitType type) {
                }
             } else {
                fprintf(stderr, "Invalid list type '%c'. Use 'a' for algorithms, 'v' for VARs, 'l' for LISTs, 's' for spypoints, 'o' for options, 'h' for history\n", listType);
+            }
+         }
+         c2traceREPL(depth,type);
+         break;
+      case 't':
+         if (c2IsemptyOrWhitespace(arg)) {
+            // No argument - show current algorithm's code
+            C2ProcInfo currentProc = c2DebugInfo->procs[C2Stack[depth].procInfoIndex];
+            if (currentProc.code != NULL && currentProc.code[0] != '\0') {
+               fprintf(stderr, "\n%s\n", currentProc.code);
+            } else {
+               fprintf(stderr, "(No source code available)\n");
+            }
+         } else {
+            // Argument provided - find matching algorithm(s)
+            int count = 0;
+            C2ProcInfo** procs = c2FindProcs(arg, &count);
+            if (procs != NULL && count > 0) {
+               for (int i = 0; i < count; i++) {
+                  if (procs[i]->code != NULL && procs[i]->code[0] != '\0') {
+                     fprintf(stderr, "\n%s\n", procs[i]->code);
+                  } else {
+                     fprintf(stderr, "(No source code available for %s.%s)\n", 
+                        procs[i]->container, procs[i]->name);
+                  }
+               }
+               free(procs);
+            } else {
+               fprintf(stderr, "No algorithms found matching '%s'\n", arg);
             }
          }
          c2traceREPL(depth,type);
@@ -1312,7 +1342,7 @@ char* c2ReadFullCommand() {
 
          // Commands that take arguments - echo space and add to buffer
          if (i == 1 && (ch == 'l' || ch == 'd' || ch == 'x' || ch == 'c' || 
-                        ch == '+' || ch == '-')) {
+                        ch == '+' || ch == '-' || ch == 't')) {
             fprintf(stderr, " ");  // Echo space after command letter
             if (cursorPos < i) {
                memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
