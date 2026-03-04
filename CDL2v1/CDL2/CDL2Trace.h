@@ -124,10 +124,16 @@ void c2TraceExitAbort();
 void c2traceREPL(int depth,TraceExitType type);
 void c2PrintAff(int depth,int i, TraceExitType type);
 void c2Backtrace();
+int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index));
+int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount);
 C2ProcInfo* c2FindProc(char* name);
+C2ProcInfo** c2FindProcs(char* name, int* outCount);
 C2VarInfo* c2FindVar(char* name);
+C2VarInfo** c2FindVars(char* name, int* outCount);
 C2ListInfo* c2FindList(char* list);
+C2ListInfo** c2FindLists(char* name, int* outCount);
 BOOL c2SetSpyPoint(char* procName, BOOL set);
+BOOL c2IsSpyPoint(int procIndex);
 
 BOOL c2StartsWith(char* str, char* prefix);
 BOOL c2MatchName(char* name1, char* name2);
@@ -185,13 +191,22 @@ void c2pop_callstack_frame() {
 }
 
 BOOL c2SetSpyPoint(char* procName, BOOL set) {
-   C2ProcInfo* proc = c2FindProc(procName);
-   if (proc != NULL) {
-      proc->spypoint = set;
+   int count = 0;
+   C2ProcInfo** procs = c2FindProcs(procName, &count);
+   if (procs != NULL) {
+      for (int i = 0; i < count; i++) {
+         procs[i]->spypoint = set;
+         fprintf(stderr, "Spy point %s %s\n", set ? "set on" : "cleared from", procs[i]->name);
+      }
+      free(procs);
       return TRUE;
    } else {
       return FALSE;
    }
+}
+
+BOOL c2IsSpyPoint(int procIndex) {
+   return c2DebugInfo->procs[procIndex].spypoint;
 }
    
 #define ENTER_MARKER ">"
@@ -282,15 +297,16 @@ void c2TraceEnter() {
          // Otherwise, just continue without stopping
          return; 
       }
-   } else if (C2Stack[C2SP].spypoint) {
-      // We are not skipping, and this is a spy point.
-      C2HonorSpyPoints= FALSE; // Should already be false as we are not skipping.
-      C2Jumping = FALSE; // Because we are stopping at the spy point, we are no longer jumping.
-      return; 
    }
-   if (C2Jumping) {
-      // We are jumping, but this is not a spy point.
-      return;
+   else if (C2Jumping) {
+      if (c2IsSpyPoint(C2Stack[C2SP].procInfoIndex)) {
+         // We are not skipping, and this is a spy point.
+         C2HonorSpyPoints = FALSE; // Should already be false as we are not skipping.
+         C2Jumping = FALSE; // Because we are stopping at the spy point, we are no longer jumping.
+      }else {
+         // Jumping, but have noarrived yet
+         return;
+      }
    }
    // Not skipping
    c2traceREPL(C2SP, TRACE_ENTER);
@@ -357,11 +373,16 @@ void c2traceREPL(int depth,TraceExitType type) {
          fprintf(stderr, "  j SPC   - continue until the next spy point\n");
          fprintf(stderr, "  g END   - continue until the end\n");
          fprintf(stderr, "  b       - show a backtrace of the call stack\n");
-         fprintf(stderr, "  +/-     - set(+) or clear (-) a spy point, enter the procedure name\n");
-         fprintf(stderr, "            with argument + or - stop or not at that exit\n");
-         fprintf(stderr, "            with argument = show or not show full names\n");
-
-         fprintf(stderr, "  q ESC   - quit the program%s\n", ansi_fg(RESET));
+         fprintf(stderr, "  q ESC   - quit the program\n\n");
+         fprintf(stderr, "  d       - show arg in decimal\n");
+         fprintf(stderr, "  x       - show arg in hex\n");
+         fprintf(stderr, "  c       - show arg as character\n");
+         fprintf(stderr, "            arg can be an affix, local, VAR, or LIST name\n");
+         fprintf(stderr, "            for a LIST it may be followed by [index] or [index:n] or [index1-index2]\n");
+         fprintf(stderr, "  l       - list ... with 'a <prefix>' algorithms, with 'v <prefix>' VARs, with 'l <prefix>' LISTs\n");
+         fprintf(stderr, "  +/-     - set(+) or clear (-) a spy point, enter the prefix(es) of the algorithm name(s)\n");
+         fprintf(stderr, "            with argument + or - stop or not at that exit (default is don't stop)\n");
+         fprintf(stderr, "            with argument = show or not show full names (default is don't show, except for ludes)%s\n",ansi_fg(RESET));
          c2traceREPL(depth,type); // After showing help, ask for command again
          break;
       case '+':
@@ -378,12 +399,10 @@ void c2traceREPL(int depth,TraceExitType type) {
             fprintf(stderr, "Will %s stop at failure ports\n", C2StepOverFailure ? "not" : "");
          } else if (arg[0] == '=') {
             C2FullNames = command == '+';
-            fprintf(stderr, "Will %s show full procedure names in stack frames\n", C2FullNames ? "now" : "no longer");
+            fprintf(stderr, "Will %s show full algorithm names\n", C2FullNames ? "now" : "no longer");
          } else if (c2IsemptyOrWhitespace(arg)) {
             fprintf(stderr, "Procedure name cannot be empty\n");
-         } else if (c2SetSpyPoint(arg, command == '+')) {
-            fprintf(stderr, "Spy point %s %s\n", command == '+' ? "set on" : "cleared from", arg);
-         } else {
+         } else if (!c2SetSpyPoint(arg, command == '+')) {
             fprintf(stderr, "No such procedure %s\n", arg);
          }
          c2traceREPL(depth,type); // After setting spy point, ask for command again
@@ -430,7 +449,7 @@ char* c2GetProcName(int index) { return c2DebugInfo->procs[index].name; }
 char* c2GetVarName(int index) { return c2DebugInfo->vars[index].name; }
 char* c2GetListName(int index) { return c2DebugInfo->lists[index].name; }
 
-// Generic binary search function
+// Generic binary search function - finds first match
 int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
    int left = 0;
    int right = count - 1;
@@ -458,9 +477,80 @@ int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
    return -1;
 }
 
+// Generic function to find all matches (returns array of indices)
+int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount) {
+   *outCount = 0;
+
+   // First find any match
+   int firstMatch = c2GenericFind(name, count, getNameFunc);
+   if (firstMatch < 0) {
+      return NULL;
+   }
+
+   char* clean_name = c2RemoveBlanks(name);
+
+   // Scan left to find the start of matching range
+   int start = firstMatch;
+   while (start > 0) {
+      char* clean_target = c2RemoveBlanks(getNameFunc(start - 1));
+      BOOL matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
+      free(clean_target);
+      if (!matches) break;
+      start--;
+   }
+
+   // Scan right to find the end of matching range
+   int end = firstMatch;
+   while (end < count - 1) {
+      char* clean_target = c2RemoveBlanks(getNameFunc(end + 1));
+      BOOL matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
+      free(clean_target);
+      if (!matches) break;
+      end++;
+   }
+
+   free(clean_name);
+
+   // Allocate result array
+   *outCount = end - start + 1;
+   int* result = (int*)malloc(*outCount * sizeof(int));
+   if (result == NULL) {
+      *outCount = 0;
+      return NULL;
+   }
+
+   // Fill result array
+   for (int i = 0; i < *outCount; i++) {
+      result[i] = start + i;
+   }
+
+   return result;
+}
+
 C2ProcInfo* c2FindProc(char* name) {
    int index = c2GenericFind(name, c2DebugInfo->procCount, c2GetProcName);
    return index >= 0 ? &c2DebugInfo->procs[index] : NULL;
+}
+
+C2ProcInfo** c2FindProcs(char* name, int* outCount) {
+   int* indices = c2GenericFindAll(name, c2DebugInfo->procCount, c2GetProcName, outCount);
+   if (indices == NULL) {
+      return NULL;
+   }
+
+   C2ProcInfo** result = (C2ProcInfo**)malloc(*outCount * sizeof(C2ProcInfo*));
+   if (result == NULL) {
+      free(indices);
+      *outCount = 0;
+      return NULL;
+   }
+
+   for (int i = 0; i < *outCount; i++) {
+      result[i] = &c2DebugInfo->procs[indices[i]];
+   }
+
+   free(indices);
+   return result;
 }
 
 C2VarInfo* c2FindVar(char* name) {
@@ -468,9 +558,51 @@ C2VarInfo* c2FindVar(char* name) {
    return index >= 0 ? &c2DebugInfo->vars[index] : NULL;
 }
 
+C2VarInfo** c2FindVars(char* name, int* outCount) {
+   int* indices = c2GenericFindAll(name, c2DebugInfo->varCount, c2GetVarName, outCount);
+   if (indices == NULL) {
+      return NULL;
+   }
+
+   C2VarInfo** result = (C2VarInfo**)malloc(*outCount * sizeof(C2VarInfo*));
+   if (result == NULL) {
+      free(indices);
+      *outCount = 0;
+      return NULL;
+   }
+
+   for (int i = 0; i < *outCount; i++) {
+      result[i] = &c2DebugInfo->vars[indices[i]];
+   }
+
+   free(indices);
+   return result;
+}
+
 C2ListInfo* c2FindList(char* name) {
    int index = c2GenericFind(name, c2DebugInfo->listCount, c2GetListName);
    return index >= 0 ? &c2DebugInfo->lists[index] : NULL;
+}
+
+C2ListInfo** c2FindLists(char* name, int* outCount) {
+   int* indices = c2GenericFindAll(name, c2DebugInfo->listCount, c2GetListName, outCount);
+   if (indices == NULL) {
+      return NULL;
+   }
+
+   C2ListInfo** result = (C2ListInfo**)malloc(*outCount * sizeof(C2ListInfo*));
+   if (result == NULL) {
+      free(indices);
+      *outCount = 0;
+      return NULL;
+   }
+
+   for (int i = 0; i < *outCount; i++) {
+      result[i] = &c2DebugInfo->lists[indices[i]];
+   }
+
+   free(indices);
+   return result;
 }
 
 BOOL c2StartsWith(char* str, char* prefix) {
