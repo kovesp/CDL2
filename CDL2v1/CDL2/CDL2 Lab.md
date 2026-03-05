@@ -9,11 +9,13 @@ The following productions (aka meta rules) are used in the more specific rules.
 ```
 EMPTY :: .
 NOTION :: ALPHA ; NOTION ALPHA.
-ALPHA :: a ; b ; c ; d ; e ; f ; g ; h ; i ; j ; k ; l ; m ; n ; o ; p ; q ; r ; s ; t ; u ; v ; w ; x ; y ; z.
+ALPHA :: a ; b ; c ; d ; e ; f ; g ; h ; i ; j ; k ; l ; m ; n ; o ; p ;
+         q ; r ; s ; t ; u ; v ; w ; x ; y ; z.
 DIGIT :: 0 ; 1 ; 2 ; 3 ; 4 ; 5 ; 6 ; 7 ; 8 ; 9.
-SPECIAL :: + ; - ; ... . # ... is any unicode character not listed in ALPHA and DIGIT.
+SPECIAL :: + ; - ; ... .  # any unicode character not in ALPHA and DIGIT.
 GLYPH :: ALPHA ; DIGIT ; SPECIAL.
-STRINGGLYPH :: GLYPH.  # But white-space, control characters, " and $ are excluded from GLYPH
+STRINGGLYPH :: GLYPH.  # But white-space, control characters,
+                       # " and $ are excluded from GLYPH
 NOTETY :: NOTION ; EMPTY .
 NOTION1 or NOTION2 :: NOTION1 ; NOTION2.
 NOTION1 and NOTION2 :: NOTON1 , NOTION2.
@@ -230,7 +232,7 @@ is changed for the duration of the command, in the former case it is changed glo
 Any setting may be specified for commands, tough of course not all are relevant for all commands.
 
 For other settings the setting is followed by the value of the setting, for
-example `print -print-depth 3`.
+example `print -printdepth 3`.
 
 ### Focus Change Commands
 
@@ -266,8 +268,8 @@ focus moves by one object in the given direction. If the selector is given, then
 the focus moves the the first object that matches the selector in the given direction.
 
 The `first` and `last` commands move the focus to the first or last object that matches the selector. For
-example, `first ALG` moves the focus to the first algorithm in the current section. `next Object /^n`
-moves the focus to the next object that whose name starts with `n`.
+example, `first ALG` moves the focus to the first algorithm in the current section
+`next Object /^n` moves the focus to the next object that whose name starts with `n`.
 
 #### Object Movement
 
@@ -339,7 +341,7 @@ The `-file` setting may be used to print to a file instead of the output area. T
  * `-file=filename`. The output is written to the given file. If the file exists, it is overwritten.
  * `-file=filename::append`. The output is appended to the given file. If the file does not exist, it is created.
  * `-file=::append`. The output is appended to the current file. If there is no current file yet
-    an error is genrated.
+    an error is generated.
 
 If the filname has no path (directory) component, then the file is created in the current output directory.
 If the filename has no extension, then `.cdl2` is used.
@@ -610,10 +612,11 @@ more programs or modules)
 
 The `-target` setting may be used to specify the target code generator.
 
-*The only `-target` setting currently implemented is `powershell` and is the default.*
+*The only `-target` settings currently implemented are `powershell` (the default),
+CSHarp and C.*
 
 For programs, the `-separate` setting may be used to generate code only for the program, but
-not its modules. These then must be generated separately. The default is to generated a single
+not its modules. These then must be generated separartely. The default is to generated a single
 target program for the entire program including all objects that are actually used from all its
 modules.
 
@@ -775,7 +778,7 @@ be used in CDL2 code.
      * Subsequent to the call, it may only be used in a string position.
      * _Note: There will be no code generated for this local. It is just a convention for passing the builtin function value._
 
-For example, the first version will work, but obviously you should no do it that way:
+For example, the first version will work, but obviously you should not do it that way:
 ```
 ACTION bad use of builtin -today: 
    print+"The current date is: ", print+today, BUILTIN date+today.
@@ -858,21 +861,22 @@ to distinguish between a variable being undefined or set to the empty string.
 
 ## CDL2 Debugger and Backtrace Facility
 
-Code generators may implment the CDL2 Debugger described in this section. Currently only the C code
+Code generators may implement the CDL2 Debugger described in this section. Currently only the C code
 generator supports it. Similarly, the backtrace facility described in this section is only supported
 by the C code generator. Note however, that for PowerShell and C#, the generated code uses
 the builtin language mechanism to generate a backtrace.
 
-Backtrace in C is enabled by setting the `-backtrace` setting which is set by  default.
-Truning it off will result in some what smaller code size and a bit faster code, 
+Backtrace in C is enabled by setting the `-backtrace` setting which is set by default.
+Turning it off will result in somewhat smaller code size and a bit faster code, 
 but you will not get a backtrace when an error occurs. Note that the backtrace is generated
-for all run-time errors caught by the language libaries and the OS, the abort operator,
+for all run-time errors caught by the language libraries and the OS, the abort operator,
 and any call on the C `exit` function with a non-zero exit code. 
  
-The CDL2 Debugger is a simple command line debugger that allows you to set spypoints (aka breakpoints),
+The CDL2 Debugger is a simple command line debugger that allows you to set spy points
+(aka breakpoints),
 step through code, and inspect variables and lists. 
-It is invoked by setting the `-trace` setting in addtion to `-backtrace` (it is actually enough to set
-`-trace` as that will force `backtrace`). Note that the `-trace` setting also forces `-nomacroinlining`
+It is invoked by setting the `-trace` setting in addition to `-backtrace` (it is actually enough to set
+`-trace` as that will force `-backtrace`). Note that the `-trace` setting also forces `-nomacroinlining`
 and `-noprocinlining`.
 
 The debugger will stop at the first Lude of the program and accept commands.
@@ -884,11 +888,11 @@ first character of the prompt is
 * `+` for successful exit, e.g., `+FUNCTION subtract+>a=1000000+>b=1+c>=999999`, and
 * `-` for failure exit from PREDICATEs and TESTs, e.g., `- TEST gt`.
 
-Note that by default the debugger does _not_ stop at the exit prots, but this can be changed.
+Note that by default the debugger does _not_ stop at the exit ports , but this can be changed.
 
 At the prompt, commands can be entered. All commands consist of a single characterThere are two kinds:
-* Some commands are acted on immediatly without waiting for anything else to be typed.
-* Others take areguments and are executed when the Enter key is pressed. These commands are recorded
+* Some commands are acted on directly without waiting for anything else to be typed.
+* Others take arguments and are executed when the Enter key is pressed. These commands are recorded
   in a command history and may be recalled using the up and down arrow keys.
   When a command is recalled, it can be edited before re-submission.
 
@@ -913,6 +917,7 @@ we call backtrace.
 | x       |hex    | N | Print value(s) in hexadecimal. See below for arguments.
 | c       |char   | N | Print value(s) as characters. See below for arguments.
 | l       |list   | N | List objects in the program. See below for arguments.
+| t       |type   | N | Print the source code of the algorithm at the current trace point (no argument), or the source for the algorithm(s) selected by the argument prefix. __Note__ that the source code is embeded in the generated code, thus always corresponds to what is executing ... the Laborczi effect is ruled out.
 | +       |set    | N | Set spy points or options. See below for arguments.
 | -       |clear  | N | Clear spy points or options. See below for arguments.|
 
@@ -926,8 +931,8 @@ from the file.
 |----------|-------------|
 | name    | The name of an affix, or variable, or a list. The value is printed. For a list, the first N items are printed as per the current option setting.
 | list[...]| Elements of the list are printed in compact form. The ... specifies which elements to print. 
-| list(...) | Print one lement to a line with its index.
-| | Forms of ...: index, start:N, start:, :end, start-end, start-, -end. N is the number of elements. If any part of the range is omitted, the default number is printed.
+| list(...) | Print one element per line with its index.
+| | Forms of ...: index, start:N, start:, :end, start-end, start-, -end. N is the number of elements. If any part of the range is omitted, the default number of elements are printed.
 | | list[] is the same as list, and list() is the same as list but in per line format.
 
 #### Arguments for the list command
