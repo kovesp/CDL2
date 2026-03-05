@@ -939,6 +939,7 @@ namespace CDL2v1 {
             }
 
             lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
+            lude.LudeTpe = ludeType;
             lude.group.Alternatives.Add(alternative);
             section.Ludes[ludeType].Add(ludeId = lude.Id);
             section.LudeProcs[ludeType] = ludeGuid = lude.GUID;

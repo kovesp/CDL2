@@ -413,7 +413,7 @@ namespace CDL2v1 {
             PrintDataDefinitions(RW.CONST,section.Constants,Print);
             PrintDataDefinitions(RW.VAR,section.Variables,Print);
             PrintDataDefinitions(RW.LIST,section.Lists,l => Print(l,section));
-            PrintAlgorithms("Imported Algorithm",section.ImportedAlgorithms,Print);
+            PrintAlgorithms("Imported Algorithm",section.ImportedAlgorithms,alg=>Print(alg));
             PrintAlgorithms("Macro",section.Macros,Print);
             PrintAlgorithms("Procedure",section.NonSyntheticProcedures,a => Print(a,section));
          } else {
@@ -749,32 +749,38 @@ namespace CDL2v1 {
       /// Print an algorithm which (of course) is either a Procedure or a Macro.
       /// </summary>
       /// <param name="algorithm"></param>
-      public void Print(Algorithm algorithm) {
+      public void Print(Algorithm algorithm,bool synthetics = false) {
          if (algorithm is Macro macro) {
             Print(macro);
          } else if (algorithm is ImportedAlgorithm impProc) {
             Print(impProc);
+         } else if (synthetics && algorithm.IsLude) {
+            PrintLude(algorithm.LudeTpe,algorithm.Section!);
          } else {
             Print((Procedure)algorithm,algorithm.Section!);
          }
       }
 
+      private static IEnumerable<RW> LudeProcRW = [RW.PRELUDE,RW.ROOT,RW.POSTLUDE];
       /// <summary>
       /// Print a ContainingProc unless it is IsSynthetic.
       /// </summary>
       /// <param name="proc"></param>
       public void Print(Procedure proc,Section section) {
-         if (proc.IsSynthetic) return; // Skip synthetics
-         PrintAlgorithmHeader(proc);
-         Indented(() => {
-            Debug.Assert(proc.group.Alternatives.Count != 0,"alternatives list is empty");
-            Print(proc.group.Alternatives.First(),section);
-            foreach (Alternative alt in proc.group.Alternatives.Skip(1)) {
-               EmitSeparatorWithNL(TT.ALTSEP);
-               Print(alt,section);
-            }
-            EmitSeparatorWithNL(TT.END);
-         });
+         if (proc.IsSynthetic) {
+            return;
+         } else {
+            PrintAlgorithmHeader(proc);
+            Indented(() => {
+               Debug.Assert(proc.group.Alternatives.Count != 0,"alternatives list is empty");
+               Print(proc.group.Alternatives.First(),section);
+               foreach (Alternative alt in proc.group.Alternatives.Skip(1)) {
+                  EmitSeparatorWithNL(TT.ALTSEP);
+                  Print(alt,section);
+               }
+               EmitSeparatorWithNL(TT.END);
+            });
+         }
       }
       /// <summary>
       /// Imported algorithms have their header printed.

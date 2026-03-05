@@ -107,7 +107,7 @@ namespace CDL2v1 {
             //string localnames = "{" + (nlocals == 0 ? "\"\"" : string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))) + "}";
             string localnames = nlocals == 0 ? "NULL" : "(char*[]){" + string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))+"}";
             PPTrace.Emitter.Clear();
-            PPTrace.Print(proc);
+            PPTrace.Print(proc, synthetics: true);
             string code = PPTrace.Emitter.Content.Quoted(escape:true); // Get the pretty printed code here
             return $"{{{container},{name},{type},{nargs},{argnames},{affTypes},{nlocals},{localnames},{code},FALSE,FALSE}}";
          }
@@ -295,7 +295,7 @@ namespace CDL2v1 {
       private const string labelPrefix = "L";
       private void GenerateLabel() { if (ReferencedLabels.Contains(Label)) emitter.Emitnl(labelPrefix + NextLabel + ":"); }
       private string Label => labelPrefix + LabelCounter;
-      private Set<string> ReferencedLabels = [];
+      private readonly Set<string> ReferencedLabels = [];
       private int NextLabel => LabelCounter++;
       public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) { }
 
@@ -399,8 +399,6 @@ namespace CDL2v1 {
 
       public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals,int algIndex) {  
          if (Settings.IsBacktrace) {
-            void emitComma() => emitter.Emit(",");
-            void emitArrayEnd() => emitter.Emitnl("};");
             string affDiscriminator(Affix aff) => aff.IsOutput ? "PTR" : aff.IsString ? "STR" : "VAL";
 
             string affValues = "NULL";

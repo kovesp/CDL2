@@ -1424,6 +1424,7 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(11)] public TT BodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
       [JsonInclude][JsonPropertyOrder(12)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
       [JsonInclude][JsonPropertyOrder(13)] public Set<Guid> localGuids = [];   // The locals of this algorithm.
+      [JsonInclude][JsonPropertyOrder(14)] public RW LudeTpe = RW.NONE;
 
       [JsonIgnore] private List<Affix>? _affixes = null;
       [JsonIgnore] private Set<Local>? _locals = null;
@@ -1432,10 +1433,13 @@ namespace CDL2v1 {
 
 
       public bool IsAlgorithmType(RW algorithmType) => AlgorithmType == algorithmType;
-      public bool IsAction => IsAlgorithmType(RW.ACTION);
-      public bool IsFunction => IsAlgorithmType(RW.FUNCTION);
-      public bool IsTest => IsAlgorithmType(RW.TEST);
-      public bool IsPredicate => IsAlgorithmType(RW.PREDICATE);
+      [JsonIgnore] public bool IsAction => IsAlgorithmType(RW.ACTION);
+      [JsonIgnore] public bool IsFunction => IsAlgorithmType(RW.FUNCTION);
+      [JsonIgnore] public bool IsTest => IsAlgorithmType(RW.TEST);
+      [JsonIgnore] public bool IsPredicate => IsAlgorithmType(RW.PREDICATE);
+      [JsonIgnore] public bool IsLude => LudeTpe != RW.NONE;
+
+
 
 
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false)
