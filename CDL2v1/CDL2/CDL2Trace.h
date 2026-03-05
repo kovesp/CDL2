@@ -322,7 +322,8 @@ void c2TraceEnter() {
    if (firstEntry) {
       c2InitTrace();  // Initialize signal handlers on first entry
       c2LoadDebugState();  // Load saved debugger state
-      fprintf(stderr, "%sCDL2 debugger v1.0, h for help%s\n\n", ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
+      fprintf(stderr, "%sCDL2 debugger v1.0, press %sh%s for help%s\n\n", 
+         ansi_fg(BRIGHT_MAGENTA), ansi_fg(YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
       firstEntry = FALSE;
    }
    if (C2Going) {
@@ -1748,22 +1749,33 @@ static void c2Exit(int code) {
 // ANSI color codes for colored output
 //////////////////////////////////////////////////////////////////////////////////
 #define ANSI_COLOR_RESET "\x1b[0m"
+
 char* ansi_fg(AnsiColor color) {
-   static char buffer[8];
-   if (color == RESET) {
-      return ANSI_COLOR_RESET;
-   } else {
-      snprintf(buffer, sizeof(buffer), "\x1b[%dm",color);
-      return buffer;
+   static char fg_colors[98][16];
+   static BOOL initialized = FALSE;
+
+   if (!initialized) {
+      // Initialize all foreground colors on first call
+      for (int i = 30; i <= 37; i++) snprintf(fg_colors[i], 16, "\x1b[%dm", i);
+      snprintf(fg_colors[38], 16, "%s", ANSI_COLOR_RESET);
+      for (int i = 90; i <= 97; i++) snprintf(fg_colors[i], 16, "\x1b[%dm", i);
+      initialized = TRUE;
    }
+
+   return fg_colors[color];
 }
+
 char* ansi_bg(AnsiColor color) {
-   static char buffer[8];
-   if (color == RESET) {
-      return ANSI_COLOR_RESET;
+   static char bg_colors[98][16];
+   static BOOL initialized = FALSE;
+
+   if (!initialized) {
+      // Initialize all background colors on first call
+      for (int i = 30; i <= 37; i++) snprintf(bg_colors[i], 16, "\x1b[%dm", i + 10);
+      snprintf(bg_colors[38], 16, "%s", ANSI_COLOR_RESET);
+      for (int i = 90; i <= 97; i++) snprintf(bg_colors[i], 16, "\x1b[%dm", i + 10);
+      initialized = TRUE;
    }
-   else {
-      snprintf(buffer, sizeof(buffer), "\x1b[%dm", color + 10);
-      return buffer;
-   }
+
+   return bg_colors[color];
 }
