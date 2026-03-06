@@ -31,6 +31,8 @@
 //=======================================================================
 // </auto-gen>
 
+using Accessibility;
+
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
@@ -69,6 +71,7 @@ namespace CDL2v1 {
          "isenvironmentvariable",
          "istarget",
          "isdebug",
+         "isos",
       ];
 
       /// <summary>
@@ -162,6 +165,16 @@ namespace CDL2v1 {
                } else {
                   return false;
                }
+            case "is os":
+               if (call.TryGetActual(out STRING? os)) {
+                  return os.value.ToLower() switch {
+                     "windows" => OperatingSystem.IsWindows(),
+                     "linux" => OperatingSystem.IsLinux(),
+                     "macos" => OperatingSystem.IsMacOS(),
+                     _ => false
+                  };
+               }
+               return false;
             default:
                throw new NotImplementedException($"Builtin test {call.id.CanonicalName} not implemented.");
          }

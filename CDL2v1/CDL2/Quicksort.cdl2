@@ -414,10 +414,201 @@ MODULE c kernel.
          ACTION show native sorter:
             show msg no newline+"C qsort(_,_,cmpvalue)".
       ENDSEC data.
+      SECTION dynamic data.
+         EXPORT dyn allocate, dyn free, dyn resize, dyn size, dyn size in bytes, dyn try get data, dyn try set data.
+         INV divide, lt, ne, eq, make, add, incr.
+
+         CONST data size = "sizeof(VALUE)".
+         CONST allocation list initial size = 1000.
+         CONST allocation list expansion size = 1000.
+         CONST null = "NULL".
+         CONST zero = 0.
+
+         VAR allocation list.
+
+         PREDICATE dyn base allocate+>units+ptr> =
+            "(" ptr " = (VALUE*)malloc(" units "*" data size ")) != NULL".
+         PREDICATE dyn base resize+>ptr>+>new units =
+            "(" ptr " = (VALUE*)realloc(" ptr "," new units " * " data size ")) != NULL".
+         ACTION dyn base free+>ptr> =
+            "$L if ( " ptr " != NULL) free(" ptr ");" 
+            "$L " ptr " = NULL;".
+         FUNCTION dyn size in bytes+>ptr+size> =
+            "$L" size " = " ptr " == NULL ?  0 : "
+            "$L#ifdef _WIN32" 
+            "$L   _msize"
+            "$L#else" 
+            "$L   malloc_usable_size" 
+            "$L#endif"
+            "$L      (" ptr ");".
+         FUNCTION get data+>ptr+>index+value> =
+            value " = " ptr "[" index "];".
+         ACTION set data+>ptr+>index+>value =
+            ptr "[" index "] = " value ";".
+
+         FUNCTION dyn size+>ptr+size>:
+            dyn size in bytes+ptr+size, divide+size+data size+size.
+         TEST dyn try get data+>ptr+>index+value>:
+            valid index+ptr+index, get data+ptr+index+value.
+         PREDICATE dyn try set data+>ptr+>index+>value:
+            valid index+ptr+index, set data+ptr+index+value.
+         TEST valid index+>ptr+>index -size:
+            dyn size+ptr+size, divide+size+data size+size, lt+index+size.
+
+         PREDICATE dyn allocate+>units+ptr>:
+            dyn base allocate+units+ptr, add block+ptr.
+         PREDICATE dyn resize + >ptr> + >new units -prev ptr:
+            make+prev ptr+ptr, dyn base resize+ptr+new units, replace block+prev ptr+ptr.
+         ACTION dyn free+>ptr>:
+            remove block+ptr, dyn base free+ptr.
+         ACTION add block+>ptr:
+            add block from+ptr+zero.
+         ACTION add block from+>ptr+>from -i -f:
+            ne+ptr+null, make+f+from,
+              (find block+null+f+i, set data+allocation list+i+ptr;
+               dyn size+allocation list+f, expand allocation list, *).
+         ACTION replace block + >prev ptr + >ptr -i:
+            eq+prev ptr+null, add block+ptr;
+            eq+prev ptr+ptr;
+            find block+prev ptr+zero+i, set data+allocation list+i+ptr;
+            ?.
+         ACTION remove block+>ptr -found:
+            ne+ptr+null, find block+ptr+zero+found, set data+allocation list+found+null;
+            +.
+         TEST find block+>ptr+>from+i> -stored ptr -size:
+             make+i+from, dyn size+allocation list+size,
+               (check slot: lt+i+size, get data+allocation list+i+stored ptr,
+                 (eq+stored ptr+ptr, +;
+                  incr+i, *check slot)).
+         ACTION expand allocation list -size-new size:
+            dyn size+allocation list+size, add+size+allocation list expansion size+new size,
+              (dyn resize+allocation list+new size, clear allocation list+size;
+               ?).            
+
+         ACTION initialize dynamic data -i:
+            dyn allocate+allocation list initial size+allocation list, clear allocation list+zero;
+            ?.
+         ACTION clear allocation list+>from -i-size:
+            make+i+from, dyn size+allocation list+size,
+              (lt+i+size, set data+allocation list+i+null, incr+i, *;
+               +).
+         ACTION free all blocks -ptr -size -i:
+            make+i+zero, dyn size+allocation list+size,
+              (lt+i+size, get data+allocation list+i+ptr, dyn free+ptr, incr+i, *next block;
+               dyn free+allocation list).
+      ENDSEC dynamic data.
+      PRELUDE initialize dynamic data.
+      POSTLUDE free all blocks.
    ENDLAY kernel.
 ENDMOD c kernel.
+PRELUDE dynamic data.
+POSTLUDE dynamic data.
+#=================================================================================
+MODULE dyn memory test.
+   LAYER base.
+      SECTION parametrization.
+         EXPORT lwb, upb, min random, max random.
+         CONST lwb=1, upb=10.
+         CONST min random=0, max random=200.
+      ENDSEC parametrization.
+      SECTION dynamic data.
+         IMPORT dyn allocate, dyn free, dyn resize, dyn size, dyn try get data, dyn try set data.
+         ABSTR dyn allocate, dyn free, dyn resize, dyn size, dyn try get data, dyn try set data.
+
+         PREDICATE dyn allocate+>units+ptr>.
+         PREDICATE dyn resize + >ptr> + >new units.
+         ACTION dyn free+>ptr>.
+         FUNCTION dyn size+>ptr+size>.
+         TEST dyn try get data+>ptr+>index+value>.
+         PREDICATE dyn try set data+>ptr+>index+>value.
+      ENDSEC dynamic data.
+      SECTION arithmetic.
+         ABSTR incr, decr, greater, less, less or equal, le, lt, gt, ge, add, halve.
+         ABSTR multiply, make, make string, random, divide, min, max.
+
+         IMPORT incr, decr, incr with, decr with.
+         IMPORT add, subtract, multiply, divide, remainder, modulo, halve.
+         IMPORT make, make string, random.
+         IMPORT gt, lt, ge, le, eq, ne.
+         IMPORT less or equal.
+
+         FUNCTION incr+>a>.
+         FUNCTION decr+>a>.
+         FUNCTION incr with +>a>+>b.
+         FUNCTION decr with +>a>+>b.
+
+         FUNCTION add +>a+>b+c>.
+         FUNCTION subtract +>a+>b+c>.
+         FUNCTION multiply +>a+>b+c>.
+         FUNCTION divide +>a+>b+c>.
+         FUNCTION remainder +>a+>b+c>.
+         FUNCTION modulo +>a+>b+c>.
+
+         FUNCTION halve +>a>.
+         FUNCTION make +a>+>b.
+         FUNCTION make string+a>*b.
+
+         TEST gt+>a+>b.
+         TEST ne+>a+>b.
+         TEST ge+>a+>b.
+         TEST le+>a+>b.
+         TEST lt+>a+>b.
+         TEST eq+>a+>b.
+
+         TEST greater+>a+>b: gt+a+b.         
+         TEST less or equal+>a+>b.
+         TEST less+>a+>b: lt+a+b.
+
+         FUNCTION min+>a+>b+min>:
+            less+a+b, make+min+a;
+            make+min+b.
+
+         FUNCTION max+>a+>b+max>:
+            less+a+b, make+max+b;
+            make+max+a.
+
+         FUNCTION random+>min+>max+r>.
+      ENDSEC arithmetic.      
+      SECTION messages.
+         ABSTR show msg, show msg no newline, show number.
+         IMPORT show msg, show msg no newline, show number.
+
+         ACTION show msg*string.
+         ACTION show number +>number.
+         ACTION show msg no newline*string.
+      ENDSEC messages.
+   ENDLAY base.
+   LAYER test.
+      SECTION test memory.
+         INV dyn allocate, dyn free, dyn resize, dyn size, dyn try get data, dyn try set data.
+         INV show msg, show msg no newline, show number, make, incr, multiply, lt.
+
+         VAR store.
+         CONST store size = 100.
+         CONST zero = 0, one = 1, two = 2.
+
+         ACTION do test -i -i squared:
+            dyn allocate+store size+store, show msg no newline+"Allocated memory for ", show number+store size,
+               show msg+" items.", make+i+zero,
+               (lt+i+store size, square+i+i squared, dyn try set data+store+i+i squared, incr+i, *;
+                show msg no newline+"Set store[", show number+i, show msg+]" = ", show number+i squared, show msg+" failed.");
+            show msg+"Memory allocation failed.".
+
+         FUNCTION square+>n+n squared>:
+            power+n+two+n squared.
+         FUNCTION power+>base+>exponent+result> -i:
+            make+result+one, make+i+zero,
+            (lt+i+exponent, multiply+result+base+result, incr+i, *;
+             +).
+
+      ENDSEC test memory.
+      ROOT do test.
+   ENDLAY test.
+ENDMOD dyn memory test.
+ROOT test memory.
 
 #=================================================================================
+
 MODULE quicksort.
    LAYER base.
       SECTION parametrization.
@@ -442,10 +633,10 @@ MODULE quicksort.
 
          FUNCTION get data size +size>: 
             make+size+number to sort.
-         ACTION set number to sort+>number-list size:
+         FUNCTION set number to sort+>number-list size:
             subtract+upb+lwb+list size, incr+list size, min+number+list size+number to sort.         
 
-         ACTION process command line -arg count -number:
+         FUNCTION process command line -arg count -number:
             set number to sort+default number to sort, command line argument count+arg count,
             (gt+arg count+arg1, is command line argument numeric+arg1+number, set number to sort+number;
              +).
@@ -717,4 +908,13 @@ PROGRAM c sort.
    PART c kernel, quicksort.
    PRELUDE quicksort.
    ROOT quicksort.
+
 ENDPROG c sort.
+
+#PRAGMA Target=C file=memtest#
+PROGRAM memory test.
+   PART c kernel, dyn memory test.
+   PRELUDE c kernel.
+   ROOT dyn memory test.
+   POSTLUDE c kernel.
+ENDPROG memory test.

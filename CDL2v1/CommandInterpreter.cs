@@ -841,7 +841,10 @@ namespace CDL2v1 {
                Set<Note> errors = program.NotesWithSeverity(Severity.Error);
                if (errors.Any()) {
                   WriteError($"Cannot generate code for {program} because it has {errors.Count.Plural("error",countWidth:1)}");
-                  foreach (Note error in errors) WriteError(error.ToString(),indent:3);
+                  foreach (Note error in errors) {
+                     CDL2Object? owner = error.Owner == Guid.Empty ? null : error.Owner.ToCDL2Object<CDL2Object>();
+                     WriteError($"{(owner is null?"":owner.FQDN()+": ")}{error}",indent: 3);
+                  }
                } else { 
                   Dictionary<string,string> pragmas = program.ProcessPragmas(settings,msg=>WriteError(msg));
                   string target = Settings.SettingValue<string>("target") ?? "";

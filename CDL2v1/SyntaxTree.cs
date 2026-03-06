@@ -1221,7 +1221,7 @@ namespace CDL2v1 {
             // This object is an import stub, but note that resolvedImports are only available in the Code Generator phase.
             declaration = Module!.resolvedImports[id] as T;
          }
-         return true;
+         return declaration is not null;
       }
 
       /// <summary>
