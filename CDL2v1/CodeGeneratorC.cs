@@ -20,6 +20,7 @@ using Microsoft.VisualBasic;
 
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Printing;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
@@ -368,12 +369,27 @@ namespace CDL2v1 {
          else emitter.Emit(CName(v,needFinalization ? "_" : ""));
       }
 
-      public void GenerateCallArgReferenceAffix(Affix calledAffix,Affix callingAffix,bool needFinalization) {
-         if (calledAffix.IsOutput) {
-            if (callingAffix.IsOutput) emitter.Emit(needFinalization ? "&" : "",CName(callingAffix,needFinalization ? "_" : ""));
-            else emitter.Emit(CName(callingAffix));
-         } else {
-            emitter.Emit(callingAffix.IsOutput ? "*" : "",CName(callingAffix,needFinalization && callingAffix.IsOutput ? "_" : ""));
+      public void GenerateCallArgReferenceAffix(Affix affix,Affix actualArg,bool needsFinalization) {
+         if (affix.IsOutput) {
+            if (actualArg.IsOutput) {                          // output -> output
+               if (needsFinalization) {
+                  emitter.Emit("&",CName(actualArg,"_"));
+               } else {
+                  emitter.Emit(CName(actualArg));
+               }
+            } else {                                           // input -> output
+               throw new UnreachableException($"Requested to genrate code for passing {actualArg} -> {affix}");
+            }
+         } else { // affix.IsInput
+            if (actualArg.IsInput) {                           // input -> input
+               emitter.Emit(CName(actualArg));
+            } else {                                           // output -> input
+               if (needsFinalization) {
+                  emitter.Emit(CName(actualArg,"_"));
+               } else {
+                  emitter.Emit("*(VALUE*)",CName(actualArg));
+               }
+            }
          }
       }
 

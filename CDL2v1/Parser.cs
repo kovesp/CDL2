@@ -434,6 +434,7 @@ namespace CDL2v1 {
 
       private bool ParseProcedureBody(Procedure proc,ParseMode mode) {
          GroupCounter = 0;
+         Database.Instance.ClearUnrecordedNamedElements();
          SetGroupId(proc.group);
          if (!ParseAlternatives(proc,group: proc.group,mode: mode,out proc.group.Alternatives)) {
             if (mode == ParseMode.Full) ReportError("Expected alternatives");
@@ -497,8 +498,8 @@ namespace CDL2v1 {
                alternative.lastCall = new LastCall(LCT.Abort,alternative);
             } else if (tokens.Optional(TT.REPEAT)) {
                if (tokens.Optional(out ID label)) {
-                  if (mode == ParseMode.Full && group.HasLabeledAncestorGroup(label)) {
-                     AddNote(proc,Note.LabelNotFound,label.Name);
+                  if (mode == ParseMode.Full && !group.HasLabeledAncestorGroup(label)) {
+                     AddNote(proc,Note.LabelNotFound,label.Name,proc);
                   }
                   alternative.lastCall = new LastCall(label,alternative);
                   if (id == proc.Id) proc.repeatsProcedure = true;

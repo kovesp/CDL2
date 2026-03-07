@@ -813,44 +813,44 @@ namespace CDL2v1 {
       }
 
       private Action<IActualArg> GenerateActualArg(Procedure proc,Call call,AList aList) => aff => GenerateActualArg(proc,call,(Affix)aff,aList.GetValue(aff));
-      private void GenerateActualArg(Procedure proc,Call call,Affix calledAffix,IActualArg arg) {
+      private void GenerateActualArg(Procedure proc,Call call,Affix affix,IActualArg actualArg) {
          Section callProcSection = call.ContainingProc.Section!;
-         switch (arg) {
+         switch (actualArg) {
             case STRING s:
-               Debug.Assert(calledAffix.affixType == AT.str,$"GenerateCallStart: String argument for non-string affix {calledAffix}");
+               Debug.Assert(affix.affixType == AT.str,$"GenerateCallStart: String argument for non-string affix {affix}");
                cg.GenerateCallArgString(s.value);
                break;
             case Const c:
-               cg.GenerateCallArgReferenceConst(calledAffix,callProcSection.GetResolvedConstant(c)!);
+               cg.GenerateCallArgReferenceConst(affix,callProcSection.GetResolvedConstant(c)!);
                break;
             case Var v:
-               cg.GenerateCallArgReferenceVar(calledAffix,callProcSection.GetResolvedObject(v)!,needFinalization: call.Called!.NeedsFinalization);
+               cg.GenerateCallArgReferenceVar(affix,callProcSection.GetResolvedObject(v)!,needsFinalization: proc.NeedsFinalization);
                break;
             case Local local:
                if (local.IsBuiltinResult) {
                   cg.GenerateCallArgString(local.BuiltinResult);
                } else {
-                  cg.GenerateCallArgReferenceLocal(calledAffix,local);
+                  cg.GenerateCallArgReferenceLocal(affix,local);
                }
                break;
             case Affix argAffix: 
-               cg.GenerateCallArgReferenceAffix(calledAffix,argAffix,proc.NeedsFinalization);
+               cg.GenerateCallArgReferenceAffix(affix,argAffix,proc.NeedsFinalization);
                break;
             case ID id: // May be a reference to an affix or local of the calling proc or a const, or a var.
                if (proc.TryGetAffix(id,out Affix procAffix)) {
-                  cg.GenerateCallArgReferenceAffix(calledAffix,procAffix,needFinalization: call.CanFail);
+                  cg.GenerateCallArgReferenceAffix(affix,procAffix,needFinalization: proc.NeedsFinalization/*call.CanFail*/);
                } else if (proc.TryGetLocal(id,out Local local)) {
                   if (local.IsBuiltinResult) {
                      cg.GenerateCallArgString(local.BuiltinResult);
                   } else {
-                     cg.GenerateCallArgReferenceLocal(calledAffix,local);
+                     cg.GenerateCallArgReferenceLocal(affix,local);
                   }
                } else if (proc.ParentElement<Section>()!.TryGetDeclaration(id,out CDL2Object? dataRef)) {
                   if (dataRef is Const c) {
-                     Debug.Assert(!calledAffix.IsOutput,$"GenerateCallStart: Const argument for output affix {calledAffix}");
-                     cg.GenerateCallArgReferenceConst(calledAffix,proc.Section!.GetResolvedConstant(c)!);
+                     Debug.Assert(!affix.IsOutput,$"GenerateCallStart: Const argument for output affix {affix}");
+                     cg.GenerateCallArgReferenceConst(affix,proc.Section!.GetResolvedConstant(c)!);
                   } else if (dataRef is Var v) {
-                     cg.GenerateCallArgReferenceVar(calledAffix,v,needFinalization: call.Called!.NeedsFinalization);
+                     cg.GenerateCallArgReferenceVar(affix,v,needsFinalization: proc.NeedsFinalization);
                   } else {
                      throw new NotImplementedException($"GenerateCallStart: Reference to wrong element type {dataRef}");
                   }
@@ -859,7 +859,7 @@ namespace CDL2v1 {
                }
                break;
             default:
-               throw new NotImplementedException($"GenerateCallStart: Unknown argument type {arg.GetType()}");
+               throw new NotImplementedException($"GenerateCallStart: Unknown argument type {actualArg.GetType()}");
          }
       }
 

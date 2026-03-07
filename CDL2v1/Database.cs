@@ -174,6 +174,8 @@ namespace CDL2v1 {
       [JsonInclude]
       [JsonPropertyOrder(2)]
       public Dictionary<Guid,NamedElement> NamedElements = [];
+
+      [JsonIgnore] public readonly Dictionary<Guid,NamedElement> UnrecordedNamedElements = [];
       /// <summary>
       /// Undo records for NamedElements.  entries are inserted whenever an elment is changed or removed.
       /// Each entry is a stack of undo records for the element.
@@ -627,7 +629,9 @@ namespace CDL2v1 {
             NamedElements[element.GUID] = element;
             if (_suspendNamedElementRegistration) _suspendedNamedElementRegistrationList.Add(element.GUID);
          }
+         if (element is IUnrecordedElement) UnrecordedNamedElements[element.GUID] = element;         
       }
+      public void ClearUnrecordedNamedElements() => UnrecordedNamedElements.Clear();
 
       /// <summary>
       /// All named elements of a given type.

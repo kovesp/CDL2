@@ -596,7 +596,7 @@ namespace CDL2v1 {
       void GenerateCallArgReferenceAffix(Affix calledAffix,Affix a,bool needFinalization);
       void GenerateCallArgReferenceLocal(Affix calledAffix,Local lo);
       void GenerateCallArgReferenceConst(Affix calledAffix,Const c);
-      void GenerateCallArgReferenceVar(Affix calledAffix,Var v,bool needFinalization);
+      void GenerateCallArgReferenceVar(Affix calledAffix,Var v,bool needsFinalization);
       #endregion Calls
 
       #endregion Procedures

@@ -427,11 +427,11 @@ MODULE c kernel.
          VAR allocation list.
 
          PREDICATE dyn base allocate+>units+ptr> =
-            "(" ptr " = (VALUE*)malloc(" units "*" data size ")) != NULL".
+            "(" ptr " = (VALUE*)malloc(" units "*(VALUE)" data size ")) != NULL".
          PREDICATE dyn base resize+>ptr>+>new units =
-            "(" ptr " = (VALUE*)realloc(" ptr "," new units " * " data size ")) != NULL".
+            "(" ptr " = (VALUE*)realloc((VALUE*)" ptr "," new units " * (VALUE)" data size ")) != NULL".
          ACTION dyn base free+>ptr> =
-            "$L if ( " ptr " != NULL) free(" ptr ");" 
+            "$L if ( " ptr " != NULL) free((VALUE*)" ptr ");" 
             "$L " ptr " = NULL;".
          FUNCTION dyn size in bytes+>ptr+size> =
             "$L" size " = " ptr " == NULL ?  0 : "
@@ -440,11 +440,11 @@ MODULE c kernel.
             "$L#else" 
             "$L   malloc_usable_size" 
             "$L#endif"
-            "$L      (" ptr ");".
+            "$L      ((VALUE*)" ptr ");".
          FUNCTION get data+>ptr+>index+value> =
-            value " = " ptr "[" index "];".
+            value " = ((VALUE*)" ptr ")[" index "];".
          ACTION set data+>ptr+>index+>value =
-            ptr "[" index "] = " value ";".
+            "((VALUE*)" ptr ")[" index "] = " value ";".
 
          FUNCTION dyn size+>ptr+size>:
             dyn size in bytes+ptr+size, divide+size+data size+size.
@@ -494,7 +494,7 @@ MODULE c kernel.
                +).
          ACTION free all blocks -ptr -size -i:
             make+i+zero, dyn size+allocation list+size,
-              (lt+i+size, get data+allocation list+i+ptr, dyn free+ptr, incr+i, *next block;
+              (lt+i+size, get data+allocation list+i+ptr, dyn free+ptr, incr+i, *;
                dyn free+allocation list).
       ENDSEC dynamic data.
       PRELUDE initialize dynamic data.
@@ -591,7 +591,7 @@ MODULE dyn memory test.
             dyn allocate+store size+store, show msg no newline+"Allocated memory for ", show number+store size,
                show msg+" items.", make+i+zero,
                (lt+i+store size, square+i+i squared, dyn try set data+store+i+i squared, incr+i, *;
-                show msg no newline+"Set store[", show number+i, show msg+]" = ", show number+i squared, show msg+" failed.");
+                show msg no newline+"Set store[", show number+i, show msg+"] = ", show number+i squared, show msg+" failed.");
             show msg+"Memory allocation failed.".
 
          FUNCTION square+>n+n squared>:

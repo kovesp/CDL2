@@ -56,7 +56,7 @@ namespace CDL2v1 {
                if (match.Success) {
                   input = input[match.Length..];
                   if (mode == ParseMode.Full) {
-                     AddNote(Note.InvalidToken,match.Value);
+                     AddNote(Note.InvalidToken,match.Value,tokens.Context);
                   } else {
                      return false; // In non-full mode, stop at the first error.
                   }

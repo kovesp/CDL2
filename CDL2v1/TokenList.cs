@@ -59,6 +59,9 @@ namespace CDL2v1 {
 
       public int Count => tokens.Count;
 
+      private const int ContextLength = 10;
+      public string Context => string.Concat(tokens.TakeLast(ContextLength).Select(t=>t.TokenString));
+
       public void Add(Token token) => tokens.Add(token);
       public bool IsNonEmpty() => tokens.Count > 0;
       public Token Peek() => IsNonEmpty() ? tokens[0] : Token.ErrorToken;

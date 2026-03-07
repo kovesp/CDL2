@@ -548,7 +548,11 @@ namespace CDL2v1 {
       /// <returns></returns>
       public virtual string FQDN(bool WithInterface = false) => $"{AncestorContainer<Module>().WithSpace}{AncestorContainer<Layer>().WithSpace}{AncestorContainer<Section>().WithSpace}{ToString()}";
 
-      public static T? From<T>(Guid guid) where T : NamedElement => Database.Instance.NamedElements.TryGetValue(guid,out NamedElement? element) && element is T typedElement ? typedElement : null;
+      public static T? From<T>(Guid guid) where T : NamedElement {
+         if (Database.Instance.NamedElements.TryGetValue(guid,out NamedElement? element) && element is T typedElement1) return typedElement1;
+         if (Database.Instance.UnrecordedNamedElements.TryGetValue(guid,out element) && element is T typedElement2) return typedElement2;
+         return null;
+      }
       public static bool From<T>(Guid guid,out T? element) where T : NamedElement => (element = NamedElement.From<T>(guid)) is not null;
       /// <summary>
       /// Return true if any of the objects is an ancestor of this NamedElement
@@ -2084,9 +2088,7 @@ namespace CDL2v1 {
 
       [JsonConstructor]
       public Group() : base(ID.AnonID,synthetic: false,SelectorType.INVALID) { }
-      public Group(ID label,Guid parentGuid) : base(label,synthetic: false,SelectorType.INVALID) {
-         Parent = parentGuid;
-      }
+
       public Group(ID? label,List<Alternative> alternatives,Guid parentGuid,bool synthetic) : base(synthetic ? Database.NextGroupLabel : label!,synthetic: synthetic) {
          Parent = parentGuid;
          Alternatives = alternatives;
@@ -2094,11 +2096,12 @@ namespace CDL2v1 {
       }
 
       public Group? ParentGroup() {
-         NamedElement? parent = NamedElement.From<Group>(Parent);
-         if (parent is Group group)
-            return group;
-         if (parent is Alternative alternative && alternative.lastCall.type == LCT.Group) {
-            return alternative.lastCall.group;
+         Guid parentGuid = Parent;
+         while (parentGuid != Guid.Empty) {
+            NamedElement? parent = From<NamedElement>(parentGuid);
+            if (parent is Procedure) break;
+            if (parent is Group group) return group;
+            parentGuid = parent?.Parent ?? Guid.Empty;
          }
          return null;
       }

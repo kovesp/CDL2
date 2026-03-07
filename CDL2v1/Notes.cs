@@ -98,7 +98,7 @@ namespace CDL2v1 {
       public static readonly Note Effect = new(Severity.Error,002,"Procedure has effect tough declared as {0}");
       public static readonly Note CanFail = new(Severity.Error,003,"Procedure can fail tough declared as {0}");
       public static readonly Note CannotFail = new(Severity.Error,004,"Procedure cannot fail tough declared as {0}");
-      public static readonly Note LabelNotFound = new(Severity.Error,005,"*{0}: label not found in Procedure");
+      public static readonly Note LabelNotFound = new(Severity.Error,005,"Repeat operator label * {0}: not found in {1}");
       public static readonly Note DuplicateLabel = new(Severity.Error,006,"{0}: duplicate label in group hierarchy");
       public static readonly Note IllegalFailOperator = new(Severity.Error,007,"Procedure has FAIL operator (-) tough declared as {0}");
       public static readonly Note UndeclaredAlgorithmCall = new(Severity.Error,008,"Call of undeclared Algorithm {0}");
@@ -121,7 +121,7 @@ namespace CDL2v1 {
       public static readonly Note InvalidTransputArg = new(Severity.Error,025,"Only VAR, AFFIX (output or transput) or LOCAL may be passed to a transput affix {0}");
       public static readonly Note InvalidArgumentType = new(Severity.Error,026,"Argument must reference an affix, const or var, not {0}");
       public static readonly Note UnresolvedArgument = new(Severity.Error,027,"Argument could not be resolved {0}");
-      public static readonly Note InvalidToken = new(Severity.Error,028,"Invalid token during lexical analysis. Skipping {0}");
+      public static readonly Note InvalidToken = new(Severity.Error,028,"Invalid token during lexical analysis. Skipping {0} preceeded by {1}");
       public static readonly Note DuplicateInterfaceElement = new(Severity.Error,029,"{0} {1} by {2} was already {1} by {3}");
       public static readonly Note MissingImport = new(Severity.Error,030,"{0} is imported but was not exported by any program part");
       public static readonly Note ImpexMismatch = new(Severity.Error,031,"Import {0} does not match export {1} ({2})");
