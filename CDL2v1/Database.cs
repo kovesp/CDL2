@@ -122,12 +122,13 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Configures the auto-save timer based on the AutoSaveInterval setting.
+      /// Only active in Lab mode.
       /// </summary>
       /// <param name="intervalSeconds">Auto-save interval in seconds. If 0, auto-save is disabled.</param>
       public void ConfigureAutoSave(int intervalSeconds) {
          StopAutoSave();
 
-         if (intervalSeconds > 0) {
+         if (Settings.LabMode && intervalSeconds > 0) {
             _autoSaveTimer = new System.Timers.Timer {
                Interval = intervalSeconds * 1000, // Timer uses milliseconds
                AutoReset = true

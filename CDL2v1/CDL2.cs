@@ -36,11 +36,11 @@
 // </auto-gen>
 
 using System.Data;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using System.Windows;
 
 using static CDL2v1.Logger;
 
@@ -166,6 +166,9 @@ namespace CDL2v1 {
 
          Log(2,$"\n {(Settings.LabMode ? CDL2.LabName : "Compiler")} v{Version}");
          Compiler.CompileSources(Settings.SettingValue<string[]>("Sources")!);
+
+         // In non-GUI mode, force immediate exit to avoid STA thread cleanup delays
+         if (!Settings.GUIMode) Process.GetCurrentProcess().Kill();
       }
 
       public Parser? Parser;
@@ -194,11 +197,11 @@ namespace CDL2v1 {
             if (usingGUI) {
 #if WINDOWS
                Thread CLIThread = new(() => {
-                  Application app = new();
+                  System.Windows.Application app = new();
                   // Create and show the window
                   ToastWindow guiToaster = new();
                   CommandWindow commandWindow = new(guiToaster);
-                  Application.Current.MainWindow = commandWindow;
+                  System.Windows.Application.Current.MainWindow = commandWindow;
                   CommandInterpreter CLI = new(commandWindow,
                      new EmitterCommandWindow(commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },
                      toaster = guiToaster);

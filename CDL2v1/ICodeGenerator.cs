@@ -587,7 +587,7 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="proc"></param>
       /// <param name="group"></param>
-      void GenerateAbort(Procedure proc,Group group);
+      void GenerateAbort(Procedure proc,Group group,int algId);
 
       void GenerateActualArgSeparator();
       void GenerateCallStart(Algorithm called,Procedure proc,bool firstCall = false,bool onlyCallInAlternative = false,bool lastAlternative = false);

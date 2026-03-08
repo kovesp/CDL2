@@ -672,12 +672,14 @@ namespace CDL2v1 {
                      //   ((Window)commandWindow!).Dispatcher.Invoke(() => commandWindow.Close());
                      //});
                      toaster!.ShowToast("abort command used, not saving the database.",2000,delay: true,setOwner: false);
+                     Settings.SaveSettings(REPL);
                      REPL?.Close();
                      break;
                   case CommandType.bye:
                   case CommandType.quit:
                   case CommandType.exit:
                      toaster!.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
+                     Settings.SaveSettings(REPL);
                      REPL?.Close();
                      return;
 

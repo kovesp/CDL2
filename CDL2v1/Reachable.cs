@@ -181,6 +181,7 @@ namespace CDL2v1 {
             // Collect objects referenced in actual args
             int i = 0;
             foreach (IActualArg arg in call.Args) {
+               if (i > called.Affixes.Count-1) break; // The argument mismatch must have been signalled earlier
                Affix affix = called.Affixes[i++];
                switch (arg) {
                   case Const c:

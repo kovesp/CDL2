@@ -478,7 +478,7 @@ namespace CDL2Generated {
       }
 
       void ICodeGenerator.GenerateSucceed(Procedure proc,Group group) { }
-      void ICodeGenerator.GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("Environment.Exit(1);");
+      void ICodeGenerator.GenerateAbort(Procedure proc,Group group,int _) => emitter.Emitnl("Environment.Exit(1);");
       #endregion Calls
       #endregion Procedures
 

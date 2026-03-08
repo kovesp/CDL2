@@ -392,7 +392,7 @@ namespace CDL2v1 {
             public IActualArg arg = arg;
 #if DEBUG
             public int argNo = i;
-            public override readonly string ToString() => $"[{argNo}] {affix} -> {arg}";
+            public override readonly string ToString() => $"[{argNo}] {arg} -> {affix}";
 #else
             public override readonly string ToString() => $"{affix} -> {arg}";
 #endif
@@ -614,7 +614,8 @@ namespace CDL2v1 {
       private void GenerateProcedure(Procedure proc,int _,int index) {
          if (proc.IsConditionalCompilation()) {
             GenerateAlgorithmComment(proc);
-         } else if (proc.IsSynthetic || !proc.IsInlinable(Reachable)) { 
+         } else if (proc.IsSynthetic || !proc.IsInlinable(Reachable)) {
+            proc.AlgId = index;
             IEnumerable<Var> variables = proc.GetReferencedVariables();            
             cg.GenerateProcedureStart(proc);
             GenerateAlgorithmHeader(proc,variables,index);
@@ -749,7 +750,7 @@ namespace CDL2v1 {
             case LCT.Standard: GenerateCall(proc,alternative.lastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,aList); break;
             case LCT.Fail: cg.GenerateFail(proc,group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
-            case LCT.Abort: cg.GenerateAbort(proc,group); break;
+            case LCT.Abort: cg.GenerateAbort(proc,group,proc.AlgId); break;
             case LCT.Repeat: cg.GenerateRepeat(proc,group,alternative.lastCall.label!,canFail); break;
             case LCT.Group: GenerateGroup(proc,alternative.lastCall.group!); break;
             case LCT.None: break; // Used in the alternative generated for SectionById Ludes.

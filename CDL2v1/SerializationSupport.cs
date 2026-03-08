@@ -61,7 +61,6 @@ namespace CDL2v1 {
             new IDDictionaryJsonConverter<Guid>(),
             new IDSetJsonConverter(),
             new IElementListJsonConverter(),
-            //new LudeJsonConverter(),
             new IDJsonConverter(),
             new BoundedStackJsonConverter<Focus>(),
             new BoundedStackJsonConverter<Database.UndoRecord>(),
@@ -86,12 +85,7 @@ namespace CDL2v1 {
          if (!path.EndsWith(DBExtension))
             path = Path.ChangeExtension(path,DBExtension);
          //TODO: Add a backup capability to save the previous database as a backup before overwriting
-         Logger.logger.WriteLine(1,$"CDL2: Saving compressed database to {path}");
-
-         // Serialize to JSON first
-         string json = JsonSerializer.Serialize(Database.Instance,serializationOptions);
-
-         CompressStringToFile(json,path);
+         CompressStringToFile(JsonSerializer.Serialize(Database.Instance,serializationOptions),path);
 
          pathWithSize = $"{path}, {new FileInfo(path).Length.HumanReadableSize()}";
          Logger.logger.WriteLine(1,$"CDL2: Compressed database saved to {pathWithSize}");

@@ -34,6 +34,7 @@ void debug_pause() {
 #define FALSE 0
 #define RETURNV(res) return res
 #define RETURN return
+#define ABORT(msg,index) do { fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\\n", msg); exit(1); } while(0)
 #define PREDICATE BOOL
 #define TEST BOOL
 #define ACTION void

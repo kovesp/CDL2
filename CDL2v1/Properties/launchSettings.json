@@ -17,12 +17,17 @@
     },
     "Parse & Save": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5\r\n--parse-only --allow-errors\r\n--messages Warning\r\n--program \"csharp sort\" --report-all",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d0\r\n--parse-only --allow-errors\r\n--messages Warning\r\n--program \"memory test\" --report-all",
       "workingDirectory": "$(ProjectDir)\\CDL2"
     },
     "LAB Console": {
       "commandName": "Project",
       "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d0 --allow-errors\r\n--messages Warning --lab\r\n--program \"csharp sort\" --pretty-print-debug:false\r\n--console",
+      "workingDirectory": "$(ProjectDir)\\CDL2"
+    },
+    "Parse & Save Detailed": {
+      "commandName": "Project",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5\r\n--parse-only --allow-errors\r\n--messages Warning\r\n--program \"memory test\" --report-all",
       "workingDirectory": "$(ProjectDir)\\CDL2"
     }
   }

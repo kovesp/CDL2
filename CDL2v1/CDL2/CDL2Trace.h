@@ -32,8 +32,10 @@
 
 #undef RETURNV
 #undef RETURN
+#undef ABORT
 #define RETURNV(res) return c2TraceExit(res)
 #define RETURN {c2TraceExit(TRUE);return;}
+#define ABORT(msg,index) {c2TraceExitAbort(msg,index); return;}
 
 #define VAL(aff) {.val=aff}
 #define PTR(aff) {.ptr=aff}
@@ -138,6 +140,7 @@ BOOL C2StepOverSuccess = TRUE;      // Whether to step over the next exit
 BOOL C2StepOverFailure = TRUE;      // Whether to step over the next fail
 BOOL C2FullNames = FALSE;           // Whether to show full procedure names (including container) in stack frames, or just the procedure name
 int  C2DefaultListElements = 10;    // Default number of LIST elements to display
+int  C2Radix = 10;                  // The default radix for displaying numbers
 
 // Command history
 #define C2_HISTORY_SIZE 100
@@ -152,9 +155,11 @@ int C2HistoryIndex = 0;
 void c2PrintStackFrame(int depth, BOOL indent, char* marker, char* lineEnd, TraceExitType type);
 void c2TraceEnter();
 BOOL c2TraceExit(int v);
-void c2TraceExitAbort();
+void c2TraceExitAbort(char* algName,int index);
 void c2traceREPL(int depth,TraceExitType type);
+void c2PrintAffixes(int depth, TraceExitType type);
 void c2PrintAff(int depth,int i, TraceExitType type);
+void c2PrintLocals(int depth, TraceExitType type);
 void c2Backtrace();
 int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index));
 int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount);
@@ -291,10 +296,27 @@ void c2PrintStackFrame(int depth,BOOL indent, char* marker,char* lineEnd,TraceEx
       sprintf(indentation_buffer, "%*s", depth, "");
       indentation = indentation_buffer;
    }
-   //if (strcmp(lineEnd,"\n") != 0) fprintf(stderr, "\n"); // Print a newline before the stack frame when used as debugger prompt
    fprintf(stderr, "%s%s%s %s",indentation,marker,c2AlgType(depth),name);
-   if (type != TRACE_FAIL) for (int i = 0; i < procInfo.nargs; i++) c2PrintAff(depth, i,type);
+   if (type != TRACE_FAIL) {
+      c2PrintAffixes(depth, type);
+      c2PrintLocals(depth, type);
+   }
    fprintf(stderr,"%s%s", ansi_fg(RESET), lineEnd);
+}
+
+void c2PrintAffixes(int depth, TraceExitType type) {
+   C2ProcInfo procInfo = c2DebugInfo->procs[C2Stack[depth].procInfoIndex];
+   for (int i = 0; i < procInfo.nargs; i++) {
+      c2PrintAff(depth, i, type);
+   }
+}
+
+void c2PrintLocals(int depth, TraceExitType type) {
+   C2StackFrame frame = C2Stack[depth];
+   C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
+   for (int i = 0; i < procInfo.nlocals; i++) {
+      fprintf(stderr, " -%s=%ld",procInfo.localnames[i], *(VALUE*)frame.locals[i]);
+   }
 }
 
 void c2PrintAff(int depth,int i, TraceExitType type) {
@@ -302,17 +324,17 @@ void c2PrintAff(int depth,int i, TraceExitType type) {
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name = procInfo.argnames[i];
    switch (procInfo.affTypes[i]) {
-      case C2_AFF_INPUT:    fprintf(stderr, "+>%s=%ld", name,frame.args[i].val); break;
+      case C2_AFF_INPUT:    fprintf(stderr, C2Radix == 16 ? " +>%s=%lx" : " +>%s=%ld", name,frame.args[i].val); break;
       case C2_AFF_OUTPUT:   
          if (type == TRACE_ENTER) {
-            fprintf(stderr, "+%s>",name);
+            fprintf(stderr, " +%s>",name);
          } else {
-            fprintf(stderr, "+%s>=%ld",name,*frame.args[i].ptr);
+            fprintf(stderr, C2Radix == 16 ? " +%s>=%lx" : " +%s>=%ld" ,name,*frame.args[i].ptr);
          }
          break;
-      case C2_AFF_TRANSPUT: fprintf(stderr, "+>%s>=%ld",name,*frame.args[i].ptr); break;
-      case C2_AFF_STRING:   fprintf(stderr, "*%s=%s",   name,frame.args[i].str); break;
-      default: fprintf(stderr, "+??");
+      case C2_AFF_TRANSPUT: fprintf(stderr, C2Radix == 16 ? " +>%s>=%lx" : " +>%s>=%ld",name,*frame.args[i].ptr); break;
+      case C2_AFF_STRING:   fprintf(stderr, " *%s=%s",   name,frame.args[i].str); break;
+      default: fprintf(stderr, " +??");
    }
 }
 
@@ -340,8 +362,7 @@ void c2TraceEnter() {
          // Otherwise, just continue without stopping
          return; 
       }
-   }
-   else if (C2Jumping) {
+   } else if (C2Jumping) {
       if (c2IsSpyPoint(C2Stack[C2SP].procInfoIndex)) {
          // We are not skipping, and this is a spy point.
          C2HonorSpyPoints = FALSE; // Should already be false as we are not skipping.
@@ -390,8 +411,8 @@ BOOL c2TraceExit(int v) {
    return v;
 }
 // Called for the abort operator
-void c2TraceExitAbort() {
-   fprintf(stderr, "Abort operator reached\n");
+void c2TraceExitAbort(char *algName,int index) {
+   fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\n", algName);
    c2Backtrace();
    exit(1);
 }
@@ -456,6 +477,7 @@ void c2traceREPL(int depth,TraceExitType type) {
          fprintf(stderr, "            with argument + or - stop or not at that exit (default is don't stop)\n");
          fprintf(stderr, "            with argument = show or not show full names (default is don't show, except for ludes)\n");
          fprintf(stderr, "            with argument # and a number: set the default number of list elements to show; - # reset it to 10.\n");
+         fprintf(stderr, "            with argument ^ toggles the default display radix between 10 and 16; - ^ reset it to 10.\n");
          fprintf(stderr, "            with argument . clear command history%s\n",ansi_fg(RESET));
          c2traceREPL(depth,type);
          break;
@@ -479,11 +501,13 @@ void c2traceREPL(int depth,TraceExitType type) {
                while (*numStr == ' ' || *numStr == '\t') numStr++;
                if (*numStr == '\0') {
                   fprintf(stderr, "Number required after '#'\n");
-               } else {
+               }
+               else {
                   int newCount = atoi(numStr);
                   if (newCount <= 0) {
                      fprintf(stderr, "Invalid count: %d (must be positive)\n", newCount);
-                  } else {
+                  }
+                  else {
                      C2DefaultListElements = newCount;
                      fprintf(stderr, "Default list elements set to %d\n", C2DefaultListElements);
                   }
@@ -492,6 +516,16 @@ void c2traceREPL(int depth,TraceExitType type) {
                // Reset to default
                C2DefaultListElements = 10;
                fprintf(stderr, "Default list elements reset to 10\n");
+            }
+         } else if (arg[0] == '^') {
+            if (command == '+') {
+               // Toggle between 10 and 16
+               C2Radix = (C2Radix == 10) ? 16 : 10;
+               fprintf(stderr, "Default display radix set to %d\n", C2Radix);
+            } else {
+               // Reset to default
+               C2Radix = 10;
+               fprintf(stderr, "Default display radix set to 10\n");
             }
          } else if (arg[0] == '.' && command == '-') {
             // Clear command history
@@ -607,6 +641,7 @@ void c2traceREPL(int depth,TraceExitType type) {
                fprintf(stderr, "  StepOverFailure      = %-4s (+ - or - - to change)\n", C2StepOverFailure ? "yes" : "no");
                fprintf(stderr, "  FullNames            = %-4s (+ = or - = to change)\n", C2FullNames ? "yes" : "no");
                fprintf(stderr, "  DefaultListElements  = %-4d (+ # N or - # to change)\n", C2DefaultListElements);
+               fprintf(stderr, "  Radix                = %-4d (+ ^ or - ^ to change)\n", C2Radix);
             } else if (listType == 'h') {
                if (C2HistoryCount == 0) {
                   fprintf(stderr, "No command history\n");
@@ -1623,7 +1658,7 @@ int c2_get_special_key() {
 // Signal handler and exit wrapper - defined early so ALL code uses them
 /////////////////////////////////////////////////////////////////////////////////
 void c2SignalHandler(int sig) {
-   fprintf(stderr, "\n*** CDL2 Runtime Error: Caught signal %d ***\n", sig);
+   fprintf(stderr, "\n\x1b[31m*** CDL2 Runtime Error: Caught signal %d ***\x1b[0m\n", sig);
    c2Backtrace();
    _Exit(sig);  // Use _Exit directly to avoid recursion
 }

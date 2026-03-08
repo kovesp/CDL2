@@ -643,7 +643,7 @@ namespace CDL2v1 {
             }
             call.Id = calledAlg.Id; // Normalize the id of the call to the declared algorithm's id.
             if (calledAlg.Affixes.Count != call.Args.Count) {
-               proc.AddNote(PhaseName,Note.ArgumentCountMismatch,call.id,call.Args.Count,calledAlg.Affixes.Count);
+               proc.AddNote(PhaseName,Note.ArgumentCountMismatch,call.id,calledAlg.Affixes.Count,call.Args.Count);
                return true;
             } else if (call.Args.Count == 0) {
                return false;

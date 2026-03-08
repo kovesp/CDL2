@@ -54,7 +54,9 @@ namespace CDL2v1 {
          emitter.Emitnl($" * Settings: {settings}");
          emitter.Emitnl($" */");
          emitter.Emitnl();
-         emitter.Emitnl($"#define VALUE {DataType}");
+         emitter.Emitnl("// Must use 64 bit words to allow them to be used as address pointers. DataType is ignored.");
+         emitter.Emitnl("#include <stdint.h>");
+         emitter.Emitnl("#define VALUE int64_t");
          emitter.Emitnl();
          emitter.Emitnl("#include \"CDL2.h\"");
          if (Settings.SettingValue<bool>("backtrace") || Settings.SettingValue<bool>("trace")) emitter.Emitnl("#include \"CDL2Trace.h\"");
@@ -205,7 +207,7 @@ namespace CDL2v1 {
       public void GenerateConstantStart(Const constant) => emitter.Emit("#define ",CName(constant)," ");
       public void GenerateConstElementInt(long value) => emitter.Emit(value);
       public void GenerateConstElementFloat(double value) => emitter.Emit(value);
-      public void GenerateConstElementString(string value) => emitter.Emit("\"",value,"\"");
+      public void GenerateConstElementString(string value) => emitter.Emit(value);
       public void GenerateConstElementConst(Const c) => emitter.Emit(CArgName(c));
 
       public void GenerateConstantEnd(Const constant) => emitter.Emitnl();
@@ -356,7 +358,7 @@ namespace CDL2v1 {
 
       public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("RETURNV(FALSE);");
       public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl(proc.CanFail ? "RETURNV(TRUE);" : "RETURN;");
-      public void GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit(1);");
+      public void GenerateAbort(Procedure proc,Group group,int algId) => emitter.Emitnl($"ABORT({proc.FQDN().Quoted()},{proc.AlgId});");
       public void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail)
          => emitter.Emitnl("goto " + (label.IsAnonymous ? CName(group.Id) : CName(label)) + ";");
 
@@ -381,7 +383,7 @@ namespace CDL2v1 {
                throw new UnreachableException($"Requested to genrate code for passing {actualArg} -> {affix}");
             }
          } else { // affix.IsInput
-            if (actualArg.IsInput) {                           // input -> input
+            if (actualArg.IsInputOnly) {                       // input -> input
                emitter.Emit(CName(actualArg));
             } else {                                           // output -> input
                if (needsFinalization) {
@@ -419,27 +421,19 @@ namespace CDL2v1 {
 
          EmitAffixesTraceData(alg);
       }
-      private void EmitAffixesTraceData(Algorithm alg) { }
+      private void EmitAffixesTraceData(Algorithm _) { }
 
       public void GenerateTraceEnter(Algorithm alg,IEnumerable<Local> locals,int algIndex) {  
          if (Settings.IsBacktrace) {
-            string affDiscriminator(Affix aff) => aff.IsOutput ? "PTR" : aff.IsString ? "STR" : "VAL";
+            static string affDiscriminator(Affix aff) => aff.IsOutput ? "PTR" : aff.IsString ? "STR" : "VAL";
 
             string affValues = "NULL";
             if (alg.Affixes.Count > 0) {
                affValues = "(C2DataValue[]){"+string.Join(",",alg.Affixes.Select(aff => $"{affDiscriminator(aff)}({CName(aff)})"))+"}";
-               //emitter.Emit("C2DataValue C2AffValues[] = {");
-               //alg.Affixes.GenerateJoinedSequence(aff => emitter.Emit($"{affDiscriminator(aff)}({CName(aff)})"),emitComma,emitArrayEnd);
-            //} else {
-            //   emitter.Emitnl("C2DataValue C2AffValues[]={PTR(0)};");
             }
             string localValues = "NULL";
             if (locals.Any()) {
                localValues = "(VALUE[]){" + string.Join(",",alg.Locals.Select(loc => $"{CName(loc)}")) + "}";
-            //   emitter.Emit("VALUE* C2Locals[] = {");
-            //   locals.GenerateJoinedSequence(local => emitter.Emit("&" + CName(local)),emitComma,emitArrayEnd);
-            //} else {
-            //   emitter.Emitnl("VALUE* C2Locals[1];");
             }
             string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";
             string localsRefs = $"{locals.Count()},C2Locals,C2LocalNames";

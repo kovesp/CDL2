@@ -466,7 +466,7 @@ function Remove-Const([string[]]$names) {
          }
       }
       void ICodeGenerator.GenerateSucceed(Procedure proc,Group group) { }
-      void ICodeGenerator.GenerateAbort(Procedure proc,Group group) => emitter.Emitnl("exit 1");
+      void ICodeGenerator.GenerateAbort(Procedure proc,Group group,int _) => emitter.Emitnl("exit 1");
       #endregion Calls
 
       #endregion Procedures

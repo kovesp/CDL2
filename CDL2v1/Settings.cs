@@ -317,6 +317,7 @@ namespace CDL2v1 {
       public static string LabDBPath => Path.Combine(OutputDirectory,LabDBName);
 
       public static bool LabMode => SettingValue<bool>("Lab") && !SettingValue<bool>("ParseOnly");
+      public static bool GUIMode => LabMode && Settings.OnWindows && !Settings.SettingValue<bool>("Console");
 
       public static bool IsBacktrace => IsTrace || SettingValue<bool>("backtrace");
       public static bool IsTrace => SettingValue<bool>("trace");

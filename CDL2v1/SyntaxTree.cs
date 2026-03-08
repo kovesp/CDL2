@@ -1701,6 +1701,7 @@ namespace CDL2v1 {
       /// </summary>
       [JsonIgnore] public bool IsSimple => HasNoGroups && HasNoRepeat;
       [JsonIgnore] public PBT ProcedureBodyType => IsVerySimple ? PBT.VerySimple : IsSimple ? PBT.Simple : PBT.General;
+      [JsonIgnore] public int AlgId = 0; // Used by the code generator to give a unique name to the procedure if needed for debug.
 
       /// <summary>
       /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
