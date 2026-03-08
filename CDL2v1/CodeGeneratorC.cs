@@ -433,7 +433,7 @@ namespace CDL2v1 {
             }
             string localValues = "NULL";
             if (locals.Any()) {
-               localValues = "(VALUE[]){" + string.Join(",",alg.Locals.Select(loc => $"{CName(loc)}")) + "}";
+               localValues = "(VALUE*[]){" + string.Join(",",alg.Locals.Select(loc => $"&{CName(loc)}")) + "}";
             }
             string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";
             string localsRefs = $"{locals.Count()},C2Locals,C2LocalNames";

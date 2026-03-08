@@ -613,7 +613,7 @@ MODULE dyn memory test.
          INV show msg, show msg no newline, show number, make, incr, multiply by, divide by, lt.
 
          VAR store.
-         CONST store size = 100.
+         CONST store size = 5.
          CONST zero = 0, one = 1, two = 2.
 
          ACTION do test:
@@ -621,16 +621,16 @@ MODULE dyn memory test.
                show msg+" items.", compute table of squares+store size, show table;
             show msg+"Memory allocation failed.".
 
-         ACTION compute table of squares+>n -i -i squared:
-            make+i+zero,
-               (next square: lt+i+n, square+i+i squared,
-                  (dyn try set data+store+i+i squared, incr+i, *next square;
+         ACTION compute table of squares+>n -i -x squared -x:
+            make+i+zero, make+x+one,
+               (next square: lt+i+n, square+x+x squared,
+                  (dyn try set data+store+i+x squared, incr+i, incr+x, *next square;
                    ?);
                 +).
-         ACTION show table -i -v -table size:
-            make+i+zero, dyn size+store+table size,
+         ACTION show table -i -v -table size -x:
+            make+i+zero, make+x+one, dyn size+store+table size,
                (next item: lt+i+table size, 
-                  (dyn try get data+store+i+v, show number+i, show msg no newline+" -> ", show number+v, show msg+"", *next item;
+                  (dyn try get data+store+i+v, show number+x, show msg no newline+" -> ", show number+v, show msg+"", *next item;
                    ?);
                 +).
             
