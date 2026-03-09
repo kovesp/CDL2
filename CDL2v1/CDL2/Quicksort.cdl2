@@ -417,7 +417,7 @@ MODULE c kernel.
             show msg no newline+"C qsort(_,_,cmpvalue)".
       ENDSEC data.
       SECTION dynamic data.
-         EXPORT dyn base allocate, dyn base free, dyn base resize, dyn base size, dyn base get data, dyn base set data, null.
+         EXPORT dyn base allocate, dyn base free, dyn base resize, dyn base size, dyn base get data, dyn base set data, null, dyn base clear data.
          INV divide by, multiply by, lt, ne, eq, make, add, incr, subtract.
 
          CONST cell size = "sizeof(VALUE)".
@@ -453,6 +453,9 @@ MODULE c kernel.
             "$L free((VALUE*)" ptr ");".
          PREDICATE realloc+>ptr>+>new size =
             "(" ptr " = (VALUE*)realloc((VALUE*)" ptr "," new size ")) != NULL".
+         ACTION dyn base clear data+>ptr+>from =
+            "memset((VALUE*)" ptr " + " from ", 0, (((VALUE*)" ptr ")[-1] - " from ") * " cell size ");".
+          
          FUNCTION dyn base get data+>ptr+>index+value> =
             value " = ((VALUE*)" ptr ")[" index "];".
          ACTION dyn base set data+>ptr+>index+>value =
@@ -480,8 +483,8 @@ MODULE dynamic data.
          TEST le+>a+>b.
       ENDSEC arithmetic.
       SECTION dynamic data.
-         IMPORT dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, null.
-         ABSTR  dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, null.
+         IMPORT dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, dyn base clear data, null.
+         ABSTR  dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, dyn base clear data, null.
 
          CONST null.
 
@@ -491,12 +494,13 @@ MODULE dynamic data.
          FUNCTION dyn base size+>ptr+size>.
          FUNCTION dyn base get data+>ptr+>index+value>.
          ACTION dyn base set data+>ptr+>index+>value.
+         ACTION dyn base clear data+>ptr+>from.
       ENDSEC dynamic data.
    ENDLAY kernel.
    LAYER interface.
       SECTION exported api.
-         EXPORT dyn allocate, dyn free, dyn resize, dyn size, dyn try get data, dyn try set data.
-         INV dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, null.
+         EXPORT dyn allocate, dyn free, dyn resize, dyn size, dyn try get data, dyn try set data, dyn clear data.
+         INV dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, dyn base clear data, null.
          INV multiply by, divide by, lt, le, ne, eq, make, add, incr.
 
  
@@ -517,11 +521,13 @@ MODULE dynamic data.
          TEST valid index+>ptr+>index -size:
             le+zero+index, dyn size+ptr+size, lt+index+size.
          PREDICATE dyn allocate+>size+ptr>:
-            dyn base allocate+size+ptr, add block+ptr.
-         PREDICATE dyn resize+>ptr>+>size -prev ptr:
-            make+prev ptr+ptr, dyn base resize+ptr+size, replace block+prev ptr+ptr.
+            dyn base allocate+size+ptr, add block+ptr, dyn base clear data+ptr+zero.
+         PREDICATE dyn resize+>ptr>+>size -prev ptr -prev size:
+            make+prev ptr+ptr, dyn base size+ptr+prev size, dyn base resize+ptr+size, replace block+prev ptr+ptr, dyn base clear data+ptr+prev size.
          ACTION dyn free+>ptr>:
             remove block+ptr, dyn base free+ptr.
+         ACTION dyn clear data+>ptr+>from:
+            dyn base clear data+ptr+from.
 
          ACTION add block+>ptr:
             add block from+ptr+zero.
@@ -554,6 +560,7 @@ MODULE dynamic data.
             make+i+from,
               (lt+i+allocations size, dyn base set data+allocations+i+null, incr+i, *;
                +).
+       
          ACTION free allocations -ptr -i:
             make+i+zero,
               (lt+i+allocations size, dyn base get data+allocations+i+ptr, dyn free+ptr, incr+i, *;
@@ -630,7 +637,8 @@ MODULE dyn memory test.
          ACTION show table -i -v -table size -x:
             make+i+zero, make+x+one, dyn size+store+table size,
                (next item: lt+i+table size, 
-                  (dyn try get data+store+i+v, show number+x, show msg no newline+" -> ", show number+v, show msg+"", *next item;
+                  (dyn try get data+store+i+v, show number+x, show msg no newline+" -> ", show number+v, show msg+"", 
+                     incr+i, incr+x, *next item;
                    ?);
                 +).
             

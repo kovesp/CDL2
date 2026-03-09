@@ -47,8 +47,14 @@ namespace CDL2v1 {
       }
       protected void EmitUnitStartComment(Container unit) => emitter.Emitnl($"{LineComment} Begin {unit.ContainerName}");
       protected void EmitUnitEndComment(Container unit) => emitter.Emitnl($"{LineComment} End {unit.ContainerName}");
-      protected void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl($"{LineComment} {line}");
+      public virtual void GenerateComment(string comment,bool block=false) {
+         foreach (string line in comment.Split('\n')) {
+            if (block) {
+               emitter.Emit($"{BlockComment.Start} {line.Trim()} {BlockComment.End} ");
+            } else {
+               emitter.Emitnl($"{LineComment} {line.Trim()}");
+            }
+         }
       }
 
       /// <summary>
@@ -125,8 +131,7 @@ namespace CDL2v1 {
       }
 
       protected static readonly Random Random = new();
-      protected string RandomInitialValue => Random.Next(0,int.MaxValue).ToString()
-         + $"  {BlockComment.Start} Random value to catch uninitialized VARs, LOCALs, and output AFFIXes {BlockComment.End}";
+      protected virtual string InitialValue => Random.Next(0,int.MaxValue).ToString();
       #endregion Helpers
 
    }

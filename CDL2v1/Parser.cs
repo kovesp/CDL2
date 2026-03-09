@@ -145,7 +145,7 @@ namespace CDL2v1 {
       }
 
       public bool Tokenize(string input,ParseMode mode) {
-         tokens = new TokenList(ReportInvalidToken);
+         tokens = new TokenList(mode == ParseMode.Full ? ReportInvalidToken : (_,_,_) => { });
          return (Lexer = new LexicalAnalyzer(Compiler,tokens)).Tokenize(input,mode);
       }
 
@@ -190,7 +190,7 @@ namespace CDL2v1 {
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
             currentProgram = new Program(programId,comments,notes);
-            Log(1,$"Parsing {currentProgram}");
+            LogParseObject(ParseMode.Full,currentProgram);
          }
 
          if (tokens.CanConsume(RW.PART)) {
@@ -233,9 +233,9 @@ namespace CDL2v1 {
             AddNote(Note.DuplicateContainer,moduleId.Name);
             return null;
          } else {
-            currentObject.Object = (RW.MODULE, moduleId);
+            currentObject.Object = (RW.MODULE,moduleId);
             currentModule = new Module(moduleId,comments,notes);
-            Log(1,$"Parsing {currentObject}");
+            LogParseObject();
          }
 
          // Now should see layers
@@ -251,11 +251,20 @@ namespace CDL2v1 {
          return currentModule;
       }
 
+      private void LogParseObject(ParseMode mode=ParseMode.Full,params object[] insertions) {
+         if (mode == ParseMode.Full) {
+            if (insertions.Length == 0) {
+               Log(1,$"Parsing {currentObject}");
+            } else {
+               Log(1,$"Parsing {string.Join(" ",insertions)}");
+            }
+         }
+      }
       private void ParseLayer(ID layerId,string comments,Notes notes) {
          Debug.Assert(currentModule != null);
          currentObject.Object = (RW.LAYER, layerId);
          currentLayer = new Layer(layerId,currentModule,currentLayer,comments,notes);
-         Log(1,$"Parsing {currentObject}");
+         LogParseObject();
 
          // Now should see sections
          ID sectionId = ID.ErrorID;
@@ -274,7 +283,7 @@ namespace CDL2v1 {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
          currentSection = new Section(sectionId,currentLayer,comments,notes);
-         Log(1,$"Parsing {currentObject}");
+         LogParseObject(mode);
 
          // Now should see container parts
          // Interfaces first
@@ -312,7 +321,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          algorithm = null;
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
-            Logger.Log(4,$"Parsing {algType} {id}");
+            LogParseObject(mode,algType,id);
             RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
             currentObject.Object = (algTypeRW, id);
             if (!ParseAffixes(mode,out List<Affix> affixes)) return false;
@@ -326,11 +335,11 @@ namespace CDL2v1 {
                      importAdded = Database.Instance.CLI.QueryBox($"You have entered an import declaration for {algType} {id}, but it is not imported. Add to IMPORT list?");
                      if (!importAdded) {
                         // this OK, user can add it later, or semantic analyzer will catch it.
-                        AddNote(currentSection,Note.ObjectNotImported,$"{algType} {id}");
+                        if (mode == ParseMode.Full) AddNote(currentSection,Note.ObjectNotImported,$"{algType} {id}");
                      }
                   } else {
                      // We are in compiler mode, so just report the error
-                     AddNote(currentSection,Note.ObjectNotImported,id);
+                     if (mode == ParseMode.Full) AddNote(currentSection,Note.ObjectNotImported,id);
                      return false;
                   }
                }
@@ -351,7 +360,7 @@ namespace CDL2v1 {
                      algorithm.AddNotes(PhaseName,notes);
                      if (!ParseProcedureBody((Procedure)algorithm,mode)) {
                         if (mode == ParseMode.Full) {
-                           ReportProblem(Note.ParseExpectedProcBody);
+                           if (mode == ParseMode.Full) ReportProblem(Note.ParseExpectedProcBody);
                         }
                         return false;
                      }
@@ -361,7 +370,7 @@ namespace CDL2v1 {
                      algorithm.AddNotes(PhaseName,notes);
                      if (!ParseMacroBody((Macro)algorithm,mode)) {
                         if (mode == ParseMode.Full) {
-                           ReportProblem(Note.ParseExpectedMacroBody);
+                           if (mode == ParseMode.Full) ReportProblem(Note.ParseExpectedMacroBody);
                         }
                         return false;
                      }
@@ -375,8 +384,8 @@ namespace CDL2v1 {
                      currentSection.Interfaces[InterfaceTypes.Import].Remove(id);
                   } else {
                      // We are in compiler mode, so just report the error
-                     AddNote(currentSection,Note.ObjectImportedButHasBody,algorithm);
-                     ReportProblem(Note.ObjectImportedButHasBody,algorithm);
+                     if (mode == ParseMode.Full) AddNote(currentSection,Note.ObjectImportedButHasBody,algorithm);
+                     if (mode == ParseMode.Full) ReportProblem(Note.ObjectImportedButHasBody,algorithm);
                      return false;
                   }
                }
@@ -434,6 +443,7 @@ namespace CDL2v1 {
 
       private bool ParseProcedureBody(Procedure proc,ParseMode mode) {
          GroupCounter = 0;
+         int alternativeCounter = 1;
          Database.Instance.ClearUnrecordedNamedElements();
          SetGroupId(proc.group);
          if (!ParseAlternatives(proc,group: proc.group,mode: mode,out proc.group.Alternatives)) {
@@ -444,10 +454,27 @@ namespace CDL2v1 {
             if (mode == ParseMode.Full) ReportError("Expected .");
             return false;
          }
+         NumberAlternatives(proc.group);
+         // Number the alternatives breadth first
+         void NumberAlternatives(Group group) {
+            foreach (Alternative alt in group.Alternatives) alt.AlternativeNumber = alternativeCounter++;
+            foreach (Alternative alt in group.Alternatives) if (alt.lastCall.type == LCT.Group) NumberAlternatives(alt.lastCall.group!);
+         }
 
          return true;
       }
 
+      /// <summary>
+      /// Parse alternatives.
+      /// Note that a next alternative number is assigned to each alternative. This is
+      /// for the entire procedure and is incremented for each alternative. It is also set for the last alternative of each group.
+      /// This is used to generate labels for alternatives and to be also able to generate a goto to the next alternative when the current one fails.
+      /// </summary>
+      /// <param name="proc"></param>
+      /// <param name="group"></param>
+      /// <param name="mode"></param>
+      /// <param name="alternatives"></param>
+      /// <returns></returns>
       private bool ParseAlternatives(Procedure proc,Group group,ParseMode mode,out List<Alternative> alternatives) {
          alternatives = [];
          do {
@@ -489,8 +516,8 @@ namespace CDL2v1 {
                alternative.lastCall = new LastCall(LCT.Fail,alternative);
                if (!proc.CanFail) {
                   if (mode == ParseMode.Full) {
-                     AddNote(proc,Note.IllegalFailOperator,proc.AlgorithmType);
-                     ReportProblem(Note.TestContainsFail,proc);
+                     if (mode == ParseMode.Full) AddNote(proc,Note.IllegalFailOperator,proc.AlgorithmType);
+                     if (mode == ParseMode.Full) ReportProblem(Note.TestContainsFail,proc);
                   }
                   return false;
                }
@@ -499,7 +526,7 @@ namespace CDL2v1 {
             } else if (tokens.Optional(TT.REPEAT)) {
                if (tokens.Optional(out ID label)) {
                   if (mode == ParseMode.Full && !group.HasLabeledAncestorGroup(label)) {
-                     AddNote(proc,Note.LabelNotFound,label.Name,proc);
+                     if (mode == ParseMode.Full) AddNote(proc,Note.LabelNotFound,label.Name,proc);
                   }
                   alternative.lastCall = new LastCall(label,alternative);
                   if (id == proc.Id) proc.repeatsProcedure = true;
@@ -576,7 +603,7 @@ namespace CDL2v1 {
             tokens.Next();
             // Go up the group hierarchy to see if the label is already defined.
             if (mode == ParseMode.Full && group.HasLabeledAncestorGroup(label)) {
-               AddNote(proc,Note.DuplicateLabel,label.Name);
+               if (mode == ParseMode.Full) AddNote(proc,Note.DuplicateLabel,label.Name);
                return false;
             } else {
                return true;
@@ -617,9 +644,7 @@ namespace CDL2v1 {
          while (tokens.Optional(TT.LOCALSEP) && tokens.CanConsume(TT.ID,out Token token)) {
             Local local = new(ID.From(token));
             if (!locals.Add(local)) {
-               if (mode == ParseMode.Full) {
-                  ReportProblem(Note.PareseDuplicateLocal,$"{local.Id.Name}");
-               }
+               if (mode == ParseMode.Full) ReportProblem(Note.PareseDuplicateLocal,$"{local.Id.Name}");
                return false;
             }
          }
@@ -642,22 +667,16 @@ namespace CDL2v1 {
                AffixDir affixDir = isIn ? (isOut ? AffixDir.transput : AffixDir.input) : (isOut ? AffixDir.output : AffixDir.NONE);
                AffixType affixType = affixTypeInd.type == TT.AFFIXSEP ? AffixType.std : AffixType.str;
                if (affixType == AffixType.str && affixDir != AffixDir.NONE) {
-                  if (mode == ParseMode.Full) {
-                     ReportProblem(Note.ParseArgStringWithDirection,$"{id.Name}");
-                  }
+                  if (mode == ParseMode.Full) ReportProblem(Note.ParseArgStringWithDirection,$"{id.Name}");
                   return false;
                }
                if (affixType == AffixType.std && affixDir == AffixDir.NONE) {
-                  if (mode == ParseMode.Full) {
-                     ReportProblem(Note.ParseArgStdArgHasNoDirection,$"{id.Name}");
-                  }
+                  if (mode == ParseMode.Full) ReportProblem(Note.ParseArgStdArgHasNoDirection,$"{id.Name}");
                   return false;
                }
                Affix affix = new(id,affixDir,affixType);
                if (args.Contains(affix)) {
-                  if (mode == ParseMode.Full) {
-                     ReportProblem(Note.ParseArgDuplicateArg,$"{id.Name}");
-                  }
+                  if (mode == ParseMode.Full) ReportProblem(Note.ParseArgDuplicateArg,$"{id.Name}");
                   return false;
                } else {
                   args.Add(affix);
@@ -732,7 +751,7 @@ namespace CDL2v1 {
          if (tokens.CanConsume(RW.VAR,out string? comments)) {
             return ParseIDDeclarationList(currentSection.Declarations,comments!,(mode,id) => ParseVar(mode,id,context),notes,mode,out vars);
          } else {
-            ReportProblem(Note.ExpectedId);
+            if (mode == ParseMode.Full) ReportProblem(Note.ExpectedId);
             vars = [];
             return false;
          }
@@ -746,7 +765,7 @@ namespace CDL2v1 {
       /// <returns></returns>
       private Var? ParseVar(ParseMode mode,ID id,ParsingContext? context) {
          Debug.Assert(currentSection != null);
-         if (mode == ParseMode.Full && DuplicateDeclaration(id,RW.VAR)) return null;
+         if (mode == ParseMode.Full && DuplicateDeclaration(id,RW.VAR,report: context is null)) return null;
          Var v = new(id,currentSection);
          if (mode == ParseMode.Full) {
             currentSection.Declarations[id] = v.GUID;
@@ -935,8 +954,8 @@ namespace CDL2v1 {
             if (alternative.calls.Count >= 1) {
                alternative.NormalizeCalls();
             } else {
-               parser.AddNote(container,Note.EmptyLude,ludeType);
-               parser.ReportProblem(Note.EmptyLude,ludeType);
+               if (mode == ParseMode.Full) parser.AddNote(container,Note.EmptyLude,ludeType);
+               if (mode == ParseMode.Full) parser.ReportProblem(Note.EmptyLude,ludeType);
             }
 
             lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
@@ -1126,9 +1145,7 @@ namespace CDL2v1 {
                      SetModified(element,mode);
                   }
                } else {
-                  if (mode == ParseMode.Full) {
-                     ReportProblem(Note.NoSectionForObject,context.ToString());
-                  }
+                  if (mode == ParseMode.Full) ReportProblem(Note.NoSectionForObject,context.ToString());
                   element = null;
                }
                break;
@@ -1142,9 +1159,7 @@ namespace CDL2v1 {
                      SetModified(element!,mode);
                   }
                } else {
-                  if (mode == ParseMode.Full) {
-                     ReportProblem(Note.NoSectionForObject,context.ToString());
-                  }
+                  if (mode == ParseMode.Full) ReportProblem(Note.NoSectionForObject,context.ToString());
                   element = null;
                }
                break;
@@ -1158,9 +1173,7 @@ namespace CDL2v1 {
                      SetModified(element!,mode);
                   }
                } else {
-                  if (mode == ParseMode.Full) {
-                     ReportProblem(Note.NoSectionForObject,context.ToString());
-                  }
+                  if (mode == ParseMode.Full) ReportProblem(Note.NoSectionForObject,context.ToString());
                   element = null;
                }
                break;
@@ -1174,9 +1187,7 @@ namespace CDL2v1 {
                      SetModified(element!,mode);
                   }
                } else {
-                  if (mode == ParseMode.Full) {
-                     ReportProblem(Note.NoSectionForObject,context.ToString());
-                  }
+                  if (mode == ParseMode.Full) ReportProblem(Note.NoSectionForObject,context.ToString());
                   element = null;
                }
                break;

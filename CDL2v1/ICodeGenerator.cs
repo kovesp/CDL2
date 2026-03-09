@@ -478,7 +478,7 @@ namespace CDL2v1 {
       /// Generates the end of a return expression for the specified macro.
       /// </summary>
       /// <param name="macro">The macro for which to generate the return expression end. Cannot be null.</param>
-      void GenerateReturnExpressionEnd(Macro macro);
+      void GenerateReturnExpressionEnd(Macro macro,int alternativeNumber);
 
       /// <summary>
       /// This is called for each element of a macro that is an integer.
@@ -507,7 +507,7 @@ namespace CDL2v1 {
       void GenerateMacroElementAffix(Affix aff,bool macroCanFail);
       void GenerateMacroElementLocal(Local id,Affix calledAffix);
       void GenerateMacroInlineStart(Macro macro);
-      void GenerateMacroInlineEnd(Macro macro);
+      void GenerateMacroInlineEnd(Macro macro,int altNumber);
       #endregion Macros
 
       #region Procedures
@@ -541,7 +541,7 @@ namespace CDL2v1 {
       /// <param name="alternative"></param>
       /// <param name="removed">Set if the alternative tail was skipped due to conditional compilation.</param>
       /// 
-      void GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed = false);
+      void GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed = false,bool supressLabel = false);
 
       #endregion Alternatives
 
@@ -591,7 +591,7 @@ namespace CDL2v1 {
 
       void GenerateActualArgSeparator();
       void GenerateCallStart(Algorithm called,Procedure proc,bool firstCall = false,bool onlyCallInAlternative = false,bool lastAlternative = false);
-      void GenerateCallEnd(Algorithm call,Procedure proc,bool firstCall = false,bool onlyCallInAlternative = false,bool lastAlternative = false);
+      void GenerateCallEnd(Algorithm call,Procedure proc,Alternative alternative,bool firstCall = false,bool onlyCallInAlternative = false,bool lastAlternative = false);
       void GenerateCallArgString(string value);
       void GenerateCallArgReferenceAffix(Affix calledAffix,Affix a,bool needFinalization);
       void GenerateCallArgReferenceLocal(Affix calledAffix,Local lo);
@@ -623,7 +623,7 @@ namespace CDL2v1 {
       #endregion // Debug Support
       #region Support
       void GenerateNewline();
-      void GenerateComment(string comment);
+      void GenerateComment(string comment,bool block = false);
       void GenerateComment(PrettyPrinter sourcePrinter);
       void GenerateSourceComment(bool nl = true);
 

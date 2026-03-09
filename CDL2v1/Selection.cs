@@ -237,6 +237,8 @@ namespace CDL2v1 {
             // The selection is relative to the current focus. TODO: sub elements are being ignored
          }
 
+         candidateObjects = candidateObjects.Where(obj=>obj.IsDeclared);
+
          if (!candidateObjects.Any()) {
             // Nothing matches
             ErrorMessage = "Info:No matches";
@@ -257,6 +259,7 @@ namespace CDL2v1 {
             Add(new SingleSelection(selectedObjects.ElementAt(Math.Min(segments.Index,segments.Count) - 1),listType));
          }
       }
+
 
       private IEnumerable<NamedElement> NarrowSelectionByType(IEnumerable<NamedElement> candidateObjects,IEnumerable<NamedElement> currentSelectedObjects,SelectionSegments segments,int segNo,
             bool isRooted,bool importedSeen,bool fullSeen,out ST listType,ref string errorMessage) {
@@ -325,7 +328,7 @@ namespace CDL2v1 {
                break;
          }
          if (!selectedObjects.Any()) errorMessage = "Info:No matches";
-         return selectedObjects;
+         return selectedObjects.Where(obj => obj.IsDeclared);
       }
 
       /// <summary>

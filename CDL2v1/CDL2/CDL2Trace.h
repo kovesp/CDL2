@@ -315,7 +315,12 @@ void c2PrintLocals(int depth, TraceExitType type) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    for (int i = 0; i < procInfo.nlocals; i++) {
-      fprintf(stderr, " -%s=%ld",procInfo.localnames[i], *(VALUE*)frame.locals[i]);
+      VALUE value = *(VALUE*)frame.locals[i];
+      if (value == VALUE_UNDEFINED) {
+         fprintf(stderr, " -%s=?",procInfo.localnames[i]);
+      } else {
+         fprintf(stderr, C2Radix == 16 ? " -%s=%lx" : " -%s=%ld", procInfo.localnames[i], value);
+      }
    }
 }
 
@@ -327,13 +332,13 @@ void c2PrintAff(int depth,int i, TraceExitType type) {
       case C2_AFF_INPUT:    fprintf(stderr, C2Radix == 16 ? " +>%s=%lx" : " +>%s=%ld", name,frame.args[i].val); break;
       case C2_AFF_OUTPUT:   
          if (type == TRACE_ENTER) {
-            fprintf(stderr, " +%s>",name);
+            fprintf(stderr, " +%s>=?",name);
          } else {
             fprintf(stderr, C2Radix == 16 ? " +%s>=%lx" : " +%s>=%ld" ,name,*frame.args[i].ptr);
          }
          break;
       case C2_AFF_TRANSPUT: fprintf(stderr, C2Radix == 16 ? " +>%s>=%lx" : " +>%s>=%ld",name,*frame.args[i].ptr); break;
-      case C2_AFF_STRING:   fprintf(stderr, " *%s=%s",   name,frame.args[i].str); break;
+      case C2_AFF_STRING:   fprintf(stderr, " *%s=\"%s\"",   name,frame.args[i].str); break;
       default: fprintf(stderr, " +??");
    }
 }
@@ -470,7 +475,10 @@ void c2traceREPL(int depth,TraceExitType type) {
          fprintf(stderr, "  c       - show arg as character\n");
          fprintf(stderr, "            arg can be an affix, local, VAR, or LIST name\n");
          fprintf(stderr, "            LIST: [idx] [start:n] [start-end] [start:] [start-] [:end] [-end]\n");
-         fprintf(stderr, "            : or - alone shows %d elements; () shows one per line with index\n", C2DefaultListElements);
+         fprintf(stderr, "            : or - alone shows %d elements\n", C2DefaultListElements);
+         fprintf(stderr, "            [] gives terse display, () shows one per line with index\n");
+         fprintf(stderr, "            Pointer indirection: *ptr - dereference pointer\n");
+         fprintf(stderr, "            Pointer indexing: *ptr[idx] *ptr(idx) - same syntax as LISTs (lwb=0)\n");
          fprintf(stderr, "  l       - list ... with 'a <prefix>' algorithms, 'v <prefix>' VARs, 'l <prefix>' LISTs, 's <prefix>' spypoints, 'o' options, 'h' history\n");
          fprintf(stderr, "  t       - show CDL2 source code of algorithm(s) (no arg = current algorithm, or give prefix to match)\n");
          fprintf(stderr, "  +/-     - set(+) or clear (-) a spy point, enter the prefix(es) of the algorithm name(s)\n");
@@ -875,11 +883,20 @@ C2ListInfo** c2FindLists(char* name, int* outCount) {
 C2EvalResult c2EvaluateExpr(int depth, char* expr) {
    C2EvalResult result = { NULL, 0, FALSE, FALSE, 0 };
 
+   // Check for pointer indirection
+   BOOL isIndirection = FALSE;
+   if (expr[0] == '*') {
+      isIndirection = TRUE;
+      expr++; // Skip the '*'
+   }
+
    char nameBuf[256];
    char* bracket = strchr(expr, '[');
    char* paren = strchr(expr, '(');
    BOOL useParens = FALSE;
 
+   // Both [] and () work for LISTs and pointers
+   // [] gives terse display, () gives one per line with index
    if (paren != NULL && (bracket == NULL || paren < bracket)) {
       bracket = paren;
       useParens = TRUE;
@@ -909,57 +926,177 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
 
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
+   VALUE baseValue = 0;
+   BOOL foundValue = FALSE;
 
    // Check affixes
    for (int i = 0; i < procInfo.nargs; i++) {
       if (c2MatchName(procInfo.argnames[i], cleanName)) {
-         result.count = 1;
-         result.needsFree = TRUE;
-         result.values = (VALUE*)malloc(sizeof(VALUE));
-         if (result.values == NULL) {
+         switch (procInfo.affTypes[i]) {
+            case C2_AFF_INPUT:
+               baseValue = frame.args[i].val;
+               foundValue = TRUE;
+               break;
+            case C2_AFF_OUTPUT:
+            case C2_AFF_TRANSPUT:
+               baseValue = isIndirection ? frame.args[i].val : *frame.args[i].ptr;
+               foundValue = TRUE;
+               break;
+            case C2_AFF_STRING:
+               baseValue = frame.args[i].str ? (VALUE)strlen(frame.args[i].str) : 0;
+               foundValue = TRUE;
+               break;
+         }
+         break;
+      }
+   }
+
+   // Check locals if not found
+   if (!foundValue) {
+      for (int i = 0; i < procInfo.nlocals; i++) {
+         if (c2MatchName(procInfo.localnames[i], cleanName)) {
+            baseValue = frame.locals[i];
+            foundValue = TRUE;
+            break;
+         }
+      }
+   }
+
+   // Check VARs if not found
+   if (!foundValue) {
+      C2VarInfo* var = c2FindVar(cleanName);
+      if (var != NULL) {
+         baseValue = *var->value;
+         foundValue = TRUE;
+      }
+   }
+
+   // If we found a value and it's indirection
+   if (foundValue && isIndirection) {
+      VALUE* ptr = (VALUE*)baseValue;
+      if (ptr == NULL) {
+         free(cleanName);
+         return result;
+      }
+
+      // Handle indexing for indirection with lwb=0
+      if (bracket != NULL) {
+         char* indexExpr = bracket + 1;
+         char closingChar = useParens ? ')' : ']';
+         char* closeBracket = strchr(indexExpr, closingChar);
+         if (closeBracket == NULL) {
             free(cleanName);
             return result;
          }
 
-         switch (procInfo.affTypes[i]) {
-            case C2_AFF_INPUT:
-               result.values[0] = frame.args[i].val;
-               break;
-            case C2_AFF_OUTPUT:
-            case C2_AFF_TRANSPUT:
-               result.values[0] = *frame.args[i].ptr;
-               break;
-            case C2_AFF_STRING:
-               result.values[0] = frame.args[i].str ? (VALUE)strlen(frame.args[i].str) : 0;
-               break;
+         char indexBuf[128];
+         strncpy(indexBuf, indexExpr, closeBracket - indexExpr);
+         indexBuf[closeBracket - indexExpr] = '\0';
+
+         int startIdx = 0;
+         int endIdx = 0;
+         int count = 1;
+
+         // Parse index expression (same logic as LIST but lwb=0)
+         char* trimmed = indexBuf;
+         while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+
+         if (*trimmed == '\0') {
+            // Empty brackets - use default count from start
+            count = C2DefaultListElements;
+            endIdx = startIdx + count - 1;
+         } else {
+            char* colon = strchr(indexBuf, ':');
+            char* dash = strchr(indexBuf, '-');
+
+            if (colon != NULL) {
+               *colon = '\0';
+               if (indexBuf[0] == '\0') {
+                  // [:endIdx] - end at endIdx, show default count elements
+                  endIdx = atoi(colon + 1);
+                  startIdx = endIdx - C2DefaultListElements + 1;
+                  if (startIdx < 0) startIdx = 0;
+                  count = endIdx - startIdx + 1;
+               } else if (*(colon + 1) == '\0') {
+                  // [start:] - start at startIdx, show default count elements
+                  startIdx = atoi(indexBuf);
+                  endIdx = startIdx + C2DefaultListElements - 1;
+                  count = C2DefaultListElements;
+               } else {
+                  // [start:n] - start at startIdx, show n elements
+                  startIdx = atoi(indexBuf);
+                  count = atoi(colon + 1);
+                  endIdx = startIdx + count - 1;
+               }
+            } else if (dash != NULL) {
+               *dash = '\0';
+               if (indexBuf[0] == '\0') {
+                  // [-endIdx] - end at endIdx, show default count elements
+                  endIdx = atoi(dash + 1);
+                  startIdx = endIdx - C2DefaultListElements + 1;
+                  if (startIdx < 0) startIdx = 0;
+                  count = endIdx - startIdx + 1;
+               } else if (*(dash + 1) == '\0') {
+                  // [start-] - start at startIdx, show default count elements
+                  startIdx = atoi(indexBuf);
+                  endIdx = startIdx + C2DefaultListElements - 1;
+                  count = C2DefaultListElements;
+               } else {
+                  // [start-end] - from startIdx to endIdx
+                  startIdx = atoi(indexBuf);
+                  endIdx = atoi(dash + 1);
+                  count = endIdx - startIdx + 1;
+               }
+            } else {
+               // Single index
+               startIdx = atoi(indexBuf);
+               endIdx = startIdx;
+               count = 1;
+            }
          }
+
+         if (count <= 0 || startIdx < 0) {
+            free(cleanName);
+            return result;
+         }
+
+         result.count = count;
+         result.startIndex = startIdx;
+         result.onePerLine = useParens;
+         result.needsFree = TRUE;
+         result.lwb = 0;
+         result.upb = startIdx + count - 1; // We don't know the actual upper bound
+         result.listName = cleanName;
+         result.values = (VALUE*)malloc(count * sizeof(VALUE));
+
+         if (result.values != NULL) {
+            for (int i = 0; i < count; i++) {
+               result.values[i] = ptr[startIdx + i];
+            }
+         }
+
          free(cleanName);
          return result;
-      }
-   }
-
-   // Check locals
-   for (int i = 0; i < procInfo.nlocals; i++) {
-      if (c2MatchName(procInfo.localnames[i], cleanName)) {
+      } else {
+         // No indexing - just dereference
          result.count = 1;
          result.needsFree = TRUE;
          result.values = (VALUE*)malloc(sizeof(VALUE));
          if (result.values != NULL) {
-            result.values[0] = frame.locals[i];
+            result.values[0] = *ptr;
          }
          free(cleanName);
          return result;
       }
    }
 
-   // Check VARs
-   C2VarInfo* var = c2FindVar(cleanName);
-   if (var != NULL) {
+   // If not indirection or not found yet, continue with original logic
+   if (foundValue && !isIndirection) {
       result.count = 1;
       result.needsFree = TRUE;
       result.values = (VALUE*)malloc(sizeof(VALUE));
       if (result.values != NULL) {
-         result.values[0] = *var->value;
+         result.values[0] = baseValue;
       }
       free(cleanName);
       return result;

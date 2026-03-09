@@ -57,6 +57,9 @@ namespace CDL2v1 {
          emitter.Emitnl("// Must use 64 bit words to allow them to be used as address pointers. DataType is ignored.");
          emitter.Emitnl("#include <stdint.h>");
          emitter.Emitnl("#define VALUE int64_t");
+         emitter.Emitnl("#define VALUE_MAX INT64_MAX");
+         emitter.Emitnl("#define VALUE_MIN INT64_MIN");
+         emitter.Emitnl("#define VALUE_UNDEFINED VALUE_MIN");
          emitter.Emitnl();
          emitter.Emitnl("#include \"CDL2.h\"");
          if (Settings.SettingValue<bool>("backtrace") || Settings.SettingValue<bool>("trace")) emitter.Emitnl("#include \"CDL2Trace.h\"");
@@ -189,9 +192,6 @@ namespace CDL2v1 {
 
       void ICodeGenerator.GenerateSourceComment(bool nl) => emitter.NlEmit(nl ? "\n" : "",sourceEmitter.Content);
 
-      public new void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl($"{LineComment} ",line);
-      }
 
       public void GenerateComment(PrettyPrinter pp) => emitter.Emit(pp.Emitter.Content);
 
@@ -231,7 +231,7 @@ namespace CDL2v1 {
          if (macro.CanFail) emitter.Emit(macro.NeedsFinalization ? "if (" : "RETURNV(");
       }
 
-      public void GenerateReturnExpressionEnd(Macro macro) {
+      public void GenerateReturnExpressionEnd(Macro macro,int alternativeNumber) {
          if (macro.CanFail) emitter.Emitnl(macro.NeedsFinalization ? ") goto Finalization; " : ");");
       }
 
@@ -240,9 +240,9 @@ namespace CDL2v1 {
          // if (macro.NeedsFinalization) FinalizationLabels.Push(NextLabel);
          if (macro.CanFail) emitter.Emit("if (!(");
       }
-      public void GenerateMacroInlineEnd(Macro macro) {
+      public void GenerateMacroInlineEnd(Macro macro,int alternativeNumber) {
          if (macro.CanFail) {
-            emitter.Emitnl($")) goto {ReferencedLabel};");
+            emitter.Emitnl($")) goto {ReferencedLabel(alternativeNumber)};");
          } else {
             emitter.Emitnl();
          }
@@ -284,6 +284,7 @@ namespace CDL2v1 {
 
       #region Procedures
       public void GenerateProcedureStart(Procedure proc) {
+         ResetLableReferences();
          emitter.Emitnl();
       }
 
@@ -294,19 +295,15 @@ namespace CDL2v1 {
       }
 
       private int LabelCounter = 0;
-      private const string labelPrefix = "L";
-      private void GenerateLabel() { if (ReferencedLabels.Contains(Label)) emitter.Emitnl(labelPrefix + NextLabel + ":"); }
+      private const string LabelPrefix = "L";
+      private void GenerateLabel(int altNumber) { if (ReferencedLabels.Contains(altNumber)) emitter.Emitnl(LabelPrefix + altNumber +   ":"); }
 
-      private string Label => labelPrefix + LabelCounter;
-      private static bool IsGeneratedLabel(string label) => Regex.IsMatch(label, $"^{labelPrefix}\\d+$", RegexOptions.Compiled);
-
-      private readonly Set<string> ReferencedLabels = [];
-      private string ReferencedLabel {
-         get {
-            string label = Label;
-            ReferencedLabels.Add(label);
-            return label;
-         }
+      private readonly Set<int> ReferencedLabels = [];
+      private void ResetLableReferences() => ReferencedLabels.Clear();
+      private string ReferencedLabel(int altNumber) {
+         string label = LabelPrefix + altNumber;
+         ReferencedLabels.Add(altNumber);
+         return label;
       }
       private int NextLabel => LabelCounter++;
       public void GenerateProcedureBodyStart(Procedure proc,ProcedureBodyType bodyType) { }
@@ -314,22 +311,26 @@ namespace CDL2v1 {
       public void GenerateProcedureBodyEnd(Procedure proc,ProcedureBodyType bodyType) { }
 
       public void GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber,bool supressLabel) {
-         GenerateComment($"Alternative {alternativeNumber}");
-         if (!supressLabel && alternativeNumber > 1) GenerateLabel();
+         GenerateComment($"Alternative {group.Alternatives[alternativeNumber-1].AlternativeNumber}");
          IncrementIndent();
       }
 
-      public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed) {
+      public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed,bool supressLabel) {
+         if (!supressLabel && !removed) GenerateLabel(alternative.AlternativeNumber);
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization ? "goto Finalization;" : "RETURNV(TRUE);" : "RETURN;");
          DecrementIndent();
-         GenerateComment($"End Alternative {alternativeNumber}");
-         if (group.LiveAlternatives == 1 && proc.CanFail) GenerateLabel();
+         GenerateComment($"End Alternative {group.Alternatives[alternativeNumber-1].AlternativeNumber}");
+         if (group.LiveAlternatives == 1 && proc.CanFail) GenerateLabel(alternativeNumber);
       }
 
       public void GenerateGroupStart(Procedure proc,Group group) {
-         GenerateComment($"Group {CName(group.Id)}");
-         if (proc.ReferrencesGroup(group.Id)) emitter.Emitnl(CName(group.Id) + ":");
+         if (proc.ReferrencesGroup(group.Id)) {
+            GenerateComment($"Group ",block:true);
+            emitter.Emitnl(CName(group.Id),":");
+         } else {
+            GenerateComment($"Group {CName(group.Id)}");
+         }
          IncrementIndent();
       }
 
@@ -343,12 +344,12 @@ namespace CDL2v1 {
          emitter.Emit(CName(called),"(");
       }
 
-      public void GenerateCallEnd(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
+      public void GenerateCallEnd(Algorithm called,Procedure calling,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
             if (lastAlternative) {
                emitter.Emit(")) RETURNV(FALSE);");
             } else {
-               emitter.Emit($")) goto {ReferencedLabel};");
+               emitter.Emit($")) goto {ReferencedLabel(alternative.NextAlternativeNumber)};");
             }
          } else {
             emitter.Emit(");");
@@ -462,7 +463,7 @@ namespace CDL2v1 {
 
       public void GenerateAffixSeparator() => emitter.Emit(", ");
 
-      public void GenerateLocal(Local local) => emitter.Emitnl("VALUE ",CName(local)," = ",RandomInitialValue,";");
+      public void GenerateLocal(Local local) => emitter.Emitnl("VALUE ",CName(local)," = ",InitialValue,";");
 
       public void GenerateAffixAndVariableInitializationStart(Algorithm alg) {
          if (alg.NeedsFinalization) GenerateComment("Initialization");
@@ -479,9 +480,9 @@ namespace CDL2v1 {
                break;
             case AD.output:
                if (isVar) {
-                  emitter.Emitnl("VALUE ",CName((Var)item,"_")," = ",RandomInitialValue,";");
+                  emitter.Emitnl("VALUE ",CName((Var)item,"_")," = ",InitialValue,";");
                } else {
-                  emitter.Emitnl("VALUE ",CName((Affix)item,"_")," = ",RandomInitialValue,";");
+                  emitter.Emitnl("VALUE ",CName((Affix)item,"_")," = ",InitialValue,";");
                }
                break;
             case AD.transput:
@@ -588,6 +589,8 @@ namespace CDL2v1 {
       private static string CName(Local local,string suffix = "") => "l_" + local.Id.Name.AsIdentifier(camelCase: false) + suffix;
       private static string CName(Var var,string suffix = "") => "v_" + var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
       private static string CName(ID id) => id.Name.AsIdentifier(camelCase: false);
+
+      protected override string InitialValue => "VALUE_MIN";
       private static string CArgName(IActualArg arg,string suffix = "") => arg switch {
          Affix a => CName(a,suffix),
          Local l => CName(l,suffix),

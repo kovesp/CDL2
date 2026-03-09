@@ -133,12 +133,12 @@ namespace CDL2v1 {
          this.options = options;
       }
 
-      public bool CanConsume(TT type,out Token token) {
+      public bool CanConsume(TT type,out Token token,ParseMode mode = ParseMode.Full) {
          if (IsNext(type)) {
             token = Next();
             return true;
          }
-         ReportUnexpectedToken([type],Peek(),[]);
+         if (mode == ParseMode.Full) ReportUnexpectedToken([type],Peek(),[]);
          token = Token.ErrorToken;
          return false;
       }

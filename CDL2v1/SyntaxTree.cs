@@ -504,6 +504,8 @@ namespace CDL2v1 {
          }
       }
 
+      public virtual bool IsDeclared => true;
+
       public Note AddNote(string phase,Note note,params object[] insertions) {
          Note newNote = new Note(note,phase,this,insertions);
          Notes.Add(newNote);
@@ -989,6 +991,9 @@ namespace CDL2v1 {
          [JsonPropertyOrder(1)]
          public List<Guid> Ordering = [];
 
+         public bool ContainsGuid(Guid guid) => ContainsValue(guid);
+         public bool ContainsId(ID id) => ContainsKey(id);
+
          /// <summary>
          /// Try add a declaration. If successful, the object is added to the Siblings of the object.
          /// </summary>
@@ -1270,6 +1275,12 @@ namespace CDL2v1 {
 
       [JsonIgnore]
       public SyntacticElement SE { get; protected set; }
+
+      /// <summary>
+      /// Check whether this object is in its sections' declarations.
+      /// </summary>
+      [JsonIgnore] public override bool IsDeclared => Section?.Declarations.ContainsValue(GUID) == true;
+
 
       public override bool Modified {
          get => Module?.Modified ?? false;
@@ -1702,6 +1713,7 @@ namespace CDL2v1 {
       [JsonIgnore] public bool IsSimple => HasNoGroups && HasNoRepeat;
       [JsonIgnore] public PBT ProcedureBodyType => IsVerySimple ? PBT.VerySimple : IsSimple ? PBT.Simple : PBT.General;
       [JsonIgnore] public int AlgId = 0; // Used by the code generator to give a unique name to the procedure if needed for debug.
+      [JsonIgnore] public int AlternativeNumber = 0; // Used by the parser to keep track of alternatives while pasrsing.
 
       /// <summary>
       /// Check if this is a conditional compilation flag. That is, the body consists of a single fail respectively succeed operator.
@@ -2011,6 +2023,9 @@ namespace CDL2v1 {
 #endif
       [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls = [];
       [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall = new();
+      [JsonInclude][JsonPropertyOrder(43)] public int AlternativeNumber = 0;
+      [JsonIgnore] public int NextAlternativeNumber => AlternativeNumber + 1;
+
       public override IEnumerable<NamedElement> ChildElements() => [.. calls,lastCall];
 
       [JsonIgnore] public bool IsConditionalOff = false;
@@ -2064,6 +2079,8 @@ namespace CDL2v1 {
             calls.RemoveAt(calls.Count - 1);
          }
       }
+
+      public override string ToString() => $"Alt {AlternativeNumber} {Id}";
 
       internal void Dispose() {
          foreach (Call call in calls) call.Dispose();

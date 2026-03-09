@@ -233,7 +233,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
       void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(PSVar(constant));
       void ICodeGenerator.GenerateConstantEnd(Const c) => emitter.Emitnl();
-      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT,PSVar(var)," = ",RandomInitialValue);
+      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT,PSVar(var)," = ",InitialValue);
 
       void ICodeGenerator.GenerateList(LIST var,Const lwb,Const upb) => emitter.Emitnl(PSVar(var),$" = [BoundedArray]::new({PSVar(lwb)},{PSVar(upb)})");
       #endregion Data Declarations
@@ -274,9 +274,9 @@ function Remove-Const([string[]]$names) {
             case AD.output:
                // The output shadow is initialized to arg random value to ensure that it is set before use.
                if (isVar) {
-                  emitter.Emitnl(DT,PSVar((Var)var,"_")," = ",RandomInitialValue);
+                  emitter.Emitnl(DT,PSVar((Var)var,"_")," = ",InitialValue);
                } else {
-                  emitter.Emitnl(DT,PSVar((Affix)var,"_")," = ",RandomInitialValue);
+                  emitter.Emitnl(DT,PSVar((Affix)var,"_")," = ",InitialValue);
                }
                break;
             case AD.transput:
@@ -354,12 +354,12 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) {
          if (macro.CanFail && macro.NeedsFinalization) emitter.Emit("if (! (");
       }
-      void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro) {
+      void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro,int alternativeNumber) {
          if (macro.CanFail && macro.NeedsFinalization) emitter.Emitnl(")) { return $false }");
       }
 
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
-      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) {
+      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro,int alternativeNumber) {
          ConditionalWrapperEnd(macro);
          Newline(optional: true);
       }
@@ -397,7 +397,7 @@ function Remove-Const([string[]]$names) {
       #region Alternatives
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber,bool suppressLabel) 
          => GenerateComment($"Alternative {alternativeNumber}");
-      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed) {
+      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed,bool supressLabel) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.Id.CanonicalName}" : "return $true") : "return");
          while (ifDepth > 0) {
@@ -436,7 +436,7 @@ function Remove-Const([string[]]$names) {
          emitter.Emit(PSName(called)," ");
       }
 
-      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
+      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          ConditionalWrapperEnd(called);
          Newline();
       }
@@ -473,7 +473,6 @@ function Remove-Const([string[]]$names) {
 
       #region Support
       void ICodeGenerator.GenerateNewline() => Newline();
-      void ICodeGenerator.GenerateComment(string comment) => GenerateComment(comment);
       void ICodeGenerator.GenerateComment(PrettyPrinter pp) => emitter.Emit(pp.Emitter.Content);
       void ICodeGenerator.GenerateSourceComment(bool nl) => emitter.NlEmit(nl ? "\n" : "",sourceEmitter.Content);
       string ICodeGenerator.FileExtension { get; } = ".ps1";

@@ -147,7 +147,7 @@ namespace CDL2v1 {
          SelectorType type = Abbreviation<SelectorType>.Identify(firstWord.ToUpper());
          if (type != SelectorType.INVALID) {
             input = inputComment + type + inputBody[firstWord.Length..];
-            if (parser.Tokenize(input,ParseMode.Full) && parser.tokens.Count > 0) {
+            if (parser.Tokenize(input,ParseMode.Check) && parser.tokens.Count > 0) {
                if (parser.VerifyIdentity(ParsingContext)) { // Considered verified if there is no context, or the type and id match
                   // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
                   // Must also take care of adding an undo record if something is replaced.

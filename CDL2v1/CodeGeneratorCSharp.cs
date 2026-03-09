@@ -105,10 +105,6 @@ namespace CDL2Generated {
 
       protected new void EmitUnitStartComment(Container unit) => emitter.Emitnl($"// Begin {unit.ContainerName}");
       protected new void EmitUnitEndComment(Container unit) => emitter.Emitnl($"// End {unit.ContainerName}");
-      protected new void GenerateComment(string comment) {
-         foreach (string line in comment.Split('\n')) emitter.Emitnl("// ",line);
-      }
-      protected new static string RandomInitialValue => Random.Next(0,int.MaxValue).ToString() + "  /* Random value to catch uninitialized VARs, LOCALs, and output AFFIXes */";
       #endregion Instance and Static Variables, Constructors
 
       #region Programs, Modules, Layers, Sections
@@ -222,7 +218,7 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
       void ICodeGenerator.GenerateConstElementConst(Const constant) => emitter.Emit(CSName(constant));
       void ICodeGenerator.GenerateConstantEnd(Const c) => emitter.Emitnl(";");
-      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl("private static ",DataType," ",CSName(var)," = ",RandomInitialValue,";");
+      void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl("private static ",DataType," ",CSName(var)," = ",InitialValue,";");
       void ICodeGenerator.GenerateList(LIST var,Const lwb,Const upb) => emitter.Emitnl("private static BoundedArray<",DataType,"> ",CSName(var)," = new BoundedArray<",DataType,">(",CSName(lwb),", ",CSName(upb),");");
       #endregion Data Declarations
 
@@ -235,7 +231,7 @@ namespace CDL2Generated {
 
       void ICodeGenerator.GenerateAffixSeparator() => emitter.Emit(", ");
 
-      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DataType," ",CSName(local)," = ",RandomInitialValue,";");
+      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DataType," ",CSName(local)," = ",InitialValue,";");
 
 
       void ICodeGenerator.GenerateAffix(Affix affix,AD dir,bool algorithmCanFail) {
@@ -259,9 +255,9 @@ namespace CDL2Generated {
                break;
             case AD.output:
                if (isVar) {
-                  emitter.Emitnl(DataType," ",CSName((Var)var,"_")," = ",RandomInitialValue,";");
+                  emitter.Emitnl(DataType," ",CSName((Var)var,"_")," = ",InitialValue,";");
                } else {
-                  emitter.Emitnl(DataType," ",CSName((Affix)var,"_")," = ",RandomInitialValue,";");
+                  emitter.Emitnl(DataType," ",CSName((Affix)var,"_")," = ",InitialValue,";");
                }
                break;
             case AD.transput:
@@ -347,7 +343,7 @@ namespace CDL2Generated {
          }
       }
 
-      void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro) {
+      void ICodeGenerator.GenerateReturnExpressionEnd(Macro macro,int alternativeNumber) {
          if (macro.CanFail) {
             if (macro.NeedsFinalization) {
                emitter.Emitnl(") break;");
@@ -361,7 +357,7 @@ namespace CDL2Generated {
       }
 
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
-      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro) {
+      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro,int alternativeNumber) {
          ConditionalWrapperEnd(macro);
          Newline(optional: true);
       }
@@ -398,7 +394,7 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber,bool suppressLabel) 
          => GenerateComment($"Alternative {alternativeNumber}");
 
-      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed) {
+      void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed,bool supressLabel) {
          if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? "break;" : "return true;") : "return;");
          while (ifDepth > 0) {
@@ -441,7 +437,7 @@ namespace CDL2Generated {
          }
       }
 
-      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
+      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
             emitter.Emit(")) {");
          } else {
@@ -484,7 +480,6 @@ namespace CDL2Generated {
 
       #region Support
       void ICodeGenerator.GenerateNewline() => Newline();
-      void ICodeGenerator.GenerateComment(string comment) => GenerateComment(comment);
       void ICodeGenerator.GenerateComment(PrettyPrinter pp) => emitter.Emit(pp.Emitter.Content);
       void ICodeGenerator.GenerateSourceComment(bool nl) => emitter.NlEmit(nl ? "\n" : "",sourceEmitter.Content);
       string ICodeGenerator.FileExtension { get; } = ".cs";

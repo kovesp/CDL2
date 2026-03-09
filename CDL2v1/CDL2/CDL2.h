@@ -8,7 +8,11 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #ifndef VALUE
-#define VALUE long
+#include <stdint.h>
+#define VALUE int64_t
+#define VALUE_MAX INT64_MAX
+#define VALUE_MIN INT64_MIN
+#define VALUE_UNDEFINED VALUE_MIN
 #endif
 
 //Add any necessary includes here.
