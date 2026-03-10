@@ -204,6 +204,7 @@ int c2_get_special_key();
 char* ansi_fg(AnsiColor color);
 char* ansi_bg(AnsiColor color);
 bool c2IsLude(char* name);
+char* c2FormatContainer(char* container);
 
 
 
@@ -443,6 +444,41 @@ bool c2IsLude(char* name) {
    return isupper(name[0]);
 }
 
+// Format container from "M.L.S" to "MOD M LAY L SEC S"
+char* c2FormatContainer(char* container) {
+   static char buffer[512];
+   char temp[256];
+   strncpy(temp, container, 255);
+   temp[255] = '\0';
+
+   char* parts[3] = {NULL, NULL, NULL};
+   int partCount = 0;
+
+   char* token = strtok(temp, ".");
+   while (token != NULL && partCount < 3) {
+      parts[partCount++] = token;
+      token = strtok(NULL, ".");
+   }
+
+   buffer[0] = '\0';
+   if (partCount >= 1) {
+      strcat(buffer, "MOD ");
+      strcat(buffer, parts[0]);
+   }
+   if (partCount >= 2) {
+      strcat(buffer, " LAY ");
+      strcat(buffer, parts[1]);
+   }
+   if (partCount >= 3) {
+      strcat(buffer, " SEC ");
+      strcat(buffer, parts[2]);
+   }
+
+   char* result = (char*)malloc(strlen(buffer) + 1);
+   if (result != NULL) strcpy(result, buffer);
+   return result;
+}
+
 void c2traceREPL(int depth,TraceExitType type) {
    c2PrintStackFrame(depth, true, C2Marker(type), ": ", type);
 
@@ -458,27 +494,13 @@ void c2traceREPL(int depth,TraceExitType type) {
    // Skip space after command
    while (*arg == ' ' || *arg == '\t') arg++;
 
-   // For commands that need arguments, check if we need to prompt
-   bool needsArg = (command == 'l' || command == 'd' || command == 'x' || 
-                    command == 'c' || command == '+' || command == '-' || command == 'r');
+   // Just print newline - everything was already echoed
+   fprintf(stderr, "\n");
 
-   if (needsArg && c2IsemptyOrWhitespace(arg)) {
-      // No argument provided - prompt for it
-      fprintf(stderr, " ");  // Add visual space if not already there
-      arg = c2ReadLineWithHistory();
-      // Build full command for history
-      char fullCmdBuf[258];
-      snprintf(fullCmdBuf, sizeof(fullCmdBuf), "%c %s", command, arg);
-      c2AddToHistory(fullCmdBuf);
-   } else {
-      // Just print newline - everything was already echoed
-      fprintf(stderr, "\n");
-
-      // Add full commands to history
-      if (command != '>' && command != 'g' && command != 'j' && 
-          command != 's' && command != '<' && command != 'r' && command != 'b' && command != 'q' && command != 'h') {
-         c2AddToHistory(fullCmd);
-      }
+   // Add full commands to history (but not single-key navigation commands)
+   if (command != '>' && command != 'g' && command != 'j' && 
+       command != 's' && command != '<' && command != 'b' && command != 'q' && command != 'h') {
+      c2AddToHistory(fullCmd);
    }
 
    switch (command) {
@@ -702,7 +724,18 @@ void c2traceREPL(int depth,TraceExitType type) {
          break;
       case 'l':
          if (c2IsemptyOrWhitespace(arg)) {
-            fprintf(stderr, "Argument required: 'a <prefix>' for algorithms, 'v <prefix>' for VARs, 'l <prefix>' for LISTs, 's <prefix>' for spypoints, 'o' for options, 'h' for history\n");
+            // No argument - show summary with commands
+            int spyCount = 0;
+            for (int i = 0; i < c2DebugInfo->procCount; i++) {
+               if (c2DebugInfo->procs[i].spypoint) spyCount++;
+            }
+            fprintf(stderr, "Summary:                 (Command to list)\n");
+            fprintf(stderr, "  Algorithms: %-6d     l a <prefix>\n", c2DebugInfo->procCount);
+            fprintf(stderr, "  VARs:       %-6d     l v <prefix>\n", c2DebugInfo->varCount);
+            fprintf(stderr, "  LISTs:      %-6d     l l <prefix>\n", c2DebugInfo->listCount);
+            fprintf(stderr, "  Spypoints:  %-6d     l s <prefix>\n", spyCount);
+            fprintf(stderr, "  Options:               l o\n");
+            fprintf(stderr, "  History:    %-6d     l h\n", C2HistoryCount);
          } else {
             char listType = arg[0];
             char* prefix = arg + 1;
@@ -715,11 +748,29 @@ void c2traceREPL(int depth,TraceExitType type) {
                if (procs != NULL && count > 0) {
                   fprintf(stderr, "Found %d algorithm(s):\n", count);
 
-                  // First pass: find maximum algorithm name length for alignment
+                  // First pass: find maximum algorithm name length AND container component widths for alignment
                   int maxNameLen = 0;
+                  int maxModLen = 0;
+                  int maxLayLen = 0;
                   for (int i = 0; i < count; i++) {
                      int nameLen = (int)strlen(procs[i]->name);
                      if (nameLen > maxNameLen) maxNameLen = nameLen;
+
+                     // Parse container to find max widths
+                     char temp[256];
+                     strncpy(temp, procs[i]->container, 255);
+                     temp[255] = '\0';
+
+                     char* parts[3] = {NULL, NULL, NULL};
+                     int partCount = 0;
+                     char* token = strtok(temp, ".");
+                     while (token != NULL && partCount < 3) {
+                        parts[partCount++] = token;
+                        token = strtok(NULL, ".");
+                     }
+
+                     if (partCount >= 1 && (int)strlen(parts[0]) > maxModLen) maxModLen = (int)strlen(parts[0]);
+                     if (partCount >= 2 && (int)strlen(parts[1]) > maxLayLen) maxLayLen = (int)strlen(parts[1]);
                   }
 
                   // Second pass: display with aligned columns, adding blank lines after ludes and between modules
@@ -757,14 +808,37 @@ void c2traceREPL(int depth,TraceExitType type) {
                         prevModule[255] = '\0';
                      }
 
+                     // Parse container and format with alignment
+                     char temp[256];
+                     strncpy(temp, procs[i]->container, 255);
+                     temp[255] = '\0';
+
+                     char* parts[3] = {NULL, NULL, NULL};
+                     int partCount = 0;
+                     char* token = strtok(temp, ".");
+                     while (token != NULL && partCount < 3) {
+                        parts[partCount++] = token;
+                        token = strtok(NULL, ".");
+                     }
+
                      char* typeName = 
                         procs[i]->type == C2_ALG_PREDICATE ? "PREDICATE" :
                         procs[i]->type == C2_ALG_TEST ? "TEST" :
                         procs[i]->type == C2_ALG_ACTION ? "ACTION" : "FUNCTION ";
-                     fprintf(stderr, "  %-9s %-*s  %s\n", 
-                        typeName,
-                        maxNameLen, procs[i]->name,
-                        procs[i]->container);
+
+                     // Format with aligned components
+                     fprintf(stderr, "  %-9s %-*s  ", typeName, maxNameLen, procs[i]->name);
+
+                     if (partCount >= 1) {
+                        fprintf(stderr, "MOD %-*s", maxModLen, parts[0]);
+                     }
+                     if (partCount >= 2) {
+                        fprintf(stderr, " LAY %-*s", maxLayLen, parts[1]);
+                     }
+                     if (partCount >= 3) {
+                        fprintf(stderr, " SEC %s", parts[2]);
+                     }
+                     fprintf(stderr, "\n");
 
                      wasLude = currentIsLude;
                   }
@@ -1653,6 +1727,16 @@ char* c2ReadFullCommand() {
          // ESC only works as 'q' command when buffer is empty
          strcpy(buffer, "q");
          break;
+      } else if (ch == KEY_ESC) {
+         // ESC clears the command line when editing
+         while (cursorPos < i) {
+            fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[cursorPos], ansi_fg(RESET));
+            cursorPos++;
+         }
+         for (int j = 0; j < i; j++) fprintf(stderr, "\b \b");
+         i = 0;
+         cursorPos = 0;
+         buffer[0] = '\0';
       } else if (ch == KEY_LEFT && i == 0) {
          // LEFT key only works as '<' command when buffer is empty
          strcpy(buffer, "<");
