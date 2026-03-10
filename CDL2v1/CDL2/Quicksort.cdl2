@@ -547,9 +547,9 @@ MODULE dynamic data.
                (check slot: lt+i+size, dyn base get data+allocations+i+stored ptr,
                  (eq+stored ptr+ptr;
                   incr+i, *check slot)).
-         ACTION expand allocations -size-new size:
-            add+allocations size+allocations expansion size+new size,
-              (dyn resize+allocations+new size, clear allocations+size;
+         ACTION expand allocations -old size -new size:
+            make+old size+allocations size, add+allocations size+allocations expansion size+new size,
+              (dyn resize+allocations+new size, clear allocations+old size;
                ?).            
 
          ACTION initialize:
@@ -596,14 +596,15 @@ MODULE dyn memory test.
          PREDICATE dyn try set data+>ptr+>index+>value.
       ENDSEC dynamic data.
       SECTION arithmetic.
-         ABSTR  multiply by, divide by, make, incr, lt.
-         IMPORT multiply by, divide by, make, incr, lt.
+         ABSTR  multiply by, divide by, make, incr, lt, gt.
+         IMPORT multiply by, divide by, make, incr, lt, gt.
 
          FUNCTION incr+>a>.
          FUNCTION multiply by +>a>+>b.
          FUNCTION divide by +>a>+>b.
          FUNCTION make +a>+>b.
          TEST lt+>a+>b.
+         TEST gt+>a+>b.
       ENDSEC arithmetic.      
       SECTION messages.
          ABSTR show msg, show msg no newline, show number.
@@ -613,15 +614,35 @@ MODULE dyn memory test.
          ACTION show number +>number.
          ACTION show msg no newline*string.
       ENDSEC messages.
+      SECTION command line.
+         IMPORT command line argument count, is command line argument, is command line argument numeric, get program name.
+         ABSTR command line argument count, is command line argument, is command line argument numeric, get program name, arg1, arg2, arg3.
+         EXT command line argument count, is command line argument, is command line argument numeric, get program name, arg1, arg2, arg3.
+
+         CONST arg1=0, arg2=1, arg3=2.
+
+         FUNCTION command line argument count+count>.
+         TEST is command line argument+>n*arg.
+         TEST is command line argument numeric+>n+number>.
+         FUNCTION get program name+prog name>.
+      ENDSEC command line.
    ENDLAY base.
    LAYER test.
       SECTION test memory.
          INV dyn allocate, dyn free, dyn resize, dyn size, dyn try get data, dyn try set data.
-         INV show msg, show msg no newline, show number, make, incr, multiply by, divide by, lt.
+         INV show msg, show msg no newline, show number, make, incr, multiply by, divide by, lt, gt.
+         INV command line argument count, is command line argument numeric, arg1.
 
          VAR store.
-         CONST store size = 5.
+         VAR store size.
+
+         CONST default store size = 5.
          CONST zero = 0, one = 1, two = 2.
+
+         FUNCTION process command line -arg count -size:
+            command line argument count+arg count,
+            (gt+arg count+arg1, is command line argument numeric+arg1+size, make+store size+size;
+             make+store size+default store size).
 
          ACTION do test:
             dyn allocate+store size+store, show msg no newline+"Allocated memory for ", show number+store size,
@@ -651,9 +672,11 @@ MODULE dyn memory test.
              +).
 
       ENDSEC test memory.
+      PRELUDE process command line.
       ROOT do test.
    ENDLAY test.
 ENDMOD dyn memory test.
+PRELUDE test memory.
 ROOT test memory.
 
 #=================================================================================
@@ -962,7 +985,7 @@ ENDPROG c sort.
 #PRAGMA Target=C file=memtest#
 PROGRAM memory test.
    PART c kernel, dynamic data, dyn memory test.
-   PRELUDE dynamic data.
+   PRELUDE dynamic data, dyn memory test.
    ROOT dyn memory test.
    POSTLUDE dynamic data.
 ENDPROG memory test.
