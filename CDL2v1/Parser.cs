@@ -190,7 +190,7 @@ namespace CDL2v1 {
          } else {
             currentObject.Object = (RW.PROGRAM, programId);
             currentProgram = new Program(programId,comments,notes);
-            LogParseObject(ParseMode.Full,currentProgram);
+            LogParseObject(1,ParseMode.Full,currentProgram);
          }
 
          if (tokens.CanConsume(RW.PART)) {
@@ -235,7 +235,7 @@ namespace CDL2v1 {
          } else {
             currentObject.Object = (RW.MODULE,moduleId);
             currentModule = new Module(moduleId,comments,notes);
-            LogParseObject();
+            LogParseObject(1);
          }
 
          // Now should see layers
@@ -251,12 +251,12 @@ namespace CDL2v1 {
          return currentModule;
       }
 
-      private void LogParseObject(ParseMode mode=ParseMode.Full,params object[] insertions) {
+      private void LogParseObject(int level,ParseMode mode=ParseMode.Full,params object[] insertions) {
          if (mode == ParseMode.Full) {
             if (insertions.Length == 0) {
-               Log(1,$"Parsing {currentObject}");
+               Log(level,$"Parsing {currentObject}");
             } else {
-               Log(1,$"Parsing {string.Join(" ",insertions)}");
+               Log(level,$"Parsing {string.Join(" ",insertions)}");
             }
          }
       }
@@ -264,7 +264,7 @@ namespace CDL2v1 {
          Debug.Assert(currentModule != null);
          currentObject.Object = (RW.LAYER, layerId);
          currentLayer = new Layer(layerId,currentModule,currentLayer,comments,notes);
-         LogParseObject();
+         LogParseObject(2);
 
          // Now should see sections
          ID sectionId = ID.ErrorID;
@@ -283,7 +283,7 @@ namespace CDL2v1 {
          Debug.Assert(currentLayer != null);
          currentObject.Object = (RW.SECTION, sectionId);
          currentSection = new Section(sectionId,currentLayer,comments,notes);
-         LogParseObject(mode);
+         LogParseObject(3,mode);
 
          // Now should see container parts
          // Interfaces first
@@ -321,7 +321,7 @@ namespace CDL2v1 {
          Debug.Assert(currentSection != null);
          algorithm = null;
          if (tokens.CanConsume(AlgTypes,out Token algType) && tokens.CanConsume(out ID id)) {
-            LogParseObject(mode,algType,id);
+            LogParseObject(4,mode,algType,id);
             RW algTypeRW = algType.reservedWordValue ?? RW.FUNCTION;
             currentObject.Object = (algTypeRW, id);
             if (!ParseAffixes(mode,out List<Affix> affixes)) return false;
@@ -454,15 +454,24 @@ namespace CDL2v1 {
             if (mode == ParseMode.Full) ReportError("Expected .");
             return false;
          }
-         NumberAlternatives(proc.group);
-         // Number the alternatives breadth first
-         void NumberAlternatives(Group group) {
-            foreach (Alternative alt in group.Alternatives) alt.AlternativeNumber = alternativeCounter++;
-            foreach (Alternative alt in group.Alternatives) if (alt.lastCall.type == LCT.Group) NumberAlternatives(alt.lastCall.group!);
-         }
-
+         NumberAlternatives(proc.group,int.MinValue);
          return true;
+
+         void NumberAlternatives(Group group,int groupSucceesor) {
+            Alternative last = group.Alternatives.Last();
+            foreach (Alternative alt in group.Alternatives) {
+               alt.NextAlternativeNumber = 1 +(alt.AlternativeNumber = alternativeCounter++);
+            }
+            last.NextAlternativeNumber = groupSucceesor;
+            foreach (Alternative alt in group.Alternatives) {
+               if (alt.lastCall.type == LCT.Group) {
+                  NumberAlternatives(alt.lastCall.group!,alt.NextAlternativeNumber);
+               }
+            }
+         }
       }
+
+
 
       /// <summary>
       /// Parse alternatives.

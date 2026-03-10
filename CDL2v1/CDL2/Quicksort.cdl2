@@ -285,6 +285,7 @@ MODULE c kernel.
       SECTION arithmetic.
          EXT incr, decr, incr with, decr with, add, subtract, multiply, multiply by, divide, divide by, remainder, modulo, halve, make, make string, random.
          EXT gt, lt, ge, le, eq, ne.
+         EXT make undefined.
 
          EXPORT incr, decr, incr with, decr with.
          EXPORT add, subtract, multiply, multiply by, divide, divide by, remainder, modulo, halve.
@@ -315,7 +316,8 @@ MODULE c kernel.
 
          FUNCTION halve +>a> = a " /= 2;".
          FUNCTION make +a>+>b = a " = " b ";".
-         FUNCTION make string +a>*b = a " = " b.
+         FUNCTION make string +a>*b = a " = " b ";".
+         FUNCTION make undefined+x> = x " = VALUE_UNDEFINED;".
 
          TEST eq+>a+>b = a " == " b.
          TEST ne+>a+>b = a " != " b.
@@ -337,7 +339,7 @@ MODULE c kernel.
          TEST is command line argument+>n*arg =
             "$Lstrcmp(_argv[(int)" n " + 1]," arg ") == 0".            
          TEST is command line argument numeric+>n+number> =
-            "$Lsscanf(_argv[(int)" n " + 1], $"%ld$", &" number ") == 1".
+            "$Lsscanf(_argv[(int)" n " + 1], $"%Id$", &" number ") == 1".
          FUNCTION get program name+prog name> =
             "$L" prog name " = _argv[0];".
       ENDSEC command line.
@@ -370,7 +372,7 @@ MODULE c kernel.
          EXT show msg, show msg no newline, show number.
 
          ACTION show msg*string = "printf($"%s\n$", " string ");".
-         ACTION show number +>number = "printf($"%ld$", " number ");".
+         ACTION show number +>number = "printf($"%Id$", " number ");".
          ACTION show msg no newline*string = "printf($"%s$", " string ");".
       ENDSEC messages.
 
@@ -418,7 +420,7 @@ MODULE c kernel.
       ENDSEC data.
       SECTION dynamic data.
          EXPORT dyn base allocate, dyn base free, dyn base resize, dyn base size, dyn base get data, dyn base set data, null, dyn base clear data.
-         INV divide by, multiply by, lt, ne, eq, make, add, incr, subtract.
+         INV divide by, multiply by, lt, ne, eq, make, add, incr, subtract, make undefined.
 
          CONST cell size = "sizeof(VALUE)".
 
@@ -453,8 +455,20 @@ MODULE c kernel.
             "$L free((VALUE*)" ptr ");".
          PREDICATE realloc+>ptr>+>new size =
             "(" ptr " = (VALUE*)realloc((VALUE*)" ptr "," new size ")) != NULL".
-         ACTION dyn base clear data+>ptr+>from =
+
+         ACTION zero data+>ptr+>from =
             "memset((VALUE*)" ptr " + " from ", 0, (((VALUE*)" ptr ")[-1] - " from ") * " cell size ");".
+         ACTION undef data+>ptr+>from -undef -size -i:
+            make undefined+undef, dyn base size+ptr+size, make+i+from,
+              (lt+i+size, dyn base set data+ptr+i+undef, incr+i, *;
+               +).
+
+         # If set, date is cleared to zeros (fast), otherwise to the undefined value.
+         TEST clear to zeros: -.
+         ACTION dyn base clear data+>ptr+>from:
+            clear to zeros, zero data+ptr+from;
+            undef data+ptr+from.
+            
           
          FUNCTION dyn base get data+>ptr+>index+value> =
             value " = ((VALUE*)" ptr ")[" index "];".
@@ -641,8 +655,8 @@ MODULE dyn memory test.
 
          FUNCTION process command line -arg count -size:
             command line argument count+arg count,
-            (gt+arg count+arg1, is command line argument numeric+arg1+size, make+store size+size;
-             make+store size+default store size).
+              (gt+arg count+arg1, is command line argument numeric+arg1+size, make+store size+size;
+               make+store size+default store size).
 
          ACTION do test:
             dyn allocate+store size+store, show msg no newline+"Allocated memory for ", show number+store size,

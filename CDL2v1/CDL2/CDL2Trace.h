@@ -6,6 +6,7 @@
 //=============================================================================
 // cspell:ignore spypoint spypoints steppoint skippoint going jumping honour
 
+#define _CRT_SECURE_NO_WARNINGS
 #ifndef CDL2H
 #include "CDL2.h"
 #endif
@@ -35,7 +36,7 @@
 #undef ABORT
 #define RETURNV(res) return c2TraceExit(res)
 #define RETURN {c2TraceExit(TRUE);return;}
-#define ABORT(msg,index) {c2TraceExitAbort(msg,index); return;}
+#define ABORT(msg,index) {c2TraceExitAbort(msg); return;}
 
 #define VAL(aff) {.val=aff}
 #define PTR(aff) {.ptr=aff}
@@ -49,7 +50,12 @@
 #define KEY_LEFT 1005
 #define KEY_RIGHT 1006
 #define KEY_DELETE 1007
+#define KEY_F1 1008
 #define KEY_ESC 27
+
+#define bool int
+#define true 1
+#define false 0
 
 /////////////////////////////////////////////////////////////////////////////////
 // Types and data structures
@@ -70,7 +76,7 @@ typedef struct {
    int procInfoIndex;
    C2DataValue*   args;
    VALUE*         locals;
-   BOOL           spypoint;
+   bool           spypoint;
 } C2StackFrame;
 
 typedef struct C2ProcInfo {
@@ -83,8 +89,8 @@ typedef struct C2ProcInfo {
    int         nlocals;
    char**      localnames;
    char*       code;
-   BOOL        spypoint;
-   BOOL        steppoint;
+   bool        spypoint;
+   bool        steppoint;
 } C2ProcInfo;
 
 typedef struct C2VarInfo {
@@ -112,12 +118,13 @@ typedef struct C2DebugInfo {
 typedef struct {
    VALUE* values;
    int count;
-   BOOL needsFree;
-   BOOL onePerLine;
+   bool needsFree;
+   bool onePerLine;
    int startIndex;
    char* listName;
    int lwb;
    int upb;
+   bool freeListName;
 } C2EvalResult;
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -129,16 +136,19 @@ C2DebugInfo* c2DebugInfo;
 C2StackFrame C2Stack[CALL_STACK_MAX_DEPTH];
 int C2SP = -1;
 
-BOOL C2HonorSpyPoints = FALSE;      // Whether to honour spy points while skipping.
+bool C2HonorSpyPoints = false;      // Whether to honour spy points while skipping.
 int C2Skippoint= -1;                // The index of the stack frame we are skipping to (used to know when to stop skipping)
-BOOL C2TraceWhileJumping = FALSE;   // Used to show trace output for intermediate calls while jumping or ...
-BOOL C2Jumping = FALSE;             // Jumping means run until the next spy point
-BOOL C2Going = FALSE;               // Going means run without further debugging
-
+bool C2TraceWhileJumping = false;   // Used to show trace output for intermediate calls while jumping or ...
+bool C2Jumping = false;             // Jumping means run until the next spy point
+bool C2Going = false;               // Going means run without further debugging
+// Temporary spy points for 'r' command
+#define C2_MAX_TEMP_SPYPOINTS 100
+int C2TempSpyPoints[C2_MAX_TEMP_SPYPOINTS];  // Indices of procedures with temporary spy points
+int C2TempSpyPointCount = 0;        // Number of temporary spy points set
 // Saved settings
-BOOL C2StepOverSuccess = TRUE;      // Whether to step over the next exit
-BOOL C2StepOverFailure = TRUE;      // Whether to step over the next fail
-BOOL C2FullNames = FALSE;           // Whether to show full procedure names (including container) in stack frames, or just the procedure name
+bool C2StepOverSuccess = true;      // Whether to step over the next exit
+bool C2StepOverFailure = true;      // Whether to step over the next fail
+bool C2FullNames = false;           // Whether to show full procedure names (including container) in stack frames, or just the procedure name
 int  C2DefaultListElements = 10;    // Default number of LIST elements to display
 int  C2Radix = 10;                  // The default radix for displaying numbers
 
@@ -152,14 +162,14 @@ int C2HistoryIndex = 0;
 /////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
 /////////////////////////////////////////////////////////////////////////////////
-void c2PrintStackFrame(int depth, BOOL indent, char* marker, char* lineEnd, TraceExitType type);
+void c2PrintStackFrame(int depth, bool indent, char* marker, char* lineEnd, TraceExitType type);
 void c2TraceEnter();
-BOOL c2TraceExit(int v);
-void c2TraceExitAbort(char* algName,int index);
+bool c2TraceExit(int v);
+void c2TraceExitAbort(char* algName);
 void c2traceREPL(int depth,TraceExitType type);
 void c2PrintAffixes(int depth, TraceExitType type);
 void c2PrintAff(int depth,int i, TraceExitType type);
-void c2PrintLocals(int depth, TraceExitType type);
+void c2PrintLocals(int depth);
 void c2Backtrace();
 int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index));
 int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount);
@@ -169,13 +179,13 @@ C2VarInfo* c2FindVar(char* name);
 C2VarInfo** c2FindVars(char* name, int* outCount);
 C2ListInfo* c2FindList(char* list);
 C2ListInfo** c2FindLists(char* name, int* outCount);
-BOOL c2SetSpyPoint(char* procName, BOOL set);
-BOOL c2IsSpyPoint(int procIndex);
+bool c2SetSpyPoint(char* procName, bool set);
+bool c2IsSpyPoint(int procIndex);
 
-BOOL c2StartsWith(char* str, char* prefix);
-BOOL c2MatchName(char* name1, char* name2);
+bool c2StartsWith(char* str, char* prefix);
+bool c2MatchName(char* name1, char* name2);
 char* c2RemoveBlanks(char* str);
-BOOL c2IsemptyOrWhitespace(char* str);
+bool c2IsemptyOrWhitespace(char* str);
 C2EvalResult c2EvaluateExpr(int depth, char* expr);
 void c2PrintValues(C2EvalResult* result, char format);
 void c2FreeEvalResult(C2EvalResult* result);
@@ -225,7 +235,7 @@ void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE* locals) {
    C2Stack[C2SP].procInfoIndex = procIndex;
    C2Stack[C2SP].args = args;
    C2Stack[C2SP].locals = locals;
-   C2Stack[C2SP].spypoint = FALSE;
+   C2Stack[C2SP].spypoint = false;
 }
 
 void c2pop_callstack_frame() {
@@ -236,7 +246,7 @@ void c2pop_callstack_frame() {
    C2SP--;
 }
 
-BOOL c2SetSpyPoint(char* procName, BOOL set) {
+bool c2SetSpyPoint(char* procName, bool set) {
    int count = 0;
    C2ProcInfo** procs = c2FindProcs(procName, &count);
    if (procs != NULL) {
@@ -245,13 +255,13 @@ BOOL c2SetSpyPoint(char* procName, BOOL set) {
          fprintf(stderr, "Spy point %s %s\n", set ? "set on" : "cleared from", procs[i]->name);
       }
       free(procs);
-      return TRUE;
+      return true;
    } else {
-      return FALSE;
+      return false;
    }
 }
 
-BOOL c2IsSpyPoint(int procIndex) {
+bool c2IsSpyPoint(int procIndex) {
    return c2DebugInfo->procs[procIndex].spypoint;
 }
    
@@ -275,12 +285,12 @@ char * C2Marker(TraceExitType type) {
 void c2Backtrace() {
    fprintf(stderr, "\n===== Stack backtrace (most recent call to last):\n");
    for (int i = C2SP ; i >= 0 ; i--) {
-      c2PrintStackFrame(i,FALSE,NO_MARKER,"\n", TRACE_ENTER);
+      c2PrintStackFrame(i,false,NO_MARKER,"\n", TRACE_ENTER);
    }
    fprintf(stderr, "===== Backtrace ends\n\n");
-}   
+}
    
-void c2PrintStackFrame(int depth,BOOL indent, char* marker,char* lineEnd,TraceExitType type) {
+void c2PrintStackFrame(int depth,bool indent, char* marker,char* lineEnd,TraceExitType type) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name= procInfo.name;
@@ -299,7 +309,7 @@ void c2PrintStackFrame(int depth,BOOL indent, char* marker,char* lineEnd,TraceEx
    fprintf(stderr, "%s%s%s %s",indentation,marker,c2AlgType(depth),name);
    if (type != TRACE_FAIL) {
       c2PrintAffixes(depth, type);
-      c2PrintLocals(depth, type);
+      c2PrintLocals(depth);
    }
    fprintf(stderr,"%s%s", ansi_fg(RESET), lineEnd);
 }
@@ -311,7 +321,7 @@ void c2PrintAffixes(int depth, TraceExitType type) {
    }
 }
 
-void c2PrintLocals(int depth, TraceExitType type) {
+void c2PrintLocals(int depth) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    for (int i = 0; i < procInfo.nlocals; i++) {
@@ -319,7 +329,7 @@ void c2PrintLocals(int depth, TraceExitType type) {
       if (value == VALUE_UNDEFINED) {
          fprintf(stderr, " -%s=?",procInfo.localnames[i]);
       } else {
-         fprintf(stderr, C2Radix == 16 ? " -%s=%lx" : " -%s=%ld", procInfo.localnames[i], value);
+         fprintf(stderr, C2Radix == 16 ? " -%s=%Ix" : " -%s=%Id", procInfo.localnames[i], value);
       }
    }
 }
@@ -329,29 +339,29 @@ void c2PrintAff(int depth,int i, TraceExitType type) {
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name = procInfo.argnames[i];
    switch (procInfo.affTypes[i]) {
-      case C2_AFF_INPUT:    fprintf(stderr, C2Radix == 16 ? " +>%s=%lx" : " +>%s=%ld", name,frame.args[i].val); break;
+      case C2_AFF_INPUT:    fprintf(stderr, C2Radix == 16 ? " +>%s=%Ix" : " +>%s=%Id", name,frame.args[i].val); break;
       case C2_AFF_OUTPUT:   
          if (type == TRACE_ENTER) {
             fprintf(stderr, " +%s>=?",name);
          } else {
-            fprintf(stderr, C2Radix == 16 ? " +%s>=%lx" : " +%s>=%ld" ,name,*frame.args[i].ptr);
+            fprintf(stderr, C2Radix == 16 ? " +%s>=%Ix" : " +%s>=%Id" ,name,*frame.args[i].ptr);
          }
          break;
-      case C2_AFF_TRANSPUT: fprintf(stderr, C2Radix == 16 ? " +>%s>=%lx" : " +>%s>=%ld",name,*frame.args[i].ptr); break;
+      case C2_AFF_TRANSPUT: fprintf(stderr, C2Radix == 16 ? " +>%s>=%Ix" : " +>%s>=%Id",name,*frame.args[i].ptr); break;
       case C2_AFF_STRING:   fprintf(stderr, " *%s=\"%s\"",   name,frame.args[i].str); break;
       default: fprintf(stderr, " +??");
    }
 }
 
 // Called after c2_push_callstack_frame so call information is on the stack.
-BOOL firstEntry = TRUE;
+bool firstEntry = true;
 void c2TraceEnter() {
    if (firstEntry) {
       c2InitTrace();  // Initialize signal handlers on first entry
       c2LoadDebugState();  // Load saved debugger state
-      fprintf(stderr, "%sCDL2 debugger v1.0, press %sh%s for help%s\n\n", 
-         ansi_fg(BRIGHT_MAGENTA), ansi_fg(YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
-      firstEntry = FALSE;
+      fprintf(stderr, "%sCDL2 debugger v1.0, press %sh%s or %sF1%s for help%s\n\n", 
+         ansi_fg(BRIGHT_MAGENTA), ansi_fg(YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
+      firstEntry = false;
    }
    if (C2Going) {
       // If we are going, just return without showing trace output
@@ -362,7 +372,7 @@ void c2TraceEnter() {
       if (C2HonorSpyPoints && C2Stack[C2SP].spypoint) {
          // Skipping, but we are honouring spy points and this is a spy point: need to stop
          C2Skippoint = -1; // Stop skipping when we hit a spy point
-         C2HonorSpyPoints= FALSE; // Because spypoint honouring applies only to skipping and is irrelevant otherwise.
+         C2HonorSpyPoints= false; // Because spypoint honouring applies only to skipping and is irrelevant otherwise.
       } else {
          // Otherwise, just continue without stopping
          return; 
@@ -370,8 +380,13 @@ void c2TraceEnter() {
    } else if (C2Jumping) {
       if (c2IsSpyPoint(C2Stack[C2SP].procInfoIndex)) {
          // We are not skipping, and this is a spy point.
-         C2HonorSpyPoints = FALSE; // Should already be false as we are not skipping.
-         C2Jumping = FALSE; // Because we are stopping at the spy point, we are no longer jumping.
+         C2HonorSpyPoints = false; // Should already be false as we are not skipping.
+         C2Jumping = false; // Because we are stopping at the spy point, we are no longer jumping.
+         // Clear temporary spy points that were set by 'r' command
+         for (int i = 0; i < C2TempSpyPointCount; i++) {
+            c2DebugInfo->procs[C2TempSpyPoints[i]].spypoint = false;
+         }
+         C2TempSpyPointCount = 0;
       }else {
          // Jumping, but have noarrived yet
          return;
@@ -381,7 +396,7 @@ void c2TraceEnter() {
    c2traceREPL(C2SP, TRACE_ENTER);
 }
 // Called without popping the stack, so it must do it.
-BOOL c2TraceExit(int v) {
+bool c2TraceExit(int v) {
    if (C2Going || C2Jumping) {
       // If we are going, just return without showing trace output
    } else if (C2Skippoint >=0) {
@@ -389,41 +404,41 @@ BOOL c2TraceExit(int v) {
       if (C2Skippoint == C2SP) {
          // We have reached the point we wanted to skip to, so stop skipping
          C2Skippoint = -1;
-         C2HonorSpyPoints = FALSE; // Because spypoint honouring applies only to skipping and is irrelevant otherwise.
+         C2HonorSpyPoints = false; // Because spypoint honouring applies only to skipping and is irrelevant otherwise.
          if (v && C2StepOverSuccess) {
-            c2PrintStackFrame(C2SP, TRUE, C2Marker(TRACE_EXIT), "\n", TRACE_EXIT);
+            c2PrintStackFrame(C2SP, true, C2Marker(TRACE_EXIT), "\n", TRACE_EXIT);
          } else if (!v && C2StepOverFailure) {
-            c2PrintStackFrame(C2SP, TRUE, C2Marker(TRACE_FAIL), "\n", TRACE_FAIL);
+            c2PrintStackFrame(C2SP, true, C2Marker(TRACE_FAIL), "\n", TRACE_FAIL);
          } else {
             // We are stepping over, but this exit does not match our criteria to step over, so stop
-            c2traceREPL(C2SP, v == FALSE ? TRACE_FAIL : TRACE_EXIT);
+            c2traceREPL(C2SP, v == false ? TRACE_FAIL : TRACE_EXIT);
          }
       }
    //} else if (C2Stack[C2SP].spypoint) {
       // Do spypoints apply to exits? for now, no.
    } else if (v && C2StepOverSuccess) {
-      c2PrintStackFrame(C2SP, TRUE, C2Marker(TRACE_EXIT), "\n", TRACE_EXIT);
+      c2PrintStackFrame(C2SP, true, C2Marker(TRACE_EXIT), "\n", TRACE_EXIT);
    } else if (!v && C2StepOverFailure) {
-      c2PrintStackFrame(C2SP, TRUE, C2Marker(TRACE_FAIL), "\n", TRACE_FAIL);
+      c2PrintStackFrame(C2SP, true, C2Marker(TRACE_FAIL), "\n", TRACE_FAIL);
    } else if (!C2Jumping) {
       // We are not jumping, so stop
-      c2traceREPL(C2SP, v==FALSE ? TRACE_FAIL : TRACE_EXIT);
+      c2traceREPL(C2SP, v==false ? TRACE_FAIL : TRACE_EXIT);
    } else {
       // We are stepping over, but this exit does not match our criteria to step over, so stop
-      c2traceREPL(C2SP, v==FALSE ? TRACE_FAIL : TRACE_EXIT);
+      c2traceREPL(C2SP, v==false ? TRACE_FAIL : TRACE_EXIT);
    }
    c2pop_callstack_frame();
    return v;
 }
 // Called for the abort operator
-void c2TraceExitAbort(char *algName,int index) {
+void c2TraceExitAbort(char *algName) {
    fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\n", algName);
    c2Backtrace();
    exit(1);
 }
 
 void c2traceREPL(int depth,TraceExitType type) {
-   c2PrintStackFrame(depth, TRUE, C2Marker(type), ": ", type);
+   c2PrintStackFrame(depth, true, C2Marker(type), ": ", type);
 
    // Read command (supports single keys AND history recall with up/down)
    char* fullCmd = c2ReadFullCommand();
@@ -438,8 +453,8 @@ void c2traceREPL(int depth,TraceExitType type) {
    while (*arg == ' ' || *arg == '\t') arg++;
 
    // For commands that need arguments, check if we need to prompt
-   BOOL needsArg = (command == 'l' || command == 'd' || command == 'x' || 
-                    command == 'c' || command == '+' || command == '-');
+   bool needsArg = (command == 'l' || command == 'd' || command == 'x' || 
+                    command == 'c' || command == '+' || command == '-' || command == 'r');
 
    if (needsArg && c2IsemptyOrWhitespace(arg)) {
       // No argument provided - prompt for it
@@ -455,39 +470,86 @@ void c2traceREPL(int depth,TraceExitType type) {
 
       // Add full commands to history
       if (command != '>' && command != 'g' && command != 'j' && 
-          command != 's' && command != 'b' && command != 'q' && command != 'h') {
+          command != 's' && command != '<' && command != 'r' && command != 'b' && command != 'q' && command != 'h') {
          c2AddToHistory(fullCmd);
       }
    }
 
    switch (command) {
       case 'h':
-         fprintf(stderr, "\n\n%sCommands:\n", ansi_fg(BRIGHT_BLUE));
-         fprintf(stderr, "  > ENTER - continue until the next trace point (step into)\n");
-         fprintf(stderr, "  s TAB   - continue to the exit of the current call (step over)\n");
-         fprintf(stderr, "  j SPC   - continue until the next spy point\n");
-         fprintf(stderr, "  g END   - continue until the end\n");
-         fprintf(stderr, "  b       - show a backtrace of the call stack\n");
-         fprintf(stderr, "    UP/DN - at main prompt recall previous commands in history\n");
-         fprintf(stderr, "  q ESC   - quit the program\n\n");
-         fprintf(stderr, "  d       - show arg in decimal\n");
-         fprintf(stderr, "  x       - show arg in hex\n");
-         fprintf(stderr, "  c       - show arg as character\n");
+         // Erase the 'h' that was just typed
+         fprintf(stderr, "\b \b");
+
+         // Switch to alternate screen buffer
+         fprintf(stderr, "\x1b[?1049h\x1b[H\x1b[2J");
+
+         fprintf(stderr, "%sCDL2 Debugger Commands%s\n", ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
+         fprintf(stderr, "================================================================================\n\n");
+
+         fprintf(stderr, "%sNavigation Commands:%s\n", ansi_fg(BRIGHT_BLUE), ansi_fg(RESET));
+         fprintf(stderr, "  %s>%s ENTER - continue until the next trace point (step into)\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %ss%s TAB   - continue to the exit of the current call (step over)\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %s<%s LEFT  - continue to the exit of the parent call (step out of parent)\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %sj%s SPC   - continue until the next spy point\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %sr%s       - run to algorithm prefix (temp spy point + jump) or dots to step out\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "            %s.%s (dot): step to current exit (like s)\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            %s..%s (two dots): step to parent exit (like <)\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            %s...%s (three dots): step to grandparent exit, etc.\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            %s<prefix>%s: run to algorithms matching prefix\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "  %sg%s END   - continue until the end\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %sb%s       - show a backtrace of the call stack\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "    %sUP/DN%s - at main prompt recall previous commands in history\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %sq%s ESC   - quit the program\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %sh%s F1    - show this help screen\n\n", ansi_fg(CYAN), ansi_fg(RESET));
+
+         fprintf(stderr, "%sInspection Commands:%s\n", ansi_fg(BRIGHT_BLUE), ansi_fg(RESET));
+         fprintf(stderr, "  %sd%s       - show arg in decimal\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %sx%s       - show arg in hex\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "  %sc%s       - show arg as character\n", ansi_fg(CYAN), ansi_fg(RESET));
          fprintf(stderr, "            arg can be an affix, local, VAR, or LIST name\n");
-         fprintf(stderr, "            LIST: [idx] [start:n] [start-end] [start:] [start-] [:end] [-end]\n");
-         fprintf(stderr, "            : or - alone shows %d elements\n", C2DefaultListElements);
-         fprintf(stderr, "            [] gives terse display, () shows one per line with index\n");
-         fprintf(stderr, "            Pointer indirection: *ptr - dereference pointer\n");
-         fprintf(stderr, "            Pointer indexing: *ptr[idx] *ptr(idx) - same syntax as LISTs (lwb=0)\n");
-         fprintf(stderr, "  l       - list ... with 'a <prefix>' algorithms, 'v <prefix>' VARs, 'l <prefix>' LISTs, 's <prefix>' spypoints, 'o' options, 'h' history\n");
-         fprintf(stderr, "  t       - show CDL2 source code of algorithm(s) (no arg = current algorithm, or give prefix to match)\n");
-         fprintf(stderr, "  +/-     - set(+) or clear (-) a spy point, enter the prefix(es) of the algorithm name(s)\n");
-         fprintf(stderr, "            with argument + or - stop or not at that exit (default is don't stop)\n");
-         fprintf(stderr, "            with argument = show or not show full names (default is don't show, except for ludes)\n");
-         fprintf(stderr, "            with argument # and a number: set the default number of list elements to show; - # reset it to 10.\n");
-         fprintf(stderr, "            with argument ^ toggles the default display radix between 10 and 16; - ^ reset it to 10.\n");
-         fprintf(stderr, "            with argument . clear command history%s\n",ansi_fg(RESET));
-         c2traceREPL(depth,type);
+         fprintf(stderr, "            %sLIST:%s [idx] [start:n] [start-end] [start:] [start-] [:end] [-end]\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "                  [] () - show %d elements (default count)\n", C2DefaultListElements);
+         fprintf(stderr, "                  [start:] [start-] - show %d elements from start\n", C2DefaultListElements);
+         fprintf(stderr, "                  [:end] [-end] - show %d elements up to end\n", C2DefaultListElements);
+         fprintf(stderr, "                  [-] [:] - show ALL elements\n");
+         fprintf(stderr, "                  (-) (:) - show ALL elements, one per line\n");
+         fprintf(stderr, "                  [] for terse, () for one-per-line display\n");
+         fprintf(stderr, "            %sPointer indirection:%s *ptr - dereference pointer\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            %sPointer indexing:%s *ptr[idx] *ptr(idx) - same syntax as LISTs (lwb=0)\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            %sSized pointer:%s >ptr[idx] >ptr(idx) - size from *ptr[-1], clamped\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "                           >ptr[-] >ptr[:] - show ALL elements\n");
+         fprintf(stderr, "                           >ptr(-) >ptr(:) - show ALL elements, one per line\n\n");
+
+         fprintf(stderr, "%sListing Commands:%s\n", ansi_fg(BRIGHT_BLUE), ansi_fg(RESET));
+         fprintf(stderr, "  %sl%s       - list with 'a <prefix>' algorithms, 'v <prefix>' VARs,\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "            'l <prefix>' LISTs, 's <prefix>' spypoints, 'o' options, 'h' history\n");
+         fprintf(stderr, "  %st%s       - show CDL2 source code of algorithm(s)\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "            no arg: current algorithm\n");
+         fprintf(stderr, "            %s.%s (dot): current algorithm\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            %s..%s (two dots): parent caller\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            %s...%s (three dots): grandparent, etc.\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            %s<prefix>%s: algorithms matching prefix\n\n", ansi_fg(YELLOW), ansi_fg(RESET));
+
+         fprintf(stderr, "%sConfiguration Commands:%s\n", ansi_fg(BRIGHT_BLUE), ansi_fg(RESET));
+         fprintf(stderr, "  %s+/-%s     - set(+) or clear (-) a spy point, enter prefix(es) of algorithm name(s)\n", ansi_fg(CYAN), ansi_fg(RESET));
+         fprintf(stderr, "            with argument %s+%s or %s-%s: stop or not at that exit (default: don't stop)\n", ansi_fg(YELLOW), ansi_fg(RESET), ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            with argument %s=%s: show or not show full names (default: don't show, except ludes)\n", ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            with argument %s# <N>%s: set default list elements count; %s- #%s reset to 10\n", ansi_fg(YELLOW), ansi_fg(RESET), ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            with argument %s^%s: toggle radix (10/16); %s- ^%s reset to 10\n", ansi_fg(YELLOW), ansi_fg(RESET), ansi_fg(YELLOW), ansi_fg(RESET));
+         fprintf(stderr, "            with argument %s.%s: %s- .%s clears command history\n\n", ansi_fg(YELLOW), ansi_fg(RESET), ansi_fg(YELLOW), ansi_fg(RESET));
+
+         fprintf(stderr, "================================================================================\n");
+         fprintf(stderr, "%sPress %sESC%s to returnto the debugger prompt...%s", ansi_fg(BRIGHT_MAGENTA), ansi_fg(BRIGHT_YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
+         fflush(stderr);
+
+         // Wait for ESC key
+         while (1) {
+            int ch = c2_get_special_key();
+            if (ch == KEY_ESC || ch == 27 || ch == 'q' || ch == '\n' || ch == '\r') break;
+         }
+
+         // Switch back to main screen buffer
+         fprintf(stderr, "\x1b[?1049l");
          break;
       case '+':
       case '-':
@@ -551,14 +613,81 @@ void c2traceREPL(int depth,TraceExitType type) {
       case '>':
          break;
       case 'g':
-         C2Going = TRUE;
+         C2Going = true;
          break;
       case 'j':
-         C2Jumping = TRUE;
+         C2Jumping = true;
+         break;
+      case 'r':
+         if (c2IsemptyOrWhitespace(arg)) {
+            fprintf(stderr, "Algorithm prefix or dots cannot be empty\n");
+            c2traceREPL(depth, type);
+         } else {
+            // Check if argument is a sequence of dots (for stepping out)
+            char* p = arg;
+            while (*p == ' ' || *p == '\t') p++;
+            int dotCount = 0;
+            char* dotStart = p;
+            while (*p == '.') {
+               dotCount++;
+               p++;
+            }
+            while (*p == ' ' || *p == '\t') p++;
+
+            if (dotCount > 0 && *p == '\0') {
+               // Argument is only dots - step out
+               int targetDepth = depth - (dotCount - 1);
+               if (targetDepth < 0) {
+                  fprintf(stderr, "Not enough call stack depth (only %d level(s) available)\n", depth + 1);
+                  c2traceREPL(depth, type);
+               } else if (type == TRACE_ENTER) {
+                  C2Skippoint = targetDepth;
+               } else {
+                  fprintf(stderr, "Can only step out from ENTER points\n");
+                  c2traceREPL(depth, type);
+               }
+            } else {
+               // Regular argument - find matching procedures
+               int count = 0;
+               C2ProcInfo** procs = c2FindProcs(arg, &count);
+               if (procs != NULL && count > 0) {
+                  // Clear any previous temporary spy points
+                  C2TempSpyPointCount = 0;
+
+                  // Set spy points, tracking which are new
+                  for (int i = 0; i < count; i++) {
+                     int procIdx = procs[i] - c2DebugInfo->procs;
+                     if (!procs[i]->spypoint) {
+                        // This procedure didn't have a spy point, so set one temporarily
+                        procs[i]->spypoint = true;
+                        if (C2TempSpyPointCount < C2_MAX_TEMP_SPYPOINTS) {
+                           C2TempSpyPoints[C2TempSpyPointCount++] = procIdx;
+                        }
+                     }
+                  }
+                  free(procs);
+
+                  fprintf(stderr, "Running to '%s' (%d algorithm(s), %d temporary spy point(s))\n", 
+                     arg, count, C2TempSpyPointCount);
+                  C2Jumping = true;
+               } else {
+                  fprintf(stderr, "No algorithms found matching '%s'\n", arg);
+                  c2traceREPL(depth, type);
+               }
+            }
+         }
          break;
       case 's':
          if (type == TRACE_ENTER) {
             C2Skippoint = depth;
+         }
+         break;
+      case '<':
+         if (depth > 0) {
+            C2Skippoint = depth - 1;
+         } else {
+            fprintf(stderr, "Already at top level\n");
+            c2traceREPL(depth, type);
          }
          break;
       case 'b':
@@ -596,8 +725,14 @@ void c2traceREPL(int depth,TraceExitType type) {
                if (vars != NULL && count > 0) {
                   fprintf(stderr, "Found %d VAR(s):\n", count);
                   for (int i = 0; i < count; i++) {
-                     fprintf(stderr, "  VAR %s.%s = %ld\n", 
-                        vars[i]->container, vars[i]->name, *vars[i]->value);
+                     VALUE value = *vars[i]->value;
+                     if (value == VALUE_UNDEFINED) {
+                        fprintf(stderr, "  VAR %s.%s = ?\n",vars[i]->container, vars[i]->name);
+                     } else if (C2Radix == 16) {
+                        fprintf(stderr, "  VAR %s.%s = %Ix\n",vars[i]->container, vars[i]->name, value);
+                     } else {
+                        fprintf(stderr, "  VAR %s.%s = %Id\n", vars[i]->container, vars[i]->name,value);
+                     }
                   }
                   free(vars);
                } else {
@@ -677,21 +812,50 @@ void c2traceREPL(int depth,TraceExitType type) {
                fprintf(stderr, "(No source code available)\n");
             }
          } else {
-            // Argument provided - find matching algorithm(s)
-            int count = 0;
-            C2ProcInfo** procs = c2FindProcs(arg, &count);
-            if (procs != NULL && count > 0) {
-               for (int i = 0; i < count; i++) {
-                  if (procs[i]->code != NULL && procs[i]->code[0] != '\0') {
-                     fprintf(stderr, "\n%s\n", procs[i]->code);
+            // Check if argument is a sequence of dots (for ancestor navigation)
+            char* p = arg;
+            while (*p == ' ' || *p == '\t') p++;
+            int dotCount = 0;
+            char* dotStart = p;
+            while (*p == '.') {
+               dotCount++;
+               p++;
+            }
+            while (*p == ' ' || *p == '\t') p++;
+
+            if (dotCount > 0 && *p == '\0') {
+               // Argument is only dots - show ancestor code
+               int ancestorDepth = depth - (dotCount - 1);
+               if (ancestorDepth < 0) {
+                  fprintf(stderr, "Not enough call stack depth (only %d level(s) available)\n", depth + 1);
+               } else if (ancestorDepth > C2SP) {
+                  fprintf(stderr, "Invalid stack depth\n");
+               } else {
+                  C2ProcInfo ancestorProc = c2DebugInfo->procs[C2Stack[ancestorDepth].procInfoIndex];
+                  if (ancestorProc.code != NULL && ancestorProc.code[0] != '\0') {
+                     fprintf(stderr, "\n%s\n", ancestorProc.code);
                   } else {
                      fprintf(stderr, "(No source code available for %s.%s)\n", 
-                        procs[i]->container, procs[i]->name);
+                        ancestorProc.container, ancestorProc.name);
                   }
                }
-               free(procs);
             } else {
-               fprintf(stderr, "No algorithms found matching '%s'\n", arg);
+               // Regular argument - find matching algorithm(s)
+               int count = 0;
+               C2ProcInfo** procs = c2FindProcs(arg, &count);
+               if (procs != NULL && count > 0) {
+                  for (int i = 0; i < count; i++) {
+                     if (procs[i]->code != NULL && procs[i]->code[0] != '\0') {
+                        fprintf(stderr, "\n%s\n", procs[i]->code);
+                     } else {
+                        fprintf(stderr, "(No source code available for %s.%s)\n", 
+                           procs[i]->container, procs[i]->name);
+                     }
+                  }
+                  free(procs);
+               } else {
+                  fprintf(stderr, "No algorithms found matching '%s'\n", arg);
+               }
             }
          }
          c2traceREPL(depth,type);
@@ -704,7 +868,7 @@ void c2traceREPL(int depth,TraceExitType type) {
          } else {
             C2EvalResult result = c2EvaluateExpr(depth, arg);
             if (result.values != NULL) {
-               c2PrintValues(&result, command);
+               c2PrintValues(&result, (char)command);
                c2FreeEvalResult(&result);
             } else {
                fprintf(stderr, "Cannot evaluate '%s'\n", arg);
@@ -740,7 +904,7 @@ int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
    // Linear search for prefix match (binary search doesn't work well for prefix matching)
    for (int i = 0; i < count; i++) {
       char* clean_target = c2RemoveBlanks(getNameFunc(i));
-      BOOL matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
+      bool matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
       free(clean_target);
       if (matches) {
          free(clean_name);
@@ -768,7 +932,7 @@ int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), in
    int start = firstMatch;
    while (start > 0) {
       char* clean_target = c2RemoveBlanks(getNameFunc(start - 1));
-      BOOL matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
+      bool matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
       free(clean_target);
       if (!matches) break;
       start--;
@@ -778,7 +942,7 @@ int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), in
    int end = firstMatch;
    while (end < count - 1) {
       char* clean_target = c2RemoveBlanks(getNameFunc(end + 1));
-      BOOL matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
+      bool matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
       free(clean_target);
       if (!matches) break;
       end++;
@@ -881,25 +1045,30 @@ C2ListInfo** c2FindLists(char* name, int* outCount) {
 }
 
 C2EvalResult c2EvaluateExpr(int depth, char* expr) {
-   C2EvalResult result = { NULL, 0, FALSE, FALSE, 0 };
+   C2EvalResult result = { NULL, 0, false, false, 0, NULL, 0, 0, false };
 
    // Check for pointer indirection
-   BOOL isIndirection = FALSE;
+   bool isIndirection = false;
+   bool isSizedIndirection = false;
    if (expr[0] == '*') {
-      isIndirection = TRUE;
+      isIndirection = true;
       expr++; // Skip the '*'
+   } else if (expr[0] == '>') {
+      isIndirection = true;
+      isSizedIndirection = true;
+      expr++; // Skip the '>'
    }
 
    char nameBuf[256];
    char* bracket = strchr(expr, '[');
    char* paren = strchr(expr, '(');
-   BOOL useParens = FALSE;
+   bool useParens = false;
 
    // Both [] and () work for LISTs and pointers
    // [] gives terse display, () gives one per line with index
    if (paren != NULL && (bracket == NULL || paren < bracket)) {
       bracket = paren;
-      useParens = TRUE;
+      useParens = true;
    }
 
    int nameLen = bracket ? (int)(bracket - expr) : (int)strlen(expr);
@@ -927,7 +1096,7 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    VALUE baseValue = 0;
-   BOOL foundValue = FALSE;
+   bool foundValue = false;
 
    // Check affixes
    for (int i = 0; i < procInfo.nargs; i++) {
@@ -935,16 +1104,16 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
          switch (procInfo.affTypes[i]) {
             case C2_AFF_INPUT:
                baseValue = frame.args[i].val;
-               foundValue = TRUE;
+               foundValue = true;
                break;
             case C2_AFF_OUTPUT:
             case C2_AFF_TRANSPUT:
                baseValue = isIndirection ? frame.args[i].val : *frame.args[i].ptr;
-               foundValue = TRUE;
+               foundValue = true;
                break;
             case C2_AFF_STRING:
                baseValue = frame.args[i].str ? (VALUE)strlen(frame.args[i].str) : 0;
-               foundValue = TRUE;
+               foundValue = true;
                break;
          }
          break;
@@ -956,7 +1125,7 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
       for (int i = 0; i < procInfo.nlocals; i++) {
          if (c2MatchName(procInfo.localnames[i], cleanName)) {
             baseValue = frame.locals[i];
-            foundValue = TRUE;
+            foundValue = true;
             break;
          }
       }
@@ -967,7 +1136,7 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
       C2VarInfo* var = c2FindVar(cleanName);
       if (var != NULL) {
          baseValue = *var->value;
-         foundValue = TRUE;
+         foundValue = true;
       }
    }
 
@@ -977,6 +1146,13 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
       if (ptr == NULL) {
          free(cleanName);
          return result;
+      }
+
+      // For sized indirection (>), get the size from ptr[-1]
+      int actualSize = 0;
+      if (isSizedIndirection) {
+         actualSize = (int)ptr[-1];
+         if (actualSize < 0) actualSize = 0;
       }
 
       // Handle indexing for indirection with lwb=0
@@ -1001,10 +1177,17 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
          char* trimmed = indexBuf;
          while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
 
+         // Special case for sized indirection: [-] [:] (-) (:) means show all elements
          if (*trimmed == '\0') {
             // Empty brackets - use default count from start
             count = C2DefaultListElements;
             endIdx = startIdx + count - 1;
+         } else if (isSizedIndirection && actualSize > 0 && 
+                    ((trimmed[0] == '-' || trimmed[0] == ':') && trimmed[1] == '\0')) {
+            // [-] or [:] - show all elements from 0 to actualSize-1
+            startIdx = 0;
+            endIdx = actualSize - 1;
+            count = actualSize;
          } else {
             char* colon = strchr(indexBuf, ':');
             char* dash = strchr(indexBuf, '-');
@@ -1055,32 +1238,44 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
             }
          }
 
-         if (count <= 0 || startIdx < 0) {
-            free(cleanName);
-            return result;
-         }
-
-         result.count = count;
-         result.startIndex = startIdx;
-         result.onePerLine = useParens;
-         result.needsFree = TRUE;
-         result.lwb = 0;
-         result.upb = startIdx + count - 1; // We don't know the actual upper bound
-         result.listName = cleanName;
-         result.values = (VALUE*)malloc(count * sizeof(VALUE));
-
-         if (result.values != NULL) {
-            for (int i = 0; i < count; i++) {
-               result.values[i] = ptr[startIdx + i];
+            // For sized indirection, clamp to actual size
+            if (isSizedIndirection && actualSize > 0) {
+               if (startIdx >= actualSize) {
+                  free(cleanName);
+                  return result;
+               }
+               if (endIdx >= actualSize) {
+                  endIdx = actualSize - 1;
+               }
+               count = endIdx - startIdx + 1;
             }
-         }
 
-         free(cleanName);
-         return result;
+            if (count <= 0 || startIdx < 0) {
+               free(cleanName);
+               return result;
+            }
+
+            result.count = count;
+            result.startIndex = startIdx;
+            result.onePerLine = useParens;
+            result.needsFree = true;
+            result.lwb = startIdx;
+            result.upb = startIdx + count - 1;
+            result.listName = cleanName;
+            result.freeListName = true;
+            result.values = (VALUE*)malloc(count * sizeof(VALUE));
+
+            if (result.values != NULL) {
+               for (int i = 0; i < count; i++) {
+                  result.values[i] = ptr[startIdx + i];
+               }
+            }
+
+            return result;
       } else {
          // No indexing - just dereference
          result.count = 1;
-         result.needsFree = TRUE;
+         result.needsFree = true;
          result.values = (VALUE*)malloc(sizeof(VALUE));
          if (result.values != NULL) {
             result.values[0] = *ptr;
@@ -1093,7 +1288,7 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
    // If not indirection or not found yet, continue with original logic
    if (foundValue && !isIndirection) {
       result.count = 1;
-      result.needsFree = TRUE;
+      result.needsFree = true;
       result.values = (VALUE*)malloc(sizeof(VALUE));
       if (result.values != NULL) {
          result.values[0] = baseValue;
@@ -1125,10 +1320,17 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
          // If empty brackets [], treat like no brackets
          char* trimmed = indexBuf;
          while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+
+         // Special case for LISTs: [-] or [:] means show all elements
          if (*trimmed == '\0') {
             // Empty brackets - use default count from start
             count = C2DefaultListElements;
             endIdx = startIdx + count - 1;
+         } else if ((trimmed[0] == '-' || trimmed[0] == ':') && trimmed[1] == '\0') {
+            // [-] or [:] - show all elements from lwb to upb
+            startIdx = list->lwb;
+            endIdx = list->upb;
+            count = endIdx - startIdx + 1;
          } else {
             char* colon = strchr(indexBuf, ':');
             char* dash = strchr(indexBuf, '-');
@@ -1204,7 +1406,7 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
       result.count = count;
       result.startIndex = startIdx;
       result.onePerLine = useParens;
-      result.needsFree = TRUE;
+      result.needsFree = true;
       result.lwb = list->lwb;
       result.upb = list->upb;
       result.listName = list->name;
@@ -1240,40 +1442,51 @@ void c2PrintValues(C2EvalResult* result, char format) {
       for (int i = 0; i < result->count; i++) {
          fprintf(stderr, "%*d: ", width, result->startIndex + i);
 
-         switch (format) {
+         if (result->values[i] == VALUE_UNDEFINED) {
+            fprintf(stderr, "?\n");
+         } else {
+            switch (format) {
             case 'd':
-               fprintf(stderr, "%ld\n", result->values[i]);
+               fprintf(stderr, "%Id\n", result->values[i]);
                break;
             case 'x':
-               fprintf(stderr, "0x%lx\n", result->values[i]);
+               fprintf(stderr, "0x%Ix\n", result->values[i]);
                break;
             case 'c':
                if (result->values[i] >= 32 && result->values[i] <= 126) {
                   fprintf(stderr, "'%c'\n", (char)result->values[i]);
-               } else {
-                  fprintf(stderr, "'\\x%02lx'\n", result->values[i]);
+               }
+               else {
+                  fprintf(stderr, "'\\x%02Ix'\n", result->values[i]);
                }
                break;
+            }
          }
       }
    } else {
       for (int i = 0; i < result->count; i++) {
          if (i > 0) fprintf(stderr, ", ");
 
-         switch (format) {
+         if (result->values[i] == VALUE_UNDEFINED) {
+            fprintf(stderr, "?");
+         }
+         else {
+            switch (format) {
             case 'd':
-               fprintf(stderr, "%ld", result->values[i]);
+               fprintf(stderr, "%Id", result->values[i]);
                break;
             case 'x':
-               fprintf(stderr, "0x%lx", result->values[i]);
+               fprintf(stderr, "0x%Ix", result->values[i]);
                break;
             case 'c':
                if (result->values[i] >= 32 && result->values[i] <= 126) {
                   fprintf(stderr, "'%c'", (char)result->values[i]);
-               } else {
-                  fprintf(stderr, "'\\x%02lx'", result->values[i]);
+               }
+               else {
+                  fprintf(stderr, "'\\x%02Ix'", result->values[i]);
                }
                break;
+            }
          }
       }
       fprintf(stderr, "\n");
@@ -1281,28 +1494,34 @@ void c2PrintValues(C2EvalResult* result, char format) {
 }
 
 void c2FreeEvalResult(C2EvalResult* result) {
-   if (result != NULL && result->needsFree && result->values != NULL) {
-      free(result->values);
-      result->values = NULL;
+   if (result != NULL && result->needsFree) {
+      if (result->values != NULL) {
+         free(result->values);
+         result->values = NULL;
+      }
+      if (result->freeListName && result->listName != NULL) {
+         free(result->listName);
+         result->listName = NULL;
+      }
       result->count = 0;
    }
 }
 
-BOOL c2StartsWith(char* str, char* prefix) {
+bool c2StartsWith(char* str, char* prefix) {
    while (*prefix != '\0') {
       if (*str != *prefix) {
-         return FALSE;
+         return false;
       }
       str++;
       prefix++;
    }
-   return TRUE;
+   return true;
 }
 
-BOOL c2MatchName(char* name1, char* name2) {
+bool c2MatchName(char* name1, char* name2) {
    char* clean1 = c2RemoveBlanks(name1);
    char* clean2 = c2RemoveBlanks(name2);
-   BOOL result = c2StartsWith(clean1, clean2);
+   bool result = c2StartsWith(clean1, clean2);
    free(clean1);
    free(clean2);
    return result;
@@ -1330,13 +1549,13 @@ char* c2RemoveBlanks(char* str) {
    return result;
 }
 
-BOOL c2IsemptyOrWhitespace(char* str) {
+bool c2IsemptyOrWhitespace(char* str) {
    for (char* p = str; *p != '\0'; p++) {
       if (*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') {
-         return FALSE;
+         return false;
       }
    }
-   return TRUE;
+   return true;
 }
 
 // Read line until Enter (simple version without history)
@@ -1345,7 +1564,7 @@ char* c2ReadLine() {
    int i = 0;
    int ch;
    while (i < 255 && (ch = getchar()) != '\n' && ch != '\r' && ch != EOF) {
-      buffer[i++] = ch;
+      buffer[i++] = (char)ch;
    }
    buffer[i] = '\0';
    return buffer;
@@ -1386,6 +1605,14 @@ char* c2ReadFullCommand() {
       } else if (ch == KEY_ESC && i == 0) {
          // ESC only works as 'q' command when buffer is empty
          strcpy(buffer, "q");
+         break;
+      } else if (ch == KEY_LEFT && i == 0) {
+         // LEFT key only works as '<' command when buffer is empty
+         strcpy(buffer, "<");
+         break;
+      } else if (ch == KEY_F1 && i == 0) {
+         // F1 key only works as 'h' command when buffer is empty
+         strcpy(buffer, "h");
          break;
       } else if (ch == KEY_LEFT) {
          if (cursorPos > 0) {
@@ -1497,7 +1724,7 @@ char* c2ReadFullCommand() {
             if (cursorPos < i) {
                memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
             }
-            buffer[cursorPos] = ch;
+            buffer[cursorPos] = (char)ch;
             i++;
             buffer[i] = '\0';
             // Redraw from cursor to end
@@ -1509,13 +1736,13 @@ char* c2ReadFullCommand() {
 
             // Check if this is a single-letter command that should execute immediately
             if (i == 1 && (ch == 'q' || ch == 'g' || ch == 'j' || ch == 's' ||
-                        ch == 'b' || ch == 'h' || ch == '>')) {
+                        ch == '<' || ch == 'b' || ch == 'h' || ch == '>')) {
             break;  // Execute immediately
          }
 
          // Commands that take arguments - echo space and add to buffer
          if (i == 1 && (ch == 'l' || ch == 'd' || ch == 'x' || ch == 'c' || 
-                        ch == '+' || ch == '-' || ch == 't')) {
+                        ch == '+' || ch == '-' || ch == 'r' || ch == 't')) {
             fprintf(stderr, " ");  // Echo space after command letter
             if (cursorPos < i) {
                memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
@@ -1646,7 +1873,7 @@ char* c2ReadLineWithHistory() {
          if (cursorPos < i) {
             memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
          }
-         buffer[cursorPos] = ch;
+         buffer[cursorPos] = (char)ch;
          i++;
          buffer[i] = '\0';
          // Redraw from cursor to end
@@ -1692,7 +1919,7 @@ void c2AddToHistory(char* cmd) {
 // Cross-platform immediate character input
 char c2_getch() {
 #ifdef _WIN32
-   return _getch();
+   return (char)_getch();
 #else
    struct termios oldattr, newattr;
    char ch;
@@ -1713,6 +1940,7 @@ int c2_get_special_key() {
    if (ch == 0 || ch == 224) { // Extended key prefix on Windows (0 or 0xE0)
       ch = _getch();
       switch (ch) {
+      case 59: return KEY_F1;      // F1 key
       case 79: return KEY_END;     // END key
       case 71: return KEY_HOME;    // HOME key
       case 72: return KEY_UP;      // UP arrow
@@ -1765,6 +1993,16 @@ int c2_get_special_key() {
             case 'C':
                tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
                return KEY_RIGHT;  // RIGHT arrow
+            case '1':
+               // F1 key sequence: ESC [ 1 1 ~
+               if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
+                  ch = getchar();
+                  if (ch == '1' && select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
+                     tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
+                     return KEY_F1;
+                  }
+               }
+               break
             case '3':
                if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
                   tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
@@ -1898,7 +2136,7 @@ void c2LoadDebugState() {
       } else if (strcmp(key, "DefaultListElements") == 0) {
          C2DefaultListElements = atoi(value);
       } else if (strcmp(key, "SpyPoint") == 0) {
-         c2SetSpyPoint(value, TRUE);
+         c2SetSpyPoint(value, true);
       } else if (strcmp(key, "History") == 0) {
          c2AddToHistory(value);
       }
@@ -1907,10 +2145,10 @@ void c2LoadDebugState() {
    fclose(f);
 }
 
-static void c2Exit(int code) {
-   static BOOL exiting = FALSE;
+void c2Exit(int code) {
+   static bool exiting = false;
    if (!exiting && code != 0 && C2SP >= 0) {
-      exiting = TRUE;
+      exiting = true;
       fprintf(stderr, "\n*** CDL2 Program exiting with code %d ***\n", code);
       c2Backtrace();
    }
@@ -1924,14 +2162,14 @@ static void c2Exit(int code) {
 
 char* ansi_fg(AnsiColor color) {
    static char fg_colors[98][16];
-   static BOOL initialized = FALSE;
+   static bool initialized = false;
 
    if (!initialized) {
       // Initialize all foreground colors on first call
       for (int i = 30; i <= 37; i++) snprintf(fg_colors[i], 16, "\x1b[%dm", i);
       snprintf(fg_colors[38], 16, "%s", ANSI_COLOR_RESET);
       for (int i = 90; i <= 97; i++) snprintf(fg_colors[i], 16, "\x1b[%dm", i);
-      initialized = TRUE;
+      initialized = true;
    }
 
    return fg_colors[color];
@@ -1939,14 +2177,14 @@ char* ansi_fg(AnsiColor color) {
 
 char* ansi_bg(AnsiColor color) {
    static char bg_colors[98][16];
-   static BOOL initialized = FALSE;
+   static bool initialized = false;
 
    if (!initialized) {
       // Initialize all background colors on first call
       for (int i = 30; i <= 37; i++) snprintf(bg_colors[i], 16, "\x1b[%dm", i + 10);
       snprintf(bg_colors[38], 16, "%s", ANSI_COLOR_RESET);
       for (int i = 90; i <= 97; i++) snprintf(bg_colors[i], 16, "\x1b[%dm", i + 10);
-      initialized = TRUE;
+      initialized = true;
    }
 
    return bg_colors[color];

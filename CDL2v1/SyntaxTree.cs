@@ -2023,8 +2023,9 @@ namespace CDL2v1 {
 #endif
       [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls = [];
       [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall = new();
-      [JsonInclude][JsonPropertyOrder(43)] public int AlternativeNumber = 0;
-      [JsonIgnore] public int NextAlternativeNumber => AlternativeNumber + 1;
+      // These are computed when the containing procedure is parsed
+      [JsonInclude][JsonPropertyOrder(43)] public int AlternativeNumber = int.MinValue;       
+      [JsonInclude][JsonPropertyOrder(44)] public int NextAlternativeNumber = int.MinValue;
 
       public override IEnumerable<NamedElement> ChildElements() => [.. calls,lastCall];
 
@@ -2080,7 +2081,7 @@ namespace CDL2v1 {
          }
       }
 
-      public override string ToString() => $"Alt {AlternativeNumber} {Id}";
+      public override string ToString() => $"Alt {AlternativeNumber}->{(NextAlternativeNumber==int.MinValue?"END":NextAlternativeNumber)} {Id}";
 
       internal void Dispose() {
          foreach (Call call in calls) call.Dispose();

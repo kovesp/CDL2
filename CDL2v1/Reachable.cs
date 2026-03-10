@@ -33,6 +33,7 @@
 
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Security;
 
 namespace CDL2v1 {
    public class Reachable {
@@ -128,9 +129,9 @@ namespace CDL2v1 {
             // The section was mentioned in a Module lude, but it has no lude.
          }
       }
-      private void CollectReachableObjects(Group proc) {
+      private void CollectReachableObjects(Group group) {
          // Collect all the objects reachable from this group.
-         foreach (Alternative alt in proc.Alternatives) if (CollectReachableObjects(alt)) break;
+         foreach (Alternative alt in group.Alternatives) CollectReachableObjects(alt);
       }
 
       /// <summary>
@@ -138,10 +139,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alt"></param>
       /// <returns>true if this alternative was governed by positive conditional compilation, i.e., that subsequent alternatives should <b>not</b> be processed.</returns>
-      private bool CollectReachableObjects(Alternative alt) {
-         foreach (Call call in alt.calls) {
-            if (!CollectReachableObjects(call)) return true; // Skip the rest of the alternative.
-         }
+      private void CollectReachableObjects(Alternative alt) {
+         if (alt.IsConditionalCompilationOff) return;
+         // Conditinal compilation is only suported for the first call of an alternative
+         IEnumerable<Call> calls = alt.IsConditionalCompilationOn ? alt.calls.Skip(1) : alt.calls;
+         foreach (Call call in calls) CollectReachableObjects(call); 
          switch (alt.lastCall.type) {
             case LCT.Standard:
                if (alt.lastCall.call is not null) CollectReachableObjects(alt.lastCall.call);
@@ -150,7 +152,6 @@ namespace CDL2v1 {
                if (alt.lastCall.group is not null) CollectReachableObjects(alt.lastCall.group);
                break;
          }
-         return alt.IsConditionalCompilationOn;
       }
 
       /// <summary>
@@ -158,16 +159,13 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="call"></param>
       /// <returns></returns>
-      private bool CollectReachableObjects(Call call) {
+      private void CollectReachableObjects(Call call) {
+         Debug.Assert(!call.IsConditionalCompilationOff && !call.IsConditionalCompilationOn,"CollectReachableObjects(Call) should not get a conditional compilation call");
          if (call.Called is not null) {
             Algorithm called = call.Called;
             if (called is ImportedAlgorithm importedAlg) {
                CDL2Object? resolved = called.Section!.GetResolvedObject(importedAlg.Id);
                if (resolved != null && resolved is Algorithm alg) called = alg;
-            }
-            if (called.IsConditionalCompilation()) {
-               Objects.Add(called);
-               return called.IsConditionalCompilationOn;   // If false, skip the rest of the alternative.
             }
 
             if (called is Procedure calledProc) {
@@ -212,7 +210,6 @@ namespace CDL2v1 {
                }
             }
          }
-         return true;
       }
       private void CollectReachableObjects(Const constant) {
          if (constant is ImportedConst) constant = (constant.Module!.resolvedImports[constant.Id] as Const)!;

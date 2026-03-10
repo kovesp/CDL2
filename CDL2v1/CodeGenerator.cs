@@ -714,10 +714,10 @@ namespace CDL2v1 {
          foreach (Alternative alternative in group.Alternatives) {
             removed = false;
             if (suppressRest) {
-               cg.GenerateComment($"Alternative {i} suppressed by previous conditional compilation ON");
+               cg.GenerateComment($"{alternative} suppressed by previous conditional compilation ON");
                removed = true;
             } else if (alternative.IsConditionalCompilationOff) {           // Ignore this alternative
-               cg.GenerateComment($"Alternative {i} removed by conditional compilation OFF");
+               cg.GenerateComment($"{alternative} removed by conditional compilation OFF");
                removed = true;
                lastRemoved = i;
             } else {

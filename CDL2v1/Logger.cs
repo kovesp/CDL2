@@ -88,7 +88,7 @@ namespace CDL2v1 {
       /// <param Id="level"></param>
       /// <param Id="message"></param>
       public void _Log(int level,string message) {
-         string prefix = "CDL2: " + new string(' ',3 * level);
+         string prefix = "CDL2: " + new string(' ',2 * level);
          message = prefix + message.Replace("\n","\n" + prefix);
          WriteLine(level,message);
       }
