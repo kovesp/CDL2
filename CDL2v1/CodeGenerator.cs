@@ -98,13 +98,22 @@ namespace CDL2v1 {
             GenerateObjects<Var>(allVars,GenerateVar);
             GenerateObjects<LIST>(allLists,GenerateList);
 
+
             IOrderedEnumerable<Macro>     macros              = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable()).OrderBy(p => p.Id.Name);
             IOrderedEnumerable<Procedure> procedures          = Reachable.Objects.OfType<Procedure>()
                                                             .Where(proc => !proc.IsSynthetic && !proc.IsConditionalCompilation() && !proc.IsInlinable(Reachable))
                                                             .OrderBy(p => p.Id.Name);
-            IOrderedEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>().Where(proc => proc.IsSynthetic).OrderBy(p => p.Id.Name);
 
-            IOrderedEnumerable<Algorithm> allProcs = ((IEnumerable<Algorithm>)[.. macros,.. procedures,.. syntheticProcedures]).OrderBy(p => p.Id.Name);
+            // Order ludes by type: PRELUDE, ROOT, POSTLUDE
+            IEnumerable<Procedure> syntheticProcedures = Reachable.Objects.OfType<Procedure>()
+                .Where(proc => proc.IsSynthetic)
+                .OrderBy(p => p.Id.Name.Contains("PRELUDE") ? 0 : p.Id.Name.Contains("ROOT") ? 1 : p.Id.Name.Contains("POSTLUDE") ? 2 : 3)
+                .ThenBy(p => p.Id.Name);
+
+            // Ludes first (ordered as PRELUDE, ROOT, POSTLUDE), then algorithms sorted by container then by name
+            IEnumerable<Algorithm> allProcs = syntheticProcedures
+                .Cast<Algorithm>()
+                .Concat(macros.Cast<Algorithm>().Concat(procedures).OrderBy(p => p.ParentElement<Section>()?.ParentElement<Container>()?.Id.Name ?? "").ThenBy(p => p.Id.Name));
             Dictionary<CDL2Object,int> procIndex = allProcs.Select((proc,index) => (proc,index)).ToDictionary(pair => (CDL2Object)pair.proc,pair => pair.index);
 
             if (cg.RequiresPredeclaration) {

@@ -203,6 +203,7 @@ char c2_getch();
 int c2_get_special_key();
 char* ansi_fg(AnsiColor color);
 char* ansi_bg(AnsiColor color);
+bool c2IsLude(char* name);
 
 
 
@@ -435,6 +436,11 @@ void c2TraceExitAbort(char *algName) {
    fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\n", algName);
    c2Backtrace();
    exit(1);
+}
+
+// Helper function to check if a name is a lude (ludes have uppercase letters, normal algorithms are all lowercase)
+bool c2IsLude(char* name) {
+   return isupper(name[0]);
 }
 
 void c2traceREPL(int depth,TraceExitType type) {
@@ -708,12 +714,59 @@ void c2traceREPL(int depth,TraceExitType type) {
                C2ProcInfo** procs = c2FindProcs(prefix, &count);
                if (procs != NULL && count > 0) {
                   fprintf(stderr, "Found %d algorithm(s):\n", count);
+
+                  // First pass: find maximum algorithm name length for alignment
+                  int maxNameLen = 0;
                   for (int i = 0; i < count; i++) {
-                     fprintf(stderr, "  %s %s.%s\n", 
+                     int nameLen = (int)strlen(procs[i]->name);
+                     if (nameLen > maxNameLen) maxNameLen = nameLen;
+                  }
+
+                  // Second pass: display with aligned columns, adding blank lines after ludes and between modules
+                  char prevModule[256] = "";
+                  bool wasLude = true; // Start assuming we're in ludes
+                  for (int i = 0; i < count; i++) {
+                     bool currentIsLude = c2IsLude(procs[i]->name);
+
+                     // Add blank line when transitioning from ludes to non-ludes
+                     if (i > 0 && wasLude && !currentIsLude) {
+                        fprintf(stderr, "\n");
+                     }
+
+                     // Extract module name (part before first period) for non-ludes
+                     if (!currentIsLude) {
+                        char moduleName[256];
+                        char* dot = strchr(procs[i]->container, '.');
+                        if (dot != NULL) {
+                           int len = (int)(dot - procs[i]->container);
+                           if (len >= 256) len = 255;
+                           strncpy(moduleName, procs[i]->container, len);
+                           moduleName[len] = '\0';
+                        } else {
+                           strncpy(moduleName, procs[i]->container, 255);
+                           moduleName[255] = '\0';
+                        }
+
+                        // Add blank line when module changes (only for non-ludes)
+                        if (i > 0 && prevModule[0] != '\0' && strcmp(prevModule, moduleName) != 0) {
+                           fprintf(stderr, "\n");
+                        }
+
+                        // Update prevModule
+                        strncpy(prevModule, moduleName, 255);
+                        prevModule[255] = '\0';
+                     }
+
+                     char* typeName = 
                         procs[i]->type == C2_ALG_PREDICATE ? "PREDICATE" :
                         procs[i]->type == C2_ALG_TEST ? "TEST" :
-                        procs[i]->type == C2_ALG_ACTION ? "ACTION" : "FUNCTION",
-                        procs[i]->container, procs[i]->name);
+                        procs[i]->type == C2_ALG_ACTION ? "ACTION" : "FUNCTION ";
+                     fprintf(stderr, "  %-9s %-*s  %s\n", 
+                        typeName,
+                        maxNameLen, procs[i]->name,
+                        procs[i]->container);
+
+                     wasLude = currentIsLude;
                   }
                   free(procs);
                } else {
@@ -897,11 +950,11 @@ char* c2GetProcName(int index) { return c2DebugInfo->procs[index].name; }
 char* c2GetVarName(int index) { return c2DebugInfo->vars[index].name; }
 char* c2GetListName(int index) { return c2DebugInfo->lists[index].name; }
 
-// Generic binary search function - finds first match
+// Generic linear search function - finds first match
 int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
    char* clean_name = c2RemoveBlanks(name);
 
-   // Linear search for prefix match (binary search doesn't work well for prefix matching)
+   // Linear search for prefix match
    for (int i = 0; i < count; i++) {
       char* clean_target = c2RemoveBlanks(getNameFunc(i));
       bool matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
@@ -920,49 +973,43 @@ int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
 int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount) {
    *outCount = 0;
 
-   // First find any match
-   int firstMatch = c2GenericFind(name, count, getNameFunc);
-   if (firstMatch < 0) {
+   char* clean_name = c2RemoveBlanks(name);
+
+   // First pass: count all matches (not just contiguous ones)
+   int matchCount = 0;
+   for (int i = 0; i < count; i++) {
+      char* clean_target = c2RemoveBlanks(getNameFunc(i));
+      bool matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
+      free(clean_target);
+      if (matches) matchCount++;
+   }
+
+   if (matchCount == 0) {
+      free(clean_name);
       return NULL;
    }
 
-   char* clean_name = c2RemoveBlanks(name);
-
-   // Scan left to find the start of matching range
-   int start = firstMatch;
-   while (start > 0) {
-      char* clean_target = c2RemoveBlanks(getNameFunc(start - 1));
-      bool matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
-      free(clean_target);
-      if (!matches) break;
-      start--;
-   }
-
-   // Scan right to find the end of matching range
-   int end = firstMatch;
-   while (end < count - 1) {
-      char* clean_target = c2RemoveBlanks(getNameFunc(end + 1));
-      bool matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
-      free(clean_target);
-      if (!matches) break;
-      end++;
-   }
-
-   free(clean_name);
-
    // Allocate result array
-   *outCount = end - start + 1;
-   int* result = (int*)malloc(*outCount * sizeof(int));
+   int* result = (int*)malloc(matchCount * sizeof(int));
    if (result == NULL) {
+      free(clean_name);
       *outCount = 0;
       return NULL;
    }
 
-   // Fill result array
-   for (int i = 0; i < *outCount; i++) {
-      result[i] = start + i;
+   // Second pass: collect all matching indices
+   int resultIndex = 0;
+   for (int i = 0; i < count; i++) {
+      char* clean_target = c2RemoveBlanks(getNameFunc(i));
+      bool matches = strcmp(clean_name, clean_target) == 0 || c2StartsWith(clean_target, clean_name);
+      free(clean_target);
+      if (matches) {
+         result[resultIndex++] = i;
+      }
    }
 
+   free(clean_name);
+   *outCount = matchCount;
    return result;
 }
 
