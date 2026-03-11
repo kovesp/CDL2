@@ -454,7 +454,7 @@ namespace CDL2v1 {
             if (mode == ParseMode.Full) ReportError("Expected .");
             return false;
          }
-         NumberAlternatives(proc.group,int.MinValue);
+         NumberAlternatives(proc.group,Alternative.ALTERNATIVES_END);
          return true;
 
          void NumberAlternatives(Group group,int groupSucceesor) {
@@ -464,8 +464,8 @@ namespace CDL2v1 {
             }
             last.NextAlternativeNumber = groupSucceesor;
             foreach (Alternative alt in group.Alternatives) {
-               if (alt.lastCall.type == LCT.Group) {
-                  NumberAlternatives(alt.lastCall.group!,alt.NextAlternativeNumber);
+               if (alt.LastCall.type == LCT.Group) {
+                  NumberAlternatives(alt.LastCall.group!,alt.NextAlternativeNumber);
                }
             }
          }
@@ -501,28 +501,28 @@ namespace CDL2v1 {
       private bool ParseAlternative(Procedure proc,Group group,Notes notes,ParseMode mode,out Alternative alternative) {
          alternative = new(notes,group);
          do {
-            if (alternative.lastCall.type != LCT.None) {
+            if (alternative.LastCall.type != LCT.None) {
                // If we have a last call, then we should NOT have seen a separator
                if (mode == ParseMode.Full) ReportProblem(Note.UnexpectedSeparator);
                return false;
             } else if (tokens.Optional(RW.BUILTIN) && tokens.Optional(out ID id)) {
                if (ParseCall(id,proc,alternative,mode,out Call? call,builtin: true)) {
-                  alternative.calls.Add(call);
+                  alternative.Calls.Add(call);
                } else {
                   if (mode == ParseMode.Full) ReportProblem(Note.ExpectedBuiltinId);
                   return false;
                }
             } else if (tokens.Optional(out id)) {
                if (ParseCall(id,proc,alternative,mode,out Call? call)) {
-                  alternative.calls.Add(call);
+                  alternative.Calls.Add(call);
                } else {
                   if (mode == ParseMode.Full) ReportProblem(Note.ExpectedCall);
                   return false;
                }
             } else if (tokens.Optional(TT.SUCCEED)) {
-               alternative.lastCall = new LastCall(LCT.Succeed,alternative);
+               alternative.LastCall = new LastCall(LCT.Succeed,alternative);
             } else if (tokens.Optional(TT.FAIL)) {
-               alternative.lastCall = new LastCall(LCT.Fail,alternative);
+               alternative.LastCall = new LastCall(LCT.Fail,alternative);
                if (!proc.CanFail) {
                   if (mode == ParseMode.Full) {
                      if (mode == ParseMode.Full) AddNote(proc,Note.IllegalFailOperator,proc.AlgorithmType);
@@ -531,23 +531,23 @@ namespace CDL2v1 {
                   return false;
                }
             } else if (tokens.Optional(TT.ABORT)) {
-               alternative.lastCall = new LastCall(LCT.Abort,alternative);
+               alternative.LastCall = new LastCall(LCT.Abort,alternative);
             } else if (tokens.Optional(TT.REPEAT)) {
                if (tokens.Optional(out ID label)) {
                   if (mode == ParseMode.Full && !group.HasLabeledAncestorGroup(label)) {
                      if (mode == ParseMode.Full) AddNote(proc,Note.LabelNotFound,label.Name,proc);
                   }
-                  alternative.lastCall = new LastCall(label,alternative);
+                  alternative.LastCall = new LastCall(label,alternative);
                   if (id == proc.Id) proc.repeatsProcedure = true;
                } else {
-                  alternative.lastCall = new LastCall(LCT.Repeat,alternative);
+                  alternative.LastCall = new LastCall(LCT.Repeat,alternative);
                }
             } else if (tokens.Optional(TT.GRPOPEN)) {
                if (!ParseGroup(proc,containingGroup: group,containingAlternative: alternative,mode,out LastCall? grp)) {
                   if (mode == ParseMode.Full) ReportProblem(Note.ExpectedGroup);
                   return false;
                }
-               alternative.lastCall = grp;
+               alternative.LastCall = grp;
             } else {
                if (mode == ParseMode.Full) ReportProblem(Note.ExpectedLastCall);
                return false;
@@ -944,7 +944,7 @@ namespace CDL2v1 {
             }
             for ( ; ; ) {
                if (ParseCall(parser,ID.From(id),lude,alternative,ParseMode.Full,out Call? call)) {
-                  alternative.calls.Add(call);
+                  alternative.Calls.Add(call);
                } else {
                   if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedCall);
                   return false;
@@ -960,14 +960,14 @@ namespace CDL2v1 {
                if (mode == ParseMode.Full) parser.ReportProblem(Note.ExpectedPeriod);
                return false;
             }
-            if (alternative.calls.Count >= 1) {
+            if (alternative.Calls.Count >= 1) {
                alternative.NormalizeCalls();
             } else {
                if (mode == ParseMode.Full) parser.AddNote(container,Note.EmptyLude,ludeType);
                if (mode == ParseMode.Full) parser.ReportProblem(Note.EmptyLude,ludeType);
             }
 
-            lude.AlgorithmType = alternative.calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
+            lude.AlgorithmType = alternative.Calls.All(call => call.HasEffect) ? RW.ACTION : RW.FUNCTION;
             lude.LudeTpe = ludeType;
             lude.group.Alternatives.Add(alternative);
             section.Ludes[ludeType].Add(ludeId = lude.Id);

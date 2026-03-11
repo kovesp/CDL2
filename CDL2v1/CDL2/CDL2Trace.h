@@ -390,7 +390,7 @@ void c2TraceEnter() {
          }
          C2TempSpyPointCount = 0;
       }else {
-         // Jumping, but have noarrived yet
+         // Jumping, but have not arrived yet
          return;
       }
    }
@@ -480,33 +480,41 @@ char* c2FormatContainer(char* container) {
 }
 
 void c2traceREPL(int depth,TraceExitType type) {
-   c2PrintStackFrame(depth, true, C2Marker(type), ": ", type);
+   bool skipPrompt = false;
+   while (1) {
+      if (!skipPrompt) {
+         c2PrintStackFrame(depth, true, C2Marker(type), ": ", type);
+      }
+      skipPrompt = false;
 
-   // Read command (supports single keys AND history recall with up/down)
-   char* fullCmd = c2ReadFullCommand();
+      // Read command (supports single keys AND history recall with up/down)
+      char* fullCmd = c2ReadFullCommand();
 
-   // Skip leading whitespace
-   while (*fullCmd == ' ' || *fullCmd == '\t') fullCmd++;
+      // Skip leading whitespace
+      while (*fullCmd == ' ' || *fullCmd == '\t') fullCmd++;
 
-   // First character is the command
-   int command = fullCmd[0];
-   char* arg = fullCmd + 1;
-   // Skip space after command
-   while (*arg == ' ' || *arg == '\t') arg++;
+      // First character is the command
+      int command = fullCmd[0];
+      char* arg = fullCmd + 1;
+      // Skip space after command
+      while (*arg == ' ' || *arg == '\t') arg++;
 
-   // Just print newline - everything was already echoed
-   fprintf(stderr, "\n");
+      // Add full commands to history (but not single-key navigation commands)
+      if (command != '>' && command != 'g' && command != 'j' && 
+          command != 's' && command != '<' && command != 'b' && command != 'q' && command != 'h') {
+         c2AddToHistory(fullCmd);
+      }
 
-   // Add full commands to history (but not single-key navigation commands)
-   if (command != '>' && command != 'g' && command != 'j' && 
-       command != 's' && command != '<' && command != 'b' && command != 'q' && command != 'h') {
-      c2AddToHistory(fullCmd);
-   }
-
-   switch (command) {
-      case 'h':
+      switch (command) {
+      case 'h': {
          // Erase the 'h' that was just typed
          fprintf(stderr, "\b \b");
+
+#ifndef _WIN32
+         // On Linux, save terminal state before entering help screen
+         struct termios saved_termios;
+         tcgetattr(STDIN_FILENO, &saved_termios);
+#endif
 
          // Switch to alternate screen buffer
          fprintf(stderr, "\x1b[?1049h\x1b[H\x1b[2J");
@@ -567,20 +575,51 @@ void c2traceREPL(int depth,TraceExitType type) {
          fprintf(stderr, "            with argument %s.%s: %s- .%s clears command history\n\n", ansi_fg(YELLOW), ansi_fg(RESET), ansi_fg(YELLOW), ansi_fg(RESET));
 
          fprintf(stderr, "================================================================================\n");
-         fprintf(stderr, "%sPress %sESC%s to returnto the debugger prompt...%s", ansi_fg(BRIGHT_MAGENTA), ansi_fg(BRIGHT_YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
+         fprintf(stderr, "%sPress %sany key%s to return to the debugger prompt...%s", ansi_fg(BRIGHT_MAGENTA), ansi_fg(BRIGHT_YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
          fflush(stderr);
 
-         // Wait for ESC key
-         while (1) {
-            int ch = c2_get_special_key();
-            if (ch == KEY_ESC || ch == 27 || ch == 'q' || ch == '\n' || ch == '\r') break;
+         // Wait for any key
+#ifdef _WIN32
+         _getch();
+#else
+         // Ensure terminal is in raw mode (non-canonical, no echo)
+         struct termios help_termios;
+         tcgetattr(STDIN_FILENO, &help_termios);
+         help_termios.c_lflag &= ~(ICANON | ECHO);
+         help_termios.c_cc[VMIN] = 1;
+         help_termios.c_cc[VTIME] = 0;
+         tcsetattr(STDIN_FILENO, TCSANOW, &help_termios);
+
+         int ch = getchar();
+
+         // If it's ESC, consume any following escape sequence characters
+         if (ch == 27) {
+            // Switch to non-blocking to check for more characters
+            help_termios.c_cc[VMIN] = 0;
+            help_termios.c_cc[VTIME] = 1; // 100ms timeout
+            tcsetattr(STDIN_FILENO, TCSANOW, &help_termios);
+
+            // Consume the rest of the escape sequence
+            while ((ch = getchar()) != EOF) {
+               // Keep reading until timeout or end of sequence
+            }
          }
+#endif
 
          // Switch back to main screen buffer
          fprintf(stderr, "\x1b[?1049l");
-         break;
+
+#ifndef _WIN32
+         // On Linux, restore the saved terminal state from before help screen
+         tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
+#endif
+         skipPrompt = true;
+         continue;
+      }
       case '+':
       case '-':
+         // Print newline for all other commands
+         fprintf(stderr, "\n");
          if (c2IsemptyOrWhitespace(arg)) {
             fprintf(stderr, "Procedure name or option cannot be empty\n");
          } else if (arg[0] == '+') {
@@ -636,20 +675,23 @@ void c2traceREPL(int depth,TraceExitType type) {
          } else if (!c2SetSpyPoint(arg, command == '+')) {
             fprintf(stderr, "No such procedure %s\n", arg);
          }
-         c2traceREPL(depth,type);
-         break;
+         continue;
       case '>':
+         fprintf(stderr, "\n");
          break;
       case 'g':
+         fprintf(stderr, "\n");
          C2Going = true;
          break;
       case 'j':
+         fprintf(stderr, "\n");
          C2Jumping = true;
          break;
       case 'r':
+         fprintf(stderr, "\n");
          if (c2IsemptyOrWhitespace(arg)) {
             fprintf(stderr, "Algorithm prefix or dots cannot be empty\n");
-            c2traceREPL(depth, type);
+            continue;
          } else {
             // Check if argument is a sequence of dots (for stepping out)
             char* p = arg;
@@ -667,12 +709,12 @@ void c2traceREPL(int depth,TraceExitType type) {
                int targetDepth = depth - (dotCount - 1);
                if (targetDepth < 0) {
                   fprintf(stderr, "Not enough call stack depth (only %d level(s) available)\n", depth + 1);
-                  c2traceREPL(depth, type);
+                  continue;
                } else if (type == TRACE_ENTER) {
                   C2Skippoint = targetDepth;
                } else {
                   fprintf(stderr, "Can only step out from ENTER points\n");
-                  c2traceREPL(depth, type);
+                  continue;
                }
             } else {
                // Regular argument - find matching procedures
@@ -700,29 +742,32 @@ void c2traceREPL(int depth,TraceExitType type) {
                   C2Jumping = true;
                } else {
                   fprintf(stderr, "No algorithms found matching '%s'\n", arg);
-                  c2traceREPL(depth, type);
+                  continue;
                }
             }
          }
          break;
       case 's':
+         fprintf(stderr, "\n");
          if (type == TRACE_ENTER) {
             C2Skippoint = depth;
          }
          break;
       case '<':
+         fprintf(stderr, "\n");
          if (depth > 0) {
             C2Skippoint = depth - 1;
          } else {
             fprintf(stderr, "Already at top level\n");
-            c2traceREPL(depth, type);
+            continue;
          }
          break;
       case 'b':
+         fprintf(stderr, "\n");
          c2Backtrace();
-         c2traceREPL(depth,type);
-         break;
+         continue;
       case 'l':
+         fprintf(stderr, "\n");
          if (c2IsemptyOrWhitespace(arg)) {
             // No argument - show summary with commands
             int spyCount = 0;
@@ -927,9 +972,9 @@ void c2traceREPL(int depth,TraceExitType type) {
                fprintf(stderr, "Invalid list type '%c'. Use 'a' for algorithms, 'v' for VARs, 'l' for LISTs, 's' for spypoints, 'o' for options, 'h' for history\n", listType);
             }
          }
-         c2traceREPL(depth,type);
-         break;
+         continue;
       case 't':
+         fprintf(stderr, "\n");
          if (c2IsemptyOrWhitespace(arg)) {
             // No argument - show current algorithm's code
             C2ProcInfo currentProc = c2DebugInfo->procs[C2Stack[depth].procInfoIndex];
@@ -985,11 +1030,11 @@ void c2traceREPL(int depth,TraceExitType type) {
                }
             }
          }
-         c2traceREPL(depth,type);
-         break;
+         continue;
       case 'd':
       case 'x':
       case 'c':
+         fprintf(stderr, "\n");
          if (c2IsemptyOrWhitespace(arg)) {
             fprintf(stderr, "Expression cannot be empty\n");
          } else {
@@ -1001,17 +1046,20 @@ void c2traceREPL(int depth,TraceExitType type) {
                fprintf(stderr, "Cannot evaluate '%s'\n", arg);
             }
          }
-         c2traceREPL(depth,type);
-         break;
+         continue;
       case 'q':
-         fprintf(stderr, "\nQuitting program.\n");
+         fprintf(stderr, "\n");
+         fprintf(stderr, "Quitting program.\n");
          c2SaveDebugState();
          exit(0);
          break;
       default:
-         fprintf(stderr, "\nInvalid command '%c'. Enter 'h' for help.\n", command);
-         c2traceREPL(depth,type);
-         break;
+         fprintf(stderr, "\n");
+         fprintf(stderr, "Invalid command '%c'. Enter 'h' for help.\n", command);
+         continue;
+      }
+      // If we reach here, break out of the loop (for commands like '>', 'g', 'j', 's', '<', 'r')
+      break;
    }
 }
 
@@ -1709,23 +1757,28 @@ char* c2ReadFullCommand() {
       if (ch == '\r' || ch == '\n') {
          if (i == 0) {
             strcpy(buffer, ">");
+            fprintf(stderr, "%s>%s", ansi_fg(YELLOW), ansi_fg(RESET));
          }
          break;
       } else if (ch == KEY_END && i == 0) {
          // END key only works as 'g' command when buffer is empty
          strcpy(buffer, "g");
+         fprintf(stderr, "%sg%s", ansi_fg(YELLOW), ansi_fg(RESET));
          break;
       } else if (ch == ' ' && i == 0) {
          // SPACE only works as 'j' command when buffer is empty
          strcpy(buffer, "j");
+         fprintf(stderr, "%sj%s", ansi_fg(YELLOW), ansi_fg(RESET));
          break;
       } else if (ch == '\t' && i == 0) {
          // TAB only works as 's' command when buffer is empty
          strcpy(buffer, "s");
+         fprintf(stderr, "%ss%s", ansi_fg(YELLOW), ansi_fg(RESET));
          break;
       } else if (ch == KEY_ESC && i == 0) {
          // ESC only works as 'q' command when buffer is empty
          strcpy(buffer, "q");
+         fprintf(stderr, "%sq%s", ansi_fg(YELLOW), ansi_fg(RESET));
          break;
       } else if (ch == KEY_ESC) {
          // ESC clears the command line when editing
@@ -1740,10 +1793,12 @@ char* c2ReadFullCommand() {
       } else if (ch == KEY_LEFT && i == 0) {
          // LEFT key only works as '<' command when buffer is empty
          strcpy(buffer, "<");
+         fprintf(stderr, "%s<%s", ansi_fg(YELLOW), ansi_fg(RESET));
          break;
       } else if (ch == KEY_F1 && i == 0) {
          // F1 key only works as 'h' command when buffer is empty
          strcpy(buffer, "h");
+         fprintf(stderr, "%sh%s", ansi_fg(YELLOW), ansi_fg(RESET));
          break;
       } else if (ch == KEY_LEFT) {
          if (cursorPos > 0) {
@@ -2085,78 +2140,86 @@ int c2_get_special_key() {
 #else
    struct termios oldattr, newattr;
    int ch;
+   int result;
    tcgetattr(STDIN_FILENO, &oldattr);
    newattr = oldattr;
    newattr.c_lflag &= ~(ICANON | ECHO);
+   newattr.c_cc[VMIN] = 1;   // Wait for at least 1 character
+   newattr.c_cc[VTIME] = 0;  // No timeout - wait indefinitely for that character
    tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
 
    ch = getchar();
-   if (ch == 27) { // ESC sequence
-      // Set a short timeout to check if more characters are coming
-      fd_set readfds;
-      struct timeval timeout;
-      FD_ZERO(&readfds);
-      FD_SET(STDIN_FILENO, &readfds);
-      timeout.tv_sec = 0;
-      timeout.tv_usec = 100000; // 100ms timeout
+   result = ch;
 
-      if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
+   if (ch == 27) { // ESC sequence
+      // Switch to non-blocking mode to check if more characters are waiting
+      newattr.c_cc[VMIN] = 0;
+      newattr.c_cc[VTIME] = 2; // 200ms timeout (0.2 seconds)
+      tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
+
+      // Now check if more characters are available
+      ch = getchar();
+      if (ch != EOF) {
          // More characters available - it's an escape sequence
-         ch = getchar();
-         if (ch == '[') {
+         if (ch == 'O') {
+            // Some terminals send ESC O P for F1
+            ch = getchar();
+            if (ch == 'P') {
+               result = KEY_F1;
+            }
+         } else if (ch == '[') {
             ch = getchar();
             switch (ch) {
             case 'F':
-               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-               return KEY_END;    // END key
+               result = KEY_END;
+               break;
             case 'H':
-               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-               return KEY_HOME;   // HOME key  
+               result = KEY_HOME;
+               break;
             case 'A':
-               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-               return KEY_UP;     // UP arrow
+               result = KEY_UP;
+               break;
             case 'B':
-               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-               return KEY_DOWN;   // DOWN arrow
+               result = KEY_DOWN;
+               break;
             case 'D':
-               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-               return KEY_LEFT;   // LEFT arrow
+               result = KEY_LEFT;
+               break;
             case 'C':
-               tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-               return KEY_RIGHT;  // RIGHT arrow
+               result = KEY_RIGHT;
+               break;
             case '1':
                // F1 key sequence: ESC [ 1 1 ~
-               if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0) {
+               ch = getchar();
+               if (ch == '1') {
                   ch = getchar();
-                  if (ch == '1' && select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
-                     tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                     return KEY_F1;
+                  if (ch == '~') {
+                     result = KEY_F1;
                   }
                }
-               break
+               break;
             case '3':
-               if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
-                  tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                  return KEY_DELETE; // DELETE key
+               ch = getchar();
+               if (ch == '~') {
+                  result = KEY_DELETE;
                }
                break;
             case '4':
-               if (select(STDIN_FILENO + 1, &readfds, NULL, NULL, &timeout) > 0 && getchar() == '~') {
-                  tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-                  return KEY_END; // Alternative END key sequence
+               ch = getchar();
+               if (ch == '~') {
+                  result = KEY_END;
                }
                break;
             }
          }
-      }
-      else {
-         // Timeout - it's just ESC pressed alone
-         tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-         return KEY_ESC;
+      } else {
+         // Timeout/EOF - it's just ESC pressed alone
+         result = KEY_ESC;
       }
    }
+
    tcsetattr(STDIN_FILENO, TCSANOW, &oldattr);
-   return ch; // Regular character
+   return result;
 #endif
 }
 

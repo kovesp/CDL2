@@ -613,13 +613,13 @@ namespace CDL2v1 {
       /// <returns>true if there are any undefined calls.</returns>
       private bool AnalyzeAlternative(Procedure proc,Alternative alt,DataFlowInfo info) {
          bool missingDefinitions = false;
-         foreach (Call call in alt.calls) {
+         foreach (Call call in alt.Calls) {
             missingDefinitions = AnalyzeCall(call,proc,info) || missingDefinitions;
          }
-         if (alt.lastCall.type == LCT.Group) {
-            missingDefinitions = AnalyzeGroup(proc,alt.lastCall.group!,info) || missingDefinitions;
-         } else if (alt.lastCall.type == LCT.Standard) {
-            missingDefinitions = AnalyzeCall(alt.lastCall.call!,proc,info) || missingDefinitions;
+         if (alt.LastCall.type == LCT.Group) {
+            missingDefinitions = AnalyzeGroup(proc,alt.LastCall.group!,info) || missingDefinitions;
+         } else if (alt.LastCall.type == LCT.Standard) {
+            missingDefinitions = AnalyzeCall(alt.LastCall.call!,proc,info) || missingDefinitions;
          }
          return missingDefinitions;
       }
@@ -839,12 +839,12 @@ namespace CDL2v1 {
       }
       private bool AnalyzeCanFail(Group group,Section section) {
          foreach (Alternative alternative in group.Alternatives) {
-            if (alternative.lastCall.type == LCT.Fail) return true;
-            if (alternative.lastCall.type == LCT.Group && AnalyzeCanFail(alternative.lastCall.group!,section)) return true;
+            if (alternative.LastCall.type == LCT.Fail) return true;
+            if (alternative.LastCall.type == LCT.Group && AnalyzeCanFail(alternative.LastCall.group!,section)) return true;
          }
          Alternative lastAlternative = group.Alternatives.Last();
          if (lastAlternative.CanFail) return true;
-         LastCall lc = lastAlternative.lastCall;
+         LastCall lc = lastAlternative.LastCall;
          return lc.type == LCT.Standard && lc.call!.CanFail;   // Group and Fail already handled above.
       }
 
@@ -857,13 +857,13 @@ namespace CDL2v1 {
       /// <returns></returns>
       /// <exception cref="Exception"></exception>
       private bool AnalyzeEffect(Alternative alt) {
-         foreach (Call call in alt.calls) {
+         foreach (Call call in alt.Calls) {
             if (CallhasEffect(call)) return true;
          }
-         if (alt.lastCall.type == LastCallType.Standard) {
-            return CallhasEffect(alt.lastCall.call!);
-         } else if (alt.lastCall.type == LastCallType.Group) {
-            return AnalyzeEffect(alt.lastCall.group!);
+         if (alt.LastCall.type == LastCallType.Standard) {
+            return CallhasEffect(alt.LastCall.call!);
+         } else if (alt.LastCall.type == LastCallType.Group) {
+            return AnalyzeEffect(alt.LastCall.group!);
          } else {
             return false;
          }

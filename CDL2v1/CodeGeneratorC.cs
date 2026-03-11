@@ -16,15 +16,8 @@
 //=======================================================================
 // </auto-gen>
 
-using Microsoft.VisualBasic;
 
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Printing;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Reflection.Metadata;
-using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    internal partial class CodeGeneratorC : TargetCodeGenerator, ICodeGenerator {
@@ -242,7 +235,11 @@ namespace CDL2v1 {
       }
       public void GenerateMacroInlineEnd(Macro macro,int alternativeNumber) {
          if (macro.CanFail) {
-            emitter.Emitnl($")) goto {ReferencedLabel(alternativeNumber)};");
+            if (alternativeNumber == Alternative.ALTERNATIVES_END) {
+               emitter.Emitnl($")) RETURNV(FALSE);");
+            } else {
+               emitter.Emitnl($")) goto {ReferencedLabel(alternativeNumber)};");
+            }
          } else {
             emitter.Emitnl();
          }
@@ -318,7 +315,7 @@ namespace CDL2v1 {
       }
 
       public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed,bool supressLabel) {
-         if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
+         if (alternative.LastCall.type != LCT.Group && alternative.LastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization 
                ? "goto Finalization; // alt end" 
                : "RETURNV(TRUE); // alt end" 
@@ -349,7 +346,7 @@ namespace CDL2v1 {
 
       public void GenerateCallEnd(Algorithm called,Procedure calling,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
-            if (alternative.NextAlternativeNumber == int.MinValue) {
+            if (alternative.NextAlternativeNumber == Alternative.ALTERNATIVES_END) {
                emitter.Emit(")) RETURNV(FALSE); // call end");
             } else {
                emitter.Emit($")) goto {ReferencedLabel(alternative.NextAlternativeNumber)};");

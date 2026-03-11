@@ -33,15 +33,10 @@
 
 // Ignore Spelling: CDL
 
-using System.Collections;
 using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text.RegularExpressions;
-using System.Windows.Controls.Ribbon.Primitives;
-using System.Windows.Documents;
 
 namespace CDL2v1 {
    /// <summary>
@@ -360,7 +355,7 @@ namespace CDL2v1 {
       /// the macro can fail.
       /// </remarks>
       /// <param name="inlining"></param>
-      private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,int alternativeNumber=-1,List<IActualArg>? args = null,AList? aList = null,bool inlining = false) {
+      private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,int alternativeNumber=Alternative.ALTERNATIVES_END,List<IActualArg>? args = null,AList? aList = null,bool inlining = false) {
          aList = new(aList,macro.Affixes,args ?? []);
          bool first = true;
          List<IElement> lastExpression;
@@ -394,18 +389,15 @@ namespace CDL2v1 {
          /// Maps an affix to the actual argument.
          /// </summary>
          /// <param name="i">The ordinal of the argument. Not currently used.</param>
-         /// <param name="affix"></param>
-         /// <param name="arg"></param>
-         internal struct AffixMapping(int i,Affix affix,IActualArg arg) {
-            public Affix affix = affix;
-            public IActualArg arg = arg;
-#if DEBUG
+         /// <param name="affixes"></param>
+         /// <param name="actualArgs"></param>
+         internal struct AffixMapping(int i,List<Affix> affixes,List<IActualArg> actualArgs) {
+            public Affix affix = affixes[i];
+            public IActualArg arg = actualArgs[i];
             public int argNo = i;
             public override readonly string ToString() => $"[{argNo}] {arg} -> {affix}";
-#else
-            public override readonly string ToString() => $"{affix} -> {arg}";
-#endif
          }
+
 
          private AList() : base() { }
 
@@ -423,7 +415,7 @@ namespace CDL2v1 {
             aList ??= [];
             int argCount = Math.Min(affixes.Count,args.Count);
             for (int i = 0 ; i < argCount ; i++) {
-               Add(new AffixMapping(i,affixes[i],args[i] is Affix aff && aList.TryGetValue(aff,out IActualArg? arg) ? arg : args[i]));
+               Add(new AffixMapping(i,affixes,args));
             }
          }
          /// <summary>
@@ -674,10 +666,10 @@ namespace CDL2v1 {
       /// <param name="alternative">The alternative containing the sequence of calls from which local variables are to be collected.</param>
       /// <param name="locals">An enumerable collection that receives the local variables identified from the calls in the alternative.</param>
       private void CollectLocals(Alternative alternative,Set<Local> locals) {
-         foreach (Call call in alternative.calls) CollectLocals(call,locals);
-         switch (alternative.lastCall.type) {
-            case LCT.Standard: CollectLocals(alternative.lastCall.call!,locals); break;
-            case LCT.Group: CollectLocals(alternative.lastCall.group!,locals); break;
+         foreach (Call call in alternative.Calls) CollectLocals(call,locals);
+         switch (alternative.LastCall.type) {
+            case LCT.Standard: CollectLocals(alternative.LastCall.call!,locals); break;
+            case LCT.Group: CollectLocals(alternative.LastCall.group!,locals); break;
          }
       }
 
@@ -749,23 +741,23 @@ namespace CDL2v1 {
       /// <param name="aList"></param>
       /// <exception cref="NotImplementedException"></exception>
       private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast,AList? aList = null) {
-         List<Call> calls = alternative.calls;
+         List<Call> calls = alternative.Calls;
          bool canFail = false;
          foreach (Call call in calls) {
             GenerateCall(proc,alternative,call,canFail,currentAList: aList,lastAlternative: isLast);
             canFail = canFail || call.CanFail;
          }
-         switch (alternative.lastCall.type) {
+         switch (alternative.LastCall.type) {
             case LCT.Standard: 
-               GenerateCall(proc,alternative,alternative.lastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,aList); break;
+               GenerateCall(proc,alternative,alternative.LastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,aList); break;
             case LCT.Fail: cg.GenerateFail(proc,group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
             case LCT.Abort: cg.GenerateAbort(proc,group,proc.AlgId); break;
-            case LCT.Repeat: cg.GenerateRepeat(proc,group,alternative.lastCall.label!,canFail); break;
-            case LCT.Group: GenerateGroup(proc,alternative.lastCall.group!); break;
+            case LCT.Repeat: cg.GenerateRepeat(proc,group,alternative.LastCall.label!,canFail); break;
+            case LCT.Group: GenerateGroup(proc,alternative.LastCall.group!); break;
             case LCT.None: break; // Used in the alternative generated for SectionById Ludes.
             default:
-               throw new NotImplementedException($"GenerateAlternative: Unknown last call type {alternative.lastCall.type}");
+               throw new NotImplementedException($"GenerateAlternative: Unknown last call type {alternative.LastCall.type}");
          }
       }
       /// <summary>

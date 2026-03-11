@@ -395,7 +395,7 @@ namespace CDL2Generated {
          => GenerateComment($"Alternative {alternativeNumber}");
 
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed,bool supressLabel) {
-         if (alternative.lastCall.type != LCT.Group && alternative.lastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
+         if (alternative.LastCall.type != LCT.Group && alternative.LastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? "break;" : "return true;") : "return;");
          while (ifDepth > 0) {
             DecrementIndent();

@@ -142,14 +142,14 @@ namespace CDL2v1 {
       private void CollectReachableObjects(Alternative alt) {
          if (alt.IsConditionalCompilationOff) return;
          // Conditinal compilation is only suported for the first call of an alternative
-         IEnumerable<Call> calls = alt.IsConditionalCompilationOn ? alt.calls.Skip(1) : alt.calls;
+         IEnumerable<Call> calls = alt.IsConditionalCompilationOn ? alt.Calls.Skip(1) : alt.Calls;
          foreach (Call call in calls) CollectReachableObjects(call); 
-         switch (alt.lastCall.type) {
+         switch (alt.LastCall.type) {
             case LCT.Standard:
-               if (alt.lastCall.call is not null) CollectReachableObjects(alt.lastCall.call);
+               if (alt.LastCall.call is not null) CollectReachableObjects(alt.LastCall.call);
                break;
             case LCT.Group:
-               if (alt.lastCall.group is not null) CollectReachableObjects(alt.lastCall.group);
+               if (alt.LastCall.group is not null) CollectReachableObjects(alt.LastCall.group);
                break;
          }
       }

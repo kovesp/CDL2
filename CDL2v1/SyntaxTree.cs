@@ -1622,11 +1622,11 @@ namespace CDL2v1 {
          // Now fix the call references in both procedures.
          static void ReplaceCallReferences(Group group,Guid guid) {
             foreach (Alternative alternative in group.Alternatives) {
-               foreach (Call call in alternative.calls) call.containingProc = guid;
-               if (alternative.lastCall.type == LCT.Standard) {
-                  alternative.lastCall!.call!.containingProc = guid;
-               } else if (alternative.lastCall.type == LCT.Group) {
-                  ReplaceCallReferences(alternative.lastCall.group!,guid);
+               foreach (Call call in alternative.Calls) call.containingProc = guid;
+               if (alternative.LastCall.type == LCT.Standard) {
+                  alternative.LastCall!.call!.containingProc = guid;
+               } else if (alternative.LastCall.type == LCT.Group) {
+                  ReplaceCallReferences(alternative.LastCall.group!,guid);
                }
             }
          }
@@ -1720,8 +1720,8 @@ namespace CDL2v1 {
       /// TODO: This is the initial version. It will be refined to check that all calls in a procedure are to other procedures that are also conditional compilation flags.
       /// </summary>
       /// <returns></returns>
-      [JsonIgnore] public override bool IsConditionalCompilationOff => CanFail && group.Alternatives.Count == 1 && group.Alternatives[0].calls.Count == 0 && group.Alternatives[0].lastCall.type == LCT.Fail;
-      [JsonIgnore] public override bool IsConditionalCompilationOn => CanFail && group.Alternatives.Count == 1 && group.Alternatives[0].calls.Count == 0 && group.Alternatives[0].lastCall.type == LCT.Succeed;
+      [JsonIgnore] public override bool IsConditionalCompilationOff => CanFail && group.Alternatives.Count == 1 && group.Alternatives[0].Calls.Count == 0 && group.Alternatives[0].LastCall.type == LCT.Fail;
+      [JsonIgnore] public override bool IsConditionalCompilationOn => CanFail && group.Alternatives.Count == 1 && group.Alternatives[0].Calls.Count == 0 && group.Alternatives[0].LastCall.type == LCT.Succeed;
 
       /// <summary>
       /// The procedure has repeats.
@@ -1738,7 +1738,7 @@ namespace CDL2v1 {
       public bool HasNoGroups {
          get {
             foreach (Alternative alternative in group.Alternatives) {
-               if (alternative.lastCall.type == LCT.Group)
+               if (alternative.LastCall.type == LCT.Group)
                   return false;
             }
             return true;
@@ -1773,12 +1773,12 @@ namespace CDL2v1 {
       }
       private static void CollectReferencedVariables(Group group,Set<Var> variables) {
          foreach (Alternative alternative in group.Alternatives) {
-            foreach (Call call in alternative.calls) foreach (Var variable in call.Args.OfType<Var>()) variables.Add(variable);
-            if (alternative.lastCall.type == LCT.Standard) {
-               foreach (Var variable in alternative.lastCall.call!.Args.OfType<Var>())
+            foreach (Call call in alternative.Calls) foreach (Var variable in call.Args.OfType<Var>()) variables.Add(variable);
+            if (alternative.LastCall.type == LCT.Standard) {
+               foreach (Var variable in alternative.LastCall.call!.Args.OfType<Var>())
                   variables.Add(variable);
-            } else if (alternative.lastCall.type == LCT.Group) {
-               CollectReferencedVariables(alternative.lastCall.group!,variables);
+            } else if (alternative.LastCall.type == LCT.Group) {
+               CollectReferencedVariables(alternative.LastCall.group!,variables);
             }
          }
       }
@@ -1826,9 +1826,9 @@ namespace CDL2v1 {
          if (IsConditionalCompilationOff || IsConditionalCompilationOn)
             return false;  // Handled explicitly by the code generator.
          Alternative alternative = group.Alternatives[0];
-         if (group.Alternatives.Count != 1 || alternative.lastCall.type != LCT.Standard)
+         if (group.Alternatives.Count != 1 || alternative.LastCall.type != LCT.Standard)
             return false;
-         if (alternative.calls.Any(call => call.CanFail))
+         if (alternative.Calls.Any(call => call.CanFail))
             return false;
 
          // The procedure meets the basic criteria for inlinabilty. Apply inlining parameters if appropriate.
@@ -2021,19 +2021,20 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Alternative";
 #pragma warning restore CS0414
 #endif
-      [JsonInclude][JsonPropertyOrder(41)] public List<Call> calls = [];
-      [JsonInclude][JsonPropertyOrder(42)] public LastCall lastCall = new();
+      [JsonInclude][JsonPropertyOrder(41)] public List<Call> Calls = [];
+      [JsonInclude][JsonPropertyOrder(42)] public LastCall LastCall = new();
       // These are computed when the containing procedure is parsed
-      [JsonInclude][JsonPropertyOrder(43)] public int AlternativeNumber = int.MinValue;       
-      [JsonInclude][JsonPropertyOrder(44)] public int NextAlternativeNumber = int.MinValue;
+      public const int ALTERNATIVES_END = -1;
+      [JsonInclude][JsonPropertyOrder(43)] public int AlternativeNumber = ALTERNATIVES_END;       
+      [JsonInclude][JsonPropertyOrder(44)] public int NextAlternativeNumber = ALTERNATIVES_END;
 
-      public override IEnumerable<NamedElement> ChildElements() => [.. calls,lastCall];
+      public override IEnumerable<NamedElement> ChildElements() => [.. Calls,LastCall];
 
       [JsonIgnore] public bool IsConditionalOff = false;
 
       public Alternative(List<Call> calls,LastCall lastCall,Notes notes,Group containingGroup) : base(ID.AnonID,synthetic: false,SelectorType.INVALID) {
-         this.calls = calls;
-         this.lastCall = lastCall;
+         this.Calls = calls;
+         this.LastCall = lastCall;
          Notes = notes;
          Parent = containingGroup.GUID;
       }
@@ -2041,33 +2042,33 @@ namespace CDL2v1 {
       public Alternative(Notes notes,Group group) : base(ID.AnonID,synthetic: false,SelectorType.INVALID) {
          Notes = notes;
          Parent = group.GUID;
-         lastCall = new LastCall(LCT.None,this); // No last call yet.
+         LastCall = new LastCall(LCT.None,this); // No last call yet.
       }
 
       [JsonConstructor] public Alternative() : base(ID.AnonID,synthetic: false,SelectorType.INVALID) { } // For deserialization
 
       [JsonIgnore]
-      public bool CanFail => calls.Any(call => call.CanFail) ||
-                              (lastCall!.type == LCT.Standard && lastCall.call!.CanFail) ||
-                              lastCall.type == LCT.Fail ||
-                              (lastCall.type == LCT.Group && lastCall.group!.CanFail);
+      public bool CanFail => Calls.Any(call => call.CanFail) ||
+                              (LastCall!.type == LCT.Standard && LastCall.call!.CanFail) ||
+                              LastCall.type == LCT.Fail ||
+                              (LastCall.type == LCT.Group && LastCall.group!.CanFail);
       private Call? FirstCall() {
-         if (calls.Count > 0)
-            return calls[0];
-         if (lastCall!.type == LCT.Standard)
-            return lastCall.call;
+         if (Calls.Count > 0)
+            return Calls[0];
+         if (LastCall!.type == LCT.Standard)
+            return LastCall.call;
          return null;
       }
 
-      [JsonIgnore] public bool HasAnonymousRepeat => lastCall.type == LCT.Repeat && lastCall.label!.IsAnonymousGroup;
+      [JsonIgnore] public bool HasAnonymousRepeat => LastCall.type == LCT.Repeat && LastCall.label!.IsAnonymousGroup;
 
-      internal int CallCount() => calls.Count + (lastCall.type == LCT.Standard ? 1 : 0) + (lastCall.type == LCT.Group ? lastCall.group!.CallCount() : 0);
+      internal int CallCount() => Calls.Count + (LastCall.type == LCT.Standard ? 1 : 0) + (LastCall.type == LCT.Group ? LastCall.group!.CallCount() : 0);
 
       /// <summary>
       /// True if the alternative terminates the algorithm, i.e., its last call is a fail or abort.
       /// No need to check for succeed because that is just normal alternative completion.
       /// </summary>
-      [JsonIgnore] public bool Terminates => lastCall.type == LCT.Fail || lastCall.type == LCT.Abort;
+      [JsonIgnore] public bool Terminates => LastCall.type == LCT.Fail || LastCall.type == LCT.Abort;
       [JsonIgnore] public bool IsConditionalCompilationOn => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOn;
       [JsonIgnore] public bool IsConditionalCompilationOff => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOff;
 
@@ -2075,20 +2076,20 @@ namespace CDL2v1 {
       /// If the last call position contained an actual call convert it to a LastCall
       /// </summary>
       public void NormalizeCalls() {
-         if (lastCall.type == LCT.None) {
-            lastCall = new LastCall(calls.Last(),this);
-            calls.RemoveAt(calls.Count - 1);
+         if (LastCall.type == LCT.None) {
+            LastCall = new LastCall(Calls.Last(),this);
+            Calls.RemoveAt(Calls.Count - 1);
          }
       }
 
-      public override string ToString() => $"Alt {AlternativeNumber}->{(NextAlternativeNumber==int.MinValue?"END":NextAlternativeNumber)} {Id}";
+      public override string ToString() => $"Alt {AlternativeNumber}->{(NextAlternativeNumber==ALTERNATIVES_END?"END":NextAlternativeNumber)} {Id}";
 
       internal void Dispose() {
-         foreach (Call call in calls) call.Dispose();
-         if (lastCall.type == LCT.Standard) {
-            lastCall.call?.Dispose();
-         } else if (lastCall.type == LCT.Group) {
-            lastCall.group?.Dispose();
+         foreach (Call call in Calls) call.Dispose();
+         if (LastCall.type == LCT.Standard) {
+            LastCall.call?.Dispose();
+         } else if (LastCall.type == LCT.Group) {
+            LastCall.group?.Dispose();
          }
          Database.Instance.NamedElements.Remove(GUID);
       }
@@ -2135,7 +2136,7 @@ namespace CDL2v1 {
       }
       [JsonIgnore] public bool HasAnonymousRepeat => HasAnAnonymousRepeat();
       [JsonIgnore] public bool HasNoAnonymousRepeat => !HasAnonymousRepeat;
-      [JsonIgnore] public bool CanFail => Alternatives.Any(alternative => alternative.lastCall.type == LastCallType.Fail) || Alternatives.Last().CanFail;
+      [JsonIgnore] public bool CanFail => Alternatives.Any(alternative => alternative.LastCall.type == LastCallType.Fail) || Alternatives.Last().CanFail;
 
       /// <summary>
       /// Gets the number of live alternatives (ones that have not been removed by conditional compilation
@@ -2170,10 +2171,10 @@ namespace CDL2v1 {
       /// <returns>True if the group references the specified label, false otherwise.</returns>
       public bool ReferencesGroup(ID label,bool includeAnon=true) {
          foreach (Alternative alternative in Alternatives) {
-            if (alternative.lastCall.type == LastCallType.Repeat) {
-               if (alternative.lastCall.label! == label || (includeAnon && alternative.lastCall.label!.IsAnonymous && Id == label)) return true;
-            } else if (alternative.lastCall.type == LastCallType.Group) {
-               if (alternative.lastCall.group!.ReferencesGroup(label)) return true;
+            if (alternative.LastCall.type == LastCallType.Repeat) {
+               if (alternative.LastCall.label! == label || (includeAnon && alternative.LastCall.label!.IsAnonymous && Id == label)) return true;
+            } else if (alternative.LastCall.type == LastCallType.Group) {
+               if (alternative.LastCall.group!.ReferencesGroup(label)) return true;
             }
          }
          return false;
@@ -2188,15 +2189,15 @@ namespace CDL2v1 {
       /// <returns></returns>
       internal IEnumerable<Call> GetCalls(string namePattern) {
          foreach (Alternative alternative in Alternatives) {
-            foreach (Call call in alternative.calls) {
+            foreach (Call call in alternative.Calls) {
                if (call.MatchesNamePattern(namePattern))
                   yield return call;
             }
-            if (alternative.lastCall.type == LCT.Standard && alternative.lastCall.call!.MatchesNamePattern(namePattern)) {
-               yield return alternative.lastCall.call;
+            if (alternative.LastCall.type == LCT.Standard && alternative.LastCall.call!.MatchesNamePattern(namePattern)) {
+               yield return alternative.LastCall.call;
             }
-            if (alternative.lastCall.type == LCT.Group && alternative.lastCall.group != null) {
-               foreach (Call call in alternative.lastCall.group.GetCalls(namePattern)) {
+            if (alternative.LastCall.type == LCT.Group && alternative.LastCall.group != null) {
+               foreach (Call call in alternative.LastCall.group.GetCalls(namePattern)) {
                   yield return call;
                }
             }

@@ -168,7 +168,9 @@ namespace CDL2v1 {
          Compiler.CompileSources(Settings.SettingValue<string[]>("Sources")!);
 
          // In non-GUI mode, force immediate exit to avoid STA thread cleanup delays
+#if WINDOWS
          if (!Settings.GUIMode) Process.GetCurrentProcess().Kill();
+#endif
       }
 
       public Parser? Parser;

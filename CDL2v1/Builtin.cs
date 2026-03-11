@@ -31,10 +31,8 @@
 //=======================================================================
 // </auto-gen>
 
-using Accessibility;
 
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 
 namespace CDL2v1 {
    internal static class Builtin {

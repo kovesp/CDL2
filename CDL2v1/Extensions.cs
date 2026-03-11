@@ -41,7 +41,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Windows.Documents;
 
 namespace CDL2v1 {
    public class Set<T> : HashSet<T>, ISet<T> {

@@ -515,17 +515,17 @@ namespace CDL2v1 {
       /// <param name="extraSpace"></param>
       private void Print(Alternative alternative,Section section,bool extraSpace = false) {
          Emitter.ExtraIndent = 0;
-         if (alternative.calls.Count > 0) {
+         if (alternative.Calls.Count > 0) {
             PrintComment(alternative,needsEnd: false);
-            Print(alternative.calls.First(),section,extraSpace: extraSpace,firstInAlternative: true);
-            foreach (Call call in alternative.calls.Skip(1)) {
+            Print(alternative.Calls.First(),section,extraSpace: extraSpace,firstInAlternative: true);
+            foreach (Call call in alternative.Calls.Skip(1)) {
                EmitSeparator(TT.CALLSEP);
                Print(call,section);
             }
-            if (alternative.lastCall.type != LCT.None) EmitSeparator(TT.CALLSEP);
+            if (alternative.LastCall.type != LCT.None) EmitSeparator(TT.CALLSEP);
          }
 
-         if (alternative.lastCall.type != LCT.None) Print(alternative.lastCall,section,extraSpace: extraSpace);
+         if (alternative.LastCall.type != LCT.None) Print(alternative.LastCall,section,extraSpace: extraSpace);
       }
 
       /// <summary>
