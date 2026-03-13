@@ -214,7 +214,7 @@ function Remove-Const([string[]]$names) {
          if (n > 0) {
             emitter.NlEmitnl($"\n##### {n} {typeName}{(n != 1 ? "s" : "")} #####\n");
             if (items.First() is Const) {
-               emitter.Emitnl("Remove-Const ",string.Join(",",items.Select(c => PSVarPrefix(PSVarType.Const) + PSName((c as Const)!))));
+               emitter.Emitnl("Remove-Const ",string.Join(",",items.Select(c => PSVarPrefix(PSVarType.Const) + TargetName((c as Const)!))));
             }
          }
       }
@@ -227,7 +227,7 @@ function Remove-Const([string[]]$names) {
       /// Use this version to get constants that can be modifieed
       /// </summary>
       /// <param name="c"></param>
-      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c)," = 0; Set-Const '",PSVarPrefix(PSVarType.Const),PSName(c),"' ");
+      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c)," = 0; Set-Const '",PSVarPrefix(PSVarType.Const),TargetName(c),"' ");
       void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value,false,false);
       void ICodeGenerator.GenerateConstElementFloat(double value) => ((ICodeGenerator)this).GenerateMacroElementFloat(value);
       void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
@@ -239,7 +239,7 @@ function Remove-Const([string[]]$names) {
       #endregion Data Declarations
 
       #region Algorithm Common
-      void ICodeGenerator.GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"function {PSName(alg)}(");
+      void ICodeGenerator.GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"function {TargetName(alg)}(");
       void ICodeGenerator.GenerateAlgorithmHeaderEnd(Algorithm alg) {
          emitter.Emitnl(") {");
          IncrementIndent();
@@ -433,7 +433,7 @@ function Remove-Const([string[]]$names) {
 
       void ICodeGenerator.GenerateCallStart(Algorithm called,Procedure proc,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          ConditionalWrapperStart(called);
-         emitter.Emit(PSName(called)," ");
+         emitter.Emit(TargetName(called)," ");
       }
 
       void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
@@ -514,22 +514,12 @@ function Remove-Const([string[]]$names) {
 
       private static string PS_Var(string name,PSVarType type,string prefix = "",string suffix = "",bool isRef = false)
          => $"{(isRef ? "([ref]" : "")}${prefix}{PSVarPrefix(type)}{name}{suffix}{(isRef ? ")" : "")}";
-      private static string PSVar(CDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
-      private static string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(affix),PSVarType.Affix,prefix,suffix,isRef);
-      private static string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(PSName(local),PSVarType.Local,prefix,suffix,isRef);
-      //private static string PSVar(ID id, string prefix = "", string suffix = "", bool isRef = false) => PS_Var(PSName(id), PSVarType.Local, prefix, suffix, isRef);
+      private string PSVar(CDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
+      private string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(affix),PSVarType.Affix,prefix,suffix,isRef);
+      private string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(local),PSVarType.Local,prefix,suffix,isRef);
+      //private static string PSVar(ID id, string prefix = "", string suffix = "", bool isRef = false) => PS_Var(TName(id), PSVarType.Local, prefix, suffix, isRef);
 
-      private static string PSName(CDL2Object obj) => obj.FQN(camelCase: true,literalObjectName: obj.IsSynthetic);
-      private static string PSName(Affix affix) => affix.Id.Name.AsIdentifier(camelCase: true);
-      private static string PSName(Local local) => local.Id.Name.AsIdentifier(camelCase: true);
-      //private static string PSName(ID id) => id.Name.AsIdentifier(camelCase: true);
 
-      private static string PSArgName(IActualArg arg,string suffix = "") => arg switch {
-         Affix a => PSName(a),
-         Local l => PSName(l),
-         Var v => PSName(v),
-         _ => throw new NotImplementedException($"PSName not implemented for type {arg.GetType()}."),
-      };
       /// <summary>
       /// Generate the constant that will be assinged to an Affix, Local or Var.
       /// </summary>

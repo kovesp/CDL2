@@ -131,7 +131,7 @@ namespace CDL2v1 {
       /// <param name="vars">The collection of variables to generate debug information for. Each variable is represented by a Var object,
       /// which contains details necessary for the debug information.</param>
       public void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) {
-         static string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{var.Quoted()},&{CName(var)}}}";
+         string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{var.Quoted()},&{TargetName(var)}}}";
          if (vars.Any()) {
             emitter.NlEmitnl($"{vars.Count()},(C2VarInfo[]){{");
             IncrementIndent();
@@ -146,8 +146,8 @@ namespace CDL2v1 {
       }
 
       public void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) {
-         static string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{list.Quoted()},{CName(list)}_array,"+
-                           $"{CName(list.Section!.GetResolvedObject(list.lwb)!)},{CName(list.Section!.GetResolvedObject(list.upb)!)}}}";
+         string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{list.Quoted()},{TargetName(list)}_array,"+
+                           $"{TargetName(list.Section!.GetResolvedObject(list.lwb)!)},{TargetName(list.Section!.GetResolvedObject(list.upb)!)}}}";
          if (lists.Any()) {
             emitter.NlEmitnl($"{lists.Count()},(C2ListInfo[]){{");
             IncrementIndent();
@@ -197,17 +197,17 @@ namespace CDL2v1 {
 
       public void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items,string typeName) where T : NamedElement { }
 
-      public void GenerateConstantStart(Const constant) => emitter.Emit("#define ",CName(constant)," ");
+      public void GenerateConstantStart(Const constant) => emitter.Emit("#define ",TargetName(constant)," ");
       public void GenerateConstElementInt(long value) => emitter.Emit(value);
       public void GenerateConstElementFloat(double value) => emitter.Emit(value);
       public void GenerateConstElementString(string value) => emitter.Emit(value);
-      public void GenerateConstElementConst(Const c) => emitter.Emit(CArgName(c));
+      public void GenerateConstElementConst(Const c) => emitter.Emit(TArgName(c));
 
       public void GenerateConstantEnd(Const constant) => emitter.Emitnl();
 
-      public void GenerateVar(Var v) => emitter.Emitnl("DECLARE_VAR(",CName(v),");");
+      public void GenerateVar(Var v) => emitter.Emitnl("DECLARE_VAR(",TargetName(v),");");
 
-      public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("DECLARE_LIST(",CName(list),",",CName(lwb),",",CName(upb),");");
+      public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("DECLARE_LIST(",TargetName(list),",",TargetName(lwb),",",TargetName(upb),");");
 
       public void GenerateMacroStart(Macro macro) => emitter.NlEmit("\n",sourceEmitter.Content);
       public void GenerateMacroEnd(Macro macro) {
@@ -258,10 +258,10 @@ namespace CDL2v1 {
          }
       }
 
-      public void GenerateMacroElementConst(Const c) => emitter.Emit(CName(c));
-      public void GenerateMacroElementVar(Var v,bool canFail,bool inlined = false) => emitter.Emit(CName(v,canFail && !inlined ? "_" : ""));
-      public void GenerateMacroElementList(LIST l) => emitter.Emit(CName(l));
-      public void GenerateMacroElementLocal(Local local,Affix calledAffix) => emitter.Emit(CName(local));
+      public void GenerateMacroElementConst(Const c) => emitter.Emit(TargetName(c));
+      public void GenerateMacroElementVar(Var v,bool canFail,bool inlined = false) => emitter.Emit(TargetName(v,canFail && !inlined ? "_" : ""));
+      public void GenerateMacroElementList(LIST l) => emitter.Emit(TargetName(l));
+      public void GenerateMacroElementLocal(Local local,Affix calledAffix) => emitter.Emit(TargetName(local));
       /// <summary>
       /// ALways generate *a as (*a) to ensure ++ and -- work correctly.
       /// </summary>
@@ -270,12 +270,12 @@ namespace CDL2v1 {
       public void GenerateMacroElementAffix(Affix affix,bool canFail) {
          if (affix.IsOutput) {
             if (canFail) {
-               emitter.Emit(CName(affix,"_"));
+               emitter.Emit(TargetName(affix,"_"));
             } else {
-               emitter.Emit("(*" + CName(affix),")");
+               emitter.Emit("(*" + TargetName(affix),")");
             }
          } else {
-            emitter.Emit(CName(affix));
+            emitter.Emit(TargetName(affix));
          }
       }
 
@@ -327,21 +327,21 @@ namespace CDL2v1 {
       public void GenerateGroupStart(Procedure proc,Group group) {
          if (proc.ReferrencesGroup(group.Id)) {
             GenerateComment($"Group ",block:true);
-            emitter.Emitnl(CName(group.Id),":");
+            emitter.Emitnl(TargetName(group),":");
          } else {
-            GenerateComment($"Group {CName(group.Id)}");
+            GenerateComment($"Group {TargetName(group)}");
          }
          IncrementIndent();
       }
 
       public void GenerateGroupEnd(Procedure proc,Group group) {
          DecrementIndent();
-         GenerateComment($"End Group {CName(group.Id)}");
+         GenerateComment($"End Group {TargetName(group)}");
       }
 
       public void GenerateCallStart(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) emitter.Emit("if (! ");
-         emitter.Emit(CName(called),"(");
+         emitter.Emit(TargetName(called),"(");
       }
 
       public void GenerateCallEnd(Algorithm called,Procedure calling,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
@@ -363,42 +363,42 @@ namespace CDL2v1 {
          : "RETURN; // succeed");
       public void GenerateAbort(Procedure proc,Group group,int algId) => emitter.Emitnl($"ABORT({proc.FQDN().Quoted()},{proc.AlgId});");
       public void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail)
-         => emitter.Emitnl("goto " + (label.IsAnonymous ? CName(group.Id) : CName(label)) + ";");
+         => emitter.Emitnl("goto " + (label.IsAnonymous ? TargetName(group) : TargetName(label)) + ";");
 
       public void GenerateActualArgSeparator() => emitter.Emit(", ");
       public void GenerateCallArgString(string value) => emitter.Emit("\"",value.Replace("\"","\\\""),"\"");
-      public void GenerateCallArgReferenceConst(Affix affix,Const c) => emitter.Emit(CName(c));
+      public void GenerateCallArgReferenceConst(Affix affix,Const c) => emitter.Emit(TargetName(c));
 
       public void GenerateCallArgReferenceVar(Affix affix,Var v,bool needFinalization) {
-         if (affix.IsOutput) emitter.Emit("&",CName(v,needFinalization ? "_" : ""));
-         else emitter.Emit(CName(v,needFinalization ? "_" : ""));
+         if (affix.IsOutput) emitter.Emit("&",TargetName(v,needFinalization ? "_" : ""));
+         else emitter.Emit(TargetName(v,needFinalization ? "_" : ""));
       }
 
       public void GenerateCallArgReferenceAffix(Affix affix,Affix actualArg,bool needsFinalization) {
          if (affix.IsOutput) {
             if (actualArg.IsOutput) {                          // output -> output
                if (needsFinalization) {
-                  emitter.Emit("&",CName(actualArg,"_"));
+                  emitter.Emit("&",TargetName(actualArg,"_"));
                } else {
-                  emitter.Emit(CName(actualArg));
+                  emitter.Emit(TargetName(actualArg));
                }
             } else {                                           // input -> output
                throw new UnreachableException($"Requested to genrate code for passing {actualArg} -> {affix}");
             }
          } else { // affix.IsInput
             if (actualArg.IsInputOnly) {                       // input -> input
-               emitter.Emit(CName(actualArg));
+               emitter.Emit(TargetName(actualArg));
             } else {                                           // output -> input
                if (needsFinalization) {
-                  emitter.Emit(CName(actualArg,"_"));
+                  emitter.Emit(TargetName(actualArg,"_"));
                } else {
-                  emitter.Emit("*(VALUE*)",CName(actualArg));
+                  emitter.Emit("*(VALUE*)",TargetName(actualArg));
                }
             }
          }
       }
 
-      public void GenerateCallArgReferenceLocal(Affix affix,Local local) => emitter.Emit(affix.IsOutput ? "&" : "",CName(local));
+      public void GenerateCallArgReferenceLocal(Affix affix,Local local) => emitter.Emit(affix.IsOutput ? "&" : "",TargetName(local));
       #endregion Procedures
 
       public override void GenerateDeclaration(Algorithm alg) {
@@ -407,9 +407,9 @@ namespace CDL2v1 {
          emitter.Emitnl(");");
       }
 
-      //public void GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"{(alg.CanFail ? "BOOL" : "void")} {CName(alg)}(");
+      //public void GenerateAlgorithmHeaderStart(Algorithm alg) => emitter.Emit($"{(alg.CanFail ? "BOOL" : "void")} {TName(alg)}(");
       public void GenerateAlgorithmHeaderStart(Algorithm alg)
-         => emitter.Emit($"{alg.BodyType switch { TT.PROCBODY or TT.PROCINLINEBODY => "PROC", _ => "MACRO" }} {alg.AlgorithmType} {CName(alg)}(");
+         => emitter.Emit($"{alg.BodyType switch { TT.PROCBODY or TT.PROCINLINEBODY => "PROC", _ => "MACRO" }} {alg.AlgorithmType} {TargetName(alg)}(");
 
       private static string C2AffType(Affix aff) => aff.affixDir switch {
          AD.input => "C2_AFF_INPUT",
@@ -432,11 +432,11 @@ namespace CDL2v1 {
 
             string affValues = "NULL";
             if (alg.Affixes.Count > 0) {
-               affValues = "(C2DataValue[]){"+string.Join(",",alg.Affixes.Select(aff => $"{affDiscriminator(aff)}({CName(aff)})"))+"}";
+               affValues = "(C2DataValue[]){"+string.Join(",",alg.Affixes.Select(aff => $"{affDiscriminator(aff)}({TargetName(aff)})"))+"}";
             }
             string localValues = "NULL";
             if (locals.Any()) {
-               localValues = "(VALUE*[]){" + string.Join(",",alg.Locals.Select(loc => $"&{CName(loc)}")) + "}";
+               localValues = "(VALUE*[]){" + string.Join(",",alg.Locals.Select(loc => $"&{TargetName(loc)}")) + "}";
             }
             string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";
             string localsRefs = $"{locals.Count()},C2Locals,C2LocalNames";
@@ -452,20 +452,20 @@ namespace CDL2v1 {
       public void GenerateAffix(Affix affix,AffixDir dir,bool canFail) {
          switch (dir) {
             case AD.input:
-               emitter.Emit("VALUE ",CName(affix));
+               emitter.Emit("VALUE ",TargetName(affix));
                break;
             case AD.NONE:
-               emitter.Emit("char *",CName(affix));
+               emitter.Emit("char *",TargetName(affix));
                break;
             default:
-               emitter.Emit("VALUE *",CName(affix));
+               emitter.Emit("VALUE *",TargetName(affix));
                break;
          }
       }
 
       public void GenerateAffixSeparator() => emitter.Emit(", ");
 
-      public void GenerateLocal(Local local) => emitter.Emitnl("VALUE ",CName(local)," = ",InitialValue,";");
+      public void GenerateLocal(Local local) => emitter.Emitnl("VALUE ",TargetName(local)," = ",InitialValue,";");
 
       public void GenerateAffixAndVariableInitializationStart(Algorithm alg) {
          if (alg.NeedsFinalization) GenerateComment("Initialization");
@@ -482,16 +482,16 @@ namespace CDL2v1 {
                break;
             case AD.output:
                if (isVar) {
-                  emitter.Emitnl("VALUE ",CName((Var)item,"_")," = ",InitialValue,";");
+                  emitter.Emitnl("VALUE ",TargetName((Var)item,"_")," = ",InitialValue,";");
                } else {
-                  emitter.Emitnl("VALUE ",CName((Affix)item,"_")," = ",InitialValue,";");
+                  emitter.Emitnl("VALUE ",TargetName((Affix)item,"_")," = ",InitialValue,";");
                }
                break;
             case AD.transput:
                if (isVar) {
-                  emitter.Emitnl("VALUE ",CName((Var)item,"_")," = ",CName((Var)item),";");
+                  emitter.Emitnl("VALUE ",TargetName((Var)item,"_")," = ",TargetName((Var)item),";");
                } else {
-                  emitter.Emitnl("VALUE ",CName((Affix)item,"_")," = *",CName((Affix)item),";");
+                  emitter.Emitnl("VALUE ",TargetName((Affix)item,"_")," = *",TargetName((Affix)item),";");
                }
                break;
          }
@@ -518,9 +518,9 @@ namespace CDL2v1 {
                break;
             default:
                if (isVar) {
-                  emitter.Emitnl(CName((Var)item)," = ",CName((Var)item,"_"),";");
+                  emitter.Emitnl(TargetName((Var)item)," = ",TargetName((Var)item,"_"),";");
                } else {
-                  emitter.Emitnl("*",CName((Affix)item)," = ",CName((Affix)item,"_"),";");
+                  emitter.Emitnl("*",TargetName((Affix)item)," = ",TargetName((Affix)item,"_"),";");
                }
                break;
          }
@@ -582,23 +582,10 @@ namespace CDL2v1 {
       public void GenerateSectionEnd(Section section) { }
       public void GenerateSectionLudeStart(RW ludeType,Section section) { }
       public void GenerateSectionLudeEnd(RW ludeType,Section section) { }
-      public void GenerateSectionLude(RW ludeType,Section section,Procedure proc) => emitter.Emitnl(CName(proc),"();");
+      public void GenerateSectionLude(RW ludeType,Section section,Procedure proc) => emitter.Emitnl(TargetName(proc),"();");
 
 
       #region Helpers
-      private static string CName(CDL2Object obj,string suffix = "") => obj.FQN(camelCase: false,literalObjectName: obj.IsSynthetic) + suffix;
-      private static string CName(Affix affix,string suffix = "") => "a_" + affix.Id.Name.AsIdentifier(camelCase: false) + suffix;
-      private static string CName(Local local,string suffix = "") => "l_" + local.Id.Name.AsIdentifier(camelCase: false) + suffix;
-      private static string CName(Var var,string suffix = "") => "v_" + var.FQN(camelCase: false,literalObjectName: var.IsSynthetic) + suffix;
-      private static string CName(ID id) => id.Name.AsIdentifier(camelCase: false);
-
-      protected override string InitialValue => "VALUE_MIN";
-      private static string CArgName(IActualArg arg,string suffix = "") => arg switch {
-         Affix a => CName(a,suffix),
-         Local l => CName(l,suffix),
-         Var v => CName(v,suffix),
-         _ => throw new NotImplementedException($"CName not implemented for type {arg.GetType()}."),
-      };
       /// <summary>
       /// Generate the constant that will be assinged to an Affix, Local or Var.
       /// </summary>
@@ -612,6 +599,8 @@ namespace CDL2v1 {
          string s => $"\"{s.Replace("\"","`\"")}\"",
          _ => throw new NotImplementedException($"Value expression generation not implemented for type {value.GetType()}."),
       };
+
+      protected override string InitialValue => "VALUE_UNDEFINED";
 
 
       #endregion Helpers

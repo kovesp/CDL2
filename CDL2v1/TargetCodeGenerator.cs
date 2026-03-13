@@ -130,8 +130,42 @@ namespace CDL2v1 {
          return (-1, "");
       }
 
+
+      // Target object names
+      private static string Prefix(NamedElement obj) => obj switch {
+         Var       => "V_",
+         LIST      => "LL_",
+         Const     => "C_",
+         Affix     => "A_",
+         Local     => "L_",
+         Algorithm => AlgPrefix((Algorithm)obj),
+         _         => ""
+      };
+
+      private static string AlgPrefix(Algorithm alg) => (alg is Procedure ? "P" :"M")+alg.AlgorithmType switch {
+         RW.TEST      => "T_",
+         RW.PREDICATE => "P_",
+         RW.FUNCTION  => "F_",
+         RW.ACTION    => "A_",
+         _            => "_"
+      };
+
+
+      protected virtual string TargetName(NamedElement obj,string suffix = "") => Prefix(obj)+obj.FQN(camelCase: false,literalObjectName: obj.IsSynthetic) + suffix;
+
+      protected virtual string TargetName(ID id) => id.Name.AsIdentifier(camelCase: false);
+      protected virtual string TargetName(Group group) => group.Id.Name.AsIdentifier(camelCase: false);
+
+      protected virtual string TArgName(IActualArg arg,string suffix = "") => arg switch {
+         Affix a => TargetName(a,suffix),
+         Local l => TargetName(l,suffix),
+         Var v => TargetName(v,suffix),
+         _ => throw new NotImplementedException($"TName not implemented for type {arg.GetType()}."),
+      };
+
       protected static readonly Random Random = new();
       protected virtual string InitialValue => Random.Next(0,int.MaxValue).ToString();
+
       #endregion Helpers
 
    }
