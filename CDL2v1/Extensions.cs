@@ -687,18 +687,18 @@ namespace CDL2v1 {
          /// </summary>
          /// <param name="str"></param>
          /// <param name="prefix"></param>
-         /// <param name="replacement"></param>
+         /// <param name="spaceReplacement"></param>
          /// <param name="camelCase"></param>
          /// <param name="literalObjectName"></param>
          /// <returns></returns>
-         public string AsIdentifier(string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false) {
+         public string AsIdentifier(string prefix = "",string spaceReplacement = "",bool camelCase = false,bool literalObjectName = false) {
             if (literalObjectName) return s.Replace(" ","");
             if (prefix != "") prefix += "_";
             s = Regex.Replace(s,@"[^\p{L}\d\s]+","_",RegexOptions.Compiled).Trim();
             if (camelCase) {
                return prefix.ToLower() + s.Split(" ").Select((word,i) => i == 0 ? word.ToLower() : char.ToUpper(word[0]) + word[1..].ToLower()).Aggregate((a,b) => a + b);
             } else {
-               return prefix.ToLower() + s.ToLower().Replace(" ",replacement);
+               return prefix.ToLower() + s.ToLower().Replace(" ",spaceReplacement);
             }
          }
 

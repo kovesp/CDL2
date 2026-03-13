@@ -31,6 +31,12 @@
 //=======================================================================
 // </auto-gen>
 
+#define HASH_TARGET_NAMES
+#define USE_CAMEL_CASE
+
+using System.Diagnostics.Eventing.Reader;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
@@ -150,8 +156,64 @@ namespace CDL2v1 {
          _            => "_"
       };
 
+#if USE_CAMEL_CASE
+      private const bool useCamelCase = true;
+#else
+      private const bool useCamelCase = false;
+#endif
 
-      protected virtual string TargetName(NamedElement obj,string suffix = "") => Prefix(obj)+obj.FQN(camelCase: false,literalObjectName: obj.IsSynthetic) + suffix;
+#if HASH_TARGET_NAMES
+      /// <summary>
+      /// Composes a unique name for the specified element, optionally including a hash-based prefix for certain element
+      /// types.
+      /// </summary>
+      /// <remarks>For elements of type CDL2Object, Affix, or Local, the composed name includes a hash-based
+      /// prefix derived from the module, layer, and section identifiers. For other element types, only the element's
+      /// name is used. The resulting name is suitable for use as an identifier and may use underscores as space
+      /// replacements.</remarks>
+      /// <param name="elem">The element for which to compose a name. Must not be null.</param>
+      /// <returns>A string representing the composed name for the element. For certain element types, the name includes a
+      /// hash-based prefix to ensure uniqueness.</returns>
+      protected static string ComposeName(NamedElement elem) {
+         string namePart = elem.Id.Name.AsIdentifier(camelCase: useCamelCase,spaceReplacement: "_",literalObjectName: elem.IsSynthetic);
+
+         switch (elem) {
+            case CDL2Object:
+            case Affix:
+            case Local:
+               string[] parts = [elem.Module!.Id.CanonicalName,elem.Layer!.Id.CanonicalName,elem.Section!.Id.CanonicalName];
+               //string prefix = new([.. parts.Take(3).Select(p => p.FirstOrDefault())]);
+               string prefix = "";
+
+               ulong hash = ComputeHash64(string.Join("",parts));
+               string hashPart = ToBase62(hash,5);
+
+               return (prefix + hashPart)[..8] + "_" + namePart;
+            default:
+               return namePart;
+         }
+      }
+
+      private static ulong ComputeHash64(string input) {
+         byte[] hashBytes = MD5.HashData(System.Text.Encoding.UTF8.GetBytes(input));
+         return BitConverter.ToUInt64(hashBytes,0);
+      }
+
+      private static string ToBase62(ulong value,int length) {
+         const string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+         StringBuilder result = new();
+         while (value > 0) {
+            result.Insert(0,chars[(int)(value % 62)]);
+            value /= 62;
+         }
+         return result.ToString().PadLeft(length,'0');
+      }
+#else
+      protected static string ComposeName(NamedElement elem) 
+         => elem.FQN(camelCase: useCamelCase,spaceReplacement:spaceReplacement,literalObjectName: elem.IsSynthetic);
+#endif // HASH_TARGET_NAMES
+
+      protected virtual string TargetName(NamedElement obj,string suffix = "") => Prefix(obj)+ComposeName(obj)+suffix;
 
       protected virtual string TargetName(ID id) => id.Name.AsIdentifier(camelCase: false);
       protected virtual string TargetName(Group group) => group.Id.Name.AsIdentifier(camelCase: false);
@@ -166,7 +228,7 @@ namespace CDL2v1 {
       protected static readonly Random Random = new();
       protected virtual string InitialValue => Random.Next(0,int.MaxValue).ToString();
 
-      #endregion Helpers
+#endregion Helpers
 
    }
 }
