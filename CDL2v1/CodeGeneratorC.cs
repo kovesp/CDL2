@@ -1,6 +1,6 @@
 // <auto-gen>
 //=======================================================================
-// <copyright file="CodeGeneratorC.cs" company="Peter Köves">
+// <copyright file="CodeGeneratorC.cs" company="Peter Köves">RETURN
 //     Copyright (c) Peter Köves, 2025. All rights reserved.
 //     Licensed under the MIT License. See _LICENSE file in the project root
 //     for full license information.
@@ -27,7 +27,7 @@ namespace CDL2v1 {
       private readonly EmitterString sourceEmitter = new(prefix: "// ");
       public Emitter SourceEmitter => sourceEmitter;
 
-      private PrettyPrinter PPTrace = new(new EmitterAnsiString(),includeComments: false);
+      private readonly PrettyPrinter PPTrace = new(new EmitterAnsiString(),includeComments: false);
 
       private readonly string DataType;
 
@@ -48,7 +48,7 @@ namespace CDL2v1 {
          emitter.Emitnl($" */");
          emitter.Emitnl();
          emitter.Emitnl("#define _CRT_SECURE_NO_WARNINGS // Turn off deprecation warnings");
-         emitter.Emitnl("// Must use 64 bit words to allow them to be used as address pointers. DataType is ignored.");
+         GenerateComment("Must use 64 bit words to allow them to be used as address pointers. DataType is ignored.");
          emitter.Emitnl("#include <stdint.h>");
          emitter.Emitnl("#define VALUE int64_t");
          emitter.Emitnl("#define VALUE_MAX INT64_MAX");
@@ -56,12 +56,13 @@ namespace CDL2v1 {
          emitter.Emitnl("#define VALUE_UNDEFINED VALUE_MIN");
          emitter.Emitnl();
          emitter.Emitnl("#include \"CDL2.h\"");
-         if (Settings.SettingValue<bool>("backtrace") || Settings.SettingValue<bool>("trace")) emitter.Emitnl("#include \"CDL2Trace.h\"");
+         if (Settings.IsBacktrace || Settings.IsTrace) emitter.Emitnl("#include \"CDL2Trace.h\"");
+         if (Settings.IsTrace) emitter.Emitnl("#define CDL2TRACE");
          emitter.Emitnl();
          emitter.Emitnl("int _argc;");
          emitter.Emitnl("char **_argv;");
          emitter.Emitnl();
-         base.GenerateComment("===============================================================================");
+         GenerateComment("===============================================================================");
          emitter.Emitnl();
          EmitUnitStartComment(program);
          emitter.Emitnl();
@@ -69,7 +70,7 @@ namespace CDL2v1 {
 
 
       public void GenerateDebugInfoStart() {
-         emitter.NlEmitnl($"\n{BlockComment.Start} ##### Debug Information ##### {BlockComment.End}\n");
+         GenerateComment("##### Debug Information #####");
          emitter.Emitnl("C2DebugInfo c2_DebugInfo = {");
          IncrementIndent();
       }
@@ -85,29 +86,25 @@ namespace CDL2v1 {
       public void GenerateDebugInfoEnd() {
          DecrementIndent();
          emitter.Emitnl("};");
-         emitter.NlEmitnl($"\n{BlockComment.Start} ##### End Debug Information ##### {BlockComment.End}\n");
+         emitter.NlEmitnl($"\n{LineComment} ##### End Debug Information #####\n");
       }
       /// <summary>
-      /// Generate the information that will be used by the debugger. Note that the information is sorted on the ID of the objects
-      /// to allow binary search to be used to look up names. by ID.
+      /// Generate the information that will be used by the debugger.
       /// </summary>
       /// <param name="procs"></param>
       public void GenerateDebugInfoProcsStart(IEnumerable<Algorithm> procs) {
          string procDesc(Algorithm proc) {      
-            string container = proc.Section!.FQN(separator: ".",replacement: " ",quoted: true);
+            string container = proc.Section!.FQN(separator: ".",spaceReplacement: " ",quoted: true);
             string name = proc.Quoted();
             string type = AlgType(proc).ToString(); 
             int nargs = proc.Affixes.Count;
-            //string argnames = "{" +(nargs == 0 ? "\"\"" : string.Join(",",proc.Affixes.Select(aff => aff.Id.Quoted()))) + "}";
-            //string affTypes = nargs == 0 ? "C2_AFF_INPUT" : "{"+string.Join(",",proc.Affixes.Select(aff => C2AffType(aff)))+"}";
             string argnames = nargs == 0 ? "NULL" : "(char*[]){"+string.Join(",",proc.Affixes.Select(aff => aff.Id.Quoted()))+"}";
             string affTypes = nargs == 0 ? "NULL" : "(C2AffType[]){"+string.Join(",",proc.Affixes.Select(aff => C2AffType(aff)))+"}";
             int nlocals = proc.Locals.Count;
-            //string localnames = "{" + (nlocals == 0 ? "\"\"" : string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))) + "}";
             string localnames = nlocals == 0 ? "NULL" : "(char*[]){" + string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))+"}";
             PPTrace.Emitter.Clear();
             PPTrace.Print(proc, synthetics: true);
-            string code = PPTrace.Emitter.Content.Quoted(escape:true); // Get the pretty printed code here
+            string code = (Settings.IsTrace ? PPTrace.Emitter.Content : "").Quoted(escape:true); // Get the pretty printed code, but only if tracing
             return $"{{{container},{name},{type},{nargs},{argnames},{affTypes},{nlocals},{localnames},{code},FALSE,FALSE}}";
          }
 
@@ -119,7 +116,8 @@ namespace CDL2v1 {
             DecrementIndent();
             emitter.NlEmit("},");
          } else {
-            emitter.Emitnl("NULL,");
+            // This is impossible ...
+            emitter.Emitnl("0,NULL,");
          }
       }
       /// <summary>
@@ -131,7 +129,7 @@ namespace CDL2v1 {
       /// <param name="vars">The collection of variables to generate debug information for. Each variable is represented by a Var object,
       /// which contains details necessary for the debug information.</param>
       public void GenerateDebugInfoVarsStart(IEnumerable<Var> vars) {
-         string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{var.Quoted()},&{TargetName(var)}}}";
+         string VarDesc(Var var) => $"{{{var.Section!.FQN(separator: ".",spaceReplacement: " ",quoted: true)},{var.Quoted()},&{TargetName(var)}}}";
          if (vars.Any()) {
             emitter.NlEmitnl($"{vars.Count()},(C2VarInfo[]){{");
             IncrementIndent();
@@ -141,12 +139,12 @@ namespace CDL2v1 {
             DecrementIndent();
             emitter.NlEmitnl("},");
          } else {
-            emitter.NlEmitnl("NULL,");
+            emitter.NlEmitnl("0,NULL,  // No VARs");
          }
       }
 
       public void GenerateDebugInfoListsStart(IEnumerable<LIST> lists) {
-         string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",replacement: " ",quoted: true)},{list.Quoted()},{TargetName(list)}_array,"+
+         string ListDesc(LIST list) => $"{{{list.Section!.FQN(separator: ".",spaceReplacement: " ",quoted: true)},{list.Quoted()},{TargetName(list)}_array,"+
                            $"{TargetName(list.Section!.GetResolvedObject(list.lwb)!)},{TargetName(list.Section!.GetResolvedObject(list.upb)!)}}}";
          if (lists.Any()) {
             emitter.NlEmitnl($"{lists.Count()},(C2ListInfo[]){{");
@@ -157,7 +155,7 @@ namespace CDL2v1 {
             DecrementIndent();
             emitter.NlEmitnl("}");
          } else {
-            emitter.Emitnl("NULL");
+            emitter.Emitnl("0,NULL   // No LISTs");
          }
       }
 
@@ -166,7 +164,7 @@ namespace CDL2v1 {
          emitter.Emitnl();
          emitter.Emitnl("int main(int argc, char *argv[]) {");
          IncrementIndent();
-         if (Settings.Debug) emitter.Emitnl("debug_pause();");
+         if (Settings.IsDebug) emitter.Emitnl("debug_pause();");
          emitter.Emitnl("_argc = argc;");
          emitter.Emitnl("_argv = argv;");
          if (Settings.IsBacktrace) emitter.Emitnl("\nc2DebugInfo = &c2_DebugInfo;");
@@ -183,16 +181,22 @@ namespace CDL2v1 {
          EmitUnitEndComment(program);
       }
 
-      void ICodeGenerator.GenerateSourceComment(bool nl) => emitter.NlEmit(nl ? "\n" : "",sourceEmitter.Content);
+      void ICodeGenerator.GenerateSourceComment(bool nl) {
+         if (!Obfuscation) {
+            emitter.NlEmit(nl ? "\n" : "",sourceEmitter.Content);
+         } else {
+            emitter.NlEmit(nl ? "\n" : "");
+         }
+      }
 
 
-      public void GenerateComment(PrettyPrinter pp) => emitter.Emit(pp.Emitter.Content);
+      public void GenerateComment(PrettyPrinter pp) { if (!Obfuscation) emitter.Emit(pp.Emitter.Content); }
 
       public void GenerateNewline() => emitter.Emitnl();
 
       public void GenerateObjectSectionStart<T>(IEnumerable<NamedElement> items,string typeName) where T : NamedElement {
          int n = items.Count();
-         if (n > 0) emitter.NlEmitnl($"\n{BlockComment.Start} ##### {n} {typeName}{(n != 1 ? "s" : "")} ##### {BlockComment.End}\n");
+         if (n > 0) GenerateComment($"\n##### {n} {typeName}{(n != 1 ? "s" : "")} #####\n");
       }
 
       public void GenerateObjectSectionEnd<T>(IEnumerable<NamedElement> items,string typeName) where T : NamedElement { }
@@ -209,7 +213,7 @@ namespace CDL2v1 {
 
       public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("DECLARE_LIST(",TargetName(list),",",TargetName(lwb),",",TargetName(upb),");");
 
-      public void GenerateMacroStart(Macro macro) => emitter.NlEmit("\n",sourceEmitter.Content);
+      public void GenerateMacroStart(Macro macro) { if (!Obfuscation) emitter.NlEmit("\n",sourceEmitter.Content); else emitter.Emitnl(); }
       public void GenerateMacroEnd(Macro macro) {
          if (!macro.CanFail) emitter.NlEmitnl("RETURN; // macro end");
          DecrementIndent();
@@ -287,9 +291,9 @@ namespace CDL2v1 {
 
       public void GenerateProcedureEnd(Procedure proc) {
          emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization 
-            ? "RETURNV(TRUE); // proc end can fail w. finalization" 
-            : "RETURNV(FALSE); // proc end can fail no finalization" 
-            : "RETURN; // proc end");
+            ? $"RETURNV(TRUE); {Comment("proc end can fail w. finalization")}"
+            : $"RETURNV(FALSE); {Comment("proc end can fail w. finalization")}"
+            : $"RETURN; {Comment("proc end")}");
          DecrementIndent();
          emitter.NlEmitnl("}");
       }
@@ -316,10 +320,10 @@ namespace CDL2v1 {
 
       public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed,bool supressLabel) {
          if (alternative.LastCall.type != LCT.Group && alternative.LastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
-            emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization 
-               ? "goto Finalization; // alt end" 
-               : "RETURNV(TRUE); // alt end" 
-               : "RETURN; // alt end");
+            if (!proc.IsLude) emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization
+               ? $"goto Finalization;  {Comment("alt end")}"
+               : $"RETURNV(TRUE); {Comment("alt end")}"
+               : $"RETURN;  {Comment("alt end")}");
          DecrementIndent();
          GenerateComment($"End {group.Alternatives[alternativeNumber-1]}");
       }
@@ -347,7 +351,7 @@ namespace CDL2v1 {
       public void GenerateCallEnd(Algorithm called,Procedure calling,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
             if (alternative.NextAlternativeNumber == Alternative.ALTERNATIVES_END) {
-               emitter.Emit(")) RETURNV(FALSE); // call end");
+               emitter.Emit($")) RETURNV(FALSE); {Comment("call end")}");
             } else {
                emitter.Emit($")) goto {ReferencedLabel(alternative.NextAlternativeNumber)};");
             }
@@ -359,8 +363,8 @@ namespace CDL2v1 {
 
       public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("RETURNV(FALSE); // fail");
       public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl(proc.CanFail 
-         ? "RETURNV(TRUE); // succeed" 
-         : "RETURN; // succeed");
+         ? $"RETURNV(TRUE); {Comment("succeed")}" 
+         : $"RETURN; {Comment("succeed")}");
       public void GenerateAbort(Procedure proc,Group group,int algId) => emitter.Emitnl($"ABORT({proc.FQDN().Quoted()},{proc.AlgId});");
       public void GenerateRepeat(Procedure proc,Group group,ID label,bool canFail)
          => emitter.Emitnl("goto " + (label.IsAnonymous ? TargetName(group) : TargetName(label)) + ";");
@@ -548,7 +552,7 @@ namespace CDL2v1 {
       public void GenerateImport(IProvidable importedItem) { }
 
       public void GenerateModuleLudeStart(RW ludeType,Module module,bool wrapped) {
-         emitter.Emitnl($"{LineComment} MOD ",module.Id.Name," ",ludeType);
+         GenerateComment($"MOD {module.Id.Name} {ludeType}");
          if (wrapped) {
             string returnType = ludeType == RW.ROOT || ludeType == RW.PRELUDE || ludeType == RW.POSTLUDE ? "void" : "VALUE";
             string moduleName = $"{module.TypeShortName}_{module.Id.Name.AsIdentifier(camelCase: false)}__{ludeType}";
@@ -571,8 +575,8 @@ namespace CDL2v1 {
       public void GenerateModuleLude(RW ludeType,Module module,Section section) {
          Guid ludeGuid = section.LudeProcs[ludeType] ?? Guid.Empty;
          if (ludeGuid != Guid.Empty && ludeGuid.ToCDL2Object<Procedure>() is Procedure lude) {
-            emitter.Emitnl($"{LineComment} {section} {ludeType}");
-            emitter.Emitnl(lude.FQN(camelCase: false,literalObjectName: true),"();");
+            GenerateComment($"{section} {ludeType}");
+            emitter.Emitnl(TargetName(lude),"();");
          }
       }
 

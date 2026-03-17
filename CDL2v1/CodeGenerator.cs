@@ -35,8 +35,11 @@
 
 using System.Data;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
+using System.Windows.Controls;
+using System.Windows.Documents;
 
 namespace CDL2v1 {
    /// <summary>
@@ -81,6 +84,8 @@ namespace CDL2v1 {
 
          ResetBuiltinLocals();
 
+         sourceCommentPrinter.Emitter.Clear();
+
          if (!isSeparate) {
             // Generate an integrated program ignoring module boundaries of all objects reachable from the program's ludes.
             cg.GenerateProgramStart(program,emitter,settings,isSeparate: false);  // Generate the overall scaffolding
@@ -94,8 +99,8 @@ namespace CDL2v1 {
             GenerateObjects<LIST>(allLists,GenerateList);
 
 
-            IOrderedEnumerable<Macro>     macros              = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable()).OrderBy(p => p.Id.Name);
-            IOrderedEnumerable<Procedure> procedures          = Reachable.Objects.OfType<Procedure>()
+            IOrderedEnumerable<Macro>     macros     = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable()).OrderBy(p => p.Id.Name);
+            IOrderedEnumerable<Procedure> procedures = Reachable.Objects.OfType<Procedure>()
                                                             .Where(proc => !proc.IsSynthetic && !proc.IsConditionalCompilation() && !proc.IsInlinable(Reachable))
                                                             .OrderBy(p => p.Id.Name);
 
@@ -104,9 +109,10 @@ namespace CDL2v1 {
                 .Where(proc => proc.IsSynthetic)
                 .OrderBy(p => p.Id.Name.Contains("PRELUDE") ? 0 : p.Id.Name.Contains("ROOT") ? 1 : p.Id.Name.Contains("POSTLUDE") ? 2 : 3)
                 .ThenBy(p => p.Id.Name);
+            IEnumerable<Procedure> nonInlinedSyntheticProcedures = syntheticProcedures.Where(p => ! p.IsInlinable(Reachable));
 
             // Ludes first (ordered as PRELUDE, ROOT, POSTLUDE), then algorithms sorted by container then by name
-            IEnumerable<Algorithm> allProcs = syntheticProcedures
+            IEnumerable <Algorithm> allProcs = syntheticProcedures
                 .Cast<Algorithm>()
                 .Concat(macros.Cast<Algorithm>().Concat(procedures).OrderBy(p => p.ParentElement<Section>()?.ParentElement<Container>()?.Id.Name ?? "").ThenBy(p => p.Id.Name));
             Dictionary<CDL2Object,int> procIndex = allProcs.Select((proc,index) => (proc,index)).ToDictionary(pair => (CDL2Object)pair.proc,pair => pair.index);
@@ -114,11 +120,11 @@ namespace CDL2v1 {
             if (cg.RequiresPredeclaration) {
                GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Forward Declaration");
                GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Forward Declaration");
-               GenerateObjects<Procedure>(syntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Forward Declaration");
+               GenerateObjects<Procedure>(nonInlinedSyntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Forward Declaration");
             }
             GenerateObjects<Macro>(macros,GenerateMacro,itemIndex:procIndex);
             GenerateObjects<Procedure>(procedures,GenerateProcedure,itemIndex:procIndex);
-            GenerateObjects<Procedure>(syntheticProcedures,GenerateProcedure,"Synthetic Procedure",itemIndex:procIndex);
+            GenerateObjects<Procedure>(nonInlinedSyntheticProcedures,GenerateProcedure,"Synthetic Procedure",itemIndex:procIndex);
             if (cg.SupportsDebug && Settings.IsBacktrace) {
                cg.GenerateDebugInfoStart();
 
@@ -219,7 +225,21 @@ namespace CDL2v1 {
          IEnumerable<Section?> SectionsWithLudes = module.Ludes[ludeType].Select(id => module.SectionById(id)).Where(sec => sec?.Ludes[ludeType].Count > 0) ?? [];
          if (SectionsWithLudes.Any()) {
             cg.GenerateModuleLudeStart(ludeType,module,wrapped: wrapped);
-            foreach (Section? section in SectionsWithLudes) cg.GenerateModuleLude(ludeType,module,section!);
+            foreach (Section? section in SectionsWithLudes) {
+               Guid? ludeGuid = section?.LudeProcs[ludeType];
+               if (ludeGuid is not null && ludeGuid != Guid.Empty) {
+                  Procedure? ludeProc = ludeGuid?.ToCDL2Object<Procedure>();
+                  if (ludeProc is not null) { 
+                     if (ludeProc.IsInlinable(Reachable)) {
+                        cg.GenerateComment($"Inlining {ludeType}");
+                        GenerateAlgorithmComment(ludeProc);
+                        GenerateProcedureBody(ludeProc);
+                     } else {
+                        cg.GenerateModuleLude(ludeType,module,section!);
+                     }
+                  }
+               }
+            }
             cg.GenerateModuleLudeEnd(ludeType,module,wrapped: wrapped);
          }
       }
@@ -332,7 +352,7 @@ namespace CDL2v1 {
       /// <param name="macro"></param>
       /// <param name="_"></param>
       private void GenerateMacro(Macro macro,int _,int index) {
-         if (!Settings.InliningMacros || !macro.IsInlineMacro) {
+         if (!Settings.IsInliningMacros || !macro.IsInlineMacro) {
             IEnumerable<Var> variables = macro.GetReferencedVariables();
             cg.GenerateMacroStart(macro);
             GenerateAlgorithmHeader(macro,variables,index);
@@ -384,22 +404,8 @@ namespace CDL2v1 {
       /// Represents a list of affix mappings for an Algorithm call.
       /// This is essentially an association list as pioneered by Lisp.
       /// </summary>
-      private class AList : List<AList.AffixMapping> {
-         /// <summary>
-         /// Maps an affix to the actual argument.
-         /// </summary>
-         /// <param name="i">The ordinal of the argument. Not currently used.</param>
-         /// <param name="affixes"></param>
-         /// <param name="actualArgs"></param>
-         internal struct AffixMapping(int i,List<Affix> affixes,List<IActualArg> actualArgs) {
-            public Affix affix = affixes[i];
-            public IActualArg arg = actualArgs[i];
-            public int argNo = i;
-            public override readonly string ToString() => $"[{argNo}] {arg} -> {affix}";
-         }
-
-
-         private AList() : base() { }
+      private class AList : Dictionary<Affix,IActualArg> {
+         public AList() : base() { }
 
          /// <summary>
          /// Construct a parameter list from a list of affixes and actual arguments.
@@ -415,7 +421,7 @@ namespace CDL2v1 {
             aList ??= [];
             int argCount = Math.Min(affixes.Count,args.Count);
             for (int i = 0 ; i < argCount ; i++) {
-               Add(new AffixMapping(i,affixes,args));
+               this[affixes[i]] = args[i] is Affix aff && aList.TryGetValue(aff,out IActualArg? arg) ? arg : args[i];
             }
          }
          /// <summary>
@@ -424,16 +430,7 @@ namespace CDL2v1 {
          /// <param name="affix"></param>
          /// <param name="arg"></param>
          /// <returns></returns>
-         public bool TryGetValue(Affix affix,out IActualArg arg) {
-            foreach (AffixMapping subst in this) {
-               if (subst.affix == affix) {
-                  arg = subst.arg;
-                  return true;
-               }
-            }
-            arg = affix;
-            return false;
-         }
+
          /// <summary>
          /// Retrieves the value associated with the specified argument if it is of type Affix; otherwise, returns the
          /// original argument.
@@ -444,15 +441,13 @@ namespace CDL2v1 {
          /// returned.</param>
          /// <returns>An instance of IActualArg representing the value associated with the argument if it is an Affix; otherwise,
          /// the original argument.</returns>
-         public IActualArg GetValue(IActualArg arg) { 
-            if (arg is Affix affix) TryGetValue(affix,out arg);
-            return arg;
-         }
+         public IActualArg GetValue(IActualArg arg) => arg is Affix affix && TryGetValue(affix,out IActualArg? aarg) ? aarg : arg;
+ 
          
-         public bool TryGetValue(ID id,out IActualArg? arg) {
-            foreach (AffixMapping subst in this) {
-               if (subst.affix.Id == id) {
-                  arg = subst.arg;
+         public bool TryGetValue(ID id,[NotNullWhen(true)]out IActualArg? arg) {
+            foreach (Affix aff in Keys) {
+               if (aff.Id == id) {
+                  arg = this[aff];
                   return true;
                }
             }
@@ -601,7 +596,7 @@ namespace CDL2v1 {
       /// <param name="nl"></param>
       private void GenerateAlgorithmComment(Algorithm alg,bool nl = true) {
          //if (!alg.IsSynthetic) {
-            sourceCommentPrinter.Print(alg);
+            sourceCommentPrinter.Print(alg,synthetics:true);
             cg.GenerateSourceComment(nl:false);
          //} else {
          //   cg.GenerateComment(alg.FQDN());
@@ -682,9 +677,9 @@ namespace CDL2v1 {
          if (!call.IsConditionalCompilationOn && !call.IsBuiltin) {
             Algorithm? called = call.Called;
             if (called is not null) {
-               if (called is Macro macro && Settings.InliningMacros && macro.IsInlineMacro) {
+               if (called is Macro macro && Settings.IsInliningMacros && macro.IsInlineMacro) {
                   locals.AddAll(macro.Locals);
-               } else if (called is Procedure proc && Settings.InliningProcs  && proc.IsInlinable(Reachable)) {
+               } else if (called is Procedure proc && Settings.IsInliningProcs  && proc.IsInlinable(Reachable)) {
                   locals.AddAll(proc.Locals.Where(local => !local.IsBuiltinResult));
                   CollectLocals(proc.group,locals);
                }
@@ -788,6 +783,7 @@ namespace CDL2v1 {
       /// <exception cref="NotImplementedException"></exception>
       private void GenerateCall(Procedure proc,Alternative alternative,Call call,bool canFail = false,bool onlyCallInAlternative = false,
                                  bool lastAlternative = false,AList? currentAList = null) {
+         currentAList ??= [];
          if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
          if (call.IsBuiltin && Builtin.IsFunction(call)) {
             // Ignore the call here. The value of the builtin will be inserted directly where needed.
@@ -795,15 +791,15 @@ namespace CDL2v1 {
          } else {
             Algorithm? called = call.Called;
             if (called is not null) {
-               if (Settings.InliningMacros && called is Macro macro && macro.IsInlineMacro) {
+               if (Settings.IsInliningMacros && called is Macro macro && macro.IsInlineMacro) {
                   cg.GenerateComment($"Inlining macro call -> {call}");
                   GenerateAlgorithmComment(called,nl: false);
                   GenerateMacroBody(macro,proc,alternativeNumber: alternative.NextAlternativeNumber,[.. call.Args],currentAList,inlining: true);
-               } else if (Settings.InliningProcs && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
+               } else if (Settings.IsInliningProcs && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
                   GenerateAlgorithmComment(called,nl:false);
                   // The following works because currently only procedures with a single alternative are inlineable.
-                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new AList(currentAList,calledProc.Affixes,[.. call.Args]));
+                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new AList(currentAList,calledProc.Affixes,call.Args));
                } else {
                   cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);
                   AList aList = new(currentAList,called.Affixes,call.Args);
@@ -816,19 +812,19 @@ namespace CDL2v1 {
          }
       }
 
+
       private Action<IActualArg> GenerateActualArg(Procedure proc,Call call,AList aList) => aff => GenerateActualArg(proc,call,(Affix)aff,aList.GetValue(aff));
       private void GenerateActualArg(Procedure proc,Call call,Affix affix,IActualArg actualArg) {
-         Section callProcSection = call.ContainingProc.Section!;
          switch (actualArg) {
             case STRING s:
                Debug.Assert(affix.affixType == AT.str,$"GenerateCallStart: String argument for non-string affix {affix}");
                cg.GenerateCallArgString(s.value);
                break;
             case Const c:
-               cg.GenerateCallArgReferenceConst(affix,callProcSection.GetResolvedConstant(c)!);
+               cg.GenerateCallArgReferenceConst(affix,c!);
                break;
             case Var v:
-               cg.GenerateCallArgReferenceVar(affix,callProcSection.GetResolvedObject(v)!,needsFinalization: proc.NeedsFinalization);
+               cg.GenerateCallArgReferenceVar(affix,v!,needsFinalization: proc.NeedsFinalization);
                break;
             case Local local:
                if (local.IsBuiltinResult) {
@@ -923,7 +919,7 @@ namespace CDL2v1 {
                   emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = !Settings.SettingValue<bool>("CGDebug") };
                   CodeGenerator codeGenerator = new(cg,CDL2.Compiler,problemReporter);
                   cg.SetCodeGenerator(codeGenerator);
-                  codeGenerator.GenerateCode(program,emitter,$"{Settings.Display("MaxInlineCalls","NoProcInlining","NoMacroInlining","backtrace","trace")}");
+                  codeGenerator.GenerateCode(program,emitter,$"{Settings.Display("MaxInlineCalls","NoProcInlining","NoMacroInlining","backtrace","trace","debug")}");
                   problemReporter(Note.CodeGenDone,[target,program,targetFileName]);
                } catch (Exception ex) {
                   problemReporter(Note.CodeGenError,[target,targetFileName,ex.Message]);

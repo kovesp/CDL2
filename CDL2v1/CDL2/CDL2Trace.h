@@ -31,12 +31,15 @@
 #include <signal.h>
 #include <ctype.h>
 
+#ifdef CDL2TRACE
+// Redeficne control constructs to hhok into trace, but only if code was generated with -trace
 #undef RETURNV
 #undef RETURN
 #undef ABORT
 #define RETURNV(res) return c2TraceExit(res)
 #define RETURN {c2TraceExit(TRUE);return;}
 #define ABORT(msg,index) {c2TraceExitAbort(msg); return;}
+#endif
 
 #define VAL(aff) {.val=aff}
 #define PTR(aff) {.ptr=aff}

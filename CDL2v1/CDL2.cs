@@ -182,6 +182,11 @@ namespace CDL2v1 {
             if (settingString != null) Log(4,settingString);
          }
 
+         if (Settings.SettingValue<bool>("SparxModel")) {
+            GenerateXMIModel.Generate();
+            return;
+         }
+
 
          if (Settings.LabMode) {
             bool usingGUI = Settings.OnWindows && !Settings.SettingValue<bool>("Console");

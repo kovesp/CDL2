@@ -31,16 +31,18 @@
 //=======================================================================
 // </auto-gen>
 
-#define HASH_TARGET_NAMES
-#define USE_CAMEL_CASE
+#define HASH_TARGET_NAMES        // The container of target names is hashed into an 8 character prefix
+#define USE_CAMEL_CASE           // Camel case is used in CDL2 names with spaces, otherwise _ is used for spaces
 
-using System.Diagnostics.Eventing.Reader;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    internal abstract partial class TargetCodeGenerator {
+
+      // Set to true to obfuscate names and remove source comments
+      protected static bool Obfuscation => false;
 
       protected Emitter emitter = new EmitterSink();
 
@@ -51,14 +53,16 @@ namespace CDL2v1 {
       protected void Newline(bool optional = false) {
          if (optional) emitter.EmitnlOption(); else emitter.Emitnl();
       }
-      protected void EmitUnitStartComment(Container unit) => emitter.Emitnl($"{LineComment} Begin {unit.ContainerName}");
-      protected void EmitUnitEndComment(Container unit) => emitter.Emitnl($"{LineComment} End {unit.ContainerName}");
+      protected void EmitUnitStartComment(Container unit) { if (!Obfuscation) emitter.Emitnl($"{LineComment} Begin {unit.ContainerName}"); }
+      protected void EmitUnitEndComment(Container unit) { if (!Obfuscation) emitter.Emitnl($"{LineComment} End {unit.ContainerName}"); }
       public virtual void GenerateComment(string comment,bool block=false) {
-         foreach (string line in comment.Split('\n')) {
-            if (block) {
-               emitter.Emit($"{BlockComment.Start} {line.Trim()} {BlockComment.End} ");
-            } else {
-               emitter.Emitnl($"{LineComment} {line.Trim()}");
+         if (!Obfuscation) {
+            foreach (string line in comment.Split('\n')) {
+               if (block) {
+                  emitter.Emit($"{BlockComment.Start} {line.Trim()} {BlockComment.End} ");
+               } else {
+                  emitter.Emitnl($"{LineComment} {line.Trim()}");
+               }
             }
          }
       }
@@ -163,6 +167,7 @@ namespace CDL2v1 {
 #endif
 
 #if HASH_TARGET_NAMES
+      private const int HashPrefixLength = 8;
       /// <summary>
       /// Composes a unique name for the specified element, optionally including a hash-based prefix for certain element
       /// types.
@@ -174,23 +179,31 @@ namespace CDL2v1 {
       /// <param name="elem">The element for which to compose a name. Must not be null.</param>
       /// <returns>A string representing the composed name for the element. For certain element types, the name includes a
       /// hash-based prefix to ensure uniqueness.</returns>
+
       protected static string ComposeName(NamedElement elem) {
-         string namePart = elem.Id.Name.AsIdentifier(camelCase: useCamelCase,spaceReplacement: "_",literalObjectName: elem.IsSynthetic);
+         if (Obfuscation) {
+            string[] parts = elem switch {
+               CDL2Object or Affix or Local => [elem.Module!.Id.CanonicalName,elem.Layer!.Id.CanonicalName,elem.Section!.Id.CanonicalName,elem.Id.CanonicalName],
+               _ => [elem.Id.CanonicalName],
+            };
+            ulong hash = ComputeHash64(string.Join("",parts));
+            string hashPart = ToBase62(hash,HashPrefixLength);
+            return hashPart[..HashPrefixLength];
+         } else {
+            string namePart = elem.Id.Name.AsIdentifier(camelCase: useCamelCase,spaceReplacement: "_",literalObjectName: elem.IsSynthetic);
 
-         switch (elem) {
-            case CDL2Object:
-            case Affix:
-            case Local:
-               string[] parts = [elem.Module!.Id.CanonicalName,elem.Layer!.Id.CanonicalName,elem.Section!.Id.CanonicalName];
-               //string prefix = new([.. parts.Take(3).Select(p => p.FirstOrDefault())]);
-               string prefix = "";
+            switch (elem) {
+               case CDL2Object:
+               case Affix:
+               case Local:
+                  string[] parts = [elem.Module!.Id.CanonicalName,elem.Layer!.Id.CanonicalName,elem.Section!.Id.CanonicalName];
+                  ulong hash = ComputeHash64(string.Join("",parts));
+                  string hashPart = ToBase62(hash,HashPrefixLength);
 
-               ulong hash = ComputeHash64(string.Join("",parts));
-               string hashPart = ToBase62(hash,5);
-
-               return (prefix + hashPart)[..8] + "_" + namePart;
-            default:
-               return namePart;
+                  return hashPart[..HashPrefixLength] + "_" + namePart;
+               default:
+                  return namePart;
+            }
          }
       }
 
@@ -209,8 +222,8 @@ namespace CDL2v1 {
          return result.ToString().PadLeft(length,'0');
       }
 #else
-      protected static string ComposeName(NamedElement elem) 
-         => elem.FQN(camelCase: useCamelCase,spaceReplacement:spaceReplacement,literalObjectName: elem.IsSynthetic);
+      protected static string ComposeName(NamedElement elem)
+         => elem.FQN(camelCase: useCamelCase,spaceReplacement:"_",literalObjectName: elem.IsSynthetic);
 #endif // HASH_TARGET_NAMES
 
       protected virtual string TargetName(NamedElement obj,string suffix = "") => Prefix(obj)+ComposeName(obj)+suffix;
@@ -224,6 +237,8 @@ namespace CDL2v1 {
          Var v => TargetName(v,suffix),
          _ => throw new NotImplementedException($"TName not implemented for type {arg.GetType()}."),
       };
+
+      protected virtual string Comment(string comment) => Obfuscation ? "" : $"{LineComment} {comment}";
 
       protected static readonly Random Random = new();
       protected virtual string InitialValue => Random.Next(0,int.MaxValue).ToString();

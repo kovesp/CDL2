@@ -33,13 +33,16 @@ void debug_pause() {
 }
 #endif
 
-// Define the some convenient types and macros for use in generated code. The "#define VALUE  type" (usually "long") is expected to be before this file is included.
-#define BOOL VALUE
-#define TRUE 1
-#define FALSE 0
+// Define control constructs that have to be redefined when code with -trace is generated
 #define RETURNV(res) return res
 #define RETURN return
 #define ABORT(msg,index) do { fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\\n", msg); exit(1); } while(0)
+
+// Define the some convenient types and macros for use in generated code.
+//VALUE must already be defined.
+#define BOOL VALUE
+#define TRUE 1
+#define FALSE 0
 #define PREDICATE BOOL
 #define TEST BOOL
 #define ACTION void

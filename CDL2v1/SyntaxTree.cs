@@ -520,8 +520,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="separator"></param>
       /// <returns></returns>
-      public string FQN(string separator = "_",string prefix = "",string replacement = "",bool camelCase = false,bool literalObjectName = false,bool quoted = false) {
-         string format(NamedElement elem) => elem.Id.Name.AsIdentifier(prefix,replacement,camelCase);
+      public string FQN(string separator = "_",string prefix = "",string spaceReplacement = "",bool camelCase = false,bool literalObjectName = false,bool quoted = false) {
+         string format(NamedElement elem) => elem.Id.Name.AsIdentifier(prefix,spaceReplacement,camelCase);
          string fqn;
          switch (this) {
             case Program _:
@@ -535,10 +535,10 @@ namespace CDL2v1 {
                fqn = $"{format(Module!)}{separator}{format(Layer!)}{separator}{format(this)}";
                break;
             default:
-               string sectionName = AncestorContainer<Section>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
-               string layerName = AncestorContainer<Layer>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
-               string moduleName = AncestorContainer<Module>()!.Id.Name.AsIdentifier(prefix,replacement,camelCase);
-               string objectName = Id.Name.AsIdentifier(prefix,replacement,camelCase,literalObjectName);
+               string sectionName = AncestorContainer<Section>()!.Id.Name.AsIdentifier(prefix,spaceReplacement,camelCase);
+               string layerName = AncestorContainer<Layer>()!.Id.Name.AsIdentifier(prefix,spaceReplacement,camelCase);
+               string moduleName = AncestorContainer<Module>()!.Id.Name.AsIdentifier(prefix,spaceReplacement,camelCase);
+               string objectName = Id.Name.AsIdentifier(prefix,spaceReplacement,camelCase,literalObjectName);
                fqn = $"{moduleName}{separator}{layerName}{separator}{sectionName}{(IsSynthetic ? separator + separator : separator)}{objectName}";
                break;
          }
@@ -1689,7 +1689,7 @@ namespace CDL2v1 {
       [JsonConstructor]
       public Macro() : base() { } // For deserialization
 
-      public override bool IsInlinable(Reachable? _ = null) => IsInlineMacro && Settings.InliningMacros;
+      public override bool IsInlinable(Reachable? _ = null) => IsInlineMacro && Settings.IsInliningMacros;
 
       public override IEnumerable<Var> GetReferencedVariables() => Elements.OfType<ID>().Select(id => Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
    }
@@ -1821,7 +1821,7 @@ namespace CDL2v1 {
       /// <param name="reachable">The reachability graph.</param>
       /// </summary>
       public override bool IsInlinable(Reachable reachable) {
-         if (!Settings.InliningProcs)
+         if (!Settings.IsInliningProcs)
             return false;
          if (IsConditionalCompilationOff || IsConditionalCompilationOn)
             return false;  // Handled explicitly by the code generator.

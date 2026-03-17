@@ -137,6 +137,8 @@ namespace CDL2v1 {
       private readonly List<ISetting> SettingsList = [
          new Setting<string[]>("Sources",            "--sources",                          "The source files to compile. Ignored if the --lab option is given."),
          new Setting<int>(     "VerbosityLevel",     ["-v", "--verbose"],   -1,            "Set the verbosity level (0-3)."),
+         new Setting<bool>(     "SparxModel",        "--sparx-model",       false,         "Generate a Sparx class model from SyntaxTree."),
+
          new Setting<int>(     "DebugVerbosityLevel",["-d", "--debug-log"], -1,            "Set the debug verbosity level (0-3)."),
          new Setting<string>(  "Target",             ["-t","--target"],     "PowerShell",  "Generate code for the specified target language. Default is PowerShell."),
          new Setting<string>(  "ProgramName",        ["-p","--program"],    "",            "Make program the one for which code is generated. The default is the first\n"+"" +
@@ -322,10 +324,10 @@ namespace CDL2v1 {
       public static bool IsBacktrace => IsTrace || SettingValue<bool>("backtrace");
       public static bool IsTrace => SettingValue<bool>("trace");
 
-      public static bool InliningProcs  => ! (SettingValue<bool>("trace") || SettingValue<bool>("NoProcInlining"));
-      public static bool InliningMacros => ! (SettingValue<bool>("trace") || SettingValue<bool>("NoMacroInlining"));
+      public static bool IsInliningProcs  => (!IsTrace || IsDebug) && !SettingValue<bool>("NoProcInlining");
+      public static bool IsInliningMacros => (!IsTrace || IsDebug) && !SettingValue<bool>("NoMacroInlining");
 
-      public static bool Debug => SettingValue<bool>("Debug");
+      public static bool IsDebug => SettingValue<bool>("Debug");
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static object? SettingValue(string name) => Setting<object>(name);

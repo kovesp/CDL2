@@ -29,6 +29,11 @@
       "commandName": "Project",
       "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5\r\n--parse-only --allow-errors\r\n--messages Warning\r\n--program \"memory test\" --report-all",
       "workingDirectory": "$(ProjectDir)\\CDL2"
+    },
+    "Sparx": {
+      "commandName": "Project",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v5 -d5\r\n--sparx-model",
+      "workingDirectory": "$(ProjectDir)\\CDL2"
     }
   }
 }
