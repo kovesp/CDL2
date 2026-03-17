@@ -13,6 +13,12 @@
 #define VALUE_MAX INT64_MAX   
 #define VALUE_MIN INT64_MIN
 #define VALUE_UNDEFINED VALUE_MIN
+#define VALUE_FMT "I64"
+
+#define VALUE_DEC_FORMAT "%" VALUE_FMT "d"
+#define VALUE_HEX_FORMAT "%" VALUE_FMT "x"
+#define VALUE_DEC_FMT(n) "%0" #n VALUE_FMT "d"
+#define VALUE_HEX_FMT(n) "%0" #n VALUE_FMT "x"
 #endif
 
 //Add any necessary includes here.
@@ -56,34 +62,34 @@ void debug_pause() {
 /* CDL2 Standard Macros for Lists */
 #define DECLARE_LIST(name, lwb, upb) \
     VALUE name##_array[(upb) - (lwb) + 1]; \
-    VALUE name##_lwb = (lwb); \
-    VALUE name##_upb = (upb)
+    int name##_lwb = (int)(lwb); \
+    int name##_upb = (int)(upb)
     
 
 #define CDL2_LIST_GET(name, i) \
-    ((i) < name##_lwb || (i) > name##_upb ? \
-        (fprintf(stderr, "Index out of bounds: %ld not in [%ld..%ld]\\n", (VALUE)(i), name##_lwb, name##_upb), exit(1), 0) : \
-        name##_array[(i) - name##_lwb])
+    ((int)(i) < name##_lwb || (int)(i) > name##_upb ? \
+        (fprintf(stderr, "Index out of bounds: %d not in [%d..%d]\\n", (int)(i), name##_lwb, name##_upb), exit(1), 0) : \
+        name##_array[(int)(i) - name##_lwb])
 
 #define CDL2_LIST_SET(name, i, value) \
     do { \
-        if ((i) < name##_lwb || (i) > name##_upb) { \
-            fprintf(stderr, "Index out of bounds: %ld not in [%ld..%ld]\\n", (VALUE)(i), name##_lwb, name##_upb); \
+        if ((int)(i) < name##_lwb || (int)(i) > name##_upb) { \
+            fprintf(stderr, "Index out of bounds: %ld not in [%ld..%ld]\\n", (int)(i), name##_lwb, name##_upb); \
             exit(1); \
         } \
-        name##_array[(i) - name##_lwb] = (value); \
+        name##_array[(int)(i) - name##_lwb] = (value); \
     } while(0)
 
 #define CDL2_LIST_SWAP(name, i, j) \
     do { \
         VALUE temp; \
-        if ((i) < name##_lwb || (i) > name##_upb || (j) < name##_lwb || (j) > name##_upb) { \
+        if ((int)(i) < name##_lwb || (int)(i) > name##_upb || (int)(j) < name##_lwb || (int)(j) > name##_upb) { \
             fprintf(stderr, "Index out of bounds in swap\\n"); \
             exit(1); \
         } \
-        temp = name##_array[(i) - name##_lwb]; \
-        name##_array[(i) - name##_lwb] = name##_array[(j) - name##_lwb]; \
-        name##_array[(j) - name##_lwb] = temp; \
+        temp = name##_array[(int)(i) - name##_lwb]; \
+        name##_array[(int)(i) - name##_lwb] = name##_array[(int)(j) - name##_lwb]; \
+        name##_array[(int)(j) - name##_lwb] = temp; \
     } while(0)
 
     

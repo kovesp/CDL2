@@ -359,7 +359,7 @@ function Remove-Const([string[]]$names) {
       }
 
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
-      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro,int alternativeNumber) {
+      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro,int alternativeNumber,bool callerCanFail) {
          ConditionalWrapperEnd(macro);
          Newline(optional: true);
       }

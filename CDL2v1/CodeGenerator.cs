@@ -395,7 +395,7 @@ namespace CDL2v1 {
             GenerateMacroElement(macro,macro.Section!,callingProc,aList,first,elem);
             first = false;
          }
-         if (inlining) cg.GenerateMacroInlineEnd(macro,alternativeNumber); else cg.GenerateReturnExpressionEnd(macro,alternativeNumber);
+         if (inlining) cg.GenerateMacroInlineEnd(macro,alternativeNumber,callingProc?.CanFail ?? false); else cg.GenerateReturnExpressionEnd(macro,alternativeNumber);
          cg.GenerateMacroBodyEnd(macro,inlining);
       }
 

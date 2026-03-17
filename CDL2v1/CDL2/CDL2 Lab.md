@@ -957,3 +957,53 @@ from the file.
 | # N      | For the `+` command, set the default number of items when printing lists. The `- #` command reset this to 10.
 | .        | Only for - (i.e., `- .`), clear the command history.
 
+## CDL2 Code Generator Specifics
+
+### C Code Generator
+
+The C code genrator is geared to generate code in a target independent way. 
+This governed by pre-processor definitions in `cdl2.h` that are used in the genrated
+code as well as in the debugger. It looks like this:
+
+```c
+#include <stdint.h>
+#define VALUE int64_t
+#define VALUE_MAX INT64_MAX   
+#define VALUE_MIN INT64_MIN
+#define VALUE_UNDEFINED VALUE_MIN
+#define VALUE_FMT "I64"
+
+#define VALUE_DEC_FORMAT "%" VALUE_FMT "d"
+#define VALUE_HEX_FORMAT "%" VALUE_FMT "x"
+#define VALUE_DEC_FMT(n) "%0" #n VALUE_FMT "d"
+#define VALUE_HEX_FMT(n) "%0" #n VALUE_FMT "x"
+```
+
+What is happenning here? `stdint.h` defines the integar types supported by the
+target platfrom on which the code is compiled. `VALUE` is defined as a 64 bit signed
+integer type. The requirement is that the type defined as `VALUE` must be able
+to contain a pointer on the target platform, hence it has to be 64 bits 
+on current Windows, Linux and MacOS platforms. The generated code declares
+VARs, LISTs, affixes and locals to be of type `VALUE`. 
+The `VALUE_MAX` and `VALUE_MIN` are provided for convenience.
+The `VALUE_UNDEFINED` is used to initialize VARs, LISTs, locals and output
+affixes.
+ 
+The `VALUE_FMT` is the format specifier for printing and scanning `VALUE`s.
+The normal way to use these is via the `VALUE_base_fmt` macros.
+For eaxmple, `VALUE_DEC_FMT(10)` expands to `"%010I64d"` which is the format specifier for printing
+a `VALUE` in decimal with at least 10 digits, padding with zeros if necessary.
+Here is an example of a macro that prints its argument in decimal with 5 
+zero padded digits:
+
+```
+ACTION show number +>number = 
+    "printf(VALUE_DEC_FMT(5) $", $"" number ");".
+```
+
+Here is the equivalent macro for hex printing that uses just the base `VALUE_FMT`:
+
+```
+ACTION show number hex 16+>number = 
+    "printf($"%016$" VALUE_FMT $"x$", " number ");".
+```

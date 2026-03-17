@@ -229,7 +229,7 @@ namespace CDL2v1 {
       }
 
       public void GenerateReturnExpressionEnd(Macro macro,int alternativeNumber) {
-         if (macro.CanFail) emitter.Emitnl(macro.NeedsFinalization ? ") goto Finalization; " : ");");
+         if (macro.CanFail) emitter.Emitnl(macro.NeedsFinalization ? ") goto Finalization; " : $");    {Comment("expression end")}");
       }
 
       private readonly Stack<int> FinalizationLabels = [];
@@ -237,10 +237,14 @@ namespace CDL2v1 {
          // if (macro.NeedsFinalization) FinalizationLabels.Push(NextLabel);
          if (macro.CanFail) emitter.Emit("if (!(");
       }
-      public void GenerateMacroInlineEnd(Macro macro,int alternativeNumber) {
+      public void GenerateMacroInlineEnd(Macro macro,int alternativeNumber,bool callerCanfail) {
          if (macro.CanFail) {
             if (alternativeNumber == Alternative.ALTERNATIVES_END) {
-               emitter.Emitnl($")) RETURNV(FALSE);");
+               if (callerCanfail) {
+                  emitter.Emitnl($")) RETURNV(FALSE);  {Comment("macro inline end")}");
+               } else {
+                  emitter.Emitnl($")) RETURN;  {Comment("macro inline end")}");
+               }
             } else {
                emitter.Emitnl($")) goto {ReferencedLabel(alternativeNumber)};");
             }
@@ -290,10 +294,10 @@ namespace CDL2v1 {
       }
 
       public void GenerateProcedureEnd(Procedure proc) {
-         emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization 
-            ? $"RETURNV(TRUE); {Comment("proc end can fail w. finalization")}"
-            : $"RETURNV(FALSE); {Comment("proc end can fail w. finalization")}"
-            : $"RETURN; {Comment("proc end")}");
+         //emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization 
+         //   ? $"RETURNV(TRUE); {Comment("proc end can fail w. finalization")}"
+         //   : $"RETURNV(FALSE); {Comment("proc end can fail w. finalization")}"
+         //   : $"RETURN; {Comment("proc end")}");
          DecrementIndent();
          emitter.NlEmitnl("}");
       }
@@ -319,11 +323,13 @@ namespace CDL2v1 {
       }
 
       public void GenerateAlternativeEnd(Procedure proc,Group group,int alternativeNumber,Alternative alternative,bool removed,bool supressLabel) {
-         if (alternative.LastCall.type != LCT.Group && alternative.LastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
-            if (!proc.IsLude) emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization
+         if (!proc.IsLude && alternative.LastCall.type != LCT.Group && alternative.LastCall.type != LCT.Repeat && !removed && !alternative.Terminates) {
+            emitter.Emitnl(proc.CanFail ? proc.NeedsFinalization
                ? $"goto Finalization;  {Comment("alt end")}"
                : $"RETURNV(TRUE); {Comment("alt end")}"
                : $"RETURN;  {Comment("alt end")}");
+         }
+
          DecrementIndent();
          GenerateComment($"End {group.Alternatives[alternativeNumber-1]}");
       }
@@ -361,7 +367,7 @@ namespace CDL2v1 {
          Newline();
       }
 
-      public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl("RETURNV(FALSE); // fail");
+      public void GenerateFail(Procedure proc,Group group) => emitter.Emitnl($"RETURNV(FALSE);  {Comment("fail")}");
       public void GenerateSucceed(Procedure proc,Group group) => emitter.Emitnl(proc.CanFail 
          ? $"RETURNV(TRUE); {Comment("succeed")}" 
          : $"RETURN; {Comment("succeed")}");
@@ -503,7 +509,7 @@ namespace CDL2v1 {
 
       public void GenerateAffixAndVariableFinalizationStart(Algorithm algorithm) {
          if (algorithm.NeedsFinalization) {
-            emitter.Emitnl("RETURNV(FALSE);");
+            // emitter.Emitnl("RETURNV(FALSE);");
             emitter.Emitnl("Finalization:");
          }
       }
@@ -511,7 +517,7 @@ namespace CDL2v1 {
       public void GenerateAffixAndVariableFinalizationEnd(Algorithm algorithm) {
          if (algorithm.NeedsFinalization) {
             GenerateComment("End Finalization");
-            emitter.Emitnl("RETURNV(TRUE);");
+            emitter.Emitnl($"RETURNV(TRUE);     {Comment("finalization end")}");
          }
       }
 

@@ -78,7 +78,7 @@ typedef union { VALUE val; VALUE* ptr; char* str; } C2DataValue;
 typedef struct {
    int procInfoIndex;
    C2DataValue*   args;
-   VALUE*         locals;
+   VALUE**        locals;
    bool           spypoint;
 } C2StackFrame;
 
@@ -230,7 +230,7 @@ char* c2AlgType(int depth) {
    }
 }  
 
-void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE* locals) {
+void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE** locals) {
    if (C2SP >= CALL_STACK_MAX_DEPTH-1) {
       fprintf(stderr, "Call stack overflow\n");
       exit(1);
@@ -334,7 +334,7 @@ void c2PrintLocals(int depth) {
       if (value == VALUE_UNDEFINED) {
          fprintf(stderr, " -%s=?",procInfo.localnames[i]);
       } else {
-         fprintf(stderr, C2Radix == 16 ? " -%s=%Ix" : " -%s=%Id", procInfo.localnames[i], value);
+         fprintf(stderr, C2Radix == 16 ? " -%s=" VALUE_HEX_FORMAT : " -%s=" VALUE_DEC_FORMAT, procInfo.localnames[i], value);
       }
    }
 }
@@ -344,15 +344,15 @@ void c2PrintAff(int depth,int i, TraceExitType type) {
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name = procInfo.argnames[i];
    switch (procInfo.affTypes[i]) {
-      case C2_AFF_INPUT:    fprintf(stderr, C2Radix == 16 ? " +>%s=%Ix" : " +>%s=%Id", name,frame.args[i].val); break;
+      case C2_AFF_INPUT:    fprintf(stderr, C2Radix == 16 ? " +>%s=" VALUE_HEX_FORMAT : " +>%s=" VALUE_DEC_FORMAT, name,frame.args[i].val); break;
       case C2_AFF_OUTPUT:   
          if (type == TRACE_ENTER) {
             fprintf(stderr, " +%s>=?",name);
          } else {
-            fprintf(stderr, C2Radix == 16 ? " +%s>=%Ix" : " +%s>=%Id" ,name,*frame.args[i].ptr);
+            fprintf(stderr, C2Radix == 16 ? " +%s>=" VALUE_HEX_FORMAT : " +%s>=" VALUE_DEC_FORMAT ,name,*frame.args[i].ptr);
          }
          break;
-      case C2_AFF_TRANSPUT: fprintf(stderr, C2Radix == 16 ? " +>%s>=%Ix" : " +>%s>=%Id",name,*frame.args[i].ptr); break;
+      case C2_AFF_TRANSPUT: fprintf(stderr, C2Radix == 16 ? " +>%s>=" VALUE_HEX_FORMAT : " +>%s>=" VALUE_DEC_FORMAT,name,*frame.args[i].ptr); break;
       case C2_AFF_STRING:   fprintf(stderr, " *%s=\"%s\"",   name,frame.args[i].str); break;
       default: fprintf(stderr, " +??");
    }
@@ -700,7 +700,6 @@ void c2traceREPL(int depth,TraceExitType type) {
             char* p = arg;
             while (*p == ' ' || *p == '\t') p++;
             int dotCount = 0;
-            char* dotStart = p;
             while (*p == '.') {
                dotCount++;
                p++;
@@ -729,7 +728,7 @@ void c2traceREPL(int depth,TraceExitType type) {
 
                   // Set spy points, tracking which are new
                   for (int i = 0; i < count; i++) {
-                     int procIdx = procs[i] - c2DebugInfo->procs;
+                     int procIdx = (int)(procs[i] - c2DebugInfo->procs);
                      if (!procs[i]->spypoint) {
                         // This procedure didn't have a spy point, so set one temporarily
                         procs[i]->spypoint = true;
@@ -904,9 +903,9 @@ void c2traceREPL(int depth,TraceExitType type) {
                      if (value == VALUE_UNDEFINED) {
                         fprintf(stderr, "  VAR %s.%s = ?\n",vars[i]->container, vars[i]->name);
                      } else if (C2Radix == 16) {
-                        fprintf(stderr, "  VAR %s.%s = %Ix\n",vars[i]->container, vars[i]->name, value);
+                        fprintf(stderr, "  VAR %s.%s = " VALUE_HEX_FORMAT "\n",vars[i]->container, vars[i]->name, value);
                      } else {
-                        fprintf(stderr, "  VAR %s.%s = %Id\n", vars[i]->container, vars[i]->name,value);
+                        fprintf(stderr, "  VAR %s.%s = " VALUE_DEC_FORMAT "\n", vars[i]->container, vars[i]->name,value);
                      }
                   }
                   free(vars);
@@ -991,7 +990,6 @@ void c2traceREPL(int depth,TraceExitType type) {
             char* p = arg;
             while (*p == ' ' || *p == '\t') p++;
             int dotCount = 0;
-            char* dotStart = p;
             while (*p == '.') {
                dotCount++;
                p++;
@@ -1296,7 +1294,7 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
    if (!foundValue) {
       for (int i = 0; i < procInfo.nlocals; i++) {
          if (c2MatchName(procInfo.localnames[i], cleanName)) {
-            baseValue = frame.locals[i];
+            baseValue = *frame.locals[i];
             foundValue = true;
             break;
          }
@@ -1619,17 +1617,17 @@ void c2PrintValues(C2EvalResult* result, char format) {
          } else {
             switch (format) {
             case 'd':
-               fprintf(stderr, "%Id\n", result->values[i]);
+               fprintf(stderr, VALUE_DEC_FORMAT "\n", result->values[i]);
                break;
             case 'x':
-               fprintf(stderr, "0x%Ix\n", result->values[i]);
+               fprintf(stderr, "0x" VALUE_HEX_FORMAT "\n", result->values[i]);
                break;
             case 'c':
                if (result->values[i] >= 32 && result->values[i] <= 126) {
                   fprintf(stderr, "'%c'\n", (char)result->values[i]);
                }
                else {
-                  fprintf(stderr, "'\\x%02Ix'\n", result->values[i]);
+                  fprintf(stderr, "'\\x" VALUE_HEX_FMT(2) "'\n", result->values[i]);
                }
                break;
             }
@@ -1645,17 +1643,17 @@ void c2PrintValues(C2EvalResult* result, char format) {
          else {
             switch (format) {
             case 'd':
-               fprintf(stderr, "%Id", result->values[i]);
+               fprintf(stderr, VALUE_DEC_FORMAT, result->values[i]);
                break;
             case 'x':
-               fprintf(stderr, "0x%Ix", result->values[i]);
+               fprintf(stderr, "0x" VALUE_HEX_FORMAT, result->values[i]);
                break;
             case 'c':
                if (result->values[i] >= 32 && result->values[i] <= 126) {
                   fprintf(stderr, "'%c'", (char)result->values[i]);
                }
                else {
-                  fprintf(stderr, "'\\x%02Ix'", result->values[i]);
+                  fprintf(stderr, "'\\x" VALUE_HEX_FMT(2) "'", result->values[i]);
                }
                break;
             }

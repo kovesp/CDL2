@@ -507,7 +507,7 @@ namespace CDL2v1 {
       void GenerateMacroElementAffix(Affix aff,bool macroCanFail);
       void GenerateMacroElementLocal(Local id,Affix calledAffix);
       void GenerateMacroInlineStart(Macro macro);
-      void GenerateMacroInlineEnd(Macro macro,int altNumber);
+      void GenerateMacroInlineEnd(Macro macro,int altNumber,bool callerCanFail);
       #endregion Macros
 
       #region Procedures

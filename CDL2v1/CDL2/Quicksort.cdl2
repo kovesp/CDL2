@@ -339,7 +339,7 @@ MODULE c kernel.
          TEST is command line argument+>n*arg =
             "$Lstrcmp(_argv[(int)" n " + 1]," arg ") == 0".            
          TEST is command line argument numeric+>n+number> =
-            "$Lsscanf(_argv[(int)" n " + 1], $"%Id$", &" number ") == 1".
+            "$Lsscanf(_argv[(int)" n " + 1],VALUE_DEC_FORMAT,&" number ") == 1".
          FUNCTION get program name+prog name> =
             "$L" prog name " = _argv[0];".
       ENDSEC command line.
@@ -372,7 +372,7 @@ MODULE c kernel.
          EXT show msg, show msg no newline, show number.
 
          ACTION show msg*string = "printf($"%s\n$", " string ");".
-         ACTION show number +>number = "printf($"%Id$", " number ");".
+         ACTION show number +>number = "printf(VALUE_DEC_FORMAT $",$"" number ");".
          ACTION show msg no newline*string = "printf($"%s$", " string ");".
       ENDSEC messages.
 
@@ -424,7 +424,7 @@ MODULE c kernel.
 
          CONST cell size = "sizeof(VALUE)".
 
-         CONST null = "NULL".
+         CONST null = 0.
          CONST zero = 0.
 
          # Size is in units of CDL2 cells, i.e., cell size*size= size in bytes.
@@ -450,11 +450,11 @@ MODULE c kernel.
             make+malloc size+size, incr+malloc size, multiply by+malloc size+cell size.
 
          PREDICATE malloc+>size+ptr> =
-            "(" ptr " = (VALUE*)malloc(" size ")) != NULL".
+            "(" ptr " = (VALUE)malloc(" size ")) != 0".
          ACTION free+>ptr =
             "$L free((VALUE*)" ptr ");".
          PREDICATE realloc+>ptr>+>new size =
-            "(" ptr " = (VALUE*)realloc((VALUE*)" ptr "," new size ")) != NULL".
+            "(" ptr " = (VALUE)realloc((VALUE*)" ptr "," new size ")) != 0".
 
          ACTION zero data+>ptr+>from =
             "memset((VALUE*)" ptr " + " from ", 0, (((VALUE*)" ptr ")[-1] - " from ") * " cell size ");".
