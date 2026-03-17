@@ -379,3 +379,4 @@ testlog.*.txt
 *.exe.cdl2debug
 
 /CDL2v1/CDL2/CDL2 Lab.pdf
+*.xmi
