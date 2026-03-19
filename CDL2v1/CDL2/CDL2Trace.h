@@ -334,7 +334,7 @@ void c2PrintLocals(int depth) {
       if (value == VALUE_UNDEFINED) {
          fprintf(stderr, " -%s=?",procInfo.localnames[i]);
       } else {
-         fprintf(stderr, C2Radix == 16 ? " -%s=" VALUE_HEX_FORMAT : " -%s=" VALUE_DEC_FORMAT, procInfo.localnames[i], value);
+         fprintf(stderr, C2Radix == 16 ? FMT(" -%s=" VALUE_HEX_FORMAT) : FMT(" -%s=" VALUE_DEC_FORMAT), procInfo.localnames[i], value);
       }
    }
 }
@@ -344,15 +344,15 @@ void c2PrintAff(int depth,int i, TraceExitType type) {
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name = procInfo.argnames[i];
    switch (procInfo.affTypes[i]) {
-      case C2_AFF_INPUT:    fprintf(stderr, C2Radix == 16 ? " +>%s=" VALUE_HEX_FORMAT : " +>%s=" VALUE_DEC_FORMAT, name,frame.args[i].val); break;
+      case C2_AFF_INPUT:    fprintf(stderr, C2Radix == 16 ? FMT(" +>%s=" VALUE_HEX_FORMAT) : FMT(" +>%s=" VALUE_DEC_FORMAT), name,frame.args[i].val); break;
       case C2_AFF_OUTPUT:   
          if (type == TRACE_ENTER) {
             fprintf(stderr, " +%s>=?",name);
          } else {
-            fprintf(stderr, C2Radix == 16 ? " +%s>=" VALUE_HEX_FORMAT : " +%s>=" VALUE_DEC_FORMAT ,name,*frame.args[i].ptr);
+            fprintf(stderr, C2Radix == 16 ? FMT(" +%s>=" VALUE_HEX_FORMAT) : FMT(" +%s>=" VALUE_DEC_FORMAT) ,name,*frame.args[i].ptr);
          }
          break;
-      case C2_AFF_TRANSPUT: fprintf(stderr, C2Radix == 16 ? " +>%s>=" VALUE_HEX_FORMAT : " +>%s>=" VALUE_DEC_FORMAT,name,*frame.args[i].ptr); break;
+      case C2_AFF_TRANSPUT: fprintf(stderr, C2Radix == 16 ? FMT(" +>%s>=" VALUE_HEX_FORMAT) : FMT(" +>%s>=" VALUE_DEC_FORMAT),name,*frame.args[i].ptr); break;
       case C2_AFF_STRING:   fprintf(stderr, " *%s=\"%s\"",   name,frame.args[i].str); break;
       default: fprintf(stderr, " +??");
    }
@@ -903,9 +903,9 @@ void c2traceREPL(int depth,TraceExitType type) {
                      if (value == VALUE_UNDEFINED) {
                         fprintf(stderr, "  VAR %s.%s = ?\n",vars[i]->container, vars[i]->name);
                      } else if (C2Radix == 16) {
-                        fprintf(stderr, "  VAR %s.%s = " VALUE_HEX_FORMAT "\n",vars[i]->container, vars[i]->name, value);
+                        fprintf(stderr, FMT("  VAR %s.%s = " VALUE_HEX_FORMAT "\n"),vars[i]->container, vars[i]->name, value);
                      } else {
-                        fprintf(stderr, "  VAR %s.%s = " VALUE_DEC_FORMAT "\n", vars[i]->container, vars[i]->name,value);
+                        fprintf(stderr, FMT("  VAR %s.%s = " VALUE_DEC_FORMAT "\n"), vars[i]->container, vars[i]->name,value);
                      }
                   }
                   free(vars);
@@ -1617,17 +1617,17 @@ void c2PrintValues(C2EvalResult* result, char format) {
          } else {
             switch (format) {
             case 'd':
-               fprintf(stderr, VALUE_DEC_FORMAT "\n", result->values[i]);
+               fprintf(stderr, FMT(VALUE_DEC_FORMAT "\n"), result->values[i]);
                break;
             case 'x':
-               fprintf(stderr, "0x" VALUE_HEX_FORMAT "\n", result->values[i]);
+               fprintf(stderr, FMT("0x" VALUE_HEX_FORMAT "\n"), result->values[i]);
                break;
             case 'c':
                if (result->values[i] >= 32 && result->values[i] <= 126) {
                   fprintf(stderr, "'%c'\n", (char)result->values[i]);
                }
                else {
-                  fprintf(stderr, "'\\x" VALUE_HEX_FMT(2) "'\n", result->values[i]);
+                  fprintf(stderr, FMT("'\\x" VALUE_HEX_FMT(2) "'\n"), result->values[i]);
                }
                break;
             }
@@ -1639,21 +1639,20 @@ void c2PrintValues(C2EvalResult* result, char format) {
 
          if (result->values[i] == VALUE_UNDEFINED) {
             fprintf(stderr, "?");
-         }
-         else {
+         } else {
             switch (format) {
             case 'd':
-               fprintf(stderr, VALUE_DEC_FORMAT, result->values[i]);
+               fprintf(stderr, FMT(VALUE_DEC_FORMAT), result->values[i]);
                break;
             case 'x':
-               fprintf(stderr, "0x" VALUE_HEX_FORMAT, result->values[i]);
+               fprintf(stderr, FMT("0x" VALUE_HEX_FORMAT), result->values[i]);
                break;
             case 'c':
                if (result->values[i] >= 32 && result->values[i] <= 126) {
                   fprintf(stderr, "'%c'", (char)result->values[i]);
                }
                else {
-                  fprintf(stderr, "'\\x" VALUE_HEX_FMT(2) "'", result->values[i]);
+                  fprintf(stderr, FMT("'\\x" VALUE_HEX_FMT(2) "'"), result->values[i]);
                }
                break;
             }

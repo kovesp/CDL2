@@ -990,7 +990,11 @@ The `VALUE_UNDEFINED` is used to initialize VARs, LISTs, locals and output
 affixes.
  
 The `VALUE_FMT` is the format specifier for printing and scanning `VALUE`s.
-The normal way to use these is via the `VALUE_base_fmt` macros.
+The normal way to use these is via the `VALUE_base_fmt` macros. Note that for technichal
+reasons of the C preprocessor, an extra FMT(...) preprocessor macro is provided to compose
+format strings when they consist of multiple components. For example, if you need a format
+string of `">%s = %I64d"` (in 64-bit mode) you need to specify it as `FMT(">%s = " VALUE_DEC_FORMAT)`. 
+
 For eaxmple, `VALUE_DEC_FMT(10)` expands to `"%010I64d"` which is the format specifier for printing
 a `VALUE` in decimal with at least 10 digits, padding with zeros if necessary.
 Here is an example of a macro that prints its argument in decimal with 5 
@@ -1005,5 +1009,5 @@ Here is the equivalent macro for hex printing that uses just the base `VALUE_FMT
 
 ```
 ACTION show number hex 16+>number = 
-    "printf($"%016$" VALUE_FMT $"x$", " number ");".
+    "printf(FMT($"%016$" VALUE_FMT $"x$"), " number ");".
 ```

@@ -357,7 +357,7 @@ namespace CDL2Generated {
       }
 
       void ICodeGenerator.GenerateMacroInlineStart(Macro macro) => ConditionalWrapperStart(macro);
-      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro,int alternativeNumber,bool callerCanFail) {
+      void ICodeGenerator.GenerateMacroInlineEnd(Macro macro,Procedure containingProc,int alternativeNumber,bool finalAlterantive) {
          ConditionalWrapperEnd(macro);
          Newline(optional: true);
       }

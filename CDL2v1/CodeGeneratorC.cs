@@ -235,12 +235,12 @@ namespace CDL2v1 {
       private readonly Stack<int> FinalizationLabels = [];
       public void GenerateMacroInlineStart(Macro macro) {
          // if (macro.NeedsFinalization) FinalizationLabels.Push(NextLabel);
-         if (macro.CanFail) emitter.Emit("if (!(");
+         if (macro.CanFail) emitter.NlEmit("if (!(");
       }
-      public void GenerateMacroInlineEnd(Macro macro,int alternativeNumber,bool callerCanfail) {
+      public void GenerateMacroInlineEnd(Macro macro,Procedure containingProc,int alternativeNumber,bool finalAlterantive) {
          if (macro.CanFail) {
-            if (alternativeNumber == Alternative.ALTERNATIVES_END) {
-               if (callerCanfail) {
+            if (finalAlterantive || alternativeNumber == Alternative.ALTERNATIVES_END) {
+               if (containingProc.CanFail) {
                   emitter.Emitnl($")) RETURNV(FALSE);  {Comment("macro inline end")}");
                } else {
                   emitter.Emitnl($")) RETURN;  {Comment("macro inline end")}");
@@ -318,7 +318,7 @@ namespace CDL2v1 {
 
       public void GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber,bool supressLabel) {
          GenerateComment($"{group.Alternatives[alternativeNumber-1]}");
-         if (!supressLabel) GenerateLabel(group.Alternatives[alternativeNumber-1].AlternativeNumber);
+         GenerateLabel(group.Alternatives[alternativeNumber-1].AlternativeNumber);
          IncrementIndent();
       }
 
@@ -395,6 +395,8 @@ namespace CDL2v1 {
             } else {                                           // input -> output
                throw new UnreachableException($"Requested to genrate code for passing {actualArg} -> {affix}");
             }
+         } else if (affix.IsString) {
+            emitter.Emit(TargetName(actualArg));
          } else { // affix.IsInput
             if (actualArg.IsInputOnly) {                       // input -> input
                emitter.Emit(TargetName(actualArg));

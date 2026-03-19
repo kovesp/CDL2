@@ -7,7 +7,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define CDL2H
 
-#ifndef VALUE
 #include <stdint.h>
 #define VALUE int64_t
 #define VALUE_MAX INT64_MAX   
@@ -19,7 +18,9 @@
 #define VALUE_HEX_FORMAT "%" VALUE_FMT "x"
 #define VALUE_DEC_FMT(n) "%0" #n VALUE_FMT "d"
 #define VALUE_HEX_FMT(n) "%0" #n VALUE_FMT "x"
-#endif
+
+// Format helper for string literal concatenation with VALUE format macros
+#define FMT(s) s
 
 //Add any necessary includes here.
 #include <stdio.h>

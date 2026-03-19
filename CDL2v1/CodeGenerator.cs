@@ -375,7 +375,8 @@ namespace CDL2v1 {
       /// the macro can fail.
       /// </remarks>
       /// <param name="inlining"></param>
-      private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,int alternativeNumber=Alternative.ALTERNATIVES_END,List<IActualArg>? args = null,AList? aList = null,bool inlining = false) {
+      private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,Alternative? alternative = null,
+         int nextAlt = Alternative.ALTERNATIVES_END,List<IActualArg>? args = null,AList? aList = null,bool inlining = false) {
          aList = new(aList,macro.Affixes,args ?? []);
          bool first = true;
          List<IElement> lastExpression;
@@ -391,11 +392,16 @@ namespace CDL2v1 {
             lastExpression = macro.Elements;
          }
          if (inlining) cg.GenerateMacroInlineStart(macro); else cg.GenerateReturnExpressionStart(macro);
+         if (macro.CanFail && lastExpression.First() is STRING str) str.value = str.value.TrimStart();
          foreach (IElement elem in lastExpression) {
             GenerateMacroElement(macro,macro.Section!,callingProc,aList,first,elem);
             first = false;
          }
-         if (inlining) cg.GenerateMacroInlineEnd(macro,alternativeNumber,callingProc?.CanFail ?? false); else cg.GenerateReturnExpressionEnd(macro,alternativeNumber);
+         if (inlining) {
+            cg.GenerateMacroInlineEnd(macro,callingProc!,nextAlt,alternative?.IsLastAlternative == true);
+         } else {
+            cg.GenerateReturnExpressionEnd(macro,nextAlt);
+         }
          cg.GenerateMacroBodyEnd(macro,inlining);
       }
 
@@ -702,14 +708,14 @@ namespace CDL2v1 {
       /// <param name="proc"></param>
       /// <param name="group"></param>
       private void GenerateAlternatives(Procedure proc,Group group) {
-         bool suppressRest = false;
+         bool supressRest = false;
          bool removed;
 
          int i = 1;
          int lastRemoved = -1;
          foreach (Alternative alternative in group.Alternatives) {
             removed = false;
-            if (suppressRest) {
+            if (supressRest) {
                cg.GenerateComment($"{alternative} suppressed by previous conditional compilation ON");
                removed = true;
             } else if (alternative.IsConditionalCompilationOff) {           // Ignore this alternative
@@ -717,10 +723,11 @@ namespace CDL2v1 {
                removed = true;
                lastRemoved = i;
             } else {
-               suppressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
-               cg.GenerateAlternativeStart(proc,group,i,lastRemoved == i-1);
-               GenerateAlternative(proc,group,alternative,suppressRest || group.Alternatives.Count == i);
-               cg.GenerateAlternativeEnd(proc,group,i,alternative,removed,lastRemoved == i - 1);
+               supressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
+               bool islast = alternative.IsLastAlternative;
+               cg.GenerateAlternativeStart(proc,group,i,islast);
+               GenerateAlternative(proc,group,alternative,islast);
+               cg.GenerateAlternativeEnd(proc,group,i,alternative,removed,islast);
             }
 
             i++;
@@ -794,7 +801,8 @@ namespace CDL2v1 {
                if (Settings.IsInliningMacros && called is Macro macro && macro.IsInlineMacro) {
                   cg.GenerateComment($"Inlining macro call -> {call}");
                   GenerateAlgorithmComment(called,nl: false);
-                  GenerateMacroBody(macro,proc,alternativeNumber: alternative.NextAlternativeNumber,[.. call.Args],currentAList,inlining: true);
+                  GenerateMacroBody(macro,proc,alternative,alternative.NextAlternativeNumber,
+                     args: [.. call.Args],aList: currentAList,inlining: true);
                } else if (Settings.IsInliningProcs && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
                   GenerateAlgorithmComment(called,nl:false);

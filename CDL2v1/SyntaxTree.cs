@@ -1961,7 +1961,7 @@ namespace CDL2v1 {
       public override bool Equals(object? obj) => false;
       public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
-      [JsonIgnore] public bool CanFail => !IsBuiltinFunction && (Called?.CanFail ?? true);
+      [JsonIgnore] public bool CanFail => !IsBuiltinFunction && !IsConditionalCompilationOn && (Called?.CanFail ?? true);
       [JsonIgnore] public bool AlwaysSucceeds => IsBuiltinFunction || (Called?.AlwaysSucceeds ?? false);
       [JsonIgnore] public bool HasEffect => Called?.HasEffect ?? false;
       [JsonIgnore] public bool HasNoEffect => Called?.HasNoEffect ?? false;
@@ -2032,6 +2032,10 @@ namespace CDL2v1 {
 
       [JsonIgnore] public bool IsConditionalOff = false;
 
+      // The last alternative is either the one with no next alternative or the one that is a conditional compilation flag
+      // set to on (so subsequent alternatives will be removed by the code generator and thus it becomes the last alternative).
+      [JsonIgnore] public bool IsLastAlternative => NextAlternativeNumber == ALTERNATIVES_END || IsConditionalCompilationOn;
+
       public Alternative(List<Call> calls,LastCall lastCall,Notes notes,Group containingGroup) : base(ID.AnonID,synthetic: false,SelectorType.INVALID) {
          this.Calls = calls;
          this.LastCall = lastCall;
@@ -2082,7 +2086,8 @@ namespace CDL2v1 {
          }
       }
 
-      public override string ToString() => $"Alt {AlternativeNumber}->{(NextAlternativeNumber==ALTERNATIVES_END?"END":NextAlternativeNumber)} {Id}";
+      public override string ToString()
+         => $"Alt {AlternativeNumber}->{(NextAlternativeNumber==ALTERNATIVES_END||IsConditionalCompilationOn?"END":NextAlternativeNumber)} {Id}";
 
       internal void Dispose() {
          foreach (Call call in Calls) call.Dispose();
