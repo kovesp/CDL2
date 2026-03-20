@@ -791,7 +791,10 @@ namespace CDL2v1 {
       private void GenerateCall(Procedure proc,Alternative alternative,Call call,bool canFail = false,bool onlyCallInAlternative = false,
                                  bool lastAlternative = false,AList? currentAList = null) {
          currentAList ??= [];
-         if (call.IsConditionalCompilationOn) return;   // No need to generate code for this call;
+         if (call.IsConditionalCompilationOn) {
+            cg.GenerateComment($"Alternative selected by conditional compilation ON -> {call}");
+            return;   // No need to generate code for this call;
+         }
          if (call.IsBuiltin && Builtin.IsFunction(call)) {
             // Ignore the call here. The value of the builtin will be inserted directly where needed.
             cg.GenerateComment($"{call} -> {Builtin.EvalFunction(call)}");

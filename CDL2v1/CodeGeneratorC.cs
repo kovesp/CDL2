@@ -356,7 +356,7 @@ namespace CDL2v1 {
 
       public void GenerateCallEnd(Algorithm called,Procedure calling,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
          if (called.CanFail) {
-            if (alternative.NextAlternativeNumber == Alternative.ALTERNATIVES_END) {
+            if (alternative.NextAlternativeNumber == Alternative.ALTERNATIVES_END || lastAlternative) {
                emitter.Emit($")) RETURNV(FALSE); {Comment("call end")}");
             } else {
                emitter.Emit($")) goto {ReferencedLabel(alternative.NextAlternativeNumber)};");

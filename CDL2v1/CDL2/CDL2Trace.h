@@ -154,6 +154,7 @@ bool C2StepOverFailure = true;      // Whether to step over the next fail
 bool C2FullNames = false;           // Whether to show full procedure names (including container) in stack frames, or just the procedure name
 int  C2DefaultListElements = 10;    // Default number of LIST elements to display
 int  C2Radix = 10;                  // The default radix for displaying numbers
+int  C2BacktracePauseInterval = 20; // Number of stack frames to display before pausing
 
 // Command history
 #define C2_HISTORY_SIZE 100
@@ -289,8 +290,17 @@ char * C2Marker(TraceExitType type) {
 
 void c2Backtrace() {
    fprintf(stderr, "\n===== Stack backtrace (most recent call to last):\n");
+   int frameCount = 0;
    for (int i = C2SP ; i >= 0 ; i--) {
       c2PrintStackFrame(i,false,NO_MARKER,"\n", TRACE_ENTER);
+      frameCount++;
+      if (frameCount % C2BacktracePauseInterval == 0 && i > 0) {
+         int remaining = i;
+         fprintf(stderr, "\n--- %d more frame%s. Continue (y,n)? ", remaining, remaining == 1 ? "" : "s");
+         char response = c2_getch();
+         fprintf(stderr, "%c\n", response);
+         if (response == 'n' || response == 'N') break;
+      }
    }
    fprintf(stderr, "===== Backtrace ends\n\n");
 }
