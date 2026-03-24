@@ -437,7 +437,8 @@ namespace CDL2Generated {
          }
       }
 
-      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
+      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,Alternative alternative,bool canFail,bool onlyCallInAlternative,
+            bool lastAlternative,int nextAlternative) {
          if (called.CanFail) {
             emitter.Emit(")) {");
          } else {

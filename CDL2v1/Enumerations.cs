@@ -340,6 +340,7 @@ namespace CDL2v1 {
       Double,
       String,
       Severity,
+      Invalid,
    }
 
    /// <summary>

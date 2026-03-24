@@ -361,7 +361,7 @@ MODULE c kernel.
          ACTION stop timer  = stop " = clock();".
          
          FUNCTION get elapsed time+elapsed> =
-            "$L" elapsed " = (long)((" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC);".
+            "$L" elapsed " = (VALUE)((" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC);".
 
          ACTION show elapsed time = 
             "$Lprintf($"Elapsed time: %.0f milliseconds\n$", ((double)(" stop " - " start ") * 1000.0 / CLOCKS_PER_SEC));".
@@ -372,7 +372,7 @@ MODULE c kernel.
          EXT show msg, show msg no newline, show number.
 
          ACTION show msg*string = "printf($"%s\n$", " string ");".
-         ACTION show number +>number = "printf(VALUE_DEC_FORMAT $",$"" number ");".
+         ACTION show number +>number = "printf(VALUE_DEC_FORMAT," number ");".
          ACTION show msg no newline*string = "printf($"%s$", " string ");".
       ENDSEC messages.
 
@@ -414,7 +414,7 @@ MODULE c kernel.
          #    int cmpvalue(const void *a, const void *b) { return (*(VALUE*)a - *(VALUE*)b);
          # in CDL2.h which is automatically included in C code generator output.
          ACTION sort data+>to = 
-            "$Lqsort(" data "_array, " to " - " lwb " + 1, sizeof(VALUE), cmpvalue);".
+            "$Lqsort(" data "_array, (size_t)(" to " - " lwb " + 1), sizeof(VALUE), cmpvalue);".
          ACTION show native sorter:
             show msg no newline+"C qsort(_,_,cmpvalue)".
       ENDSEC data.
@@ -988,7 +988,7 @@ PROGRAM csharp sort.
    ROOT quicksort.
 ENDPROG csharp sort.
 
-#PRAGMA Target=C file=csort#
+#PRAGMA Target=C file=csort tracestack=100000#
 PROGRAM c sort.
    PART c kernel, quicksort.
    PRELUDE quicksort.

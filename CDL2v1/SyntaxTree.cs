@@ -386,13 +386,37 @@ namespace CDL2v1 {
          }
       }
 
+      /// <summary>
+      /// Process pragmas and by extracting the setttings and setting them so they can be restored.
+      /// after the command processing the unit completes. 
+      /// </summary>
+      /// <param name="settings"></param>
+      /// <param name="reporter"></param>
+      /// <returns></returns>
       public Dictionary<string,string> ProcessPragmas(List<ParsedSetting> settings,Action<string> reporter) {
          Dictionary<string,string> pragmas = Pragmas;
          foreach (string settingName in pragmas.Keys) {
             ParsedSetting? parsedTarget = settings.FirstOrDefault(s => s.Name == settingName);
             if (parsedTarget is null) {
-               parsedTarget = new ParsedSetting(settingName,SettingType.String,pragmas[settingName],null,false);
-               if (parsedTarget.SetSetting(reporter)) settings.Add(parsedTarget);
+               SettingType type = Settings.GetSettingType(settingName);
+               object value;
+               if (type != SettingType.Invalid) {
+                  try {
+                     value = type switch {
+                        SettingType.Boolean => bool.Parse(pragmas[settingName]),
+                        SettingType.Integer => int.Parse(pragmas[settingName]),
+                        SettingType.Double => double.Parse(pragmas[settingName]),
+                        _ => pragmas[settingName]
+                     };
+                     parsedTarget = new ParsedSetting(settingName,type,value,null,false);
+                     if (parsedTarget.SetSetting(reporter)) settings.Add(parsedTarget);
+                  } catch (Exception ex) {
+                     reporter($"Error: Invalid value for setting '{settingName}' in {FQDN()}: {ex.Message}");
+                     continue;
+                  }
+               } else {
+                  reporter($"Warning: Unrecognized pragma '{settingName}' in {FQDN()}.");
+               }
             }
          }
          return pragmas;
@@ -489,18 +513,30 @@ namespace CDL2v1 {
 
       public Container Container => ParentElement<Container>()!;
 
+      [JsonIgnore] private Dictionary<string,string>? _pragmas = null;
+
       [JsonIgnore]
       public Dictionary<string,string> Pragmas {
          get {
-            Match pragmaMatch = Regex.Match(Comments,@"PRAGMA\s+(.+)",RegexOptions.Compiled);
-            if (!pragmaMatch.Success) return [];
-
-            string pragmaContent = pragmaMatch.Groups[1].Value;
-            MatchCollection kvMatches = Regex.Matches(pragmaContent,@"(\w+)\s*[=:]\s*(?:""((?:[^""$]|\$.)*)""|(\S+))",RegexOptions.Compiled);
-            return kvMatches.Cast<Match>().ToDictionary(
-               kvMatch => kvMatch.Groups[1].Value,
-               kvMatch => kvMatch.Groups[2].Success ? kvMatch.Groups[2].Value : kvMatch.Groups[3].Value
-            );
+            if (_pragmas is null) {
+               Match pragmaMatch = Regex.Match(Comments,@"PRAGMA\s+(.+)",RegexOptions.Compiled);
+               if (!pragmaMatch.Success) {
+                  _pragmas = [];
+               } else {
+                  string pragmaContent = pragmaMatch.Groups[1].Value;
+                  MatchCollection matches = Regex.Matches(pragmaContent,@"(\w+)\s*(?:([+-])|[=:]\s*(?:""((?:[^""$]|\$.)*)""|(\S+)))?",RegexOptions.Compiled);
+                  _pragmas = matches.Cast<Match>().ToDictionary(
+                     match => match.Groups[1].Value,
+                     match => {
+                        if (match.Groups[2].Success) return match.Groups[2].Value == "-" ? "false" : "true";
+                        else if (match.Groups[3].Success) return match.Groups[3].Value;
+                        else if (match.Groups[4].Success) return match.Groups[4].Value;
+                        else return "true";
+                     }
+                  );
+               }
+            }
+            return _pragmas;
          }
       }
 
@@ -2072,7 +2108,7 @@ namespace CDL2v1 {
       /// True if the alternative terminates the algorithm, i.e., its last call is a fail or abort.
       /// No need to check for succeed because that is just normal alternative completion.
       /// </summary>
-      [JsonIgnore] public bool Terminates => LastCall.type == LCT.Fail || LastCall.type == LCT.Abort;
+      [JsonIgnore] public bool Terminates => LastCall.type == LCT.Succeed || LastCall.type == LCT.Fail || LastCall.type == LCT.Abort;
       [JsonIgnore] public bool IsConditionalCompilationOn => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOn;
       [JsonIgnore] public bool IsConditionalCompilationOff => FirstCall() is Call firstCall && firstCall.IsConditionalCompilationOff;
 

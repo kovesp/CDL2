@@ -7,6 +7,7 @@
 // cspell:ignore spypoint spypoints steppoint skippoint going jumping honour
 
 #define _CRT_SECURE_NO_WARNINGS
+// #define SHOW_STACK_RESIZE
 #ifndef CDL2H
 #include "CDL2.h"
 #endif
@@ -31,14 +32,42 @@
 #include <signal.h>
 #include <ctype.h>
 
-#ifdef CDL2TRACE
-// Redeficne control constructs to hhok into trace, but only if code was generated with -trace
+#undef ENTER
 #undef RETURNV
 #undef RETURN
-#undef ABORT
-#define RETURNV(res) return c2TraceExit(res)
-#define RETURN {c2TraceExit(TRUE);return;}
-#define ABORT(msg,index) {c2TraceExitAbort(msg); return;}
+// Redefine control constructs to hook into trace.
+// If code was generated with -trace call c2trace exit which takes care of poping the stack.
+// Otherwise code was generated with backtrace only, so the stack must be poped.
+#ifdef CDL2TRACE
+   #define ENTER(index,affixes,locals) { c2push_callstack_frame(index,affixes,locals); c2TraceEnter(); }
+   #define RETURNV(v)                  { c2TraceExit(v);    c2pop_callstack_frame(); return v; }
+   #define RETURN                      { c2TraceExit(TRUE); c2pop_callstack_frame(); return;   }
+
+   #undef ABORT
+   #define ABORT(msg,index) c2TraceExitAbort(msg)
+#else
+   #define ENTER(index,affixes,locals) c2push_callstack_frame(index,affixes,locals);
+   #define RETURNV(v) { c2pop_callstack_frame(); return v; }
+   #define RETURN     { c2pop_callstack_frame(); return;   }
+#endif
+
+
+// Cross-platform warning suppression macros for use inside functions
+#define STRINGIFY_HELPER(x) #x
+#define STRINGIFY(x) STRINGIFY_HELPER(x)
+
+#if defined(_MSC_VER)
+#define WARNING_SUPPRESS(msvc_num, gcc_name) __pragma(warning(push)) __pragma(warning(disable:msvc_num))
+#define WARNING_RESTORE(msvc_num, gcc_name) __pragma(warning(pop))
+#elif defined(__clang__)
+#define WARNING_SUPPRESS(msvc_num, gcc_name) _Pragma("clang diagnostic push") _Pragma(STRINGIFY(clang diagnostic ignored gcc_name))
+#define WARNING_RESTORE(msvc_num, gcc_name) _Pragma("clang diagnostic pop")
+#elif defined(__GNUC__)
+#define WARNING_SUPPRESS(msvc_num, gcc_name) _Pragma("GCC diagnostic push") _Pragma(STRINGIFY(GCC diagnostic ignored gcc_name))
+#define WARNING_RESTORE(msvc_num, gcc_name) _Pragma("GCC diagnostic pop")
+#else
+#define WARNING_SUPPRESS(msvc_num, gcc_name)
+#define WARNING_RESTORE(msvc_num, gcc_name)
 #endif
 
 #define VAL(aff) {.val=aff}
@@ -56,7 +85,7 @@
 #define KEY_F1 1008
 #define KEY_ESC 27
 
-#define bool int
+#define bool char
 #define true 1
 #define false 0
 
@@ -70,13 +99,13 @@ typedef enum { TRACE_ENTER, TRACE_EXIT, TRACE_FAIL, TRACE_ABORT } TraceExitType;
 typedef enum {
    BLACK = 30, RED = 31, GREEN = 32, YELLOW = 33, BLUE = 34, MAGENTA = 35, CYAN = 36, WHITE = 37, RESET = 38, 
    BRIGHT_BLACK = 90, BRIGHT_RED = 91, BRIGHT_GREEN = 92, BRIGHT_YELLOW = 93, BRIGHT_BLUE = 94, BRIGHT_MAGENTA = 95, BRIGHT_CYAN = 96, BRIGHT_WHITE = 97
-   } AnsiColor;
+} AnsiColor;
 
 
 typedef union { VALUE val; VALUE* ptr; char* str; } C2DataValue;
 
 typedef struct {
-   int procInfoIndex;
+   int            procInfoIndex;
    C2DataValue*   args;
    VALUE**        locals;
    bool           spypoint;
@@ -85,7 +114,7 @@ typedef struct {
 typedef struct C2ProcInfo {
    char*       container;
    char*       name;
-   C2AlgType   type;
+   C2AlgType   type;                                                                                               
    int         nargs;
    char**      argnames;
    C2AffType*  affTypes;
@@ -135,12 +164,15 @@ typedef struct {
 /////////////////////////////////////////////////////////////////////////////////
 C2DebugInfo* c2DebugInfo;
 
+#ifndef CALL_STACK_MAX_DEPTH
 #define CALL_STACK_MAX_DEPTH 10000
-C2StackFrame C2Stack[CALL_STACK_MAX_DEPTH];
-int C2SP = -1;
+#endif
+C2StackFrame* C2Stack = NULL;
+VALUE C2SP = -1;
+VALUE C2StackCapacity = 0;
 
 bool C2HonorSpyPoints = false;      // Whether to honour spy points while skipping.
-int C2Skippoint= -1;                // The index of the stack frame we are skipping to (used to know when to stop skipping)
+VALUE C2Skippoint= -1;              // The index of the stack frame we are skipping to (used to know when to stop skipping)
 bool C2TraceWhileJumping = false;   // Used to show trace output for intermediate calls while jumping or ...
 bool C2Jumping = false;             // Jumping means run until the next spy point
 bool C2Going = false;               // Going means run without further debugging
@@ -166,14 +198,16 @@ int C2HistoryIndex = 0;
 /////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
 /////////////////////////////////////////////////////////////////////////////////
-void c2PrintStackFrame(int depth, bool indent, char* marker, char* lineEnd, TraceExitType type);
+void c2push_callstack_frame(int procIndex, C2DataValue args[], VALUE** locals);
+void c2pop_callstack_frame();
+void c2PrintStackFrame(VALUE depth, bool indent, char* marker, char* lineEnd, TraceExitType type);
 void c2TraceEnter();
-bool c2TraceExit(int v);
+void c2TraceExit(int v);
 void c2TraceExitAbort(char* algName);
-void c2traceREPL(int depth,TraceExitType type);
-void c2PrintAffixes(int depth, TraceExitType type);
-void c2PrintAff(int depth,int i, TraceExitType type);
-void c2PrintLocals(int depth);
+void c2traceREPL(VALUE depth,TraceExitType type);
+void c2PrintAffixes(VALUE depth, TraceExitType type);
+void c2PrintAff(VALUE depth,int i, TraceExitType type);
+void c2PrintLocals(VALUE depth);
 void c2Backtrace();
 int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index));
 int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount);
@@ -190,7 +224,7 @@ bool c2StartsWith(char* str, char* prefix);
 bool c2MatchName(char* name1, char* name2);
 char* c2RemoveBlanks(char* str);
 bool c2IsemptyOrWhitespace(char* str);
-C2EvalResult c2EvaluateExpr(int depth, char* expr);
+C2EvalResult c2EvaluateExpr(VALUE depth, char* expr);
 void c2PrintValues(C2EvalResult* result, char format);
 void c2FreeEvalResult(C2EvalResult* result);
 void c2SignalHandler(int sig);
@@ -221,7 +255,7 @@ char* c2FormatContainer(char* container);
 // Implementation
 /////////////////////////////////////////////////////////////////////////////////
 
-char* c2AlgType(int depth) {
+char* c2AlgType(VALUE depth) {
    switch (c2DebugInfo->procs[C2Stack[depth].procInfoIndex].type) {
       case C2_ALG_PREDICATE: return "PREDICATE";
       case C2_ALG_TEST: return "TEST";
@@ -232,12 +266,32 @@ char* c2AlgType(int depth) {
 }  
 
 void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE** locals) {
-   if (C2SP >= CALL_STACK_MAX_DEPTH-1) {
-      fprintf(stderr, "Call stack overflow\n");
-      exit(1);
+   C2SP++;
+
+   if (C2SP >= (int)C2StackCapacity) {
+      VALUE newCapacity = C2StackCapacity == 0 ? CALL_STACK_MAX_DEPTH : C2StackCapacity * 2;
+
+      VALUE bytesNeeded = newCapacity * sizeof(C2StackFrame);
+      if (((VALUE)bytesNeeded / (VALUE)sizeof(C2StackFrame)) != newCapacity) {
+         fprintf(stderr, "Call stack size overflow detected (would exceed addressable memory)\n");
+         exit(1);
+      }
+
+      WARNING_SUPPRESS(4244, "-Wcast-function-type")
+      C2StackFrame* newStack = (C2StackFrame*)realloc(C2Stack, bytesNeeded);
+      WARNING_RESTORE(4244, "-Wcast-function-type")
+      if (newStack == NULL) {
+         fprintf(stderr, "Call stack allocation failed, attempted %llu frames (%llu bytes)\n", newCapacity, bytesNeeded);
+         exit(1);
+#ifdef SHOW_STACK_RESIZE
+      } else {
+         fprintf(stderr, "Call stack reallocated to %zu frames (%zu bytes) (%llu bytes)\n", newCapacity,sizeof(C2StackFrame),bytesNeeded);
+#endif
+      }
+      C2Stack = newStack;
+      C2StackCapacity = newCapacity;
    }
 
-   C2SP++;
    C2Stack[C2SP].procInfoIndex = procIndex;
    C2Stack[C2SP].args = args;
    C2Stack[C2SP].locals = locals;
@@ -258,7 +312,7 @@ bool c2SetSpyPoint(char* procName, bool set) {
    if (procs != NULL) {
       for (int i = 0; i < count; i++) {
          procs[i]->spypoint = set;
-         fprintf(stderr, "Spy point %s %s\n", set ? "set on" : "cleared from", procs[i]->name);
+         fprintf(stderr, "Spy point %s %s%s%s\n", set ? "set on" : "cleared from", ansi_fg(YELLOW), procs[i]->name, ansi_fg(RESET));
       }
       free(procs);
       return true;
@@ -291,12 +345,12 @@ char * C2Marker(TraceExitType type) {
 void c2Backtrace() {
    fprintf(stderr, "\n===== Stack backtrace (most recent call to last):\n");
    int frameCount = 0;
-   for (int i = C2SP ; i >= 0 ; i--) {
+   for (VALUE i = C2SP ; i >= 0 ; i--) {
       c2PrintStackFrame(i,false,NO_MARKER,"\n", TRACE_ENTER);
       frameCount++;
       if (frameCount % C2BacktracePauseInterval == 0 && i > 0) {
-         int remaining = i;
-         fprintf(stderr, "\n--- %d more frame%s. Continue (y,n)? ", remaining, remaining == 1 ? "" : "s");
+         VALUE remaining = i;
+         fprintf(stderr, "\n--- " VALUE_DEC_FORMAT " more frame % s.Continue(y, n) ? ", remaining, remaining == 1 ? "" : "s");
          char response = c2_getch();
          fprintf(stderr, "%c\n", response);
          if (response == 'n' || response == 'N') break;
@@ -305,7 +359,7 @@ void c2Backtrace() {
    fprintf(stderr, "===== Backtrace ends\n\n");
 }
    
-void c2PrintStackFrame(int depth,bool indent, char* marker,char* lineEnd,TraceExitType type) {
+void c2PrintStackFrame(VALUE depth,bool indent, char* marker,char* lineEnd,TraceExitType type) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name= procInfo.name;
@@ -318,7 +372,7 @@ void c2PrintStackFrame(int depth,bool indent, char* marker,char* lineEnd,TraceEx
    static char indentation_buffer[256];
    char * indentation = "";
    if (indent) {
-      sprintf(indentation_buffer, "%*s", depth, "");
+      sprintf(indentation_buffer, "%*s", depth < 20 ? (int)depth : 20, "");
       indentation = indentation_buffer;
    }
    fprintf(stderr, "%s%s%s %s",indentation,marker,c2AlgType(depth),name);
@@ -329,14 +383,14 @@ void c2PrintStackFrame(int depth,bool indent, char* marker,char* lineEnd,TraceEx
    fprintf(stderr,"%s%s", ansi_fg(RESET), lineEnd);
 }
 
-void c2PrintAffixes(int depth, TraceExitType type) {
+void c2PrintAffixes(VALUE depth, TraceExitType type) {
    C2ProcInfo procInfo = c2DebugInfo->procs[C2Stack[depth].procInfoIndex];
    for (int i = 0; i < procInfo.nargs; i++) {
       c2PrintAff(depth, i, type);
    }
 }
 
-void c2PrintLocals(int depth) {
+void c2PrintLocals(VALUE depth) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    for (int i = 0; i < procInfo.nlocals; i++) {
@@ -349,7 +403,7 @@ void c2PrintLocals(int depth) {
    }
 }
 
-void c2PrintAff(int depth,int i, TraceExitType type) {
+void c2PrintAff(VALUE depth,int i, TraceExitType type) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name = procInfo.argnames[i];
@@ -368,9 +422,11 @@ void c2PrintAff(int depth,int i, TraceExitType type) {
    }
 }
 
-// Called after c2_push_callstack_frame so call information is on the stack.
 bool firstEntry = true;
+/////////////////////////////////////////////////////////////////////////////
 void c2TraceEnter() {
+/////////////////////////////////////////////////////////////////////////////
+// Called after c2_push_callstack_frame so call information is on the stack.
    if (firstEntry) {
       c2InitTrace();  // Initialize signal handlers on first entry
       c2LoadDebugState();  // Load saved debugger state
@@ -382,15 +438,20 @@ void c2TraceEnter() {
       // If we are going, just return without showing trace output
       return;
    }
-   if (C2Skippoint >=0) {
-      // We are skipping
-      if (C2HonorSpyPoints && C2Stack[C2SP].spypoint) {
-         // Skipping, but we are honouring spy points and this is a spy point: need to stop
-         C2Skippoint = -1; // Stop skipping when we hit a spy point
-         C2HonorSpyPoints= false; // Because spypoint honouring applies only to skipping and is irrelevant otherwise.
+   if (C2Skippoint >= 0) {
+      if (C2Skippoint > C2SP) {
+         // If we unwound past the skip point, cancel skipping
+         C2Skippoint = -1;
+      } else if (C2Skippoint == C2SP) {
+         // We have reached the skip target, stop skipping and show REPL
+         C2Skippoint = -1;
+         C2HonorSpyPoints = false;
+      } else if (C2HonorSpyPoints && C2Stack[C2SP].spypoint) {
+         C2Skippoint = -1;
+         C2HonorSpyPoints = false;
       } else {
-         // Otherwise, just continue without stopping
-         return; 
+         // Still skipping, do not show REPL
+         return;
       }
    } else if (C2Jumping) {
       if (c2IsSpyPoint(C2Stack[C2SP].procInfoIndex)) {
@@ -410,8 +471,10 @@ void c2TraceEnter() {
    // Not skipping
    c2traceREPL(C2SP, TRACE_ENTER);
 }
-// Called without popping the stack, so it must do it.
-bool c2TraceExit(int v) {
+/////////////////////////////////////////////////////////////////////////////
+void c2TraceExit(int v) {
+/////////////////////////////////////////////////////////////////////////////
+// Called before  popping the stack.
    if (C2Going || C2Jumping) {
       // If we are going, just return without showing trace output
    } else if (C2Skippoint >=0) {
@@ -442,9 +505,8 @@ bool c2TraceExit(int v) {
       // We are stepping over, but this exit does not match our criteria to step over, so stop
       c2traceREPL(C2SP, v==false ? TRACE_FAIL : TRACE_EXIT);
    }
-   c2pop_callstack_frame();
-   return v;
 }
+
 // Called for the abort operator
 void c2TraceExitAbort(char *algName) {
    fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\n", algName);
@@ -454,7 +516,7 @@ void c2TraceExitAbort(char *algName) {
 
 // Helper function to check if a name is a lude (ludes have uppercase letters, normal algorithms are all lowercase)
 bool c2IsLude(char* name) {
-   return isupper(name[0]);
+   return (bool)isupper(name[0]);
 }
 
 // Format container from "M.L.S" to "MOD M LAY L SEC S"
@@ -492,7 +554,7 @@ char* c2FormatContainer(char* container) {
    return result;
 }
 
-void c2traceREPL(int depth,TraceExitType type) {
+void c2traceREPL(VALUE depth,TraceExitType type) {
    bool skipPrompt = false;
    while (1) {
       if (!skipPrompt) {
@@ -688,6 +750,7 @@ void c2traceREPL(int depth,TraceExitType type) {
          } else if (!c2SetSpyPoint(arg, command == '+')) {
             fprintf(stderr, "No such procedure %s\n", arg);
          }
+         c2SaveDebugState();
          continue;
       case '>':
          fprintf(stderr, "\n");
@@ -718,9 +781,9 @@ void c2traceREPL(int depth,TraceExitType type) {
 
             if (dotCount > 0 && *p == '\0') {
                // Argument is only dots - step out
-               int targetDepth = depth - (dotCount - 1);
+               VALUE targetDepth = depth - (dotCount - 1);
                if (targetDepth < 0) {
-                  fprintf(stderr, "Not enough call stack depth (only %d level(s) available)\n", depth + 1);
+                  fprintf(stderr, "Not enough call stack depth (only " VALUE_DEC_FORMAT " level(s) available)\n", depth + 1);
                   continue;
                } else if (type == TRACE_ENTER) {
                   C2Skippoint = targetDepth;
@@ -1008,9 +1071,9 @@ void c2traceREPL(int depth,TraceExitType type) {
 
             if (dotCount > 0 && *p == '\0') {
                // Argument is only dots - show ancestor code
-               int ancestorDepth = depth - (dotCount - 1);
+               VALUE ancestorDepth = depth - (dotCount - 1);
                if (ancestorDepth < 0) {
-                  fprintf(stderr, "Not enough call stack depth (only %d level(s) available)\n", depth + 1);
+                  fprintf(stderr, "Not enough call stack depth (only " VALUE_DEC_FORMAT " level(s) available)\n", depth + 1);
                } else if (ancestorDepth > C2SP) {
                   fprintf(stderr, "Invalid stack depth\n");
                } else {
@@ -1224,7 +1287,7 @@ C2ListInfo** c2FindLists(char* name, int* outCount) {
    return result;
 }
 
-C2EvalResult c2EvaluateExpr(int depth, char* expr) {
+C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
    C2EvalResult result = { NULL, 0, false, false, 0, NULL, 0, 0, false };
 
    // Check for pointer indirection
@@ -1322,7 +1385,9 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
 
    // If we found a value and it's indirection
    if (foundValue && isIndirection) {
+      WARNING_SUPPRESS(4305, "-Wconversion")
       VALUE* ptr = (VALUE*)baseValue;
+      WARNING_RESTORE(4305, "-Wconversion")
       if (ptr == NULL) {
          free(cleanName);
          return result;
@@ -1330,6 +1395,7 @@ C2EvalResult c2EvaluateExpr(int depth, char* expr) {
 
       // For sized indirection (>), get the size from ptr[-1]
       int actualSize = 0;
+
       if (isSizedIndirection) {
          actualSize = (int)ptr[-1];
          if (actualSize < 0) actualSize = 0;
@@ -2243,6 +2309,16 @@ void c2SignalHandler(int sig) {
 }
 
 void c2InitTrace() {
+   // Initialize stack if not already done
+   if (C2Stack == NULL) {
+      C2Stack = (C2StackFrame*)malloc(CALL_STACK_MAX_DEPTH * sizeof(C2StackFrame));
+      if (C2Stack == NULL) {
+         fprintf(stderr, "Failed to allocate call stack\n");
+         _Exit(1);
+      }
+      C2StackCapacity = CALL_STACK_MAX_DEPTH;
+   }
+
    // Set up signal handlers to catch runtime errors
    signal(SIGSEGV, c2SignalHandler);  // Segmentation fault
    signal(SIGABRT, c2SignalHandler);  // Abort
@@ -2305,6 +2381,17 @@ void c2SaveDebugState() {
 }
 
 // Load debugger state from file
+
+// Helper: set spypoint by container and name
+static void c2SetSpyPointByContainerAndName(const char* container, const char* name, bool set) {
+   for (int i = 0; i < c2DebugInfo->procCount; i++) {
+      C2ProcInfo* proc = &c2DebugInfo->procs[i];
+      if (strcmp(proc->container, container) == 0 && strcmp(proc->name, name) == 0) {
+         proc->spypoint = set;
+      }
+   }
+}
+
 void c2LoadDebugState() {
    char* exePath = c2GetExecutablePath();
    if (exePath[0] == '\0') return;
@@ -2332,15 +2419,22 @@ void c2LoadDebugState() {
       char* value = eq + 1;
 
       if (strcmp(key, "StepOverSuccess") == 0) {
-         C2StepOverSuccess = atoi(value);
+         C2StepOverSuccess = (bool)atoi(value);
       } else if (strcmp(key, "StepOverFailure") == 0) {
-         C2StepOverFailure = atoi(value);
+         C2StepOverFailure = (bool)atoi(value);
       } else if (strcmp(key, "FullNames") == 0) {
-         C2FullNames = atoi(value);
+         C2FullNames = (bool)atoi(value);
       } else if (strcmp(key, "DefaultListElements") == 0) {
-         C2DefaultListElements = atoi(value);
+         C2DefaultListElements = (bool)atoi(value);
       } else if (strcmp(key, "SpyPoint") == 0) {
-         c2SetSpyPoint(value, true);
+         // value is container.name
+         char* dot = strrchr(value, '.');
+         if (dot != NULL) {
+            *dot = '\0';
+            const char* container = value;
+            const char* name = dot + 1;
+            c2SetSpyPointByContainerAndName(container, name, true);
+         }
       } else if (strcmp(key, "History") == 0) {
          c2AddToHistory(value);
       }

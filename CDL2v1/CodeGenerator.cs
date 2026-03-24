@@ -726,7 +726,7 @@ namespace CDL2v1 {
                supressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
                bool islast = alternative.IsLastAlternative;
                cg.GenerateAlternativeStart(proc,group,i,islast);
-               GenerateAlternative(proc,group,alternative,islast);
+               GenerateAlternative(proc,group,alternative,islast,nextAlternative:alternative.NextAlternativeNumber);
                cg.GenerateAlternativeEnd(proc,group,i,alternative,removed,islast);
             }
 
@@ -742,16 +742,18 @@ namespace CDL2v1 {
       /// <param name="isLast"></param>
       /// <param name="aList"></param>
       /// <exception cref="NotImplementedException"></exception>
-      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast,AList? aList = null) {
+      /// <param name="nextAlternative"></param>
+      private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast,AList? aList = null,
+               int nextAlternative = Alternative.ALTERNATIVES_END) {
          List<Call> calls = alternative.Calls;
          bool canFail = false;
          foreach (Call call in calls) {
-            GenerateCall(proc,alternative,call,canFail,currentAList: aList,lastAlternative: isLast);
+            GenerateCall(proc,alternative,call,canFail,currentAList: aList,lastAlternative: isLast,nextAlternative:nextAlternative);
             canFail = canFail || call.CanFail;
          }
          switch (alternative.LastCall.type) {
             case LCT.Standard: 
-               GenerateCall(proc,alternative,alternative.LastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,aList); break;
+               GenerateCall(proc,alternative,alternative.LastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,aList,nextAlternative:nextAlternative); break;
             case LCT.Fail: cg.GenerateFail(proc,group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
             case LCT.Abort: cg.GenerateAbort(proc,group,proc.AlgId); break;
@@ -789,7 +791,7 @@ namespace CDL2v1 {
       /// <param name="currentAList"></param>
       /// <exception cref="NotImplementedException"></exception>
       private void GenerateCall(Procedure proc,Alternative alternative,Call call,bool canFail = false,bool onlyCallInAlternative = false,
-                                 bool lastAlternative = false,AList? currentAList = null) {
+                                 bool lastAlternative = false,AList? currentAList = null,int nextAlternative = 0) {
          currentAList ??= [];
          if (call.IsConditionalCompilationOn) {
             cg.GenerateComment($"Alternative selected by conditional compilation ON -> {call}");
@@ -810,19 +812,19 @@ namespace CDL2v1 {
                   cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
                   GenerateAlgorithmComment(called,nl:false);
                   // The following works because currently only procedures with a single alternative are inlineable.
-                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,new AList(currentAList,calledProc.Affixes,call.Args));
+                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,
+                     aList: new AList(currentAList,calledProc.Affixes,call.Args),nextAlternative: nextAlternative);
                } else {
                   cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);
                   AList aList = new(currentAList,called.Affixes,call.Args);
                   called.Affixes.GenerateJoinedSequence(GenerateActualArg(proc,call,aList),cg.GenerateActualArgSeparator);
-                  cg.GenerateCallEnd(called,proc,alternative,canFail,onlyCallInAlternative,lastAlternative);
+                  cg.GenerateCallEnd(called,proc,alternative,canFail,onlyCallInAlternative,lastAlternative,nextAlternative);
                }
             } else {
                cg.GenerateComment($"Call to undefined algorithm {call} skipped.");
             }
          }
       }
-
 
       private Action<IActualArg> GenerateActualArg(Procedure proc,Call call,AList aList) => aff => GenerateActualArg(proc,call,(Affix)aff,aList.GetValue(aff));
       private void GenerateActualArg(Procedure proc,Call call,Affix affix,IActualArg actualArg) {

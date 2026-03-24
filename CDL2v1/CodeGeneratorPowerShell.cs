@@ -436,7 +436,8 @@ function Remove-Const([string[]]$names) {
          emitter.Emit(TargetName(called)," ");
       }
 
-      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
+      void ICodeGenerator.GenerateCallEnd(Algorithm called,Procedure proc,Alternative alternative,bool canFail,
+            bool onlyCallInAlternative,bool lastAlternative,int nextAlternative) {
          ConditionalWrapperEnd(called);
          Newline();
       }

@@ -40,10 +40,18 @@ void debug_pause() {
 }
 #endif
 
+void c2Abort(char* msg) {
+   fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\\n", msg);
+   exit(1);
+}
+
 // Define control constructs that have to be redefined when code with -trace is generated
-#define RETURNV(res) return res
+#define ENTER(index,affixes,locals)
+#define RETURNV(v) return v
 #define RETURN return
-#define ABORT(msg,index) do { fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\\n", msg); exit(1); } while(0)
+#define ABORT(msg,index) c2Abort(msg)
+
+
 
 // Define the some convenient types and macros for use in generated code.
 //VALUE must already be defined.

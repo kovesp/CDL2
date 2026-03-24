@@ -1,6 +1,6 @@
 // <auto-gen>
 //=======================================================================
-// <copyright file="CodeGeneratorC.cs" company="Peter Köves">RETURN
+// <copyright file="CodeGeneratorC.cs" company="Peter Köves">
 //     Copyright (c) Peter Köves, 2025. All rights reserved.
 //     Licensed under the MIT License. See _LICENSE file in the project root
 //     for full license information.
@@ -56,8 +56,14 @@ namespace CDL2v1 {
          emitter.Emitnl("#define VALUE_UNDEFINED VALUE_MIN");
          emitter.Emitnl();
          emitter.Emitnl("#include \"CDL2.h\"");
-         if (Settings.IsBacktrace || Settings.IsTrace) emitter.Emitnl("#include \"CDL2Trace.h\"");
-         if (Settings.IsTrace) emitter.Emitnl("#define CDL2TRACE");
+         if (Settings.IsBacktrace || Settings.IsTrace) {
+            int tracestack = Settings.SettingValue<int>("tracestack");
+            if (tracestack != Settings.DEFAULT_TRACE_STACK) {
+               emitter.Emitnl($"#define CALL_STACK_MAX_DEPTH {tracestack}");
+            }
+            if (Settings.IsTrace) emitter.Emitnl("#define CDL2TRACE");
+            emitter.Emitnl("#include \"CDL2Trace.h\"");
+         }
          emitter.Emitnl();
          emitter.Emitnl("int _argc;");
          emitter.Emitnl("char **_argv;");
@@ -100,8 +106,9 @@ namespace CDL2v1 {
             int nargs = proc.Affixes.Count;
             string argnames = nargs == 0 ? "NULL" : "(char*[]){"+string.Join(",",proc.Affixes.Select(aff => aff.Id.Quoted()))+"}";
             string affTypes = nargs == 0 ? "NULL" : "(C2AffType[]){"+string.Join(",",proc.Affixes.Select(aff => C2AffType(aff)))+"}";
-            int nlocals = proc.Locals.Count;
-            string localnames = nlocals == 0 ? "NULL" : "(char*[]){" + string.Join(",",proc.Locals.Select(aff => aff.Id.Quoted()))+"}";
+            IEnumerable<Local> locals = proc.Locals.Where(loc => !loc.IsBuiltinResult);
+            int nlocals =locals.Count();
+            string localnames = nlocals == 0 ? "NULL" : "(char*[]){" + string.Join(",",locals.Select(aff => aff.Id.Quoted()))+"}";
             PPTrace.Emitter.Clear();
             PPTrace.Print(proc, synthetics: true);
             string code = (Settings.IsTrace ? PPTrace.Emitter.Content : "").Quoted(escape:true); // Get the pretty printed code, but only if tracing
@@ -347,6 +354,7 @@ namespace CDL2v1 {
       public void GenerateGroupEnd(Procedure proc,Group group) {
          DecrementIndent();
          GenerateComment($"End Group {TargetName(group)}");
+         if (proc.IsLude) emitter.Emitnl($"RETURN; // {proc.Id.Name} end");
       }
 
       public void GenerateCallStart(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
@@ -354,12 +362,14 @@ namespace CDL2v1 {
          emitter.Emit(TargetName(called),"(");
       }
 
-      public void GenerateCallEnd(Algorithm called,Procedure calling,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {
+      public void GenerateCallEnd(Algorithm called,Procedure calling,Alternative alternative,bool canFail,bool onlyCallInAlternative,bool lastAlternative,
+               int nextAlternative = Alternative.ALTERNATIVES_END) {
          if (called.CanFail) {
-            if (alternative.NextAlternativeNumber == Alternative.ALTERNATIVES_END || lastAlternative) {
+            //if (alternative.NextAlternativeNumber == Alternative.ALTERNATIVES_END || lastAlternative) {
+            if (lastAlternative || nextAlternative == Alternative.ALTERNATIVES_END) {
                emitter.Emit($")) RETURNV(FALSE); {Comment("call end")}");
             } else {
-               emitter.Emit($")) goto {ReferencedLabel(alternative.NextAlternativeNumber)};");
+               emitter.Emit($")) goto {ReferencedLabel(nextAlternative)};");
             }
          } else {
             emitter.Emit(");");
@@ -444,20 +454,24 @@ namespace CDL2v1 {
 
             string affValues = "NULL";
             if (alg.Affixes.Count > 0) {
-               affValues = "(C2DataValue[]){"+string.Join(",",alg.Affixes.Select(aff => $"{affDiscriminator(aff)}({TargetName(aff)})"))+"}";
+               emitter.Emitnl("C2DataValue affixes[] = {"+string.Join(",",alg.Affixes.Select(aff => $"{affDiscriminator(aff)}({TargetName(aff)})"))+"};");
+               affValues = "affixes";
             }
             string localValues = "NULL";
             if (locals.Any()) {
-               localValues = "(VALUE*[]){" + string.Join(",",alg.Locals.Select(loc => $"&{TargetName(loc)}")) + "}";
+               emitter.Emitnl("VALUE* locals[] = {" + string.Join(",",alg.Locals.Select(loc => $"&{TargetName(loc)}")) + "};");
+               localValues = "locals";
             }
-            string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";
-            string localsRefs = $"{locals.Count()},C2Locals,C2LocalNames";
-            string id = alg.Id.Name;
-            if (alg.IsSynthetic) {
-               id = alg.FQN();
-            }
-            emitter.Emitnl($"c2push_callstack_frame({algIndex},{affValues},{localValues});");
-            if (Settings.IsTrace) emitter.Emitnl("c2TraceEnter();");
+            //string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";
+            //string localsRefs = $"{locals.Count()},C2Locals,C2LocalNames";
+            //string id = alg.Id.Name;
+            //if (alg.IsSynthetic) {
+            //   id = alg.FQN();
+            //}
+            emitter.Emitnl($"ENTER({algIndex},{affValues},{localValues});");
+            // if (Settings.IsTrace) emitter.Emitnl("c2TraceEnter();");
+         } else {
+            emitter.Emitnl($"ENTER(({algIndex},NULL,NULL);");
          }
       }
 

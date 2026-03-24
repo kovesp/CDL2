@@ -128,10 +128,11 @@ namespace CDL2v1 {
             return $"{Name.PadRight(Settings.Instance.MaxNameLength)} {type,-8} {longOption} {(Value is null ? "" : Value is string[] sa ? string.Join(",",sa) : Value.ToString())}";
          }
       }
-      public string DisplayString => $"{Name}: {Value?.ToString()??""}";
+      public string DisplayString => Name + Value switch { true => "+", false => "-", _ => $": {Value?.ToString() ?? ""}" };
    }
 
    public class Settings {
+      public const int DEFAULT_TRACE_STACK = 10000;
 
       public static readonly Dictionary<string,string> DisjointSettings = [];
       private readonly List<ISetting> SettingsList = [
@@ -224,6 +225,8 @@ namespace CDL2v1 {
          new Setting<bool>(    "Debug",              NoOption,             false,          "May be used via BUILTIN is debug"),
          new Setting<bool>(    "backtrace",          NoOption,             false,          "Generate backtrace information. My be ignored by some code generators."),
          new Setting<bool>(    "trace",              NoOption,             false,          "Generate trace information. May be ignored by some code generators."),
+         new Setting<int>(     "tracestack",         NoOption,             DEFAULT_TRACE_STACK,
+                                 "The size of the debug call stack to allocate. Ignored unless -backtrace is set for supported code generators."),
       ];
 
       public record struct NameCompletion(IEnumerable<ISetting> Matches,int MatchLength);
@@ -331,6 +334,10 @@ namespace CDL2v1 {
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static object? SettingValue(string name) => Setting<object>(name);
+
+      internal static SettingType GetSettingType(string settingName) 
+         => Instance.SettingsDict.TryGetValue(settingName,out ISetting? setting) ? setting.SettingType : SettingType.Invalid;
+
 
       public static void SettingValue<T>(string name,T value) => Setting<T>(name)!.Value = value;
 
@@ -673,7 +680,6 @@ namespace CDL2v1 {
             System.Diagnostics.Debug.WriteLine($"Error loading settings: {ex.Message}");
          }
       }
-
    }
 }
 

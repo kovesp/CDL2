@@ -591,7 +591,8 @@ namespace CDL2v1 {
 
       void GenerateActualArgSeparator();
       void GenerateCallStart(Algorithm called,Procedure proc,bool firstCall = false,bool onlyCallInAlternative = false,bool lastAlternative = false);
-      void GenerateCallEnd(Algorithm call,Procedure proc,Alternative alternative,bool firstCall = false,bool onlyCallInAlternative = false,bool lastAlternative = false);
+      void GenerateCallEnd(Algorithm call,Procedure proc,Alternative alternative,bool firstCall = false,
+                              bool onlyCallInAlternative = false,bool lastAlternative = false,int nextAlternative = Alternative.ALTERNATIVES_END);
       void GenerateCallArgString(string value);
       void GenerateCallArgReferenceAffix(Affix calledAffix,Affix a,bool needFinalization);
       void GenerateCallArgReferenceLocal(Affix calledAffix,Local lo);
