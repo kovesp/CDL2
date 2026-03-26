@@ -16,8 +16,10 @@
 
 #define VALUE_DEC_FORMAT "%" VALUE_FMT "d"
 #define VALUE_HEX_FORMAT "%" VALUE_FMT "x"
-#define VALUE_DEC_FMT(n) "%0" #n VALUE_FMT "d"
-#define VALUE_HEX_FMT(n) "%0" #n VALUE_FMT "x"
+
+#define VALUE_FMTC(n,b) "%0" #n VALUE_FMT b
+#define VALUE_DEC_FMT(n) VALUE_FMTC(n,"d")
+#define VALUE_HEX_FMT(n) VALUE_FMTC(n,"x")
 
 // Format helper for string literal concatenation with VALUE format macros
 #define FMT(s) s

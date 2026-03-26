@@ -1318,6 +1318,9 @@ namespace CDL2v1 {
       [JsonIgnore] public override bool IsDeclared => Section?.Declarations.ContainsValue(GUID) == true;
 
 
+      public bool IsReachable(Reachable r) => r.Objects.Contains(this);   
+
+
       public override bool Modified {
          get => Module?.Modified ?? false;
          set => Module?.Modified = value;

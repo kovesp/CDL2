@@ -305,6 +305,7 @@ namespace CDL2v1 {
          //   ? $"RETURNV(TRUE); {Comment("proc end can fail w. finalization")}"
          //   : $"RETURNV(FALSE); {Comment("proc end can fail w. finalization")}"
          //   : $"RETURN; {Comment("proc end")}");
+         if (proc.IsLude) emitter.Emitnl($"RETURN; // {proc.Id.Name} end");
          DecrementIndent();
          emitter.NlEmitnl("}");
       }
@@ -354,7 +355,6 @@ namespace CDL2v1 {
       public void GenerateGroupEnd(Procedure proc,Group group) {
          DecrementIndent();
          GenerateComment($"End Group {TargetName(group)}");
-         if (proc.IsLude) emitter.Emitnl($"RETURN; // {proc.Id.Name} end");
       }
 
       public void GenerateCallStart(Algorithm called,Procedure calling,bool canFail,bool onlyCallInAlternative,bool lastAlternative) {

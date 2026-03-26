@@ -370,9 +370,17 @@ MODULE c kernel.
       SECTION messages.
          EXPORT show msg, show msg no newline, show number.
          EXT show msg, show msg no newline, show number.
+         INV gt, divide, remainder.
 
          ACTION show msg*string = "printf($"%s\n$", " string ");".
-         ACTION show number +>number = "printf(VALUE_DEC_FORMAT," number ");".
+         ACTION base show number +>number +>width = "printf(VALUE_DEC_FMT(" width ")," number ");".
+         
+         CONST n1000 = 1000, w3 = 3, w1 = 1.
+         ACTION show number +>number -high -low:
+            gt+number+n1000, divide+number+n1000+high, remainder+number+n1000+low, 
+               show number+high, show msg no newline+",", base show number+low+w3;
+            base show number+number+w1.
+
          ACTION show msg no newline*string = "printf($"%s$", " string ");".
       ENDSEC messages.
 
@@ -698,7 +706,7 @@ ROOT test memory.
 MODULE quicksort.
    LAYER base.
       SECTION parametrization.
-         ABSTR lwb, upb, get data size.
+         ABSTR lwb, upb, get data size, min random, max random.
          EXT lwb, upb, max size of list to show, min random, max random, get data size.
          EXPORT lwb, upb, min random, max random.
          INV subtract, incr, decr, min, gt, ge, make, command line argument count, is command line argument numeric.
@@ -827,7 +835,7 @@ MODULE quicksort.
          ACTION show native sorter.
 
          FUNCTION data upb+actual upb> -number to sort:
-            get data size+number to sort, subtract+number to sort+lwb+actual upb, decr+actual upb.
+            get data size+number to sort, subtract+number to sort+lwb+actual upb, incr+actual upb.
 
          ACTION dump list -i-e-upb:
             data upb+upb, make+i+lwb, get element+i+e, show number+e,
@@ -871,7 +879,7 @@ MODULE quicksort.
    NOTE.
    LAYER sort.
       SECTION sorter.
-         INV lwb, upb.
+         INV lwb, upb, min random, max random.
          INV less, gt, make, add, halve, incr, decr, divide.
          INV swap element, get element, smaller element, dump data, get data size.
          INV show msg, show msg no newline, show number, is data sorted macro, less or equal.
@@ -935,7 +943,9 @@ MODULE quicksort.
             dump data+"Data before sorting: ", verify data sorted+"Random"+to,
 
             get data size+data size,
-            show msg no new line+"Running quicksort on list of ", show number+data size, show msg+" elements.",
+            show msg no new line+"Running quicksort on list of ", show number+data size, 
+            show msg no newline+" random elements between ", show number+min random, show msg no new line+" and ",
+            show number+max random, show msg+".",
             start timer, quicksort+lwb+to, stop timer, get elapsed time+cdl2 elapsed, show elapsed time,
             dump data+"Data after sorting: ", verify data sorted+"Quicksort-ed"+to,
 

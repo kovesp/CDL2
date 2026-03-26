@@ -32,6 +32,7 @@
 // </auto-gen>
 
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Security;
 
@@ -46,16 +47,48 @@ namespace CDL2v1 {
       }
       private bool collecting = false;
       private bool collected = false;
-      public Set<CDL2Object> Objects {
+
+      public class CrossReferenceSet : Dictionary<CDL2Object,Set<NamedElement>> {
+         public void Add(CDL2Object obj,NamedElement referrencer) {
+            if (!ContainsKey(obj)) base.Add(obj,[]);
+            this[obj].Add(referrencer);
+         }
+      }
+      public class CrossReferencedObjectSet : Set<CDL2Object> {
+         public readonly CrossReferenceSet CrossReferences = []; // Maps each object to the set of objects that reference it. Only includes objects reachable from the entry point.
+         public bool Add(CDL2Object obj,NamedElement referrer) {
+            CrossReferences.Add(obj,referrer); // Always add a reference
+            return base.Add(obj);
+         }
+         public static new bool Add(CDL2Object obj) => throw new InvalidOperationException("Use Add(CDL2Object obj, NamedElement referrer) instead to keep track of cross references.");
+
+         public Set<NamedElement> Referrers(CDL2Object obj) => CrossReferences.TryGetValue(obj,out Set<NamedElement>? referrers) ? referrers : [];
+         public new bool Remove(CDL2Object obj) {
+            CrossReferences.Remove(obj);
+            return base.Remove(obj);
+         }
+         public new void Clear() {
+            base.Clear();
+            CrossReferences.Clear();
+         }
+      }
+
+      public CrossReferencedObjectSet Objects {
          get {
             Debug.Assert(collecting || collected,"Must call CollectReachableObjects(program/module)  before accessing Objects");
             return field;
          }
-         private set;
+         set {
+            if (value is not null && value.Count != 0) throw new ArgumentException("CrossReferencedObjectSets can only be set to a null or an empty set");
+            field.Clear();
+         }
       } = [];
+
       public Set<CDL2Object> AllObjects = []; // All objects in the program/module, including those not reachable from the entry point.
 
       public IDDictionary<int> ProcedureCalls = []; // The number of times a procedure is called
+
+      public CrossReferenceSet XRefs => Objects.CrossReferences;
 
       // Used to track the variables that are read in the program. Write references are in <see cref="ReferencedObjects."/>.
       public Set<ITrackedVar> ReadVars { get; private set; } = [];
@@ -121,7 +154,7 @@ namespace CDL2v1 {
          List<ID> ds = section.Ludes[ludeType];
          if (ds.Count == 1) {
             if (section.LudeProcs[ludeType] is Guid guid && guid.ToCDL2Object<Procedure>() is Procedure proc) {
-               if (Objects.Add(proc!)) CollectReachableObjects(proc.group);
+               if (Objects.Add(proc!,section)) CollectReachableObjects(proc.group);
             } else {
                throw new NotImplementedException($"CollectReachableObjects: Could not find lude {section.Ludes[ludeType][0]} in {section}");
             }
@@ -183,26 +216,26 @@ namespace CDL2v1 {
                Affix affix = called.Affixes[i++];
                switch (arg) {
                   case Const c:
-                     CollectReachableObjects(c);
+                     CollectReachableObjects(c,call.ContainingProc);
                      break;
                   case Var v:
-                     Objects.Add(v);
+                     Objects.Add(v,call.ContainingProc);
                      if (affix.IsInput) ReadVars.Add(v);
                      break;
                   case ID id:
                      if (call.Called.Section!.TryGetDeclaration(id,out CDL2Object? obj)) {
                         if (obj is Const c) {
-                           CollectReachableObjects(c);
+                           CollectReachableObjects(c,call.ContainingProc);
                         } else if (obj is ImportedConst ic1 && ic1.Module!.resolvedImports.TryGetValue(ic1.Id,out IImportable? elem1) && elem1 is Const rc1) {
-                           CollectReachableObjects(rc1);
+                           CollectReachableObjects(rc1,call.ContainingProc);
                         } else if (obj is Var v) {
-                           Objects.Add(v);
+                           Objects.Add(v,call.ContainingProc);
                         }
                      }
                      break;
                }
             }
-            if (Objects.Add(called)) {
+            if (Objects.Add(called,call.ContainingProc)) {
                if (called is Macro macro) {
                   CollectReachableObjects(macro);
                } else if (called is Procedure proc) {
@@ -211,14 +244,14 @@ namespace CDL2v1 {
             }
          }
       }
-      private void CollectReachableObjects(Const constant) {
+      private void CollectReachableObjects(Const constant,NamedElement referer) {
          if (constant is ImportedConst) constant = (constant.Module!.resolvedImports[constant.Id] as Const)!;
-         if (Objects.Add(constant)) {
+         if (Objects.Add(constant,referer)) {
             foreach (IElement elem in constant.elements) {
                switch (elem) {
                   case ID id:
                      if (constant.ParentElement<Section>()!.TryGetDeclaration(id,out CDL2Object? obj)) {
-                        if (obj is Const c) CollectReachableObjects(c);
+                        if (obj is Const c) CollectReachableObjects(c,referer);
                      } else {
                         throw new NotImplementedException($"CollectReachableObjects: Unresolved reference to {id}");
                      }
@@ -237,10 +270,10 @@ namespace CDL2v1 {
                   if (macro.Section!.TryGetDeclaration(id,out CDL2Object? obj)) {
                      switch (obj) {
                         case Const c:
-                           CollectReachableObjects(c);
+                           CollectReachableObjects(c,macro);
                            break;
                         case Var v:
-                           Objects.Add(v);
+                           Objects.Add(v,macro);
                            break;
                         case LIST l:
                            CollectReachableObjects(macro,l);
@@ -249,10 +282,10 @@ namespace CDL2v1 {
                   }
                   break;
                case Const c:
-                  CollectReachableObjects(c);
+                  CollectReachableObjects(c,macro);
                   break;
                case Var v:
-                  Objects.Add(v);
+                  Objects.Add(v,macro);
                   if (macro.HasNoEffect) {
                      // Assume the variable is read. Because (1) it can't be written, otherwise it would not meet the macro contract and (2) it is referenced so it must be read.
                      // OTOH, with ACTIONs/PREDICATEs we can't tell.
@@ -269,9 +302,9 @@ namespace CDL2v1 {
          }
       }
       private void CollectReachableObjects(Macro macro,LIST list) {
-         if (Objects.Add(list)) {
-            if (macro.Section!.TryGetDeclaration(list.lwb,out Const? lwb)) CollectReachableObjects(lwb!);
-            if (macro.Section.TryGetDeclaration(list.upb,out Const? upb)) CollectReachableObjects(upb!);
+         if (Objects.Add(list,macro)) {
+            if (macro.Section!.TryGetDeclaration(list.lwb,out Const? lwb)) CollectReachableObjects(lwb!,list);
+            if (macro.Section.TryGetDeclaration(list.upb,out Const? upb)) CollectReachableObjects(upb!,list);
          }
       }
    }

@@ -308,8 +308,11 @@ What happens depends on what the current selection is as well as the selector:
 list command : list token, setting sequence option, selector option.
 ```
 
-The command list all the objects that match the selector. The list command with no selector is the
-same as the focus command with no selector, except the auto-print setting is ignored.
+The command list all the objects that match the selector. 
+
+With the seting `-refs` the command lists all objects that _reference_ the focused object. If given,
+the selector must be a program and only those references are display that are from objects
+reachable from that program. If it is not given, then references in any program are listed.
 
 #### Print
 

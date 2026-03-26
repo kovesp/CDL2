@@ -1660,7 +1660,19 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="args"></param>
       private void InterpretCommandList(string args) {
-         if (args.IsNullEmptyOrWhitespace) {
+         if (Settings.SettingValue<bool>("refs")) {
+            if (args.IsNullEmptyOrWhitespace) {
+               WriteError("Not implemented without a Program");
+            } else {
+               SingleSelection? sel = GetContext(args);
+               if (Focus.Current.Object is CDL2Object obj && sel?.Object is Program prog) {
+                  foreach (NamedElement reference in prog.Reachable.Objects.Referrers(obj)) WriteWithInterface(reference);
+               } else {
+                  WriteError("Not implemented without a Program");
+               }
+            }
+
+         } else if (args.IsNullEmptyOrWhitespace) {
             if (ListUndoRedoStack(Database.Instance.UndoStack,"Undo",ifSetting: "undo") | ListUndoRedoStack(Database.Instance.RedoStack,"Redo",ifSetting: "redo")) return;
 
             if (Focus.Current.Object is not null) {
@@ -1669,7 +1681,7 @@ namespace CDL2v1 {
                WriteInfo($"Nothing");
             }
          } else {
-            Selection selection = new(args);
+            Selection selection = [with(args)];
             if (selection.IsInvalid) {
                WriteError(selection.ErrorMessage);
             } else if (selection.Count == 0) {

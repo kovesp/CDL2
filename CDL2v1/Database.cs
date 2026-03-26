@@ -739,6 +739,8 @@ namespace CDL2v1 {
       public static IEnumerable<Section> Secs(string sec,string mod = "*") => Instance.SectionsByName(sec,mod);
       public static Section? Sec(string sec,string mod = "*") => Instance.SectionByName(sec,mod);
 
+      public static T ObjectByName<T>(string name) where T : NamedElement => Instance.NamedElements.Values.OfType<T>().First(e => e.Id.Matches(name));
+
 
       public static string Save(string? filePath = null) {
          Instance.CurrentFocusGuid = Focus.Current.Object?.GUID ?? Guid.Empty;

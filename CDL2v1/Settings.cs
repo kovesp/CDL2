@@ -205,7 +205,7 @@ namespace CDL2v1 {
          new Setting<string>(  "tag",                 NoOption,             "",            "Selects the (first) tagged item. Used with the undo/redo commands to undo/redo the tagged item."),
          new Setting<bool>(    "separate",            NoOption,             false,         "When generating code for programs (modules), do not inline objects from (other) modules."),
          new Setting<bool>(    "prompt",              NoOption,             false,         "When removing an object prompt for confirmation."),
-         new Setting<bool>(    "refs",                NoOption,             true,          "When renaming an object also rename all references to it."),
+         new Setting<bool>(    "refs",                NoOption,             true,          "When renaming an object also rename all references to it. For the list command list its cross references."),
          new Setting<string>(  "file",                NoOption,             "",            "Supplies the file name for print/type. The filename may end with ::append to leave\n"+
                                                                                            "the file open for appending by further print/type commands. If the file name is just ::append\n"+
                                                                                            "the existing file is reused. If this option is missing, the file is closed by print/type.\n"+

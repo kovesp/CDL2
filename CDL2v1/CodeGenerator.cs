@@ -726,7 +726,7 @@ namespace CDL2v1 {
                supressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
                bool islast = alternative.IsLastAlternative;
                cg.GenerateAlternativeStart(proc,group,i,islast);
-               GenerateAlternative(proc,group,alternative,islast,nextAlternative:alternative.NextAlternativeNumber);
+               GenerateAlternative(proc,group,alternative,islast,nextAlternative: alternative.NextAlternativeNumber);
                cg.GenerateAlternativeEnd(proc,group,i,alternative,removed,islast);
             }
 
@@ -743,8 +743,9 @@ namespace CDL2v1 {
       /// <param name="aList"></param>
       /// <exception cref="NotImplementedException"></exception>
       /// <param name="nextAlternative"></param>
+      /// <param name="inlining"></param>
       private void GenerateAlternative(Procedure proc,Group group,Alternative alternative,bool isLast,AList? aList = null,
-               int nextAlternative = Alternative.ALTERNATIVES_END) {
+               int nextAlternative = Alternative.ALTERNATIVES_END,bool inlining = false) {
          List<Call> calls = alternative.Calls;
          bool canFail = false;
          foreach (Call call in calls) {
@@ -813,7 +814,7 @@ namespace CDL2v1 {
                   GenerateAlgorithmComment(called,nl:false);
                   // The following works because currently only procedures with a single alternative are inlineable.
                   GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,
-                     aList: new AList(currentAList,calledProc.Affixes,call.Args),nextAlternative: nextAlternative);
+                     aList: new AList(currentAList,calledProc.Affixes,call.Args),nextAlternative: nextAlternative,inlining:true);
                } else {
                   cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);
                   AList aList = new(currentAList,called.Affixes,call.Args);
