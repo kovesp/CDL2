@@ -32,6 +32,7 @@
 //=======================================================================
 // </auto-gen>
 
+using System.CodeDom.Compiler;
 using System.Collections.Immutable;
 using System.Configuration;
 using System.Diagnostics;
@@ -1661,17 +1662,25 @@ namespace CDL2v1 {
       /// <param name="args"></param>
       private void InterpretCommandList(string args) {
          if (Settings.SettingValue<bool>("refs")) {
-            if (args.IsNullEmptyOrWhitespace) {
-               WriteError("Not implemented without a Program");
-            } else {
-               SingleSelection? sel = GetContext(args);
-               if (Focus.Current.Object is CDL2Object obj && sel?.Object is Program prog) {
-                  foreach (NamedElement reference in prog.Reachable.Objects.Referrers(obj)) WriteWithInterface(reference);
+            if (Focus.Current.Object is CDL2Object obj) {
+               if (args.IsNullEmptyOrWhitespace) {
+                  Program? prog = CDL2.GetMainProgram();
+                  if (prog is not null) {
+                     ShowRefs(obj,prog!);
+                  } else {
+                     WriteError("No main program set and not explicitly given for -refs");
+                  }
                } else {
-                  WriteError("Not implemented without a Program");
+                  SingleSelection? sel = GetContext(args);
+                  if (sel?.Object is Program) {
+                     ShowRefs(obj,(Program)sel.Object);
+                  } else {
+                     WriteError("Selector in list -refs must specify a program");
+                  }
                }
+            } else {
+               WriteError("Focus must be on an object for -refs");
             }
-
          } else if (args.IsNullEmptyOrWhitespace) {
             if (ListUndoRedoStack(Database.Instance.UndoStack,"Undo",ifSetting: "undo") | ListUndoRedoStack(Database.Instance.RedoStack,"Redo",ifSetting: "redo")) return;
 
@@ -1681,7 +1690,7 @@ namespace CDL2v1 {
                WriteInfo($"Nothing");
             }
          } else {
-            Selection selection = [with(args)];
+            Selection selection = new(args);
             if (selection.IsInvalid) {
                WriteError(selection.ErrorMessage);
             } else if (selection.Count == 0) {
@@ -1709,12 +1718,19 @@ namespace CDL2v1 {
          /// Writes the fully qualified name (FQDN) of the given element, including its interface types if specified.
          /// </summary>
          /// <param name="elem">The named element to write.</param>
-         void WriteWithInterface(NamedElement elem) => WriteLine(elem.FQDN(WithInterface: true));
+         void WriteWithInterface(NamedElement elem,bool withIndent = false) => WriteLine((withIndent?"   ":"")+elem.FQDN(WithInterface: true));
 
          void ListLude(SingleSelection sel,SelectorType listType) {
             if (sel.Object is Container c1) {
                if (c1.Ludes[Container.LudeTypeBySelector[listType]].Count > 0) WriteLine($"{c1.FQDN()} {listType}");
             }
+         }
+
+         
+         void ShowRefs(CDL2Object obj,Program prog) {
+            Set<NamedElement> references = prog.Reachable.Objects.Referrers(obj);
+            WriteInfo($"{references.Count.Plural("reference",countWidth:1)} in {prog}");
+            foreach (NamedElement reference in references) WriteWithInterface(reference,withIndent: true);
          }
       }
 
