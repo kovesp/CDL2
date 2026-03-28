@@ -163,8 +163,8 @@ namespace CDL2v1 {
          }
       }
       private void CollectReachableObjects(Group group) {
-         // Collect all the objects reachable from this group.
-         foreach (Alternative alt in group.Alternatives) CollectReachableObjects(alt);
+         // Collect all the objects reachable from this group. If the alternative is governed by positive conditional compilation, then subsequent alternatives should not be processed.
+         foreach (Alternative alt in group.Alternatives) if (CollectReachableObjects(alt)) return;
       }
 
       /// <summary>
@@ -172,8 +172,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="alt"></param>
       /// <returns>true if this alternative was governed by positive conditional compilation, i.e., that subsequent alternatives should <b>not</b> be processed.</returns>
-      private void CollectReachableObjects(Alternative alt) {
-         if (alt.IsConditionalCompilationOff) return;
+      private bool CollectReachableObjects(Alternative alt) {
+         if (alt.IsConditionalCompilationOff) return false;
          // Conditinal compilation is only suported for the first call of an alternative
          IEnumerable<Call> calls = alt.IsConditionalCompilationOn ? alt.Calls.Skip(1) : alt.Calls;
          foreach (Call call in calls) CollectReachableObjects(call); 
@@ -185,6 +185,7 @@ namespace CDL2v1 {
                if (alt.LastCall.group is not null) CollectReachableObjects(alt.LastCall.group);
                break;
          }
+         return alt.IsConditionalCompilationOn;
       }
 
       /// <summary>
