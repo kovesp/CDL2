@@ -40,13 +40,18 @@
 // Otherwise code was generated with backtrace only, so the stack must be poped.
 #ifdef CDL2TRACE
    #define ENTER(index,affixes,locals) { c2push_callstack_frame(index,affixes,locals); c2TraceEnter(); }
+#elif defined(CDL2PROFILE)
+   #define ENTER(index,affixes,locals) { c2push_callstack_frame(index,affixes,locals); c2DebugInfo->procs[index].callCount++; }
+#else
+   #define ENTER(index,affixes,locals) c2push_callstack_frame(index,affixes,locals);
+#endif
+#if CDL2TRACE
    #define RETURNV(v)                  { c2TraceExit(v);    c2pop_callstack_frame(); return v; }
    #define RETURN                      { c2TraceExit(TRUE); c2pop_callstack_frame(); return;   }
 
    #undef ABORT
    #define ABORT(msg,index) c2TraceExitAbort(msg)
 #else
-   #define ENTER(index,affixes,locals) c2push_callstack_frame(index,affixes,locals);
    #define RETURNV(v) { c2pop_callstack_frame(); return v; }
    #define RETURN     { c2pop_callstack_frame(); return;   }
 #endif
@@ -123,6 +128,7 @@ typedef struct C2ProcInfo {
    char*       code;
    bool        spypoint;
    bool        steppoint;
+   VALUE       callCount;
 } C2ProcInfo;
 
 typedef struct C2VarInfo {
@@ -434,6 +440,9 @@ void c2TraceEnter() {
          ansi_fg(BRIGHT_MAGENTA), ansi_fg(YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(YELLOW), ansi_fg(BRIGHT_MAGENTA), ansi_fg(RESET));
       firstEntry = false;
    }
+#ifdef CDL2PROFILE
+   c2DebugInfo->procs[C2Stack[C2SP].procInfoIndex].callCount++;
+#endif
    if (C2Going) {
       // If we are going, just return without showing trace output
       return;
@@ -1463,8 +1472,7 @@ C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
                   // [-endIdx] - end at endIdx, show default count elements
                   endIdx = atoi(dash + 1);
                   startIdx = endIdx - C2DefaultListElements + 1;
-                  if (startIdx < 0) startIdx = 0;
-                  count = endIdx - startIdx + 1;
+                  count = C2DefaultListElements;
                } else if (*(dash + 1) == '\0') {
                   // [start-] - start at startIdx, show default count elements
                   startIdx = atoi(indexBuf);
@@ -1516,7 +1524,6 @@ C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
                   result.values[i] = ptr[startIdx + i];
                }
             }
-
             return result;
       } else {
          // No indexing - just dereference
@@ -1618,6 +1625,7 @@ C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
                   count = endIdx - startIdx + 1;
                }
             } else {
+               // Single index
                startIdx = atoi(indexBuf);
                endIdx = startIdx;
                count = 1;
@@ -1941,80 +1949,67 @@ char* c2ReadFullCommand() {
             i = (int)strlen(buffer);
             cursorPos = i;
             fprintf(stderr, "%s%s%s", ansi_fg(YELLOW), buffer, ansi_fg(RESET));
+         }
+      } else if (ch == 127 || ch == 8) { // Backspace
+         if (cursorPos > 0) {
+            // Delete character before cursor
+            memmove(&buffer[cursorPos - 1], &buffer[cursorPos], i - cursorPos + 1);
+            i--;
+            cursorPos--;
+            // Redraw from cursor to end
+            fprintf(stderr, "\b");
+            for (int j = cursorPos; j < i; j++) {
+               fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
             }
-         } else if (ch == 127 || ch == 8) { // Backspace
-            if (cursorPos > 0) {
-               // Delete character before cursor
-               memmove(&buffer[cursorPos - 1], &buffer[cursorPos], i - cursorPos + 1);
-               i--;
-               cursorPos--;
-               // Redraw from cursor to end
-               fprintf(stderr, "\b");
-               for (int j = cursorPos; j < i; j++) {
-                  fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
-               }
-               fprintf(stderr, " \b");
-               for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
-            }
-         } else if (ch == KEY_DELETE) { // Delete key
-            if (cursorPos < i) {
-               // Delete character at cursor
-               memmove(&buffer[cursorPos], &buffer[cursorPos + 1], i - cursorPos);
-               i--;
-               // Redraw from cursor to end
-               for (int j = cursorPos; j < i; j++) {
-                  fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
-               }
-               fprintf(stderr, " \b");
-               for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
-            }
-         } else if (ch == ' ' && i > 0) {
-            // SPACE as a regular character when editing (not at start)
-            if (cursorPos < i) {
-               memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
-            }
-            buffer[cursorPos] = ' ';
-            i++;
-            buffer[i] = '\0';
-            fprintf(stderr, "%s %s", ansi_fg(YELLOW), ansi_fg(RESET));
-            cursorPos++;
-         } else if (ch == '\t' && i > 0) {
-            // TAB is ignored when editing (could be used for completion in future)
-            // Do nothing - don't insert tab character
-         } else if (ch >= 32 && ch < 127 && i < 255) {
-            // Insert character at cursor
-            if (cursorPos < i) {
-               memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
-            }
-            buffer[cursorPos] = (char)ch;
-            i++;
-            buffer[i] = '\0';
+            fprintf(stderr, " \b");
+            for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
+         }
+      } else if (ch == KEY_DELETE) { // Delete key
+         if (cursorPos < i) {
+            // Delete character at cursor
+            memmove(&buffer[cursorPos], &buffer[cursorPos + 1], i - cursorPos);
+            i--;
             // Redraw from cursor to end
             for (int j = cursorPos; j < i; j++) {
                fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
             }
-            cursorPos++;
+            fprintf(stderr, " \b");
             for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
-
-            // Check if this is a single-letter command that should execute immediately
-            if (i == 1 && (ch == 'q' || ch == 'g' || ch == 'j' || ch == 's' ||
-                        ch == '<' || ch == 'b' || ch == 'h' || ch == '>')) {
-            break;  // Execute immediately
          }
-
-         // Commands that take arguments - echo space and add to buffer
-         if (i == 1 && (ch == 'l' || ch == 'd' || ch == 'x' || ch == 'c' || 
-                        ch == '+' || ch == '-' || ch == 'r' || ch == 't')) {
-            fprintf(stderr, " ");  // Echo space after command letter
-            if (cursorPos < i) {
-               memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
-            }
-            buffer[cursorPos] = ' ';
-            i++;
-            cursorPos++;
-            buffer[i] = '\0';
+      } else if (ch >= 32 && ch < 127 && i < 255) {
+         // Insert character at cursor
+         if (cursorPos < i) {
+            memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
          }
+         buffer[cursorPos] = (char)ch;
+         i++;
+         buffer[i] = '\0';
+         // Redraw from cursor to end
+         for (int j = cursorPos; j < i; j++) {
+            fprintf(stderr, "%s%c%s", ansi_fg(YELLOW), buffer[j], ansi_fg(RESET));
+         }
+         cursorPos++;
+         for (int j = cursorPos; j < i; j++) fprintf(stderr, "\b");
+
+         // Check if this is a single-letter command that should execute immediately
+         if (i == 1 && (ch == 'q' || ch == 'g' || ch == 'j' || ch == 's' ||
+                     ch == '<' || ch == 'b' || ch == 'h' || ch == '>')) {
+         break;  // Execute immediately
       }
+
+      // Commands that take arguments - echo space and add to buffer
+      if (i == 1 && (ch == 'l' || ch == 'd' || ch == 'x' || ch == 'c' || 
+                     ch == '+' || ch == '-' || ch == 'r' || ch == 't')) {
+         fprintf(stderr, " ");  // Echo space after command letter
+         if (cursorPos < i) {
+            memmove(&buffer[cursorPos + 1], &buffer[cursorPos], i - cursorPos + 1);
+         }
+         buffer[cursorPos] = ' ';
+         i++;
+         cursorPos++;
+         buffer[i] = '\0';
+      }
+   }
    }
 
    return buffer;
@@ -2079,7 +2074,7 @@ char* c2ReadLineWithHistory() {
                buffer[sizeof(buffer) - 1] = '\0';
                i = (int)strlen(buffer);
                cursorPos = i;
-               fprintf(stderr, "%s", buffer);
+               fprintf(stderr, "%s%s%s", ansi_fg(YELLOW), buffer, ansi_fg(RESET));
             }
          }
       } else if (ch == KEY_DOWN) {
@@ -2102,7 +2097,7 @@ char* c2ReadLineWithHistory() {
             }
             i = (int)strlen(buffer);
             cursorPos = i;
-            fprintf(stderr, "%s", buffer);
+            fprintf(stderr, "%s%s%s", ansi_fg(YELLOW), buffer, ansi_fg(RESET));
          }
       } else if (ch == 127 || ch == 8) { // Backspace
          if (cursorPos > 0) {
@@ -2450,6 +2445,47 @@ void c2Exit(int code) {
       fprintf(stderr, "\n*** CDL2 Program exiting with code %d ***\n", code);
       c2Backtrace();
    }
+
+#ifdef CDL2PROFILE
+   // Dump profiling data to a .c2prof file
+   char* exePath = c2GetExecutablePath();
+   if (exePath[0] != '\0') {
+      char profFile[1280];
+      sprintf(profFile, "%s-c2prof.csv", exePath);
+
+      FILE* f = fopen(profFile, "w");
+      if (f != NULL) {
+         fprintf(f, "Module,Layer,Section,Procedure,CallCount\n");
+         for (int i = 0; i < c2DebugInfo->procCount; i++) {
+            C2ProcInfo* proc = &c2DebugInfo->procs[i];
+
+            // Parse container into module, layer, and section
+            char temp[256];
+            strncpy(temp, proc->container, 255);
+            temp[255] = '\0';
+
+            char* parts[3] = {NULL, NULL, NULL};
+            int partCount = 0;
+            char* token = strtok(temp, ".");
+            while (token != NULL && partCount < 3) {
+               parts[partCount++] = token;
+               token = strtok(NULL, ".");
+            }
+
+            // Write CSV row
+            fprintf(f, "\"%s\",\"%s\",\"%s\",\"%s\",%llu\n",
+               parts[0] ? parts[0] : "",
+               parts[1] ? parts[1] : "",
+               parts[2] ? parts[2] : "",
+               proc->name,
+               proc->callCount);
+         }
+         fclose(f);
+         fprintf(stderr, "Profiling data has been generated into file: %s\n", profFile);
+      }
+   }
+#endif
+
    c2SaveDebugState();
    _Exit(code);
 }

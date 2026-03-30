@@ -373,7 +373,11 @@ MODULE c kernel.
          INV gt, divide, remainder.
 
          ACTION show msg*string = "printf($"%s\n$", " string ");".
-         ACTION base show number +>number +>width = "printf(VALUE_DEC_FMT(" width ")," number ");".
+         # Must prevent inlining due to the required buffer declaration
+         ACTION base show number +>number +>width =: 
+            "$l static char base_show_number_buffer[16];"
+            "$l sprintf(base_show_number_buffer, $"%%0%d$" VALUE_FMT $"d$",(int)" width ");"
+            "$l printf(base_show_number_buffer," number ");".
          
          CONST n1000 = 1000, w3 = 3, w1 = 1.
          ACTION show number +>number -high -low:

@@ -376,7 +376,7 @@ namespace CDL2v1 {
       /// </remarks>
       /// <param name="inlining"></param>
       private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,Alternative? alternative = null,
-         int nextAlt = Alternative.ALTERNATIVES_END,List<IActualArg>? args = null,AList? aList = null,bool inlining = false) {
+         int nextAlt = Alternative.ALTERNATIVES_END,List<IActualArg>? args = null,AList? aList = null,bool inlining = false,bool inLastAlternative=false) {
          aList = new(aList,macro.Affixes,args ?? []);
          bool first = true;
          List<IElement> lastExpression;
@@ -398,7 +398,7 @@ namespace CDL2v1 {
             first = false;
          }
          if (inlining) {
-            cg.GenerateMacroInlineEnd(macro,callingProc!,nextAlt,alternative?.IsLastAlternative == true);
+            cg.GenerateMacroInlineEnd(macro,callingProc!,nextAlt,inLastAlternative);
          } else {
             cg.GenerateReturnExpressionEnd(macro,nextAlt);
          }
@@ -709,10 +709,9 @@ namespace CDL2v1 {
       /// <param name="group"></param>
       private void GenerateAlternatives(Procedure proc,Group group) {
          bool supressRest = false;
-         bool removed;
 
          int i = 1;
-         int lastRemoved = -1;
+         bool removed;
          foreach (Alternative alternative in group.Alternatives) {
             removed = false;
             if (supressRest) {
@@ -721,7 +720,6 @@ namespace CDL2v1 {
             } else if (alternative.IsConditionalCompilationOff) {           // Ignore this alternative
                cg.GenerateComment($"{alternative} removed by conditional compilation OFF");
                removed = true;
-               lastRemoved = i;
             } else {
                supressRest = alternative.IsConditionalCompilationOn;       // Ignore following alternatives
                bool islast = alternative.IsLastAlternative;
@@ -807,13 +805,13 @@ namespace CDL2v1 {
                if (Settings.IsInliningMacros && called is Macro macro && macro.IsInlineMacro) {
                   cg.GenerateComment($"Inlining macro call -> {call}");
                   GenerateAlgorithmComment(called,nl: false);
-                  GenerateMacroBody(macro,proc,alternative,alternative.NextAlternativeNumber,
-                     args: [.. call.Args],aList: currentAList,inlining: true);
+                  GenerateMacroBody(macro,proc,alternative,nextAlternative,args: [.. call.Args],aList: currentAList,
+                     inlining: true,inLastAlternative: lastAlternative);
                } else if (Settings.IsInliningProcs && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
                   GenerateAlgorithmComment(called,nl:false);
                   // The following works because currently only procedures with a single alternative are inlineable.
-                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: false,
+                  GenerateAlternative(proc,calledProc.group,calledProc.group.Alternatives[0],isLast: lastAlternative,
                      aList: new AList(currentAList,calledProc.Affixes,call.Args),nextAlternative: nextAlternative,inlining:true);
                } else {
                   cg.GenerateCallStart(called,proc,canFail,onlyCallInAlternative,lastAlternative);
@@ -933,7 +931,7 @@ namespace CDL2v1 {
                   emitter = new EmitterFile(targetFileName) { IgnoreLineLength = true,SuppressDebug = !Settings.SettingValue<bool>("CGDebug") };
                   CodeGenerator codeGenerator = new(cg,CDL2.Compiler,problemReporter);
                   cg.SetCodeGenerator(codeGenerator);
-                  codeGenerator.GenerateCode(program,emitter,$"{Settings.Display("MaxInlineCalls","NoProcInlining","NoMacroInlining","backtrace","trace","debug")}");
+                  codeGenerator.GenerateCode(program,emitter,$"{Settings.Display("MaxInlineCalls","NoProcInlining","NoMacroInlining","backtrace","trace","debug","profile")}");
                   problemReporter(Note.CodeGenDone,[target,program,targetFileName]);
                } catch (Exception ex) {
                   problemReporter(Note.CodeGenError,[target,targetFileName,ex.Message]);

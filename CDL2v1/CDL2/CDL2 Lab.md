@@ -402,7 +402,7 @@ The following is a list of settings.
 | tag          | string |        | Selects the undo or redo entry with the given tag.
 | separate     | bool   | false  | For code generation, see the `generate` command.
 | before       | bool   | false  | Apply the command to the objectbefore the selected object.
-| refs         | bool   | true   | For the `rename` command, rename all references to this object.
+| refs         | bool   | true   | For the `rename` command, rename all references to this object. For the `list` command, show objects that reference the focused object.
 | file         | string | ""     | The file to use. Used by commands that read or write files.
 
 
@@ -616,7 +616,7 @@ more programs or modules)
 The `-target` setting may be used to specify the target code generator.
 
 *The only `-target` settings currently implemented are `powershell` (the default),
-CSHarp and C.*
+CSharp and C.*
 
 For programs, the `-separate` setting may be used to generate code only for the program, but
 not its modules. These then must be generated separartely. The default is to generated a single
@@ -627,6 +627,50 @@ For modules, the `-separate` setting may be used to generate code only for the m
 inlining objects from other modules.
 
 *The `-separate` setting is not yet implemented.*
+
+There are four settings that can be used to instrument the code. Whether these settings are honoured
+or not is completely up to the target code generator. Currnetly only the C code generator supports
+these settings.
+
+  * `-backtrace` causes the C code genrator to iinclude debug information in the code. If the program crashes,
+    reaches an abort operator, or exits with a non-zero exit code a backtrace of active procedure calls at
+    the point of the event is generated. this is the default. Note that while this is explicitly implemented
+    only by the C code generator, the PowerShell and C# code generated do this automatically using the
+    built-in facilities of those languages. Note that when this option is set, there is a slight time
+    overhead as each procedure entry needs to push debug information onto a stack and each exit
+    needs to pop it. For programs with deeply nested calls (e.g., with a lot of recursion) there is
+    a potentially large space overhead to maintian this debug information stack. This stack expands
+    automatically as required by doubling in size, however its initial size may be specified
+    with the `-tracestack` setting, the default is 10,000 entries. It is usually prudent
+    to specify this per program using its pragma.
+  * `-trace` causes the C code generator to include code that interfaces with the CDL2 debugger for C. The
+    program will stop at the first procedure call and await debugger commands. See the description
+    of these later. The `-backtrace`, `-nomacroinlining` and `-noprocinlining` settings
+    are forced on by `-trace`.
+  * `-debug` does two things.
+     * It causes the program to pause with a prompt when it begins execution. At this time -- when running
+       on Windows **and** the code was compiled with the Visual Studio C compiler and flags
+       `cl -W4 -Zi -Od -MDd -std:c17` -- the Visual Studio debugger can be used to attach
+       to the running program. It can then be used to do C level debugging.
+     * It overrides the supression of `-nomacroinlining` and `-noprocinlining` when `-trace` is set. This is
+        typically only useful for debugging the C code genrator itself.
+  * `-profile` causes the program to collect the number of calls made to each procedure during execution. The
+    collected data is dumped into a CSV file when the program terminates. This can be used as primitive
+    guide to which parts of the code is worth optimizing. This setting is ignored unless `-backtrace` is in effect. 
+
+There are two settings that govern inlining of macros and procedures. 
+
+* The default is to inline all macros (unless explicitly forbidden by `=:`). This may be turned off
+   with `-nomacroinlining` (or `-nom`). 
+* The default is to inline procedures. This may be turned off with `-noprocinlining` (or `-nop`).
+  Note that inlining of individul procedures may be forced by using `:=`.
+   * Currently only procedures with a single alternative containing no groups are inlined.
+   * A procedure is inlined (assuming it meets the above) if the following are also met. 
+      * It is declared with `:=` **or**
+      * It consists of a single call **or**
+      * The number of calls in it is *c* **and** it is called *n* times in the program code (so statically, not dynamically) **and** *c x n <= max*.
+        *max* is given by the `-maxinliningcalls ` which defaults to 9.
+  
 
 ####  General Commands
 

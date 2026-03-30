@@ -225,6 +225,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "Debug",              NoOption,             false,          "May be used via BUILTIN is debug"),
          new Setting<bool>(    "backtrace",          NoOption,             false,          "Generate backtrace information. My be ignored by some code generators."),
          new Setting<bool>(    "trace",              NoOption,             false,          "Generate trace information. May be ignored by some code generators."),
+         new Setting<bool>(    "profile",            NoOption,             false,          "Generate execution profile instrumentation. May be ignored by some code generators."),
          new Setting<int>(     "tracestack",         NoOption,             DEFAULT_TRACE_STACK,
                                  "The size of the debug call stack to allocate. Ignored unless -backtrace is set for supported code generators."),
       ];

@@ -61,6 +61,7 @@ namespace CDL2v1 {
             if (tracestack != Settings.DEFAULT_TRACE_STACK) {
                emitter.Emitnl($"#define CALL_STACK_MAX_DEPTH {tracestack}");
             }
+            if (Settings.SettingValue<bool>("profile")) emitter.Emitnl($"#define CDL2PROFILE");
             if (Settings.IsTrace) emitter.Emitnl("#define CDL2TRACE");
             emitter.Emitnl("#include \"CDL2Trace.h\"");
          }
@@ -112,7 +113,7 @@ namespace CDL2v1 {
             PPTrace.Emitter.Clear();
             PPTrace.Print(proc, synthetics: true);
             string code = (Settings.IsTrace ? PPTrace.Emitter.Content : "").Quoted(escape:true); // Get the pretty printed code, but only if tracing
-            return $"{{{container},{name},{type},{nargs},{argnames},{affTypes},{nlocals},{localnames},{code},FALSE,FALSE}}";
+            return $"{{{container},{name},{type},{nargs},{argnames},{affTypes},{nlocals},{localnames},{code},FALSE,FALSE,0}}";
          }
 
          if (procs.Any()) {
@@ -181,7 +182,7 @@ namespace CDL2v1 {
       public void GenerateProgramLudesEnd() { }
 
       public void GenerateProgramEnd(Program program,bool isSeparate = false) {
-         emitter.Emitnl("return 0;");
+         emitter.Emitnl("exit(0);");
          DecrementIndent();
          emitter.Emitnl("}");
          emitter.Emitnl();
@@ -244,16 +245,16 @@ namespace CDL2v1 {
          // if (macro.NeedsFinalization) FinalizationLabels.Push(NextLabel);
          if (macro.CanFail) emitter.NlEmit("if (!(");
       }
-      public void GenerateMacroInlineEnd(Macro macro,Procedure containingProc,int alternativeNumber,bool finalAlterantive) {
+      public void GenerateMacroInlineEnd(Macro macro,Procedure containingProc,int nextAlt,bool finalAlterantive) {
          if (macro.CanFail) {
-            if (finalAlterantive || alternativeNumber == Alternative.ALTERNATIVES_END) {
+            if (finalAlterantive || nextAlt == Alternative.ALTERNATIVES_END) {
                if (containingProc.CanFail) {
                   emitter.Emitnl($")) RETURNV(FALSE);  {Comment("macro inline end")}");
                } else {
                   emitter.Emitnl($")) RETURN;  {Comment("macro inline end")}");
                }
             } else {
-               emitter.Emitnl($")) goto {ReferencedLabel(alternativeNumber)};");
+               emitter.Emitnl($")) goto {ReferencedLabel(nextAlt)};");
             }
          } else {
             emitter.Emitnl();
