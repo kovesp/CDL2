@@ -230,7 +230,9 @@ namespace CDL2v1 {
 
       public void GenerateMacroBodyStart(Macro macro,bool inlining) { }
 
-      public void GenerateMacroBodyEnd(Macro macro,bool inlining) { }
+      public void GenerateMacroBodyEnd(Macro macro,bool inlining) {
+         if (macro.NeedsFinalization) emitter.Emitnl("RETURN(FALSE);");
+      }
 
       public void GenerateReturnExpressionStart(Macro macro) {
          if (macro.CanFail) emitter.Emit(macro.NeedsFinalization ? "if (" : "RETURNV(");
@@ -368,7 +370,11 @@ namespace CDL2v1 {
          if (called.CanFail) {
             //if (alternative.NextAlternativeNumber == Alternative.ALTERNATIVES_END || lastAlternative) {
             if (lastAlternative || nextAlternative == Alternative.ALTERNATIVES_END) {
-               emitter.Emit($")) RETURNV(FALSE); {Comment("call end")}");
+               if (calling.CanFail) {
+                  emitter.Emit($")) RETURNV(FALSE); {Comment("call end")}");
+               } else {
+                  emitter.Emit($")) RETURN; {Comment("call end")}");
+               }
             } else {
                emitter.Emit($")) goto {ReferencedLabel(nextAlternative)};");
             }
@@ -472,7 +478,7 @@ namespace CDL2v1 {
             emitter.Emitnl($"ENTER({algIndex},{affValues},{localValues});");
             // if (Settings.IsTrace) emitter.Emitnl("c2TraceEnter();");
          } else {
-            emitter.Emitnl($"ENTER(({algIndex},NULL,NULL);");
+            emitter.Emitnl($"ENTER({algIndex},NULL,NULL);");
          }
       }
 

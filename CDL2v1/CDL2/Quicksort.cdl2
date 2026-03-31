@@ -462,14 +462,15 @@ MODULE c kernel.
             make+malloc size+size, incr+malloc size, multiply by+malloc size+cell size.
 
          PREDICATE malloc+>size+ptr> =
-            "(" ptr " = (VALUE)malloc(" size ")) != 0".
+            "(" ptr " = (VALUE)malloc((size_t)" size ")) != 0".
          ACTION free+>ptr =
-            "$L free((VALUE*)" ptr ");".
+            "$L free((VALUE*)(uintptr_t)" ptr ");".
          PREDICATE realloc+>ptr>+>new size =
-            "(" ptr " = (VALUE)realloc((VALUE*)" ptr "," new size ")) != 0".
+            "(" ptr " = (VALUE)realloc((VALUE*)(uintptr_t)" ptr ",(size_t)" new size ")) != 0".
 
          ACTION zero data+>ptr+>from =
             "memset((VALUE*)" ptr " + " from ", 0, (((VALUE*)" ptr ")[-1] - " from ") * " cell size ");".
+
          ACTION undef data+>ptr+>from -undef -size -i:
             make undefined+undef, dyn base size+ptr+size, make+i+from,
               (lt+i+size, dyn base set data+ptr+i+undef, incr+i, *;
@@ -483,9 +484,9 @@ MODULE c kernel.
             
           
          FUNCTION dyn base get data+>ptr+>index+value> =
-            value " = ((VALUE*)" ptr ")[" index "];".
+            value " = ((VALUE*)(uintptr_t)" ptr ")[" index "];".
          ACTION dyn base set data+>ptr+>index+>value =
-            "((VALUE*)" ptr ")[" index "] = " value ";".
+            "((VALUE*)(uintptr_t)" ptr ")[" index "] = " value ";".
       ENDSEC dynamic data.
    ENDLAY kernel.
 ENDMOD c kernel.
