@@ -370,7 +370,7 @@ MODULE c kernel.
       SECTION messages.
          EXPORT show msg, show msg no newline, show number.
          EXT show msg, show msg no newline, show number.
-         INV gt, divide, remainder.
+         INV ge, divide, remainder.
 
          ACTION show msg*string = "printf($"%s\n$", " string ");".
          # Must prevent inlining due to the required buffer declaration
@@ -381,7 +381,7 @@ MODULE c kernel.
          
          CONST n1000 = 1000, w3 = 3, w1 = 1.
          ACTION show number +>number -high -low:
-            gt+number+n1000, divide+number+n1000+high, remainder+number+n1000+low, 
+            ge+number+n1000, divide+number+n1000+high, remainder+number+n1000+low, 
                show number+high, show msg no newline+",", base show number+low+w3;
             base show number+number+w1.
 

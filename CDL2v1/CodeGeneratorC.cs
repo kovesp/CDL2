@@ -230,8 +230,8 @@ namespace CDL2v1 {
 
       public void GenerateMacroBodyStart(Macro macro,bool inlining) { }
 
-      public void GenerateMacroBodyEnd(Macro macro,bool inlining) {
-         if (macro.NeedsFinalization) emitter.Emitnl("RETURN(FALSE);");
+      public void GenerateMacroBodyEnd(Macro macro,bool inlining,bool lastCallInAlternative = false) {
+         if (lastCallInAlternative && macro.NeedsFinalization) emitter.Emitnl("RETURN(FALSE);");
       }
 
       public void GenerateReturnExpressionStart(Macro macro) {

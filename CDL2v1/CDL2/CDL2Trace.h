@@ -45,7 +45,7 @@
 #else
    #define ENTER(index,affixes,locals) c2push_callstack_frame(index,affixes,locals);
 #endif
-#if CDL2TRACE
+#ifdef CDL2TRACE
    #define RETURNV(v)                  { c2TraceExit(v);    c2pop_callstack_frame(); return v; }
    #define RETURN                      { c2TraceExit(TRUE); c2pop_callstack_frame(); return;   }
 

@@ -376,7 +376,7 @@ namespace CDL2v1 {
       /// </remarks>
       /// <param name="inlining"></param>
       private void GenerateMacroBody(Macro macro,Procedure? callingProc = null,Alternative? alternative = null,
-         int nextAlt = Alternative.ALTERNATIVES_END,List<IActualArg>? args = null,AList? aList = null,bool inlining = false,bool inLastAlternative=false) {
+         int nextAlt = Alternative.ALTERNATIVES_END,List<IActualArg>? args = null,AList? aList = null,bool inlining = false,bool inLastAlternative = false,bool lastCall = false) {
          aList = new(aList,macro.Affixes,args ?? []);
          bool first = true;
          List<IElement> lastExpression;
@@ -402,7 +402,7 @@ namespace CDL2v1 {
          } else {
             cg.GenerateReturnExpressionEnd(macro,nextAlt);
          }
-         cg.GenerateMacroBodyEnd(macro,inlining);
+         cg.GenerateMacroBodyEnd(macro,inlining,lastCall);
       }
 
 
@@ -747,12 +747,13 @@ namespace CDL2v1 {
          List<Call> calls = alternative.Calls;
          bool canFail = false;
          foreach (Call call in calls) {
-            GenerateCall(proc,alternative,call,canFail,currentAList: aList,lastAlternative: isLast,nextAlternative:nextAlternative);
+            GenerateCall(proc,alternative,call,canFail,currentAList: aList,lastAlternative: isLast,nextAlternative: nextAlternative);
             canFail = canFail || call.CanFail;
          }
          switch (alternative.LastCall.type) {
             case LCT.Standard: 
-               GenerateCall(proc,alternative,alternative.LastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,lastAlternative: isLast,aList,nextAlternative:nextAlternative); break;
+               GenerateCall(proc,alternative,alternative.LastCall.call!,canFail,onlyCallInAlternative: calls.Count == 0,
+                              lastAlternative: isLast,currentAList: aList,nextAlternative: nextAlternative,lastCall:true); break;
             case LCT.Fail: cg.GenerateFail(proc,group); break;
             case LCT.Succeed: cg.GenerateSucceed(proc,group); break;
             case LCT.Abort: cg.GenerateAbort(proc,group,proc.AlgId); break;
@@ -790,7 +791,7 @@ namespace CDL2v1 {
       /// <param name="currentAList"></param>
       /// <exception cref="NotImplementedException"></exception>
       private void GenerateCall(Procedure proc,Alternative alternative,Call call,bool canFail = false,bool onlyCallInAlternative = false,
-                                 bool lastAlternative = false,AList? currentAList = null,int nextAlternative = 0) {
+                                 bool lastAlternative = false,AList? currentAList = null,int nextAlternative = 0,bool lastCall = false) {
          currentAList ??= [];
          if (call.IsConditionalCompilationOn) {
             cg.GenerateComment($"Alternative selected by conditional compilation ON -> {call}");
@@ -806,7 +807,7 @@ namespace CDL2v1 {
                   cg.GenerateComment($"Inlining macro call -> {call}");
                   GenerateAlgorithmComment(called,nl: false);
                   GenerateMacroBody(macro,proc,alternative,nextAlternative,args: [.. call.Args],aList: currentAList,
-                     inlining: true,inLastAlternative: lastAlternative);
+                     inlining: true,inLastAlternative: lastAlternative,lastCall: lastCall);
                } else if (Settings.IsInliningProcs && called is Procedure calledProc && calledProc.IsInlinable(Reachable)) {
                   cg.GenerateComment($"Inlining procedure call -> {call} ({calledProc.inliningParameters?.Display()??"?"})");
                   GenerateAlgorithmComment(called,nl:false);

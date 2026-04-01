@@ -468,7 +468,8 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="macro"></param>
       /// <param name="inlining"></param>
-      void GenerateMacroBodyEnd(Macro macro,bool inlining = false);
+      /// <param name="lastCallInAlternative"></param>
+      void GenerateMacroBodyEnd(Macro macro,bool inlining = false,bool lastCallInAlternative = false);
       /// <summary>
       /// Begins generation of a return expression for the specified macro.
       /// </summary>
