@@ -8,13 +8,15 @@
 #define CDL2H
 
 #include <stdint.h>
-#define VALUE int64_t
-#define VALUE_MAX INT64_MAX   
-#define VALUE_MIN INT64_MIN
+#include <limits.h>
+#define VALUE long long
+#define VALUE_MAX LLONG_MAX   
+#define VALUE_MIN LLONG_MIN
 #define VALUE_UNDEFINED VALUE_MIN
-#define VALUE_FMT "I64"
+#define VALUE_FMT "ll"
 
 #define VALUE_DEC_FORMAT "%" VALUE_FMT "d"
+#define VALUE_UDEC_FORMAT "%" VALUE_FMT "u"
 #define VALUE_HEX_FORMAT "%" VALUE_FMT "x"
 
 #define VALUE_FMTC(n,b) "%0" #n VALUE_FMT b
@@ -75,33 +77,31 @@ void c2Abort(char* msg) {
     VALUE name##_array[(upb) - (lwb) + 1]; \
     int name##_lwb = (int)(lwb); \
     int name##_upb = (int)(upb)
-    
+
+// Define a common bounds check macro
+#define CDL2_BOUNDS_CHECK(name, i, action) \
+    ((int)(i) >= name##_lwb && (int)(i) <= name##_upb) ? \
+    true : \
+    (fprintf(stderr, "%s: Index %d out of bounds in LIST %s(%d:%d)\n", action, (int)(i), #name, name##_lwb, name##_upb), exit(1), false)
 
 #define CDL2_LIST_GET(name, i) \
-    ((int)(i) < name##_lwb || (int)(i) > name##_upb ? \
-        (fprintf(stderr, "Index out of bounds: %d not in [%d..%d]\\n", (int)(i), name##_lwb, name##_upb), exit(1), 0) : \
-        name##_array[(int)(i) - name##_lwb])
+    (CDL2_BOUNDS_CHECK(name, i, "GET") ? \
+        name##_array[(int)(i) - name##_lwb] : VALUE_UNDEFINED)
 
 #define CDL2_LIST_SET(name, i, value) \
-    do { \
-        if ((int)(i) < name##_lwb || (int)(i) > name##_upb) { \
-            fprintf(stderr, "Index out of bounds: %ld not in [%ld..%ld]\\n", (int)(i), name##_lwb, name##_upb); \
-            exit(1); \
-        } \
+    { \
+        CDL2_BOUNDS_CHECK(name, i, "SET"); \
         name##_array[(int)(i) - name##_lwb] = (value); \
-    } while(0)
+    }
 
 #define CDL2_LIST_SWAP(name, i, j) \
-    do { \
-        VALUE temp; \
-        if ((int)(i) < name##_lwb || (int)(i) > name##_upb || (int)(j) < name##_lwb || (int)(j) > name##_upb) { \
-            fprintf(stderr, "Index out of bounds in swap\\n"); \
-            exit(1); \
-        } \
-        temp = name##_array[(int)(i) - name##_lwb]; \
+    { \
+        CDL2_BOUNDS_CHECK(name, i, "SWAP(...,i,...)"); \
+        CDL2_BOUNDS_CHECK(name, j, "SWAP(...,...,j)"); \
+        VALUE temp = name##_array[(int)(i) - name##_lwb]; \
         name##_array[(int)(i) - name##_lwb] = name##_array[(int)(j) - name##_lwb]; \
         name##_array[(int)(j) - name##_lwb] = temp; \
-    } while(0)
+    }
 
     
 

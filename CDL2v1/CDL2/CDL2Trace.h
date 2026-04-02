@@ -287,11 +287,11 @@ void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE** locals) {
       C2StackFrame* newStack = (C2StackFrame*)realloc(C2Stack, bytesNeeded);
       WARNING_RESTORE(4244, "-Wcast-function-type")
       if (newStack == NULL) {
-         fprintf(stderr, "Call stack allocation failed, attempted %llu frames (%llu bytes)\n", newCapacity, bytesNeeded);
+         fprintf(stderr, "Call stack allocation failed, attempted " VALUE_DEC_FORMAT " frames (" VALUE_DEC_FORMAT " bytes)\n", newCapacity, bytesNeeded);
          exit(1);
 #ifdef SHOW_STACK_RESIZE
       } else {
-         fprintf(stderr, "Call stack reallocated to %zu frames (%zu bytes) (%llu bytes)\n", newCapacity,sizeof(C2StackFrame),bytesNeeded);
+         fprintf(stderr, "Call stack reallocated to %zu frames (%zu bytes) (%zu bytes)\n", (size_t)newCapacity,sizeof(C2StackFrame),(size_t)bytesNeeded);
 #endif
       }
       C2Stack = newStack;
@@ -2473,7 +2473,7 @@ void c2Exit(int code) {
             }
 
             // Write CSV row
-            fprintf(f, "\"%s\",\"%s\",\"%s\",\"%s\",%llu\n",
+            fprintf(f, "\"%s\",\"%s\",\"%s\",\"%s\"," VALUE_UDEC_FORMAT "\n",
                parts[0] ? parts[0] : "",
                parts[1] ? parts[1] : "",
                parts[2] ? parts[2] : "",
