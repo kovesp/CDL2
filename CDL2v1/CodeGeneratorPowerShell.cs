@@ -347,7 +347,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro,bool inlining) {
          if (macro.NeedsFinalization) IncrementIndent();
       }
-      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro,bool inlining,bool lastCallInAlternative = false) {
+      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro,bool inlining,bool lastCallInAlternative) {
          if (macro.NeedsFinalization) DecrementIndent();
       }
 

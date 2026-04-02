@@ -329,7 +329,7 @@ namespace CDL2Generated {
 
       void ICodeGenerator.GenerateMacroBodyStart(Macro macro,bool inlining) { }
 
-      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro,bool inlining,bool lastCallInAlternative = false) { }
+      void ICodeGenerator.GenerateMacroBodyEnd(Macro macro,bool inlining,bool lastCallInAlternative) { }
 
       void ICodeGenerator.GenerateReturnExpressionStart(Macro macro) {
          if (macro.CanFail) {
