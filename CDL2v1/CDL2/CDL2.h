@@ -69,6 +69,13 @@ void c2Abort(char* msg) {
 #define PROC
 #define MACRO
 
+#define bool char
+#define true 1
+#define false 0
+
+#define function static
+#define PROTO static
+
 #define DECLARE_VAR(name) \
     VALUE name = VALUE_UNDEFINED
 

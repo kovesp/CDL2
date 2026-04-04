@@ -90,13 +90,6 @@
 #define KEY_F1 1008
 #define KEY_ESC 27
 
-#define bool char
-#define true 1
-#define false 0
-
-#define function static
-#define PROTO static
-
 /////////////////////////////////////////////////////////////////////////////////
 // Types and data structures
 /////////////////////////////////////////////////////////////////////////////////
@@ -364,7 +357,7 @@ function void c2Backtrace() {
       frameCount++;
       if (frameCount % C2BacktracePauseInterval == 0 && i > 0) {
          VALUE remaining = i;
-         fprintf(stderr, "\n--- " VALUE_DEC_FORMAT " more frame % s.Continue(y, n) ? ", remaining, remaining == 1 ? "" : "s");
+         fprintf(stderr, "\n--- " VALUE_DEC_FORMAT " more frame%s. Continue(y, n) ? ", remaining, remaining == 1 ? "" : "s");
          char response = c2_getch();
          fprintf(stderr, "%c\n", response);
          if (response == 'n' || response == 'N') break;
