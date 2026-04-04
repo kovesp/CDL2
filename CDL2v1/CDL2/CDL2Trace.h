@@ -230,6 +230,7 @@ PROTO C2ListInfo* c2FindList(char* name);
 PROTO C2ListInfo** c2FindLists(char* name, int* outCount);
 PROTO C2EvalResult c2EvaluateExpr(VALUE depth, char* expr);
 PROTO void c2PrintValues(C2EvalResult* result, char format);
+PROTO void c2FormatValue(FILE* stream, VALUE value, char format);
 PROTO void c2PrintAllMatches(VALUE depth, char* expr, char format);
 PROTO void c2FreeEvalResult(C2EvalResult* result);
 PROTO bool c2StartsWith(char* str, char* prefix);
@@ -1143,6 +1144,102 @@ function void c2traceREPL(VALUE depth,TraceExitType type) {
 
 /////////////////////////////////////////////////////////////////////////////////////
 // Utility functions
+
+// Helper to parse index range expressions for lists and pointer indirection
+function void c2ParseIndexRange(const char* indexExpr, int useParens, int defaultCount, int lwb, int upb, int actualSize, int isSizedIndirection, int* outStart, int* outEnd, int* outCount) {
+    int startIdx = lwb;
+    int endIdx = upb;
+    int count = 1;
+    char indexBuf[128];
+    if (indexExpr == NULL) {
+        *outStart = startIdx;
+        *outEnd = startIdx + defaultCount - 1;
+        *outCount = defaultCount;
+        return;
+    }
+    strncpy(indexBuf, indexExpr, sizeof(indexBuf) - 1);
+    indexBuf[sizeof(indexBuf) - 1] = '\0';
+    char* trimmed = indexBuf;
+    while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+    if (*trimmed == '\0') {
+        count = defaultCount;
+        endIdx = startIdx + count - 1;
+    } else if (isSizedIndirection && actualSize > 0 && ((trimmed[0] == '-' || trimmed[0] == ':') && trimmed[1] == '\0')) {
+        startIdx = 0;
+        endIdx = actualSize - 1;
+        count = actualSize;
+    } else if (!isSizedIndirection && ((trimmed[0] == '-' || trimmed[0] == ':') && trimmed[1] == '\0')) {
+        startIdx = lwb;
+        endIdx = upb;
+        count = upb - lwb + 1;
+    } else {
+        char* colon = strchr(indexBuf, ':');
+        char* dash = strchr(indexBuf, '-');
+        if (colon != NULL) {
+            *colon = '\0';
+            if (indexBuf[0] == '\0') {
+                endIdx = atoi(colon + 1);
+                startIdx = endIdx - defaultCount + 1;
+                if (startIdx < lwb) startIdx = lwb;
+                count = endIdx - startIdx + 1;
+            } else if (*(colon + 1) == '\0') {
+                startIdx = atoi(indexBuf);
+                endIdx = startIdx + defaultCount - 1;
+                count = defaultCount;
+            } else {
+                startIdx = atoi(indexBuf);
+                count = atoi(colon + 1);
+                endIdx = startIdx + count - 1;
+            }
+        } else if (dash != NULL) {
+            *dash = '\0';
+            if (indexBuf[0] == '\0') {
+                endIdx = atoi(dash + 1);
+                startIdx = endIdx - defaultCount + 1;
+                if (startIdx < lwb) startIdx = lwb;
+                count = endIdx - startIdx + 1;
+            } else if (*(dash + 1) == '\0') {
+                startIdx = atoi(indexBuf);
+                endIdx = startIdx + defaultCount - 1;
+                count = defaultCount;
+            } else {
+                startIdx = atoi(indexBuf);
+                endIdx = atoi(dash + 1);
+                count = endIdx - startIdx + 1;
+            }
+        } else {
+            startIdx = atoi(indexBuf);
+            endIdx = startIdx;
+            count = 1;
+        }
+    }
+    // Clamp for sized indirection
+    if (isSizedIndirection && actualSize > 0) {
+        if (startIdx >= actualSize) {
+            *outCount = 0;
+            return;
+        }
+        if (endIdx >= actualSize) endIdx = actualSize - 1;
+        count = endIdx - startIdx + 1;
+    }
+    // Clamp for lists
+    if (!isSizedIndirection) {
+        if (startIdx < lwb) startIdx = lwb;
+        if (startIdx > upb) {
+            *outCount = 0;
+            return;
+        }
+        if (endIdx > upb) endIdx = upb;
+        count = endIdx - startIdx + 1;
+    }
+    if (count <= 0) {
+        *outCount = 0;
+        return;
+    }
+    *outStart = startIdx;
+    *outEnd = endIdx;
+    *outCount = count;
+}
 /////////////////////////////////////////////////////////////////////////////////////
 
 // Name extractor functions for generic search
@@ -1420,112 +1517,30 @@ function C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
             free(cleanName);
             return result;
          }
-
          char indexBuf[128];
          strncpy(indexBuf, indexExpr, closeBracket - indexExpr);
          indexBuf[closeBracket - indexExpr] = '\0';
-
-         int startIdx = 0;
-         int endIdx = 0;
-         int count = 1;
-
-         // Parse index expression (same logic as LIST but lwb=0)
-         char* trimmed = indexBuf;
-         while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
-
-         // Special case for sized indirection: [-] [:] (-) (:) means show all elements
-         if (*trimmed == '\0') {
-            // Empty brackets - use default count from start
-            count = C2DefaultListElements;
-            endIdx = startIdx + count - 1;
-         } else if (isSizedIndirection && actualSize > 0 && 
-                    ((trimmed[0] == '-' || trimmed[0] == ':') && trimmed[1] == '\0')) {
-            // [-] or [:] - show all elements from 0 to actualSize-1
-            startIdx = 0;
-            endIdx = actualSize - 1;
-            count = actualSize;
-         } else {
-            char* colon = strchr(indexBuf, ':');
-            char* dash = strchr(indexBuf, '-');
-
-            if (colon != NULL) {
-               *colon = '\0';
-               if (indexBuf[0] == '\0') {
-                  // [:endIdx] - end at endIdx, show default count elements
-                  endIdx = atoi(colon + 1);
-                  startIdx = endIdx - C2DefaultListElements + 1;
-                  if (startIdx < 0) startIdx = 0;
-                  count = endIdx - startIdx + 1;
-               } else if (*(colon + 1) == '\0') {
-                  // [start:] - start at startIdx, show default count elements
-                  startIdx = atoi(indexBuf);
-                  endIdx = startIdx + C2DefaultListElements - 1;
-                  count = C2DefaultListElements;
-               } else {
-                  // [start:n] - start at startIdx, show n elements
-                  startIdx = atoi(indexBuf);
-                  count = atoi(colon + 1);
-                  endIdx = startIdx + count - 1;
-               }
-            } else if (dash != NULL) {
-               *dash = '\0';
-               if (indexBuf[0] == '\0') {
-                  // [-endIdx] - end at endIdx, show default count elements
-                  endIdx = atoi(dash + 1);
-                  startIdx = endIdx - C2DefaultListElements + 1;
-                  count = C2DefaultListElements;
-               } else if (*(dash + 1) == '\0') {
-                  // [start-] - start at startIdx, show default count elements
-                  startIdx = atoi(indexBuf);
-                  endIdx = startIdx + C2DefaultListElements - 1;
-                  count = C2DefaultListElements;
-               } else {
-                  // [start-end] - from startIdx to endIdx
-                  startIdx = atoi(indexBuf);
-                  endIdx = atoi(dash + 1);
-                  count = endIdx - startIdx + 1;
-               }
-            } else {
-               // Single index
-               startIdx = atoi(indexBuf);
-               endIdx = startIdx;
-               count = 1;
+         int startIdx = 0, endIdx = 0, count = 1;
+         c2ParseIndexRange(indexBuf, useParens, C2DefaultListElements, 0, actualSize > 0 ? actualSize - 1 : 0, actualSize, isSizedIndirection, &startIdx, &endIdx, &count);
+         if (count <= 0 || startIdx < 0) {
+            free(cleanName);
+            return result;
+         }
+         result.count = count;
+         result.startIndex = startIdx;
+         result.onePerLine = useParens;
+         result.needsFree = true;
+         result.lwb = startIdx;
+         result.upb = startIdx + count - 1;
+         result.listName = cleanName;
+         result.freeListName = true;
+         result.values = (VALUE*)malloc(count * sizeof(VALUE));
+         if (result.values != NULL) {
+            for (int i = 0; i < count; i++) {
+               result.values[i] = ptr[startIdx + i];
             }
          }
-
-            // For sized indirection, clamp to actual size
-            if (isSizedIndirection && actualSize > 0) {
-               if (startIdx >= actualSize) {
-                  free(cleanName);
-                  return result;
-               }
-               if (endIdx >= actualSize) {
-                  endIdx = actualSize - 1;
-               }
-               count = endIdx - startIdx + 1;
-            }
-
-            if (count <= 0 || startIdx < 0) {
-               free(cleanName);
-               return result;
-            }
-
-            result.count = count;
-            result.startIndex = startIdx;
-            result.onePerLine = useParens;
-            result.needsFree = true;
-            result.lwb = startIdx;
-            result.upb = startIdx + count - 1;
-            result.listName = cleanName;
-            result.freeListName = true;
-            result.values = (VALUE*)malloc(count * sizeof(VALUE));
-
-            if (result.values != NULL) {
-               for (int i = 0; i < count; i++) {
-                  result.values[i] = ptr[startIdx + i];
-               }
-            }
-            return result;
+         return result;
       } else {
          // No indexing - just dereference
          result.count = 1;
@@ -1557,7 +1572,6 @@ function C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
       int startIdx = list->lwb;
       int endIdx = list->upb;
       int count = 1;
-
       if (bracket != NULL) {
          char* indexExpr = bracket + 1;
          char closingChar = useParens ? ')' : ']';
@@ -1566,98 +1580,26 @@ function C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
             free(cleanName);
             return result;
          }
-
          char indexBuf[128];
          strncpy(indexBuf, indexExpr, closeBracket - indexExpr);
          indexBuf[closeBracket - indexExpr] = '\0';
-
-         // If empty brackets [], treat like no brackets
-         char* trimmed = indexBuf;
-         while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
-
-         // Special case for LISTs: [-] or [:] means show all elements
-         if (*trimmed == '\0') {
-            // Empty brackets - use default count from start
-            count = C2DefaultListElements;
-            endIdx = startIdx + count - 1;
-         } else if ((trimmed[0] == '-' || trimmed[0] == ':') && trimmed[1] == '\0') {
-            // [-] or [:] - show all elements from lwb to upb
-            startIdx = list->lwb;
-            endIdx = list->upb;
-            count = endIdx - startIdx + 1;
-         } else {
-            char* colon = strchr(indexBuf, ':');
-            char* dash = strchr(indexBuf, '-');
-
-            if (colon != NULL) {
-               *colon = '\0';
-               if (indexBuf[0] == '\0') {
-                  // [:endIdx] form - end at endIdx, show default count elements
-                  endIdx = atoi(colon + 1);
-                  startIdx = endIdx - C2DefaultListElements + 1;
-                  count = C2DefaultListElements;
-               } else if (*(colon + 1) == '\0') {
-                  // [start:] - start at startIdx, show default count elements
-                  startIdx = atoi(indexBuf);
-                  endIdx = startIdx + C2DefaultListElements - 1;
-                  count = C2DefaultListElements;
-               } else {
-                  // [start:n] - start at startIdx, show n elements
-                  startIdx = atoi(indexBuf);
-                  count = atoi(colon + 1);
-                  endIdx = startIdx + count - 1;
-               }
-            } else if (dash != NULL) {
-               *dash = '\0';
-               if (indexBuf[0] == '\0') {
-                  // [-endIdx] form - end at endIdx, show default count elements
-                  endIdx = atoi(dash + 1);
-                  startIdx = endIdx - C2DefaultListElements + 1;
-                  count = C2DefaultListElements;
-               } else if (*(dash + 1) == '\0') {
-                  // [start-] - start at startIdx, show default count elements
-                  startIdx = atoi(indexBuf);
-                  endIdx = startIdx + C2DefaultListElements - 1;
-                  count = C2DefaultListElements;
-               } else {
-                  // [start-end] - from startIdx to endIdx
-                  startIdx = atoi(indexBuf);
-                  endIdx = atoi(dash + 1);
-                  count = endIdx - startIdx + 1;
-               }
-            } else {
-               // Single index
-               startIdx = atoi(indexBuf);
-               endIdx = startIdx;
-               count = 1;
-            }
-         }
+         c2ParseIndexRange(indexBuf, useParens, C2DefaultListElements, list->lwb, list->upb, 0, 0, &startIdx, &endIdx, &count);
       } else {
-         // No bracket - use default count from start
          count = C2DefaultListElements;
          endIdx = startIdx + count - 1;
       }
-
       result.onePerLine = useParens;
-
-      // Clamp to list bounds
-      if (startIdx < list->lwb) {
-         startIdx = list->lwb;
-      }
+      if (startIdx < list->lwb) startIdx = list->lwb;
       if (startIdx > list->upb) {
          free(cleanName);
          return result;
       }
-      if (endIdx > list->upb) {
-         endIdx = list->upb;
-      }
-
+      if (endIdx > list->upb) endIdx = list->upb;
       count = endIdx - startIdx + 1;
       if (count <= 0) {
          free(cleanName);
          return result;
       }
-
       result.count = count;
       result.startIndex = startIdx;
       result.onePerLine = useParens;
@@ -1679,71 +1621,51 @@ function C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
    return result;
 }
 
+
 function void c2PrintValues(C2EvalResult* result, char format) {
-   if (result == NULL || result->values == NULL || result->count == 0) {
-      return;
-   }
+   if (result == NULL || result->values == NULL || result->count == 0) return;
 
    if (result->onePerLine) {
-      // Print header with list name and bounds if this is a list
-      if (result->listName != NULL) {
-         fprintf(stderr, "(%d:%d)\n", result->lwb, result->upb);
-      }
-
-      // Calculate width needed for the largest index
+      if (result->listName != NULL) fprintf(stderr, "(%d:%d)\n", result->lwb, result->upb);
       int maxIndex = result->startIndex + result->count - 1;
       int width = snprintf(NULL, 0, "%d", maxIndex);
-
       for (int i = 0; i < result->count; i++) {
          fprintf(stderr, "%*d: ", width, result->startIndex + i);
-
-         if (result->values[i] == VALUE_UNDEFINED) {
-            fprintf(stderr, "?\n");
-         } else {
-            switch (format) {
-            case 'd':
-               fprintf(stderr, FMT(VALUE_DEC_FORMAT "\n"), result->values[i]);
-               break;
-            case 'x':
-               fprintf(stderr, FMT("0x" VALUE_HEX_FORMAT "\n"), result->values[i]);
-               break;
-            case 'c':
-               if (result->values[i] >= 32 && result->values[i] <= 126) {
-                  fprintf(stderr, "'%c'\n", (char)result->values[i]);
-               }
-               else {
-                  fprintf(stderr, FMT("'\\x" VALUE_HEX_FMT(2) "'\n"), result->values[i]);
-               }
-               break;
-            }
-         }
+         c2FormatValue(stderr, result->values[i], format);
+         fprintf(stderr, "\n");
       }
    } else {
       for (int i = 0; i < result->count; i++) {
          if (i > 0) fprintf(stderr, ", ");
-
-         if (result->values[i] == VALUE_UNDEFINED) {
-            fprintf(stderr, "?");
-         } else {
-            switch (format) {
-            case 'd':
-               fprintf(stderr, FMT(VALUE_DEC_FORMAT), result->values[i]);
-               break;
-            case 'x':
-               fprintf(stderr, FMT("0x" VALUE_HEX_FORMAT), result->values[i]);
-               break;
-            case 'c':
-               if (result->values[i] >= 32 && result->values[i] <= 126) {
-                  fprintf(stderr, "'%c'", (char)result->values[i]);
-               }
-               else {
-                  fprintf(stderr, FMT("'\\x" VALUE_HEX_FMT(2) "'"), result->values[i]);
-               }
-               break;
-            }
-         }
+         c2FormatValue(stderr, result->values[i], format);
       }
       fprintf(stderr, "\n");
+   }
+}
+
+function void c2FormatValue(FILE* stream, VALUE value, char format) {
+   // Always print '?' for VALUE_UNDEFINED
+   if ((VALUE)value == (VALUE)VALUE_UNDEFINED) {
+      fprintf(stream, "?");
+      return;
+   }
+   switch (format) {
+   case 'd':
+      fprintf(stream, FMT(VALUE_DEC_FORMAT), value);
+      break;
+   case 'x':
+      fprintf(stream, FMT("0x" VALUE_HEX_FORMAT), value);
+      break;
+   case 'c':
+      if (value >= 32 && value <= 126) {
+         fprintf(stream, "'%c'", (char)value);
+      } else {
+         fprintf(stream, FMT("'\\x" VALUE_HEX_FMT(2) "'"), value);
+      }
+      break;
+   default:
+      fprintf(stream, "?");
+      break;
    }
 }
 

@@ -169,6 +169,8 @@ namespace CDL2v1 {
          emitter.Emitnl("_argv = argv;");
          if (Settings.IsBacktrace) emitter.Emitnl("\nc2DebugInfo = &c2_DebugInfo;");
          emitter.Emitnl();
+         emitter.Emitnl("CDL2_InitializeLists();");
+         emitter.Emitnl();
       }
 
       public void GenerateProgramLudesEnd() { }
@@ -212,6 +214,16 @@ namespace CDL2v1 {
       public void GenerateVar(Var v) => emitter.Emitnl("DECLARE_VAR(",TargetName(v),");");
 
       public void GenerateList(LIST list,Const lwb,Const upb) => emitter.Emitnl("DECLARE_LIST(",TargetName(list),",",TargetName(lwb),",",TargetName(upb),");");
+      public void GenerateListInitializers(IEnumerable<LIST> lists) {
+         GenerateComment("Initialize LISTs");
+         emitter.Emitnl("void CDL2_InitializeLists() {");
+         foreach (LIST list in lists) {
+            IncrementIndent();
+            emitter.Emitnl("INITIALIZE_LIST(",TargetName(list),");");
+            DecrementIndent();
+         }
+         emitter.Emitnl("}");
+      }
 
       public void GenerateMacroStart(Macro macro) { if (!Obfuscation) emitter.NlEmit("\n",sourceEmitter.Content); else emitter.Emitnl(); }
       public void GenerateMacroEnd(Macro macro) {

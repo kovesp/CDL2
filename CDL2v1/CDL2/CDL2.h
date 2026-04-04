@@ -5,6 +5,7 @@
 //=============================================================================
 
 #define _CRT_SECURE_NO_WARNINGS
+#ifndef CDL2H
 #define CDL2H
 
 #include <stdint.h>
@@ -79,11 +80,35 @@ void c2Abort(char* msg) {
 #define DECLARE_VAR(name) \
     VALUE name = VALUE_UNDEFINED
 
+
 /* CDL2 Standard Macros for Lists */
+
+#define LIST_INIT_TO_ZERO   0
+#define LIST_INIT_TO_UNDEF  1
+#define LIST_INIT_UNCLEARED -1
+// Set this to one of the above unless set externally
+#ifndef CDL2_LIST_INIT_VALUE
+   #define CDL2_LIST_INIT_VALUE LIST_INIT_TO_UNDEF
+#endif
+
+static void C2_list_init(int how, VALUE* array, int lwb, int upb) {
+   switch (how) {
+      case LIST_INIT_TO_ZERO:
+         memset(array, 0, (upb - lwb + 1) * sizeof(VALUE));
+         break;
+      case LIST_INIT_TO_UNDEF:
+         for (int i = 0; i < upb - lwb + 1; i++) array[i] = VALUE_UNDEFINED;
+         break;
+   }
+}
+
+
 #define DECLARE_LIST(name, lwb, upb) \
     VALUE name##_array[(upb) - (lwb) + 1]; \
     int name##_lwb = (int)(lwb); \
-    int name##_upb = (int)(upb)
+    int name##_upb = (int)(upb);
+
+#define INITIALIZE_LIST(name) C2_list_init(CDL2_LIST_INIT_VALUE, name##_array, name##_lwb, name##_upb)
 
 // Define a common bounds check macro
 #define CDL2_BOUNDS_CHECK(name, i, action) \
@@ -110,6 +135,7 @@ void c2Abort(char* msg) {
         name##_array[(int)(j) - name##_lwb] = temp; \
     }
 
+
     
 
 //==============================================================================
@@ -118,3 +144,6 @@ void c2Abort(char* msg) {
 
 // Define a sort comparer
 int cmpvalue(const void *a, const void *b) { VALUE d =  (*(VALUE*)a - *(VALUE*)b); return d < 0 ? -1 : (d > 0 ? 1 : 0); }
+
+#endif
+

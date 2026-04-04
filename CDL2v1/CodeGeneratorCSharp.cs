@@ -220,6 +220,8 @@ namespace CDL2Generated {
       void ICodeGenerator.GenerateConstantEnd(Const c) => emitter.Emitnl(";");
       void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl("private static ",DataType," ",TargetName(var)," = ",InitialValue,";");
       void ICodeGenerator.GenerateList(LIST var,Const lwb,Const upb) => emitter.Emitnl("private static BoundedArray<",DataType,"> ",TargetName(var)," = new BoundedArray<",DataType,">(",TargetName(lwb),", ",TargetName(upb),");");
+
+      void ICodeGenerator.GenerateListInitializers(IEnumerable<LIST> list) {}
       #endregion Data Declarations
 
       #region Algorithm Common

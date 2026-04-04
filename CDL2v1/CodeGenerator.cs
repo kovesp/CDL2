@@ -97,7 +97,6 @@ namespace CDL2v1 {
             GenerateObjects<Var>(allVars,GenerateVar);
             GenerateObjects<LIST>(allLists,GenerateList);
 
-
             IOrderedEnumerable<Macro> macros = Reachable.Objects.OfType<Macro>().Where(alg => !alg.IsInlinable()).OrderBy(p => p.Id.Name);
             IOrderedEnumerable<Procedure> procedures = Reachable.Objects.OfType<Procedure>()
                                                             .Where(proc => !proc.IsSynthetic && !proc.IsConditionalCompilation() && !proc.IsInlinable(Reachable))
@@ -147,6 +146,7 @@ namespace CDL2v1 {
                cg.GenerateDebugInfoEnd();
             }
 
+            cg.GenerateListInitializers(allLists);
 
             sourceCommentPrinter.Print(program);
             cg.GenerateSourceComment();
@@ -167,6 +167,7 @@ namespace CDL2v1 {
             foreach (Module mod in program.Modules) GenerateModule(mod,isSeparate: true);
          }
       }
+
 
       /// <summary>
       /// Reset all builtins to cause their values to be recomputed.
@@ -263,6 +264,9 @@ namespace CDL2v1 {
          GenerateObjects<Const>(section.Constants,GenerateConstant);
          GenerateObjects<Var>(section.Variables,GenerateVar);
          GenerateObjects<LIST>(section.Lists,GenerateList);
+
+         // Must be done after all data declarations  ... requirement in C.
+         cg.GenerateListInitializers(section.Lists);
 
          if (cg.RequiresPredeclaration) {
             GenerateObjects<Macro>(section.Macros,GeneratePredeclaration,"Macro Declrations");

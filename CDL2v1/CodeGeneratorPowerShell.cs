@@ -236,6 +236,8 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateVar(Var var) => emitter.Emitnl(DT,PSVar(var)," = ",InitialValue);
 
       void ICodeGenerator.GenerateList(LIST var,Const lwb,Const upb) => emitter.Emitnl(PSVar(var),$" = [BoundedArray]::new({PSVar(lwb)},{PSVar(upb)})");
+      void ICodeGenerator.GenerateListInitializers(IEnumerable<LIST> lists) { }
+
       #endregion Data Declarations
 
       #region Algorithm Common

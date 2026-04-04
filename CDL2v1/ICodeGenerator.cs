@@ -339,6 +339,11 @@ namespace CDL2v1 {
       /// <param name="lwb">The constant that contains the lower bound.</param>
       /// <param name="upb">The constant that contains the upper bound.</param>
       void GenerateList(LIST list,Const lwb,Const upb);
+     /// <summary>
+     /// Generates initializers for each list in the specified collection.
+     /// </summary>
+     /// <param name="allLists">A collection of lists for which to generate initializers. Cannot be null.</param>
+      void GenerateListInitializers(IEnumerable<LIST> allLists);
       #endregion Data Declarations
 
       #region Algorithm Common
@@ -631,6 +636,8 @@ namespace CDL2v1 {
 
       void IncrementIndent();
       void DecrementIndent();
+
+
 
       /// <summary>
       /// Provides the file extension for the target language.
