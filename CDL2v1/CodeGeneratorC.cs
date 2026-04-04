@@ -47,14 +47,6 @@ namespace CDL2v1 {
          emitter.Emitnl($" * Settings: {settings}");
          emitter.Emitnl($" */");
          emitter.Emitnl();
-         //emitter.Emitnl("#define _CRT_SECURE_NO_WARNINGS // Turn off deprecation warnings");
-         //GenerateComment("Must use 64 bit words to allow them to be used as address pointers. DataType is ignored.");
-         //emitter.Emitnl("#include <stdint.h>");
-         //emitter.Emitnl("#define VALUE int64_t");
-         //emitter.Emitnl("#define VALUE_MAX INT64_MAX");
-         //emitter.Emitnl("#define VALUE_MIN INT64_MIN");
-         //emitter.Emitnl("#define VALUE_UNDEFINED VALUE_MIN");
-         emitter.Emitnl();
          emitter.Emitnl("#include \"CDL2.h\"");
          if (Settings.IsBacktrace || Settings.IsTrace) {
             int tracestack = Settings.SettingValue<int>("tracestack");

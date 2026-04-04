@@ -94,6 +94,9 @@
 #define true 1
 #define false 0
 
+#define function static
+#define PROTO static
+
 /////////////////////////////////////////////////////////////////////////////////
 // Types and data structures
 /////////////////////////////////////////////////////////////////////////////////
@@ -203,254 +206,57 @@ int C2HistoryIndex = 0;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
-// Prototypes for functions used by c2PrintAllMatches
-char* c2RemoveBlanks(char* str);
-bool c2MatchName(char* name1, char* name2);
-C2EvalResult c2EvaluateExpr(VALUE depth, char* expr);
-void c2PrintValues(C2EvalResult* result, char format);
-void c2FreeEvalResult(C2EvalResult* result);
-C2VarInfo** c2FindVars(char* name, int* outCount);
-C2ListInfo** c2FindLists(char* name, int* outCount);
-// Print all matches for affix, local, var, and list (first affix/local only)
-static void c2PrintAllMatches(VALUE depth, char* expr, char format) {
-    char nameBuf[256];
-    char* bracket = strchr(expr, '[');
-    char* paren = strchr(expr, '(');
-    bool useParens = false;
-    if (paren != NULL && (bracket == NULL || paren < bracket)) {
-        bracket = paren;
-        useParens = true;
-    }
-    int nameLen = bracket ? (int)(bracket - expr) : (int)strlen(expr);
-    if (nameLen >= 256) return;
-    strncpy(nameBuf, expr, nameLen);
-    nameBuf[nameLen] = '\0';
-    char* cleanName = c2RemoveBlanks(nameBuf);
-
-    // First pass: collect all matches
-    // Affix/local: only first match for each, search stack from top to bottom
-    int affixDepth = -1, affixIndex = -1;
-    int localDepth = -1, localIndex = -1;
-    if (!bracket && !paren) {
-        for (int d = (int)depth; d >= 0; d--) {
-            C2StackFrame frame = C2Stack[d];
-            C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
-            if (affixIndex == -1) {
-                for (int i = 0; i < procInfo.nargs; i++) {
-                    if (c2MatchName(procInfo.argnames[i], cleanName)) {
-                        affixDepth = d;
-                        affixIndex = i;
-                        break;
-                    }
-                }
-            }
-            if (localIndex == -1) {
-                for (int i = 0; i < procInfo.nlocals; i++) {
-                    if (c2MatchName(procInfo.localnames[i], cleanName)) {
-                        localDepth = d;
-                        localIndex = i;
-                        break;
-                    }
-                }
-            }
-            if (affixIndex != -1 && localIndex != -1) break;
-        }
-    }
-
-    // Vars: all matches
-    int varCount = 0;
-    C2VarInfo** vars = c2FindVars(cleanName, &varCount);
-    // Lists: all matches
-    int listCount = 0;
-    C2ListInfo** lists = c2FindLists(cleanName, &listCount);
-
-    // Second pass: display each independently
-    if (affixIndex != -1) {
-        C2StackFrame frame = C2Stack[affixDepth];
-        C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
-        char affExpr[256];
-        snprintf(affExpr, sizeof(affExpr), "%s", procInfo.argnames[affixIndex]);
-        C2EvalResult affixResult = c2EvaluateExpr(affixDepth, affExpr);
-        fprintf(stderr, "Affix %s = ", procInfo.argnames[affixIndex]);
-        c2PrintValues(&affixResult, format);
-        c2FreeEvalResult(&affixResult);
-    }
-    if (localIndex != -1) {
-        C2StackFrame frame = C2Stack[localDepth];
-        C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
-        char locExpr[256];
-        snprintf(locExpr, sizeof(locExpr), "%s", procInfo.localnames[localIndex]);
-        C2EvalResult localResult = c2EvaluateExpr(localDepth, locExpr);
-        fprintf(stderr, "Local %s = ", procInfo.localnames[localIndex]);
-        c2PrintValues(&localResult, format);
-        c2FreeEvalResult(&localResult);
-    }
-    if (vars != NULL && varCount > 0) {
-        for (int i = 0; i < varCount; i++) {
-            char varExpr[256];
-            snprintf(varExpr, sizeof(varExpr), "%s", vars[i]->name);
-            C2EvalResult varResult = c2EvaluateExpr(depth, varExpr);
-            fprintf(stderr, "Var %s = ", vars[i]->name);
-            c2PrintValues(&varResult, format);
-            c2FreeEvalResult(&varResult);
-        }
-        free(vars);
-    }
-    if (lists != NULL && listCount > 0) {
-        for (int i = 0; i < listCount; i++) {
-            C2ListInfo* list = lists[i];
-            int startIdx = list->lwb;
-            int endIdx = list->upb;
-            int count = 1;
-            bool onePerLine = false;
-            if (bracket != NULL) {
-                char* indexExpr = bracket + 1;
-                char closingChar = useParens ? ')' : ']';
-                char* closeBracket = strchr(indexExpr, closingChar);
-                if (closeBracket != NULL) {
-                    char indexBuf[128];
-                    strncpy(indexBuf, indexExpr, closeBracket - indexExpr);
-                    indexBuf[closeBracket - indexExpr] = '\0';
-                    char* trimmed = indexBuf;
-                    while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
-                    if (*trimmed == '\0') {
-                        count = C2DefaultListElements;
-                        endIdx = startIdx + count - 1;
-                    } else if ((trimmed[0] == '-' || trimmed[0] == ':') && trimmed[1] == '\0') {
-                        startIdx = list->lwb;
-                        endIdx = list->upb;
-                        count = endIdx - startIdx + 1;
-                    } else {
-                        char* colon = strchr(indexBuf, ':');
-                        char* dash = strchr(indexBuf, '-');
-                        if (colon != NULL) {
-                            *colon = '\0';
-                            if (indexBuf[0] == '\0') {
-                                endIdx = atoi(colon + 1);
-                                startIdx = endIdx - C2DefaultListElements + 1;
-                                count = C2DefaultListElements;
-                            } else if (*(colon + 1) == '\0') {
-                                startIdx = atoi(indexBuf);
-                                endIdx = startIdx + C2DefaultListElements - 1;
-                                count = C2DefaultListElements;
-                            } else {
-                                startIdx = atoi(indexBuf);
-                                count = atoi(colon + 1);
-                                endIdx = startIdx + count - 1;
-                            }
-                        } else if (dash != NULL) {
-                            *dash = '\0';
-                            if (indexBuf[0] == '\0') {
-                                endIdx = atoi(dash + 1);
-                                startIdx = endIdx - C2DefaultListElements + 1;
-                                count = C2DefaultListElements;
-                            } else if (*(dash + 1) == '\0') {
-                                startIdx = atoi(indexBuf);
-                                endIdx = startIdx + C2DefaultListElements - 1;
-                                count = C2DefaultListElements;
-                            } else {
-                                startIdx = atoi(indexBuf);
-                                endIdx = atoi(dash + 1);
-                                count = endIdx - startIdx + 1;
-                            }
-                        } else {
-                            startIdx = atoi(indexBuf);
-                            endIdx = startIdx;
-                            count = 1;
-                        }
-                    }
-                    onePerLine = useParens;
-                }
-            } else {
-                count = C2DefaultListElements;
-                endIdx = startIdx + count - 1;
-            }
-            // Clamp to list bounds
-            if (startIdx < list->lwb) startIdx = list->lwb;
-            if (startIdx > list->upb) {
-                fprintf(stderr, "LIST %s = []\n", list->name);
-                continue;
-            }
-            if (endIdx > list->upb) endIdx = list->upb;
-            count = endIdx - startIdx + 1;
-            if (count <= 0) {
-                fprintf(stderr, "LIST %s = []\n", list->name);
-                continue;
-            }
-            C2EvalResult listResult;
-            listResult.count = count;
-            listResult.startIndex = startIdx;
-            listResult.onePerLine = onePerLine;
-            listResult.needsFree = true;
-            listResult.lwb = list->lwb;
-            listResult.upb = list->upb;
-            listResult.listName = list->name;
-            listResult.freeListName = false;
-            listResult.values = (VALUE*)malloc(count * sizeof(VALUE));
-            if (listResult.values != NULL) {
-                for (int j = 0; j < count; j++) {
-                    listResult.values[j] = list->value[startIdx - list->lwb + j];
-                }
-            }
-            fprintf(stderr, "LIST %s = ", list->name);
-            if (listResult.count > 0 && listResult.values != NULL) {
-                c2PrintValues(&listResult, format);
-            } else {
-                fprintf(stderr, "[]\n");
-            }
-            c2FreeEvalResult(&listResult);
-        }
-        free(lists);
-    }
-    free(cleanName);
-}
-static void c2PrintAllMatches(VALUE depth, char* expr, char format);
 /////////////////////////////////////////////////////////////////////////////////
-void c2push_callstack_frame(int procIndex, C2DataValue args[], VALUE** locals);
-void c2pop_callstack_frame();
-void c2PrintStackFrame(VALUE depth, bool indent, char* marker, char* lineEnd, TraceExitType type);
-void c2TraceEnter();
-void c2TraceExit(int v);
-void c2TraceExitAbort(char* algName);
-void c2traceREPL(VALUE depth,TraceExitType type);
-void c2PrintAffixes(VALUE depth, TraceExitType type);
-void c2PrintAff(VALUE depth,int i, TraceExitType type);
-void c2PrintLocals(VALUE depth);
-void c2Backtrace();
-int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index));
-int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount);
-C2ProcInfo* c2FindProc(char* name);
-C2ProcInfo** c2FindProcs(char* name, int* outCount);
-C2VarInfo* c2FindVar(char* name);
-C2VarInfo** c2FindVars(char* name, int* outCount);
-C2ListInfo* c2FindList(char* list);
-C2ListInfo** c2FindLists(char* name, int* outCount);
-bool c2SetSpyPoint(char* procName, bool set);
-bool c2IsSpyPoint(int procIndex);
-
-bool c2StartsWith(char* str, char* prefix);
-bool c2MatchName(char* name1, char* name2);
-char* c2RemoveBlanks(char* str);
-bool c2IsemptyOrWhitespace(char* str);
-C2EvalResult c2EvaluateExpr(VALUE depth, char* expr);
-void c2PrintValues(C2EvalResult* result, char format);
-void c2FreeEvalResult(C2EvalResult* result);
-void c2SignalHandler(int sig);
-void c2InitTrace();
-void c2Exit(int code);
-char * c2ReadLine();
-char* c2ReadLineWithHistory();
-char* c2ReadFullCommand();
-void c2AddToHistory(char* cmd);
-void c2SaveDebugState();
-void c2LoadDebugState();
-char* c2GetExecutablePath();
-char c2_getch();
-int c2_get_special_key();
-char* ansi_fg(AnsiColor color);
-char* ansi_bg(AnsiColor color);
-bool c2IsLude(char* name);
-char* c2FormatContainer(char* container);
+PROTO char* c2AlgType(VALUE depth);
+PROTO void c2push_callstack_frame(int procIndex, C2DataValue args[], VALUE** locals);
+PROTO void c2pop_callstack_frame();
+PROTO bool c2SetSpyPoint(char* procName, bool set);
+PROTO bool c2IsSpyPoint(int procIndex);
+PROTO char* C2Marker(TraceExitType type);
+PROTO void c2Backtrace();
+PROTO void c2PrintStackFrame(VALUE depth, bool indent, char* marker, char* lineEnd, TraceExitType type);
+PROTO void c2PrintAffixes(VALUE depth, TraceExitType type);
+PROTO void c2PrintLocals(VALUE depth);
+PROTO void c2PrintAff(VALUE depth, int i, TraceExitType type);
+PROTO void c2TraceEnter();
+PROTO void c2TraceExit(int v);
+PROTO void c2TraceExitAbort(char* algName);
+PROTO bool c2IsLude(char* name);
+PROTO char* c2FormatContainer(char* container);
+PROTO void c2traceREPL(VALUE depth, TraceExitType type);
+PROTO char* c2GetProcName(int index);
+PROTO char* c2GetVarName(int index); 
+PROTO char* c2GetListName(int index);
+PROTO int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index));
+PROTO int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount);
+PROTO C2ProcInfo* c2FindProc(char* name);
+PROTO C2ProcInfo** c2FindProcs(char* name, int* outCount);
+PROTO C2VarInfo* c2FindVar(char* name);
+PROTO C2VarInfo** c2FindVars(char* name, int* outCount);
+PROTO C2ListInfo* c2FindList(char* name);
+PROTO C2ListInfo** c2FindLists(char* name, int* outCount);
+PROTO C2EvalResult c2EvaluateExpr(VALUE depth, char* expr);
+PROTO void c2PrintValues(C2EvalResult* result, char format);
+PROTO void c2PrintAllMatches(VALUE depth, char* expr, char format);
+PROTO void c2FreeEvalResult(C2EvalResult* result);
+PROTO bool c2StartsWith(char* str, char* prefix);
+PROTO bool c2MatchName(char* name1, char* name2);
+PROTO char* c2RemoveBlanks(char* str);
+PROTO bool c2IsemptyOrWhitespace(char* str);
+PROTO char* c2ReadLine();
+PROTO char* c2ReadFullCommand();
+PROTO char* c2ReadLineWithHistory();
+PROTO void c2AddToHistory(char* cmd);
+PROTO char c2_getch();
+PROTO void c2SignalHandler(int sig);
+PROTO void c2InitTrace();
+PROTO void c2SetSpyPointByContainerAndName(const char* container, const char* name, bool set);
+PROTO void c2LoadDebugState();
+PROTO void c2Exit(int code);
+PROTO char* ansi_fg(AnsiColor color);
+PROTO char* ansi_bg(AnsiColor color);
+PROTO void c2SaveDebugState();
+PROTO int c2_get_special_key();
 
 
 
@@ -463,7 +269,7 @@ char* c2FormatContainer(char* container);
 // Implementation
 /////////////////////////////////////////////////////////////////////////////////
 
-char* c2AlgType(VALUE depth) {
+function char* c2AlgType(VALUE depth) {
    switch (c2DebugInfo->procs[C2Stack[depth].procInfoIndex].type) {
       case C2_ALG_PREDICATE: return "PREDICATE";
       case C2_ALG_TEST: return "TEST";
@@ -473,7 +279,7 @@ char* c2AlgType(VALUE depth) {
    }
 }  
 
-void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE** locals) {
+function void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE** locals) {
    C2SP++;
 
    if (C2SP >= (int)C2StackCapacity) {
@@ -506,7 +312,7 @@ void c2push_callstack_frame(int procIndex,C2DataValue args[],VALUE** locals) {
    C2Stack[C2SP].spypoint = false;
 }
 
-void c2pop_callstack_frame() {
+function void c2pop_callstack_frame() {
    if (C2SP < 0) {
       fprintf(stderr, "Call stack underflow\n");
       exit(1);
@@ -514,7 +320,7 @@ void c2pop_callstack_frame() {
    C2SP--;
 }
 
-bool c2SetSpyPoint(char* procName, bool set) {
+function bool c2SetSpyPoint(char* procName, bool set) {
    int count = 0;
    C2ProcInfo** procs = c2FindProcs(procName, &count);
    if (procs != NULL) {
@@ -529,7 +335,7 @@ bool c2SetSpyPoint(char* procName, bool set) {
    }
 }
 
-bool c2IsSpyPoint(int procIndex) {
+function bool c2IsSpyPoint(int procIndex) {
    return c2DebugInfo->procs[procIndex].spypoint;
 }
    
@@ -538,7 +344,7 @@ bool c2IsSpyPoint(int procIndex) {
 #define FAIL_MARKER "-"
 #define NO_MARKER ""
 
-char * C2Marker(TraceExitType type) {
+function char * C2Marker(TraceExitType type) {
    static char buffer[8];
    
    switch (type) {
@@ -550,7 +356,7 @@ char * C2Marker(TraceExitType type) {
    return buffer;
 }
 
-void c2Backtrace() {
+function void c2Backtrace() {
    fprintf(stderr, "\n===== Stack backtrace (most recent call to last):\n");
    int frameCount = 0;
    for (VALUE i = C2SP ; i >= 0 ; i--) {
@@ -567,7 +373,7 @@ void c2Backtrace() {
    fprintf(stderr, "===== Backtrace ends\n\n");
 }
    
-void c2PrintStackFrame(VALUE depth,bool indent, char* marker,char* lineEnd,TraceExitType type) {
+function void c2PrintStackFrame(VALUE depth,bool indent, char* marker,char* lineEnd,TraceExitType type) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name= procInfo.name;
@@ -591,14 +397,14 @@ void c2PrintStackFrame(VALUE depth,bool indent, char* marker,char* lineEnd,Trace
    fprintf(stderr,"%s%s", ansi_fg(RESET), lineEnd);
 }
 
-void c2PrintAffixes(VALUE depth, TraceExitType type) {
+function void c2PrintAffixes(VALUE depth, TraceExitType type) {
    C2ProcInfo procInfo = c2DebugInfo->procs[C2Stack[depth].procInfoIndex];
    for (int i = 0; i < procInfo.nargs; i++) {
       c2PrintAff(depth, i, type);
    }
 }
 
-void c2PrintLocals(VALUE depth) {
+function void c2PrintLocals(VALUE depth) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    for (int i = 0; i < procInfo.nlocals; i++) {
@@ -611,7 +417,7 @@ void c2PrintLocals(VALUE depth) {
    }
 }
 
-void c2PrintAff(VALUE depth,int i, TraceExitType type) {
+function void c2PrintAff(VALUE depth,int i, TraceExitType type) {
    C2StackFrame frame = C2Stack[depth];
    C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
    char* name = procInfo.argnames[i];
@@ -632,7 +438,7 @@ void c2PrintAff(VALUE depth,int i, TraceExitType type) {
 
 bool firstEntry = true;
 /////////////////////////////////////////////////////////////////////////////
-void c2TraceEnter() {
+function void c2TraceEnter() {
 /////////////////////////////////////////////////////////////////////////////
 // Called after c2_push_callstack_frame so call information is on the stack.
    if (firstEntry) {
@@ -683,7 +489,7 @@ void c2TraceEnter() {
    c2traceREPL(C2SP, TRACE_ENTER);
 }
 /////////////////////////////////////////////////////////////////////////////
-void c2TraceExit(int v) {
+function void c2TraceExit(int v) {
 /////////////////////////////////////////////////////////////////////////////
 // Called before  popping the stack.
    if (C2Going || C2Jumping) {
@@ -719,19 +525,19 @@ void c2TraceExit(int v) {
 }
 
 // Called for the abort operator
-void c2TraceExitAbort(char *algName) {
+function void c2TraceExitAbort(char *algName) {
    fprintf(stderr, "\x1b[31mABORT in %s\x1b[0m\n", algName);
    c2Backtrace();
    exit(1);
 }
 
 // Helper function to check if a name is a lude (ludes have uppercase letters, normal algorithms are all lowercase)
-bool c2IsLude(char* name) {
+function bool c2IsLude(char* name) {
    return (bool)isupper(name[0]);
 }
 
 // Format container from "M.L.S" to "MOD M LAY L SEC S"
-char* c2FormatContainer(char* container) {
+function char* c2FormatContainer(char* container) {
    static char buffer[512];
    char temp[256];
    strncpy(temp, container, 255);
@@ -765,7 +571,7 @@ char* c2FormatContainer(char* container) {
    return result;
 }
 
-void c2traceREPL(VALUE depth,TraceExitType type) {
+function void c2traceREPL(VALUE depth,TraceExitType type) {
    bool skipPrompt = false;
    while (1) {
       if (!skipPrompt) {
@@ -1347,12 +1153,12 @@ void c2traceREPL(VALUE depth,TraceExitType type) {
 /////////////////////////////////////////////////////////////////////////////////////
 
 // Name extractor functions for generic search
-char* c2GetProcName(int index) { return c2DebugInfo->procs[index].name; }
-char* c2GetVarName(int index) { return c2DebugInfo->vars[index].name; }
-char* c2GetListName(int index) { return c2DebugInfo->lists[index].name; }
+function char* c2GetProcName(int index) { return c2DebugInfo->procs[index].name; }
+function char* c2GetVarName(int index) { return c2DebugInfo->vars[index].name; }
+function char* c2GetListName(int index) { return c2DebugInfo->lists[index].name; }
 
 // Generic linear search function - finds first match
-int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
+function int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
    char* clean_name = c2RemoveBlanks(name);
 
    // Linear search for prefix match
@@ -1371,7 +1177,7 @@ int c2GenericFind(char* name, int count, char* (*getNameFunc)(int index)) {
 }
 
 // Generic function to find all matches (returns array of indices)
-int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount) {
+function int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), int* outCount) {
    *outCount = 0;
 
    char* clean_name = c2RemoveBlanks(name);
@@ -1414,12 +1220,12 @@ int* c2GenericFindAll(char* name, int count, char* (*getNameFunc)(int index), in
    return result;
 }
 
-C2ProcInfo* c2FindProc(char* name) {
+function C2ProcInfo* c2FindProc(char* name) {
    int index = c2GenericFind(name, c2DebugInfo->procCount, c2GetProcName);
    return index >= 0 ? &c2DebugInfo->procs[index] : NULL;
 }
 
-C2ProcInfo** c2FindProcs(char* name, int* outCount) {
+function C2ProcInfo** c2FindProcs(char* name, int* outCount) {
    int* indices = c2GenericFindAll(name, c2DebugInfo->procCount, c2GetProcName, outCount);
    if (indices == NULL) {
       return NULL;
@@ -1440,12 +1246,12 @@ C2ProcInfo** c2FindProcs(char* name, int* outCount) {
    return result;
 }
 
-C2VarInfo* c2FindVar(char* name) {
+function C2VarInfo* c2FindVar(char* name) {
    int index = c2GenericFind(name, c2DebugInfo->varCount, c2GetVarName);
    return index >= 0 ? &c2DebugInfo->vars[index] : NULL;
 }
 
-C2VarInfo** c2FindVars(char* name, int* outCount) {
+function C2VarInfo** c2FindVars(char* name, int* outCount) {
    int* indices = c2GenericFindAll(name, c2DebugInfo->varCount, c2GetVarName, outCount);
    if (indices == NULL) {
       return NULL;
@@ -1466,12 +1272,12 @@ C2VarInfo** c2FindVars(char* name, int* outCount) {
    return result;
 }
 
-C2ListInfo* c2FindList(char* name) {
+function C2ListInfo* c2FindList(char* name) {
    int index = c2GenericFind(name, c2DebugInfo->listCount, c2GetListName);
    return index >= 0 ? &c2DebugInfo->lists[index] : NULL;
 }
 
-C2ListInfo** c2FindLists(char* name, int* outCount) {
+function C2ListInfo** c2FindLists(char* name, int* outCount) {
    int* indices = c2GenericFindAll(name, c2DebugInfo->listCount, c2GetListName, outCount);
    if (indices == NULL) {
       return NULL;
@@ -1492,7 +1298,7 @@ C2ListInfo** c2FindLists(char* name, int* outCount) {
    return result;
 }
 
-C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
+function C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
    C2EvalResult result = { NULL, 0, false, false, 0, NULL, 0, 0, false };
 
    // Check for pointer indirection
@@ -1880,7 +1686,7 @@ C2EvalResult c2EvaluateExpr(VALUE depth, char* expr) {
    return result;
 }
 
-void c2PrintValues(C2EvalResult* result, char format) {
+function void c2PrintValues(C2EvalResult* result, char format) {
    if (result == NULL || result->values == NULL || result->count == 0) {
       return;
    }
@@ -1948,7 +1754,212 @@ void c2PrintValues(C2EvalResult* result, char format) {
    }
 }
 
-void c2FreeEvalResult(C2EvalResult* result) {
+// Print all matches for affix, local, var, and list (first affix/local only)
+function void c2PrintAllMatches(VALUE depth, char* expr, char format) {
+   char nameBuf[256];
+   char* bracket = strchr(expr, '[');
+   char* paren = strchr(expr, '(');
+   bool useParens = false;
+   if (paren != NULL && (bracket == NULL || paren < bracket)) {
+      bracket = paren;
+      useParens = true;
+   }
+   int nameLen = bracket ? (int)(bracket - expr) : (int)strlen(expr);
+   if (nameLen >= 256) return;
+   strncpy(nameBuf, expr, nameLen);
+   nameBuf[nameLen] = '\0';
+   char* cleanName = c2RemoveBlanks(nameBuf);
+
+   // First pass: collect all matches
+   // Affix/local: only first match for each, search stack from top to bottom
+   int affixDepth = -1, affixIndex = -1;
+   int localDepth = -1, localIndex = -1;
+   if (!bracket && !paren) {
+      for (int d = (int)depth; d >= 0; d--) {
+         C2StackFrame frame = C2Stack[d];
+         C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
+         if (affixIndex == -1) {
+            for (int i = 0; i < procInfo.nargs; i++) {
+               if (c2MatchName(procInfo.argnames[i], cleanName)) {
+                  affixDepth = d;
+                  affixIndex = i;
+                  break;
+               }
+            }
+         }
+         if (localIndex == -1) {
+            for (int i = 0; i < procInfo.nlocals; i++) {
+               if (c2MatchName(procInfo.localnames[i], cleanName)) {
+                  localDepth = d;
+                  localIndex = i;
+                  break;
+               }
+            }
+         }
+         if (affixIndex != -1 && localIndex != -1) break;
+      }
+   }
+
+   // Vars: all matches
+   int varCount = 0;
+   C2VarInfo** vars = c2FindVars(cleanName, &varCount);
+   // Lists: all matches
+   int listCount = 0;
+   C2ListInfo** lists = c2FindLists(cleanName, &listCount);
+
+   // Second pass: display each independently
+   if (affixIndex != -1) {
+      C2StackFrame frame = C2Stack[affixDepth];
+      C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
+      char affExpr[256];
+      snprintf(affExpr, sizeof(affExpr), "%s", procInfo.argnames[affixIndex]);
+      C2EvalResult affixResult = c2EvaluateExpr(affixDepth, affExpr);
+      fprintf(stderr, "Affix %s = ", procInfo.argnames[affixIndex]);
+      c2PrintValues(&affixResult, format);
+      c2FreeEvalResult(&affixResult);
+   }
+   if (localIndex != -1) {
+      C2StackFrame frame = C2Stack[localDepth];
+      C2ProcInfo procInfo = c2DebugInfo->procs[frame.procInfoIndex];
+      char locExpr[256];
+      snprintf(locExpr, sizeof(locExpr), "%s", procInfo.localnames[localIndex]);
+      C2EvalResult localResult = c2EvaluateExpr(localDepth, locExpr);
+      fprintf(stderr, "Local %s = ", procInfo.localnames[localIndex]);
+      c2PrintValues(&localResult, format);
+      c2FreeEvalResult(&localResult);
+   }
+   if (vars != NULL && varCount > 0) {
+      for (int i = 0; i < varCount; i++) {
+         char varExpr[256];
+         snprintf(varExpr, sizeof(varExpr), "%s", vars[i]->name);
+         C2EvalResult varResult = c2EvaluateExpr(depth, varExpr);
+         fprintf(stderr, "Var %s = ", vars[i]->name);
+         c2PrintValues(&varResult, format);
+         c2FreeEvalResult(&varResult);
+      }
+      free(vars);
+   }
+   if (lists != NULL && listCount > 0) {
+      for (int i = 0; i < listCount; i++) {
+         C2ListInfo* list = lists[i];
+         int startIdx = list->lwb;
+         int endIdx = list->upb;
+         int count = 1;
+         bool onePerLine = false;
+         if (bracket != NULL) {
+            char* indexExpr = bracket + 1;
+            char closingChar = useParens ? ')' : ']';
+            char* closeBracket = strchr(indexExpr, closingChar);
+            if (closeBracket != NULL) {
+               char indexBuf[128];
+               strncpy(indexBuf, indexExpr, closeBracket - indexExpr);
+               indexBuf[closeBracket - indexExpr] = '\0';
+               char* trimmed = indexBuf;
+               while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+               if (*trimmed == '\0') {
+                  count = C2DefaultListElements;
+                  endIdx = startIdx + count - 1;
+               }
+               else if ((trimmed[0] == '-' || trimmed[0] == ':') && trimmed[1] == '\0') {
+                  startIdx = list->lwb;
+                  endIdx = list->upb;
+                  count = endIdx - startIdx + 1;
+               }
+               else {
+                  char* colon = strchr(indexBuf, ':');
+                  char* dash = strchr(indexBuf, '-');
+                  if (colon != NULL) {
+                     *colon = '\0';
+                     if (indexBuf[0] == '\0') {
+                        endIdx = atoi(colon + 1);
+                        startIdx = endIdx - C2DefaultListElements + 1;
+                        count = C2DefaultListElements;
+                     }
+                     else if (*(colon + 1) == '\0') {
+                        startIdx = atoi(indexBuf);
+                        endIdx = startIdx + C2DefaultListElements - 1;
+                        count = C2DefaultListElements;
+                     }
+                     else {
+                        startIdx = atoi(indexBuf);
+                        count = atoi(colon + 1);
+                        endIdx = startIdx + count - 1;
+                     }
+                  }
+                  else if (dash != NULL) {
+                     *dash = '\0';
+                     if (indexBuf[0] == '\0') {
+                        endIdx = atoi(dash + 1);
+                        startIdx = endIdx - C2DefaultListElements + 1;
+                        count = C2DefaultListElements;
+                     }
+                     else if (*(dash + 1) == '\0') {
+                        startIdx = atoi(indexBuf);
+                        endIdx = startIdx + C2DefaultListElements - 1;
+                        count = C2DefaultListElements;
+                     }
+                     else {
+                        startIdx = atoi(indexBuf);
+                        endIdx = atoi(dash + 1);
+                        count = endIdx - startIdx + 1;
+                     }
+                  }
+                  else {
+                     startIdx = atoi(indexBuf);
+                     endIdx = startIdx;
+                     count = 1;
+                  }
+               }
+               onePerLine = useParens;
+            }
+         }
+         else {
+            count = C2DefaultListElements;
+            endIdx = startIdx + count - 1;
+         }
+         // Clamp to list bounds
+         if (startIdx < list->lwb) startIdx = list->lwb;
+         if (startIdx > list->upb) {
+            fprintf(stderr, "LIST %s = []\n", list->name);
+            continue;
+         }
+         if (endIdx > list->upb) endIdx = list->upb;
+         count = endIdx - startIdx + 1;
+         if (count <= 0) {
+            fprintf(stderr, "LIST %s = []\n", list->name);
+            continue;
+         }
+         C2EvalResult listResult;
+         listResult.count = count;
+         listResult.startIndex = startIdx;
+         listResult.onePerLine = onePerLine;
+         listResult.needsFree = true;
+         listResult.lwb = list->lwb;
+         listResult.upb = list->upb;
+         listResult.listName = list->name;
+         listResult.freeListName = false;
+         listResult.values = (VALUE*)malloc(count * sizeof(VALUE));
+         if (listResult.values != NULL) {
+            for (int j = 0; j < count; j++) {
+               listResult.values[j] = list->value[startIdx - list->lwb + j];
+            }
+         }
+         fprintf(stderr, "LIST %s = ", list->name);
+         if (listResult.count > 0 && listResult.values != NULL) {
+            c2PrintValues(&listResult, format);
+         }
+         else {
+            fprintf(stderr, "[]\n");
+         }
+         c2FreeEvalResult(&listResult);
+      }
+      free(lists);
+   }
+   free(cleanName);
+}
+
+
+function void c2FreeEvalResult(C2EvalResult* result) {
    if (result != NULL && result->needsFree) {
       if (result->values != NULL) {
          free(result->values);
@@ -1962,7 +1973,7 @@ void c2FreeEvalResult(C2EvalResult* result) {
    }
 }
 
-bool c2StartsWith(char* str, char* prefix) {
+function bool c2StartsWith(char* str, char* prefix) {
    while (*prefix != '\0') {
       if (*str != *prefix) {
          return false;
@@ -1973,7 +1984,7 @@ bool c2StartsWith(char* str, char* prefix) {
    return true;
 }
 
-bool c2MatchName(char* name1, char* name2) {
+function bool c2MatchName(char* name1, char* name2) {
    char* clean1 = c2RemoveBlanks(name1);
    char* clean2 = c2RemoveBlanks(name2);
    bool result = c2StartsWith(clean1, clean2);
@@ -1982,7 +1993,7 @@ bool c2MatchName(char* name1, char* name2) {
    return result;
 }
 
-char* c2RemoveBlanks(char* str) {
+function char* c2RemoveBlanks(char* str) {
    // First pass: count non-blank characters
    int count = 0;
    for (char* src = str; *src != '\0'; src++) {
@@ -2004,7 +2015,7 @@ char* c2RemoveBlanks(char* str) {
    return result;
 }
 
-bool c2IsemptyOrWhitespace(char* str) {
+function bool c2IsemptyOrWhitespace(char* str) {
    for (char* p = str; *p != '\0'; p++) {
       if (*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') {
          return false;
@@ -2014,7 +2025,7 @@ bool c2IsemptyOrWhitespace(char* str) {
 }
 
 // Read line until Enter (simple version without history)
-char* c2ReadLine() {
+function char* c2ReadLine() {
    static char buffer[256];
    int i = 0;
    int ch;
@@ -2026,7 +2037,7 @@ char* c2ReadLine() {
 }
 
 // Read full command with history support (used at main REPL prompt)
-char* c2ReadFullCommand() {
+function char* c2ReadFullCommand() {
    static char buffer[256];
    static char tempBuffer[256];
    int i = 0;
@@ -2218,7 +2229,7 @@ char* c2ReadFullCommand() {
 }
 
 // Read line with up/down arrow history support
-char* c2ReadLineWithHistory() {
+function char* c2ReadLineWithHistory() {
    static char buffer[256];
    static char tempBuffer[256];
    int i = 0;
@@ -2348,7 +2359,7 @@ char* c2ReadLineWithHistory() {
 }
 
 // Add command to history
-void c2AddToHistory(char* cmd) {
+function void c2AddToHistory(char* cmd) {
    if (cmd == NULL || cmd[0] == '\0') return;
 
    // Don't add duplicate of most recent command
@@ -2376,7 +2387,7 @@ void c2AddToHistory(char* cmd) {
 }
 
 // Cross-platform immediate character input
-char c2_getch() {
+function char c2_getch() {
 #ifdef _WIN32
    return (char)_getch();
 #else
@@ -2393,7 +2404,7 @@ char c2_getch() {
 }
 
 // Cross-platform special key detection
-int c2_get_special_key() {
+function int c2_get_special_key() {
 #ifdef _WIN32
    int ch = _getch();
    if (ch == 0 || ch == 224) { // Extended key prefix on Windows (0 or 0xE0)
@@ -2499,13 +2510,13 @@ int c2_get_special_key() {
 /////////////////////////////////////////////////////////////////////////////////
 // Signal handler and exit wrapper - defined early so ALL code uses them
 /////////////////////////////////////////////////////////////////////////////////
-void c2SignalHandler(int sig) {
+function void c2SignalHandler(int sig) {
    fprintf(stderr, "\n\x1b[31m*** CDL2 Runtime Error: Caught signal %d ***\x1b[0m\n", sig);
    c2Backtrace();
    _Exit(sig);  // Use _Exit directly to avoid recursion
 }
 
-void c2InitTrace() {
+function void c2InitTrace() {
    // Initialize stack if not already done
    if (C2Stack == NULL) {
       C2Stack = (C2StackFrame*)malloc(CALL_STACK_MAX_DEPTH * sizeof(C2StackFrame));
@@ -2544,7 +2555,7 @@ char* c2GetExecutablePath() {
 }
 
 // Save debugger state to file
-void c2SaveDebugState() {
+function void c2SaveDebugState() {
    char* exePath = c2GetExecutablePath();
    if (exePath[0] == '\0') return;
 
@@ -2580,7 +2591,7 @@ void c2SaveDebugState() {
 // Load debugger state from file
 
 // Helper: set spypoint by container and name
-static void c2SetSpyPointByContainerAndName(const char* container, const char* name, bool set) {
+function void c2SetSpyPointByContainerAndName(const char* container, const char* name, bool set) {
    for (int i = 0; i < c2DebugInfo->procCount; i++) {
       C2ProcInfo* proc = &c2DebugInfo->procs[i];
       if (strcmp(proc->container, container) == 0 && strcmp(proc->name, name) == 0) {
@@ -2589,7 +2600,7 @@ static void c2SetSpyPointByContainerAndName(const char* container, const char* n
    }
 }
 
-void c2LoadDebugState() {
+function void c2LoadDebugState() {
    char* exePath = c2GetExecutablePath();
    if (exePath[0] == '\0') return;
 
@@ -2640,7 +2651,7 @@ void c2LoadDebugState() {
    fclose(f);
 }
 
-void c2Exit(int code) {
+function void c2Exit(int code) {
    static bool exiting = false;
    if (!exiting && code != 0 && C2SP >= 0) {
       exiting = true;
@@ -2696,7 +2707,7 @@ void c2Exit(int code) {
 //////////////////////////////////////////////////////////////////////////////////
 #define ANSI_COLOR_RESET "\x1b[0m"
 
-char* ansi_fg(AnsiColor color) {
+function char* ansi_fg(AnsiColor color) {
    static char fg_colors[98][16];
    static bool initialized = false;
 
@@ -2711,7 +2722,7 @@ char* ansi_fg(AnsiColor color) {
    return fg_colors[color];
 }
 
-char* ansi_bg(AnsiColor color) {
+function char* ansi_bg(AnsiColor color) {
    static char bg_colors[98][16];
    static bool initialized = false;
 
