@@ -99,8 +99,8 @@ namespace CDL2v1 {
             int nargs = proc.Affixes.Count;
             string argnames = nargs == 0 ? "NULL" : "(char*[]){"+string.Join(",",proc.Affixes.Select(aff => aff.Id.Quoted()))+"}";
             string affTypes = nargs == 0 ? "NULL" : "(C2AffType[]){"+string.Join(",",proc.Affixes.Select(aff => C2AffType(aff)))+"}";
-            IEnumerable<Local> locals = proc.Locals.Where(loc => !loc.IsBuiltinResult);
-            int nlocals =locals.Count();
+            IEnumerable<Local> locals = cg!.CollectLocals(proc).Where(loc => !loc.IsBuiltinResult);
+            int nlocals = locals.Count();
             string localnames = nlocals == 0 ? "NULL" : "(char*[]){" + string.Join(",",locals.Select(aff => aff.Id.Quoted()))+"}";
             PPTrace.Emitter.Clear();
             PPTrace.Print(proc, synthetics: true);
@@ -458,7 +458,7 @@ namespace CDL2v1 {
             }
             string localValues = "NULL";
             if (locals.Any()) {
-               emitter.Emitnl("VALUE* locals[] = {" + string.Join(",",alg.Locals.Select(loc => $"&{TargetName(loc)}")) + "};");
+               emitter.Emitnl("VALUE* locals[] = {" + string.Join(",",cg!.CollectLocals(alg).Select(loc => $"&{TargetName(loc)}")) + "};");
                localValues = "locals";
             }
             //string affRefs = $"{alg.Affixes.Count},C2AffValues,C2AffNames,C2AffTypes";

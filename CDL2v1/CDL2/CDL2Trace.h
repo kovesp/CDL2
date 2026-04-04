@@ -1694,7 +1694,7 @@ function void c2PrintValues(C2EvalResult* result, char format) {
    if (result->onePerLine) {
       // Print header with list name and bounds if this is a list
       if (result->listName != NULL) {
-         fprintf(stderr, "%s(%d:%d)\n", result->listName, result->lwb, result->upb);
+         fprintf(stderr, "(%d:%d)\n", result->lwb, result->upb);
       }
 
       // Calculate width needed for the largest index
@@ -1944,7 +1944,7 @@ function void c2PrintAllMatches(VALUE depth, char* expr, char format) {
                listResult.values[j] = list->value[startIdx - list->lwb + j];
             }
          }
-         fprintf(stderr, "LIST %s = ", list->name);
+         fprintf(stderr, "LIST %s%s", list->name, onePerLine ? "" : " = ");
          if (listResult.count > 0 && listResult.values != NULL) {
             c2PrintValues(&listResult, format);
          }

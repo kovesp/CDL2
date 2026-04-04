@@ -80,9 +80,9 @@ void c2Abort(char* msg) {
 
 // Define a common bounds check macro
 #define CDL2_BOUNDS_CHECK(name, i, action) \
-    ((int)(i) >= name##_lwb && (int)(i) <= name##_upb) ? \
+    (((int)(i) >= name##_lwb && (int)(i) <= name##_upb) ? \
     true : \
-    (fprintf(stderr, "%s: Index %d out of bounds in LIST %s(%d:%d)\n", action, (int)(i), #name, name##_lwb, name##_upb), exit(1), false)
+    (fprintf(stderr, "%s: Index %d out of bounds in LIST %s(%d:%d)\n", action, (int)(i), #name, name##_lwb, name##_upb), exit(1), false))
 
 #define CDL2_LIST_GET(name, i) \
     (CDL2_BOUNDS_CHECK(name, i, "GET") ? \
