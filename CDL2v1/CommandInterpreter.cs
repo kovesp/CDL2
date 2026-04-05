@@ -1661,6 +1661,14 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="args"></param>
       private void InterpretCommandList(string args) {
+         Severity flags = Severity.NONE;
+         bool countFlags = Settings.SettingValue<bool>("notes");
+         Dictionary<Severity,int> flagCount = new() {
+            [Severity.Error] = 0,
+            [Severity.Warning] = 0,
+            [Severity.Info] = 0,
+            [Severity.Note] = 0
+         };
          if (Settings.SettingValue<bool>("refs")) {
             if (Focus.Current.Object is CDL2Object obj) {
                if (args.IsNullEmptyOrWhitespace) {
@@ -1681,34 +1689,40 @@ namespace CDL2v1 {
             } else {
                WriteError("Focus must be on an object for -refs");
             }
-         } else if (args.IsNullEmptyOrWhitespace) {
-            if (ListUndoRedoStack(Database.Instance.UndoStack,"Undo",ifSetting: "undo") | ListUndoRedoStack(Database.Instance.RedoStack,"Redo",ifSetting: "redo")) return;
-
-            if (Focus.Current.Object is not null) {
-               WriteWithInterface(Focus.Current.Object);
-            } else {
-               WriteInfo($"Nothing");
-            }
          } else {
-            Selection selection = new(args);
-            if (selection.IsInvalid) {
-               WriteError(selection.ErrorMessage);
-            } else if (selection.Count == 0) {
-               WriteInfo("No matches for selector");
+            if (Settings.SettingValue<bool>("error") || Settings.SettingValue<bool>("warning") || Settings.SettingValue<bool>("info")) flags = Severity.Error;
+            if (Settings.SettingValue<bool>("warning") || Settings.SettingValue<bool>("info")) flags |= Severity.Warning;
+            if (Settings.SettingValue<bool>("info")) flags |= Severity.Info;
+            if (Settings.SettingValue<bool>("note")) flags |= Severity.Note;
+            if (args.IsNullEmptyOrWhitespace) {
+               if (ListUndoRedoStack(Database.Instance.UndoStack,"Undo",ifSetting: "undo") | ListUndoRedoStack(Database.Instance.RedoStack,"Redo",ifSetting: "redo")) return;
+
+               if (Focus.Current.Object is not null) {
+                  WriteWithInterface(Focus.Current.Object);
+               } else {
+                  WriteInfo($"Nothing");
+               }
             } else {
-               foreach (SingleSelection sel in selection) {
-                  switch (sel.ListType) {
-                     case SelectorType.PRELUDE or SelectorType.ROOT or SelectorType.POSTLUDE:
-                        ListLude(sel,sel.ListType);
+               Selection selection = new(args);
+               if (selection.IsInvalid) {
+                  WriteError(selection.ErrorMessage);
+               } else if (selection.Count == 0) {
+                  WriteInfo("No matches for selector");
+               } else {
+                  foreach (SingleSelection sel in selection) {
+                     switch (sel.ListType) {
+                        case SelectorType.PRELUDE or SelectorType.ROOT or SelectorType.POSTLUDE:
+                           ListLude(sel,sel.ListType);
+                           break;
+                        case SelectorType.LUDE:
+                           ListLude(sel,SelectorType.PRELUDE);
+                           ListLude(sel,SelectorType.ROOT);
+                           ListLude(sel,SelectorType.POSTLUDE);                        
+                           break;
+                        default:
+                           WriteWithInterface(sel.Object!);
                         break;
-                     case SelectorType.LUDE:
-                        ListLude(sel,SelectorType.PRELUDE);
-                        ListLude(sel,SelectorType.ROOT);
-                        ListLude(sel,SelectorType.POSTLUDE);                        
-                        break;
-                     default:
-                        WriteWithInterface(sel.Object!);
-                     break;
+                     }
                   }
                }
             }
@@ -1718,7 +1732,33 @@ namespace CDL2v1 {
          /// Writes the fully qualified name (FQDN) of the given element, including its interface types if specified.
          /// </summary>
          /// <param name="elem">The named element to write.</param>
-         void WriteWithInterface(NamedElement elem,bool withIndent = false) => WriteLine((withIndent?"   ":"")+elem.FQDN(WithInterface: true));
+         void WriteWithInterface(NamedElement elem,bool withIndent = false,bool unflagged = true,bool top = true) {
+            if (flags != Severity.NONE || countFlags) {
+               if (elem is Program prog) {
+                  foreach (Module mod in prog.Modules) WriteWithInterface(mod,unflagged: false,top:false);
+               } else if (elem is Container) {
+                  foreach (NamedElement child in elem.ChildElements()) WriteWithInterface(child,unflagged: false,top:false);
+               } else {
+                  if (countFlags) {
+                     foreach (Note note in elem.Notes) flagCount[note.NoteType]++;
+                  } else {
+                     IEnumerable<Note> notes = elem.Notes.Where(n => flags.HasFlag(n.NoteType));
+                     if (notes.Any()) {
+                        WriteLine((withIndent ? "   " : "") + elem.FQDN(WithInterface: true));
+                        foreach (Note note in notes) {
+                           WriteLine($"      {note}");
+                        }
+                     }
+                  }
+               }
+               if (top && countFlags) {
+                  WriteLine((withIndent ? "   " : "") + elem.FQDN(WithInterface: true));
+                  WriteInfo($"{flagCount[Severity.Error].Plural("error")} {flagCount[Severity.Warning].Plural("warning")} {flagCount[Severity.Info].Plural("info")} {flagCount[Severity.Note].Plural("note")}");
+               }
+            } else if (unflagged) {
+               WriteLine((withIndent ? "   " : "") + elem.FQDN(WithInterface: true));
+            }
+         }
 
          void ListLude(SingleSelection sel,SelectorType listType) {
             if (sel.Object is Container c1) {

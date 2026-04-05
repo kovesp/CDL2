@@ -143,7 +143,7 @@ static void C2_list_init(int how, VALUE* array, int lwb, int upb) {
 //==============================================================================
 
 // Define a sort comparer
-int cmpvalue(const void *a, const void *b) { VALUE d =  (*(VALUE*)a - *(VALUE*)b); return d < 0 ? -1 : (d > 0 ? 1 : 0); }
+int cmpvalue(const void *a, const void *b) { VALUE d =  (*(VALUE*)a - *(VALUE*)b); return d < 0 ? -1 : d > 0); }
 
 #endif
 

@@ -290,12 +290,12 @@ namespace CDL2v1 {
    /// <summary>
    /// Used to categorize annotations.
    /// </summary>
-   public enum Severity {
-      Error,
-      Warning,
-      Info,
-      Note,
-      NONE,
+   [Flags]public enum Severity {
+      NONE    = 0,
+      Error   = 1,
+      Warning = 2,
+      Info    = 4,
+      Note    = 8,
    }
    /// <summary>
    /// Used to parse severity-prefixed messages.

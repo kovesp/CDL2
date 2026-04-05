@@ -217,12 +217,14 @@ namespace CDL2v1 {
          new Setting<bool>(    "error",              NoOption,             false,          "On the list command shows all error notes on the object and its children."),
          new Setting<bool>(    "warning",            NoOption,             false,          "On the list command shows all error and warning notes on the object and its children."),
          new Setting<bool>(    "info",               NoOption,             false,          "On the list command shows all error, warning, and info notes on the object and its children."),
+         new Setting<bool>(    "note",               NoOption,             false,          "On the list command shows all note notes on the object and its children."),
+         new Setting<bool>(    "notes",              NoOption,             false,          "On the list command shows the count of all types of notes on the object and its children."),
          
-         new Setting<bool>(    "selectors",          NoOption,             false,          "Used in the help command to list avaialble selectors."),
-         new Setting<bool>(    "settings",           NoOption,             false,          "Used in the help command to list avaialble settings."),
+         new Setting<bool>(    "selectors",          NoOption,             false,          "Used in the help command to list available selectors."),
+         new Setting<bool>(    "settings",           NoOption,             false,          "Used in the help command to list available settings."),
 
          new Setting<bool>(    "DebugCommands",      NoOption,             false,          "Display the parsed command."),
-         new Setting<bool>(    "Debug",              NoOption,             false,          "May be used via BUILTIN is debug"),
+         new Setting<bool>(    "Debug",              NoOption,             false,          "May be used via BUILTIN is debug. Also reenables nomacroinlining and noprocinlining with trace"),
          new Setting<bool>(    "backtrace",          NoOption,             false,          "Generate backtrace information. My be ignored by some code generators."),
          new Setting<bool>(    "trace",              NoOption,             false,          "Generate trace information. May be ignored by some code generators."),
          new Setting<bool>(    "profile",            NoOption,             false,          "Generate execution profile instrumentation. May be ignored by some code generators."),
