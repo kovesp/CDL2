@@ -190,7 +190,10 @@ function Remove-Const([string[]]$names) {
       }
       void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section) {
          Procedure? lude = (section.LudeProcs[ludeType]??Guid.Empty).ToCDL2Object<Procedure>();
-         if (lude is not null) emitter.Emitnl(lude.FQN(camelCase: true,literalObjectName: true)!);
+         if (lude is not null) {
+            GenerateComment(lude.FQDN());
+            emitter.Emitnl(TargetName(lude));
+         }
       }
       void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType,Module module,bool wrapped) {
          DecrementIndent();
@@ -214,7 +217,7 @@ function Remove-Const([string[]]$names) {
          if (n > 0) {
             emitter.NlEmitnl($"\n##### {n} {typeName}{(n != 1 ? "s" : "")} #####\n");
             if (items.First() is Const) {
-               emitter.Emitnl("Remove-Const ",string.Join(",",items.Select(c => PSVarPrefix(PSVarType.Const) + TargetName((c as Const)!))));
+               emitter.Emitnl("Remove-Const ",string.Join(",",items.Select(c => TargetName((c as Const)!))));
             }
          }
       }
@@ -227,7 +230,7 @@ function Remove-Const([string[]]$names) {
       /// Use this version to get constants that can be modifieed
       /// </summary>
       /// <param name="c"></param>
-      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c)," = 0; Set-Const '",PSVarPrefix(PSVarType.Const),TargetName(c),"' ");
+      void ICodeGenerator.GenerateConstantStart(Const c) => emitter.Emit(PSVar(c)," = 0; Set-Const '",TargetName(c),"' ");
       void ICodeGenerator.GenerateConstElementString(string value) => ((ICodeGenerator)this).GenerateMacroElementString(value,false,false);
       void ICodeGenerator.GenerateConstElementFloat(double value) => ((ICodeGenerator)this).GenerateMacroElementFloat(value);
       void ICodeGenerator.GenerateConstElementInt(long value) => ((ICodeGenerator)this).GenerateMacroElementInt(value);
@@ -252,7 +255,7 @@ function Remove-Const([string[]]$names) {
       /// The latter should be made impossible by semantic analysis.
       /// </summary>
       /// <param name="local"></param>
-      void ICodeGenerator.GenerateLocal(Local local) { }
+      void ICodeGenerator.GenerateLocal(Local local) => emitter.Emitnl(DT,"$",TargetName(local)," = ",InitialValue);
       void ICodeGenerator.GenerateAffix(Affix affix,AD dir,bool algorithmCanFail) {
          switch (dir) {
             case AD.input:
@@ -498,28 +501,28 @@ function Remove-Const([string[]]$names) {
          }
       }
 
-      enum PSVarType { Var, List, Const, Affix, Local }
+      //enum PSVarType { Var, List, Const, Affix, Local }
 
-      private static string PSVarPrefix(PSVarType type) => type switch {
-         PSVarType.Var => "V_",
-         PSVarType.List => "LL_",
-         PSVarType.Const => "C_",
-         PSVarType.Affix => "A_",
-         PSVarType.Local => "L_",
-         _ => throw new NotImplementedException(),
-      };
-      private static PSVarType PSVarTypeOf(CDL2Object obj) => obj switch {
-         Var => PSVarType.Var,
-         LIST => PSVarType.List,
-         Const => PSVarType.Const,
-         _ => throw new NotImplementedException(),
-      };
+      //private static string PSVarPrefix(PSVarType type) => type switch {
+      //   PSVarType.Var => "V_",
+      //   PSVarType.List => "LL_",
+      //   PSVarType.Const => "C_",
+      //   PSVarType.Affix => "A_",
+      //   PSVarType.Local => "L_",
+      //   _ => throw new NotImplementedException(),
+      //};
+      //private static PSVarType PSVarTypeOf(CDL2Object obj) => obj switch {
+      //   Var => PSVarType.Var,
+      //   LIST => PSVarType.List,
+      //   Const => PSVarType.Const,
+      //   _ => throw new NotImplementedException(),
+      //};
 
-      private static string PS_Var(string name,PSVarType type,string prefix = "",string suffix = "",bool isRef = false)
-         => $"{(isRef ? "([ref]" : "")}${prefix}{PSVarPrefix(type)}{name}{suffix}{(isRef ? ")" : "")}";
-      private string PSVar(CDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(obj),PSVarTypeOf(obj),prefix,suffix,isRef);
-      private string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(affix),PSVarType.Affix,prefix,suffix,isRef);
-      private string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(local),PSVarType.Local,prefix,suffix,isRef);
+      private static string PS_Var(string name,string prefix = "",string suffix = "",bool isRef = false)
+         => $"{(isRef ? "([ref]" : "")}${prefix}{name}{suffix}{(isRef ? ")" : "")}";
+      private string PSVar(CDL2Object obj,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(obj),prefix,suffix,isRef);
+      private string PSVar(Affix affix,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(affix),prefix,suffix,isRef);
+      private string PSVar(Local local,string prefix = "",string suffix = "",bool isRef = false) => PS_Var(TargetName(local),prefix,suffix,isRef);
       //private static string PSVar(ID id, string prefix = "", string suffix = "", bool isRef = false) => PS_Var(TName(id), PSVarType.Local, prefix, suffix, isRef);
 
 

@@ -240,8 +240,9 @@ namespace CDL2v1 {
 
       protected virtual string Comment(string comment) => Obfuscation ? "" : $"{LineComment} {comment}";
 
-      protected static readonly Random Random = new();
-      protected virtual string InitialValue => Random.Next(0,int.MaxValue).ToString();
+      //protected static readonly Random Random = new();
+      //protected virtual string InitialValue => Random.Next(0,int.MaxValue).ToString();
+      protected virtual string InitialValue => "0xDEADBEEF";
 
 #endregion Helpers
 

@@ -115,36 +115,13 @@ namespace CDL2v1 {
                 .Concat(macros.Cast<Algorithm>().Concat(procedures).OrderBy(p => p.ParentElement<Section>()?.ParentElement<Container>()?.Id.Name ?? "").ThenBy(p => p.Id.Name));
             Dictionary<CDL2Object,int> procIndex = allProcs.Select((proc,index) => (proc,index)).ToDictionary(pair => (CDL2Object)pair.proc,pair => pair.index);
 
-            if (cg.RequiresPredeclaration) {
-               GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Forward Declaration");
-               GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Forward Declaration");
-               GenerateObjects<Procedure>(nonInlinedSyntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Forward Declaration");
-            }
+            GenerateCodePredeclarations(macros,procedures,nonInlinedSyntheticProcedures);
+
             GenerateObjects<Macro>(macros,GenerateMacro,itemIndex: procIndex);
             GenerateObjects<Procedure>(procedures,GenerateProcedure,itemIndex: procIndex);
             GenerateObjects<Procedure>(nonInlinedSyntheticProcedures,GenerateProcedure,"Synthetic Procedure",itemIndex: procIndex);
-            if (cg.SupportsDebug && Settings.IsBacktrace) {
-               cg.GenerateDebugInfoStart();
 
-               if (cg.SupportsSimpleDebug) {
-                  cg.GenerateDebugInfoProcsStart(allProcs);
-                  cg.GenerateDebugInfoVarsStart(allVars);
-                  cg.GenerateDebugInfoListsStart(allLists);
-               } else {
-                  cg.GenerateDebugInfoProcsStart(allProcs);
-                  foreach (Algorithm proc in allProcs) cg.GenerateDebugInfoProc(proc);
-                  cg.GenerateDebugInfoProcsEnd(allProcs);
-
-                  cg.GenerateDebugInfoVarsStart(allVars);
-                  foreach (Var var in allVars) cg.GenerateDebugInfoVar(var);
-                  cg.GenerateDebugInfoVarsEnd(allVars);
-
-                  cg.GenerateDebugInfoListsStart(allLists);
-                  foreach (LIST list in allLists) cg.GenerateDebugInfoList(list);
-                  cg.GenerateDebugInfoListEnd(allLists);
-               }
-               cg.GenerateDebugInfoEnd();
-            }
+            GenerateDebugInfo(allVars,allLists,allProcs);
 
             cg.GenerateListInitializers(allLists);
 
@@ -165,6 +142,55 @@ namespace CDL2v1 {
             GenerateProgramLudes(program);
             cg.GenerateProgramEnd(program);
             foreach (Module mod in program.Modules) GenerateModule(mod,isSeparate: true);
+         }
+      }
+
+      /// <summary>
+      /// Generates predeclaration code for macros, procedures, and synthetic procedures if required by the code
+      /// generation context.
+      /// </summary>
+      /// <remarks>Predeclarations are generated only if the code generation context indicates that they are
+      /// necessary. This method groups the predeclarations by type for clarity in the generated output.</remarks>
+      /// <param name="macros">An ordered collection of macros for which forward declarations will be generated.</param>
+      /// <param name="procedures">An ordered collection of procedures for which forward declarations will be generated.</param>
+      /// <param name="nonInlinedSyntheticProcedures">A collection of synthetic procedures that are not inlined and require forward declarations.</param>
+      private void GenerateCodePredeclarations(IOrderedEnumerable<Macro> macros,IOrderedEnumerable<Procedure> procedures,IEnumerable<Procedure> nonInlinedSyntheticProcedures) {
+         if (cg.RequiresPredeclaration) {
+            GenerateObjects<Macro>(macros,GeneratePredeclaration,"Macro Forward Declaration");
+            GenerateObjects<Procedure>(procedures,GeneratePredeclaration,"Procedure Forward Declaration");
+            GenerateObjects<Procedure>(nonInlinedSyntheticProcedures,GeneratePredeclaration,"Synthetic Procedure Forward Declaration");
+         }
+      }
+
+      /// <summary>
+      /// If the target code gnerator supports debug info and backtrace is set, generate the debug info for all variables, lists and procedures.
+      /// The specific format of the debug info is determined by the target code generator.
+      /// </summary>
+      /// <param name="allVars"></param>
+      /// <param name="allLists"></param>
+      /// <param name="allProcs"></param>
+      private void GenerateDebugInfo(IEnumerable<Var> allVars,IEnumerable<LIST> allLists,IEnumerable<Algorithm> allProcs) {
+         if (cg.SupportsDebug && Settings.IsBacktrace) {
+            cg.GenerateDebugInfoStart();
+
+            if (cg.SupportsSimpleDebug) {
+               cg.GenerateDebugInfoProcsStart(allProcs);
+               cg.GenerateDebugInfoVarsStart(allVars);
+               cg.GenerateDebugInfoListsStart(allLists);
+            } else {
+               cg.GenerateDebugInfoProcsStart(allProcs);
+               foreach (Algorithm proc in allProcs) cg.GenerateDebugInfoProc(proc);
+               cg.GenerateDebugInfoProcsEnd(allProcs);
+
+               cg.GenerateDebugInfoVarsStart(allVars);
+               foreach (Var var in allVars) cg.GenerateDebugInfoVar(var);
+               cg.GenerateDebugInfoVarsEnd(allVars);
+
+               cg.GenerateDebugInfoListsStart(allLists);
+               foreach (LIST list in allLists) cg.GenerateDebugInfoList(list);
+               cg.GenerateDebugInfoListEnd(allLists);
+            }
+            cg.GenerateDebugInfoEnd();
          }
       }
 
