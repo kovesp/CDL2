@@ -1157,6 +1157,7 @@ function void c2ParseIndexRange(const char* indexExpr, int useParens, int defaul
         *outCount = defaultCount;
         return;
     }
+    useParens = useParens;
     strncpy(indexBuf, indexExpr, sizeof(indexBuf) - 1);
     indexBuf[sizeof(indexBuf) - 1] = '\0';
     char* trimmed = indexBuf;
