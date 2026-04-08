@@ -1768,7 +1768,7 @@ namespace CDL2v1 {
       [JsonIgnore] public bool HasRepeat => group.HasAnAnonymousRepeat();
       [JsonIgnore] public bool HasNoRepeat => !HasRepeat;
 
-      [JsonIgnore] public bool NeedsWrapper => repeatsProcedure || NeedsFinalization || HasRepeat;
+      [JsonIgnore] public bool NeedsWrapper => !IsLude && (repeatsProcedure || NeedsFinalization || HasRepeat);
 
       /// <summary>
       /// None of the alternatives in the primary group ends with a group.

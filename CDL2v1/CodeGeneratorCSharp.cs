@@ -183,8 +183,11 @@ namespace CDL2Generated {
          IncrementIndent();
       }
 
-      void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section)
-         => emitter.Emitnl(section.LudeProcs[ludeType]?.ToCDL2Object<Procedure>()?.FQN(camelCase: false,literalObjectName: true)!,"();");
+      void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section) {
+         Procedure lude = section.LudeProcs[ludeType]?.ToCDL2Object<Procedure>()!;
+         GenerateComment(lude.FQDN());
+         emitter.Emitnl(TargetName(lude),"();");
+      }
 
       void ICodeGenerator.GenerateModuleLudeEnd(RW ludeType,Module module,bool wrapped) {
          DecrementIndent();
@@ -397,6 +400,7 @@ namespace CDL2Generated {
          => GenerateComment($"Alternative {alternativeNumber}");
 
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed,bool supressLabel) {
+         if (proc.IsLude) return;
          if (alternative.LastCall.type != LCT.Group && alternative.LastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? "break;" : "return true;") : "return;");
          while (ifDepth > 0) {
@@ -411,17 +415,20 @@ namespace CDL2Generated {
       #region Groups
       void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
          GenerateComment($"Group {TargetName(group)}");
+         if (proc.IsLude) return;
          if (!group.Id.IsAnonymousGroup && proc.ReferrencesGroup(group.Id,includeAnon:false)) emitter.Emitnl(TargetName(group) + ":");
          if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("while (true) {");
          ifDepth.Push(0);
          IncrementIndent();
       }
       void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
-         bool hasWhile = group.HasAnonymousRepeat || !group.IsSynthetic;
-         if (hasWhile) emitter.Emitnl("break;");
-         DecrementIndent();
-         ifDepth.Pop();
-         if (hasWhile) emitter.Emitnl("}");
+         if (!proc.IsLude) {
+            bool hasWhile = group.HasAnonymousRepeat || !group.IsSynthetic;
+            if (hasWhile) emitter.Emitnl("break;");
+            DecrementIndent();
+            ifDepth.Pop();
+            if (hasWhile) emitter.Emitnl("}");
+         }
          GenerateComment($"End Group {TargetName(group)}");
       }
       #endregion Groups
