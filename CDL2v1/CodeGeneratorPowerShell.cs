@@ -403,6 +403,7 @@ function Remove-Const([string[]]$names) {
       void ICodeGenerator.GenerateAlternativeStart(Procedure proc,Group group,int alternativeNumber,bool suppressLabel) 
          => GenerateComment($"Alternative {alternativeNumber}");
       void ICodeGenerator.GenerateAlternativeEnd(Procedure proc,Group group,int i,Alternative alternative,bool removed,bool supressLabel) {
+         if (proc.IsLude) return;
          if (alternative.LastCall.type != LCT.Group && alternative.LastCall.type != LCT.Repeat && !removed && !alternative.Terminates)
             emitter.Emitnl(proc.CanFail ? (proc.NeedsWrapper ? $"break {proc.Id.CanonicalName}" : "return $true") : "return");
          while (ifDepth > 0) {
@@ -418,13 +419,14 @@ function Remove-Const([string[]]$names) {
       #region Groups
       void ICodeGenerator.GenerateGroupStart(Procedure proc,Group group) {
          GenerateComment("Group");
-         if (!group.IsSynthetic) emitter.Emit(":",group.Id.CanonicalName," ");
-         if (group.HasAnonymousRepeat || !group.IsSynthetic) emitter.Emitnl("do {");
+         bool synthetic = group.Parent == proc.GUID && proc.IsSynthetic;
+         if (!synthetic) emitter.Emit(":",group.Id.CanonicalName," ");
+         if (group.HasAnonymousRepeat || !synthetic) emitter.Emitnl("do {");
          ifDepth.Push(0);
          IncrementIndent();
       }
       void ICodeGenerator.GenerateGroupEnd(Procedure proc,Group group) {
-         bool hasDo = group.HasAnonymousRepeat || !group.IsSynthetic;
+         bool hasDo = group.HasAnonymousRepeat || !proc.IsSynthetic;
          if (hasDo) emitter.Emitnl("break");
          DecrementIndent();
          ifDepth.Pop();
