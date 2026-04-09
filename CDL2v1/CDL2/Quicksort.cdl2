@@ -1051,8 +1051,10 @@ MODULE quicksort.
       PRELUDE process command line.
 
       SECTION arithmetic.
-         ABSTR incr, decr, greater, less, less or equal, le, lt, gt, ge, add, halve, make, make string, random, divide, min, max.
-         EXT make, make string, random, incr, less or equal, le, lt, gt, ge, subtract, decr, min, max.
+         ABSTR incr, decr, greater, less, less or equal, eq, ne, le, lt, gt, ge, add, halve, make, make string, random, min, max.
+         EXT make, make string, random, incr, less or equal, eq, ne, le, lt, gt, ge, subtract, decr, min, max.
+         ABSTR multiply, divide, remainder, modulo.
+         EXT multiply, divide, remainder, modulo.
 
          IMPORT incr, decr, incr with, decr with.
          IMPORT add, subtract, multiply, divide, remainder, modulo, halve.
@@ -1200,6 +1202,8 @@ MODULE quicksort.
          INV touch in, touch out.
          INV initialize data, sort data, show native sorter, data upb.
 
+         INV lt, eq, multiply.
+
          ACTION quicksort +>from +>to -p -q:
             less + from + to, split + from + to + p + q, quicksort + from + q, quicksort + p + to;
             +.
@@ -1289,8 +1293,33 @@ MODULE quicksort.
          ACTION show macro inlining:
             BUILTIN is option+"NoMacroInlining", show msg no newline+", NoMacroInlining";
             show msg no newline+", MacroInlining".
+
+         #----#
+         CONST one=1, two=2, ten=10.
+
+         FUNCTION factorial+>n+factorial> -fac:
+            lt+n+two, make+factorial+one;
+            make+fac+n, decr+fac, factorial+fac+factorial, multiply+factorial+n+factorial.
+
+         ACTION fac test+>n -n factorial:
+            factorial+n+n factorial, show number+n, show msg no newline+"! = ", show number+n factorial, show msg+".".
+         
+         # proc that test that using the procedure name as a label works.
+         PREDICATE label test:
+            show msg+"This is a label test.", eq+zero+one, *label test.
+
+         # proc that tests that a directly recursive proc is not inlined
+         TEST test directly recursive inline+>n -nn:
+            make+nn+n, decr+nn, gt+nn+zero, test directly recursive inline+nn.
+
+         # procs that test that a mutually recursive procs are not inlined
+         TEST test mutuallly recursive inline base+>n -nn:
+            make+nn+n, decr+nn, gt+nn+zero, test mutually recursive inline+nn.
+         TEST test mutually recursive inline+>n: 
+            test mutuallly recursive inline base+n.
+
       ENDSEC sorter.
-      PRELUDE show user and code generation date, show cg options.
+      PRELUDE show user and code generation date, show cg options  #, test mutually recursive inline+ten#.
       ROOT run demo.
    ENDLAY sort.
 ENDMOD quicksort.

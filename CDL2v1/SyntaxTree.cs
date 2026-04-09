@@ -1860,8 +1860,7 @@ namespace CDL2v1 {
       /// <param name="reachable">The reachability graph.</param>
       /// </summary>
       public override bool IsInlinable(Reachable reachable) {
-         if (!Settings.IsInliningProcs)
-            return false;
+         if (!Settings.IsInliningProcs || reachable.RecursiveProcedures.Contains(this)) return false;
          if (IsConditionalCompilationOff || IsConditionalCompilationOn)
             return false;  // Handled explicitly by the code generator.
          Alternative alternative = group.Alternatives[0];
@@ -1946,7 +1945,7 @@ namespace CDL2v1 {
          } else if (IsBuiltin) {
             return Builtin.IsTest(this) && on == Builtin.EvalTest(this);
          } else {
-            return !on;
+            return false;
          }
       }
 
@@ -2170,6 +2169,7 @@ namespace CDL2v1 {
          return null;
       }
       public bool HasLabeledAncestorGroup(ID label) {
+         if (Id == label) return true;
          Group? group = ParentGroup();
          while (group != null) {
             if (group.Id == label)

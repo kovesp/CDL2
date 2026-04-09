@@ -35,6 +35,7 @@ using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Security;
+using System.Windows.Navigation;
 
 namespace CDL2v1 {
    public class Reachable {
@@ -94,6 +95,9 @@ namespace CDL2v1 {
       public Set<ITrackedVar> ReadVars { get; private set; } = [];
       public Set<ITrackedVar> AmbigousVars { get; private set; } = [];
 
+      // The set of procedures that are recursive, i.e., that call themselves directly or indirectly.
+      public Set<Procedure> RecursiveProcedures = []; 
+
       public void CollectAllObjects(Program? program) {
          // Collect all objects in DB
          AllObjects = (Set<CDL2Object>)Database.NamedElementsOfType<CDL2Object>(elem => !elem.IsImported,e => e.ToSet);
@@ -128,9 +132,39 @@ namespace CDL2v1 {
                }
             }
          }
+         foreach (Procedure proc in Objects.OfType<Procedure>()) {
+            if (HasRecursion(proc.group,proc.Id,[])) RecursiveProcedures.Add(proc);
+         }
+
          collecting = false;
          collected = true;
          LogObjectCount(this,$"reachable from {prog}");
+      }
+
+      /// <summary>
+      /// Return true if the given group contains a call to the given procedure, directly or indirectly. This is used to determine
+      /// if a procedure is recursive.
+      /// </summary>
+      /// <param name="group"></param>
+      /// <param name="procId"></param>
+      /// <returns></returns>
+      private static bool HasRecursion(Group group,ID procId,Set<ID> seen) {
+         foreach (Alternative alt in group.Alternatives) {
+            foreach (Call call in alt.Calls) {
+               if (IsRecursiveCall(call,procId,seen)) return true;
+            }
+            if (alt.LastCall.type == LCT.Standard) return IsRecursiveCall(alt.LastCall.call!,procId,seen);
+            if (alt.LastCall.type == LCT.Group) return HasRecursion(alt.LastCall.group!,procId,seen);
+         }
+         return false;
+
+         static bool IsRecursiveCall(Call call,ID procId,Set<ID> seen) {
+            if (call.Id == procId) return true;
+            if (seen.Contains(call.Id)) return false;
+            seen.Add(call.Id);
+            Algorithm called = call.Called!;
+            return called is Procedure proc && HasRecursion(proc.group,procId,seen);
+         }
       }
 
       public static void LogObjectCount(Reachable reachable,string sort,Action<string>? logger = null,int logLevel = 1,bool unused = false,bool allObjects=false) {
@@ -194,7 +228,8 @@ namespace CDL2v1 {
       /// <param name="call"></param>
       /// <returns></returns>
       private void CollectReachableObjects(Call call) {
-         Debug.Assert(!call.IsConditionalCompilationOff && !call.IsConditionalCompilationOn,"CollectReachableObjects(Call) should not get a conditional compilation call");
+         Debug.Assert(!call.IsConditionalCompilationOff && !call.IsConditionalCompilationOn,
+            "CollectReachableObjects(Call) should not get a conditional compilation call");
          if (call.Called is not null) {
             Algorithm called = call.Called;
             if (called is ImportedAlgorithm importedAlg) {
