@@ -385,6 +385,15 @@ namespace CDL2v1 {
             return null;
          }
       }
+      public Container? AncestorContainer() {
+         if (Parent == Guid.Empty) {
+            return null!;  // The element has no parent
+         } else if (ParentElement<NamedElement>() is Container container) {
+            return  container;   // The parent is a container
+         } else {
+            return ParentElement<NamedElement>()?.AncestorContainer();
+         }
+      }
 
       /// <summary>
       /// Process pragmas and by extracting the setttings and setting them so they can be restored.

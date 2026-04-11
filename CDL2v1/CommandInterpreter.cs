@@ -1641,10 +1641,10 @@ namespace CDL2v1 {
             }
          } else {
             Selection selection = new(args);
-            if (selection.IsInvalid) {
-               WriteError(selection.ErrorMessage);
-            } else if (selection.Count == 0) {
+            if (selection.Count == 0) {
                WriteInfo("No matches for selector");
+            } else if (selection.IsInvalid) {
+               WriteError(selection.ErrorMessage);
             } else {
                ppTarget.PauseUpdate(() => {
                   foreach (SingleSelection sel in selection) {
@@ -1704,10 +1704,10 @@ namespace CDL2v1 {
                }
             } else {
                Selection selection = new(args);
-               if (selection.IsInvalid) {
-                  WriteError(selection.ErrorMessage);
-               } else if (selection.Count == 0) {
+               if (selection.Count == 0) {
                   WriteInfo("No matches for selector");
+               } else if (selection.IsInvalid) {
+                  WriteError(selection.ErrorMessage);
                } else {
                   foreach (SingleSelection sel in selection) {
                      switch (sel.ListType) {

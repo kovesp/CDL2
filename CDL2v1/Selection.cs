@@ -230,8 +230,10 @@ namespace CDL2v1 {
          } else if (!isRooted && !Abbreviation<SelectorType>.Focusable(segments[0].SegmentType)) {
             Add(new SingleSelection(Focus.Current.Container,segments[0].SegmentType,segments[1].SegmentName));
             return;
-         } else if (isRooted || !Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: Focus.Current.FocusType,child: segments[0].SegmentType)) {
+         } else if (isRooted) {
             candidateObjects = Database.Instance.NamedElements.Values;
+         } else if (!Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: Focus.Current.FocusType,child: segments[0].SegmentType)) {
+            candidateObjects = Focus.Current.Object?.AncestorContainer()?.DescendantElements() ?? Database.Instance.NamedElements.Values;
          } else {
             candidateObjects = Focus.Current.Object!.DescendantElements();
             // The selection is relative to the current focus. TODO: sub elements are being ignored
