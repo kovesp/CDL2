@@ -254,7 +254,7 @@ namespace CDL2v1 {
             foreach (Section? section in SectionsWithLudes) {
                Guid? ludeGuid = section?.LudeProcs[ludeType];
                if (ludeGuid is not null && ludeGuid != Guid.Empty) {
-                  Procedure? ludeProc = ludeGuid?.ToCDL2Object<Procedure>();
+                  Procedure? ludeProc = ludeGuid?.ToNamedElement<Procedure>();
                   if (ludeProc is not null) {
                      if (ludeProc.IsInlinable(Reachable)) {
                         cg.GenerateComment($"Inlining {ludeType}");

@@ -1162,7 +1162,7 @@ namespace CDL2v1 {
       /// <summary>
       /// Return the lude procedures that are not null.
       /// </summary>
-      public IEnumerable<Procedure> LudeProcedures => LudeProcs.Values.OfType<Guid>().Select(guid => guid.ToCDL2Object<Procedure>()!);
+      public IEnumerable<Procedure> LudeProcedures => LudeProcs.Values.OfType<Guid>().Select(guid => guid.ToNamedElement<Procedure>()!);
 
       /// <summary>
       /// For sections the Children are the GUIDs of the declarations in the section.

@@ -960,14 +960,17 @@ namespace CDL2v1 {
          /// Returns the CDL2Object instance corresponding to the stored GUID.
          /// </summary>
          /// <returns>The CDL2Object object that matches the stored GUID, or null if no matching object is found.</returns>
-         public T? ToCDL2Object<T>() where T : CDL2Object
+         public T? ToNamedElement<T>() where T : NamedElement
             => Database.Instance.NamedElements.GetValueOrDefault(guid) as T;
+         public NamedElement? ToNamedElement() => Database.Instance.NamedElements.TryGetValue(guid,out NamedElement? elem) ? elem : null;
+         public bool TryGetNamedElement([MaybeNullWhen(false)]out NamedElement? elment) 
+            => Database.Instance.NamedElements.TryGetValue(guid,out elment);
          /// <summary>
          /// Returns true if the GUID corresponds to a non-synthetic CDL2Object.
          /// </summary>
          /// <returns></returns>
          public bool IsNonSyntheticCDL2Object() {
-            CDL2Object? obj = guid.ToCDL2Object<CDL2Object>();
+            CDL2Object? obj = guid.ToNamedElement<CDL2Object>();
             return obj is not null && !obj.IsSynthetic;
          }
       }

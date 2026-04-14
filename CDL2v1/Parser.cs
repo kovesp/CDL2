@@ -394,7 +394,7 @@ namespace CDL2v1 {
                bool duplicate = DuplicateDeclaration(id,algTypeRW,report: contextObj is null); // Do not report the problem in Lab mode
                if (duplicate) {
                   Guid currentGuid = currentSection.Declarations[id];
-                  CDL2Object currentObject = currentGuid.ToCDL2Object<CDL2Object>()!;
+                  CDL2Object currentObject = currentGuid.ToNamedElement<CDL2Object>()!;
                   if (canReplace?.Invoke(currentObject) == false) return false;
                   // Replace the existing declaration, but record an undo
                   if (contextObj is not null) currentObject.Replace(algorithm);
@@ -738,7 +738,7 @@ namespace CDL2v1 {
             if (mode == ParseMode.Full) {
                if (isDuplicate) {
                   if (context is not null && canReplace?.Invoke(list) == false) return null;
-                  currentSection.Declarations[id].ToCDL2Object<LIST>()?.Replace(list);
+                  currentSection.Declarations[id].ToNamedElement<LIST>()?.Replace(list);
                   Database.Instance.RecordUndo(currentSection.Declarations[id],list.GUID,ChangeType.Replaced);
                } else {
                   Database.Instance.RecordUndo(list,context: context?.Focus.Object,changeType: ChangeType.Added);
@@ -819,7 +819,7 @@ namespace CDL2v1 {
           if (mode == ParseMode.Full) {
               if (isDuplicate) {
                   if (context is not null && canReplace?.Invoke(c) == false) return null;
-                  currentSection.Declarations[id].ToCDL2Object<Const>()?.Replace(c);
+                  currentSection.Declarations[id].ToNamedElement<Const>()?.Replace(c);
               } else {
                   Database.Instance.RecordUndo(c, context: context?.Focus.Object, changeType: ChangeType.Added);
               }

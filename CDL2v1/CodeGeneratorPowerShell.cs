@@ -189,7 +189,7 @@ function Remove-Const([string[]]$names) {
          IncrementIndent();
       }
       void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section) {
-         Procedure? lude = (section.LudeProcs[ludeType]??Guid.Empty).ToCDL2Object<Procedure>();
+         Procedure? lude = (section.LudeProcs[ludeType]??Guid.Empty).ToNamedElement<Procedure>();
          if (lude is not null) {
             GenerateComment(lude.FQDN());
             emitter.Emitnl(TargetName(lude));

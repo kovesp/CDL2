@@ -758,14 +758,26 @@ namespace CDL2v1 {
                break;
          }
          if (moveType != SelectorType.INVALID) {
-            (msg,severity) = ($"When implemented, will move focus to {(direction == MoveDirection.Forward ? "next" : "previous")} {moveType}",Severity.Info);
-            return false;
-         } else if (newIndex == currentIndex) {
+            newIndex = currentIndex;
+            bool found = false;
+            if (direction == MoveDirection.Forward) {
+               while (++newIndex < Object.Siblings.Count - ludeCount - 1) if (RequiredType()) { found = true; break; }
+            } else {
+               while (--newIndex >= 0) if (RequiredType()) { found = true; break; }
+            }
+            if (!found) {
+               (msg,severity) = ($"No {(direction == MoveDirection.Forward ? "next" : "previous")} {moveType} in context",Severity.Info);
+               return false;
+            }
+         }
+         if (newIndex == currentIndex) {
             (msg, severity) = ("Already there", Severity.Info);
             return false;
          } else {
             return Focus.SetFocus(Object.Siblings[newIndex]);
          }
+
+         bool RequiredType() => Object.Siblings[newIndex].TryGetNamedElement(out NamedElement? elem) && elem!.FocusType == moveType;
       }
    }
 

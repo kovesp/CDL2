@@ -491,7 +491,7 @@ namespace CDL2v1 {
                if (section.LudeProcs[ludeType] is Guid guid) { // This should always be the case
                   EmitReservedwordForObject(ludeType);
                   Emit(" ");
-                  Print(guid.ToCDL2Object<Procedure>()!.group.Alternatives.First(),section);
+                  Print(guid.ToNamedElement<Procedure>()!.group.Alternatives.First(),section);
                   EmitSeparatorWithNL(TT.END);
                } else {
                   ReportError($"Internal error: {ludeType} lude Procedure is missing.");

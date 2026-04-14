@@ -184,7 +184,7 @@ namespace CDL2Generated {
       }
 
       void ICodeGenerator.GenerateModuleLude(RW ludeType,Module module,Section section) {
-         Procedure lude = section.LudeProcs[ludeType]?.ToCDL2Object<Procedure>()!;
+         Procedure lude = section.LudeProcs[ludeType]?.ToNamedElement<Procedure>()!;
          GenerateComment(lude.FQDN());
          emitter.Emitnl(TargetName(lude),"();");
       }

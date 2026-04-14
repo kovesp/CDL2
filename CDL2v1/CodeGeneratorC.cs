@@ -607,7 +607,7 @@ namespace CDL2v1 {
 
       public void GenerateModuleLude(RW ludeType,Module module,Section section) {
          Guid ludeGuid = section.LudeProcs[ludeType] ?? Guid.Empty;
-         if (ludeGuid != Guid.Empty && ludeGuid.ToCDL2Object<Procedure>() is Procedure lude) {
+         if (ludeGuid != Guid.Empty && ludeGuid.ToNamedElement<Procedure>() is Procedure lude) {
             GenerateComment($"{section} {ludeType}");
             emitter.Emitnl(TargetName(lude),"();");
          }

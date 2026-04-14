@@ -845,7 +845,7 @@ namespace CDL2v1 {
                if (errors.Any()) {
                   WriteError($"Cannot generate code for {program} because it has {errors.Count.Plural("error",countWidth:1)}");
                   foreach (Note error in errors) {
-                     CDL2Object? owner = error.Owner == Guid.Empty ? null : error.Owner.ToCDL2Object<CDL2Object>();
+                     CDL2Object? owner = error.Owner == Guid.Empty ? null : error.Owner.ToNamedElement<CDL2Object>();
                      WriteError($"{(owner is null?"":owner.FQDN()+": ")}{error}",indent: 3);
                   }
                } else { 

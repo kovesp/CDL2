@@ -1213,7 +1213,7 @@ MODULE quicksort.
          ACTION split +>i +>j +p> +q> - m:
             make + p + i, make + q + j, add + i + j + m, halve + m,
             (again:
-               ### Notes can be placed almost anywhere. Note that ther is no period at the end.
+               ### Notes can be placed almost anywhere. Note that there is no period terminating the NOTE.
                NOTE
                move p up + j + p + m, move q down + i + q + m,
                (less + p + q, swap element + p + q, incr + p, decr + q, * again;
