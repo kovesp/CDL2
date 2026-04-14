@@ -346,7 +346,8 @@ namespace CDL2v1 {
                break;
 
             default:
-               throw new NotImplementedException($"Cannot print {namedElement.GetType()}");
+               if (namedElement is not null) throw new NotImplementedException($"Cannot print {namedElement.GetType()}");
+               break;
          }
          return Emitter.Content; // Return the content of the emitter. Only non-empty for EmitterString
       }
@@ -598,10 +599,11 @@ namespace CDL2v1 {
       /// <param name="section"></param>
       /// <param name="extraSpace"></param>
       /// <param name="firstInAlternative"></param>
-      public void Print(Call call,Section section,bool extraSpace = false,bool firstInAlternative = false) => KeepTogether(() => {
+      public void Print(Call call,Section? section,bool extraSpace = false,bool firstInAlternative = false) => KeepTogether(() => {
          AlgorithmNameType callDecorator = AlgorithmNameType.None;
          Algorithm? called = null;
-         if (section.TryGetDeclaration(call.id,out Algorithm? algorithm)) {
+         section ??= call.ContainingProc.Section;
+         if (section?.TryGetDeclaration(call.id,out Algorithm? algorithm)??false) {
             called = algorithm;
             callDecorator = algorithm!.NameType;
             //} else {
@@ -637,7 +639,7 @@ namespace CDL2v1 {
                   Emit(local.Id.Decorate(Emitter,SE.Local));
                   break;
                case ID id:
-                  if (section.TryGetDeclaration(id,out CDL2Object? cdl2obj)) {
+                  if (section?.TryGetDeclaration(id,out CDL2Object? cdl2obj)??false) {
                      switch (cdl2obj) {
                         case Const constant:
                            Emit(id.Decorate(Emitter,SE.Const));

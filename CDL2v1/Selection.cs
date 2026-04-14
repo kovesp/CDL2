@@ -81,9 +81,20 @@ namespace CDL2v1 {
       public SingleSelection() { }
 
       public SingleSelection(NamedElement? obj) => Object = obj;
+      /// <summary>
+      /// Creates a new SingleSelection.
+      /// If obj is null, then a "tpe-only" selection is created; this is used by the next and previous commands.
+      /// Otherwise the selection refers to a specific object.
+      /// </summary>
+      /// <param name="obj"></param>
+      /// <param name="type"></param>
       public SingleSelection(NamedElement? obj,SelectorType type) {
          Object = obj;
-         ListType = type;
+         if (obj is not null) {
+            ListType = type;
+         } else {
+            _kind = type;
+         }
       }
       public SingleSelection(NamedElement? obj,SelectorType type,string name) {
          Object = obj;
@@ -108,6 +119,15 @@ namespace CDL2v1 {
             } else {
                ObjectGuid = value.GUID;
             }
+         }
+      }
+
+      // Used when the selection is only for a type, without any object
+      [JsonInclude, JsonPropertyOrder(0)] public SelectorType _kind = SelectorType.INVALID;
+      [JsonIgnore] public SelectorType Kind {
+         get {
+            if (ObjectGuid == Guid.Empty) return _kind;
+            return Object?.FocusType ?? SelectorType.INVALID;  
          }
       }
 
@@ -139,7 +159,7 @@ namespace CDL2v1 {
       private static readonly Type[] NonFocusableTypes = [typeof(Affix),typeof(Local),typeof(Call)];
       [JsonIgnore]
       public bool IsFocusable => !NonFocusableTypes.Contains(Object?.GetType() ?? typeof(NamedElement));
-      public override string ToString() => $"SingleSelection<{Object}{(ListType != SelectorType.INVALID ? " " + ListType : "")}{(Id.IsAnonymous ? "" : " " + Id)}>";
+      public override string ToString() => $"SingleSelection<{(Object is null ? Kind : Object)}{(ListType != SelectorType.INVALID ? " " + ListType : "")}{(Id.IsAnonymous ? "" : " " + Id)}>";
    }
 
    /// <summary>
@@ -202,7 +222,7 @@ namespace CDL2v1 {
       /// Create a new selection from a selection string.
       /// </summary>
       /// <param name="obj">The object to select.</param>
-      public Selection(string selectionString) : base() {
+      public Selection(string selectionString,bool typeOnly=false) : base() {
          if (string.IsNullOrWhiteSpace(selectionString)) return;
          selectionString = selectionString.Trim();
 
@@ -220,6 +240,11 @@ namespace CDL2v1 {
 
          SelectionSegments segments = [];
          if (!ParseSelectionSegments(selectionString,segments,out bool importedSeen,out bool fullSeen)) return;
+
+         if (typeOnly && segments.Count == 2) {
+            Add(new SingleSelection(null,segments[0].SegmentType));
+            return;
+         }
 
          IEnumerable<NamedElement> candidateObjects;
          IEnumerable<NamedElement> selectedObjects = [];
@@ -696,9 +721,11 @@ namespace CDL2v1 {
          (msg, severity) = ("Invalid command", Severity.Error);
          if (Object is null) return false; // Note that there is no need to check focusability here, as the focus is always on a focusable object.
          // TODO: Check if the object has siblings, if not, return false. Interface list do not have siblings.
-         int newIndex;
+         int newIndex = 0;
          int currentIndex = Object.Siblings.IndexOf(Object.GUID);
          int ludeCount = Object.Siblings.ToSyntheticCDL2Objects().Count();
+         SelectorType moveType = SelectorType.INVALID;
+         int focusMoveCount = 1;
          switch (direction) {
             case MoveDirection.First:
                if (args.IsNotNullEmptyOrWhitespace) return false;
@@ -709,12 +736,31 @@ namespace CDL2v1 {
                newIndex = Object.Siblings.Count - ludeCount - 1;
                break;
             default:
-               int focusMoveCount = 1;
-               if (args.IsNotNullEmptyOrWhitespace && !int.TryParse(args.Trim(),out focusMoveCount)) return false;
-               newIndex = (currentIndex + focusMoveCount * (int)direction).ConstrainedTo(0,Object.Siblings.Count - ludeCount - 1);
+               if (args.IsNotNullEmptyOrWhitespace) {
+                  if (!int.TryParse(args.Trim(),out focusMoveCount)) {
+                     Selection sels = new(args,typeOnly:true);
+                     if (sels.IsValid && sels.Count == 1) {
+                        SingleSelection sel = sels.First();
+                        if (sel.ListType == SelectorType.INVALID && sel.ObjectGuid == Guid.Empty) {
+                           moveType = sel.Kind;
+                        } else {
+                           msg = "Invalid selector: must have object type only";
+                           return false;
+                        }
+                     } else {
+                        msg = "Invalid selector";
+                        return false;
+                     }
+                  } else {
+                     newIndex = (currentIndex + focusMoveCount * (int)direction).ConstrainedTo(0,Object.Siblings.Count - ludeCount - 1);
+                  }
+               }
                break;
          }
-         if (newIndex == currentIndex) {
+         if (moveType != SelectorType.INVALID) {
+            (msg,severity) = ($"When implemented, will move focus to {(direction == MoveDirection.Forward ? "next" : "previous")} {moveType}",Severity.Info);
+            return false;
+         } else if (newIndex == currentIndex) {
             (msg, severity) = ("Already there", Severity.Info);
             return false;
          } else {

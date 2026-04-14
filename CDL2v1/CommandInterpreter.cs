@@ -1755,7 +1755,7 @@ namespace CDL2v1 {
                   WriteLine((withIndent ? "   " : "") + elem.FQDN(WithInterface: true));
                   WriteInfo($"{flagCount[Severity.Error].Plural("error")} {flagCount[Severity.Warning].Plural("warning")} {flagCount[Severity.Info].Plural("info")} {flagCount[Severity.Note].Plural("note")}");
                }
-            } else if (unflagged) {
+            } else if (unflagged && elem is not null) {
                WriteLine((withIndent ? "   " : "") + elem.FQDN(WithInterface: true));
             }
          }

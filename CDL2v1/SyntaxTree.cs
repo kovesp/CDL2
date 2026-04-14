@@ -1958,7 +1958,7 @@ namespace CDL2v1 {
          }
       }
 
-      override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}{id.Name}{(argRefs.Count != 0 ? "+" : "")}{string.Join("+",argRefs.Select(arg => arg.ToString()))}";
+      override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}Call {id.Name}{(argRefs.Count != 0 ? "+" : "")}{string.Join("+",argRefs.Select(arg => arg.ToString()))}";
       // override public string ToString() => $"{(IsBuiltin ? RW.BUILTIN + " " : "")}{id.Name}/{argRefs.Count}";
       public bool TryGetAffix(ID id,out Affix affix) => ContainingProc.TryGetAffix(id,out affix);
       public bool TryGetLocal(ID id,out Local local) => ContainingProc.TryGetLocal(id,out local);
