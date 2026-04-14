@@ -761,7 +761,7 @@ namespace CDL2v1 {
             newIndex = currentIndex;
             bool found = false;
             if (direction == MoveDirection.Forward) {
-               while (++newIndex < Object.Siblings.Count - ludeCount - 1) if (RequiredType()) { found = true; break; }
+               while (++newIndex <= Object.Siblings.Count - ludeCount - 1) if (RequiredType()) { found = true; break; }
             } else {
                while (--newIndex >= 0) if (RequiredType()) { found = true; break; }
             }
