@@ -16,12 +16,17 @@ SPECIAL :: + ; - ; ... .  # any unicode character not in ALPHA and DIGIT.
 GLYPH :: ALPHA ; DIGIT ; SPECIAL.
 STRINGGLYPH :: GLYPH.  # But white-space, control characters,
                        # " and $ are excluded from GLYPH
+LINEGLYPH :: GLYPH.    # But line-ends are excluded.
+LINE :: LINEGLYPH sequence.
+
 NOTETY :: NOTION ; EMPTY .
 NOTION1 or NOTION2 :: NOTION1 ; NOTION2.
 NOTION1 and NOTION2 :: NOTON1 , NOTION2.
 
 NOTION option : NOTION ; EMPTY.
 NOTION sequence : NOTION1 ; NOTION1, NOTION2 sequence.
+NOTION list : NOTION1 ; NOTION1, comma token, NOTION2 sequence.
+NOTION train : NOTION1 ; NOTION1, semicolon token, NOTION2 sequence.
 ```
 
 ## Selectors
@@ -35,14 +40,16 @@ name of an algorithm); a regular expression may be used here.
 
 ### Selector Syntax
 ```
-UNIT : program ; module ; layer ; section ; 
-       abstr ; ext ; inv ; import ; imported ; export ;
-       algorithm ; procedure ; macro ; function ; action ; test ; predicate ;
-       variable ; constant ; list ;
-       GUNIT.
+UNIT  : PUNIT ; GUNIT.
+PUNIT : program ; module ; layer ; section ; 
+        abstr ; ext ; inv ; import ; imported ; export ;
+        algorithm ; procedure ; macro ; function ; action ; test ; predicate ;
+        variable ; constant ; list.
 GUNIT : any ; container ; data ; face ; object.
 SUNIT : UNIT ; affix ; local ; call.
 single selector : unit type, name selector option.
+unit selector: unit type.
+number selector: number.
 number : DIGIT token sequence.
 offset : plus token or minus token option, number.
 name selector : ALPHA sequence option ; regex token, regular expression.
@@ -180,6 +187,31 @@ Examples:
   * Numeric: `-autoSaveCount:10`, `-autoSaveInterval=60`.
   * String:  `-target:C#`, `-file=C:\CDL2\Tests.cdl2`, `-title:"$"Importable$" Modules"`.
 
+## Command Grammar
+```
+COMMAND :: abort ; append ; add ; bottom ; bye ; consult ; delete ; down ; edit ; 
+           exit ; focus ; generate ; help ; last ; list ; move ; next ; previous ;
+           print ; quit ; redo ; remove ; save ; set ; shell ; status ; type ; top ; 
+           undo ; up.
+command : command comment ; COMMAND command train.
+command comment : exclamation mark token, LINE.
+
+code snipet : PUNIT token, non period sequenece, period token.
+non period : GLYPH. # But does not contain a period token.
+
+lab session : command or code snipet sequence.
+```
+
+As describe above, a lab session consists of a seqence of lines. Each line may be
+
+* A command comment, i.e., a line that starts with a  `!`. This is typically only explicitly used in
+  command files that are read by the `consult` command.
+* A set of commands seperated by `;`-s. Commands always start with a lowercase command name.
+  See Commands below.
+* A CDL2 code snipet starting with a CDL2 reserved word which is capitalized, see Non-Commands below.
+  A code snipet may also be or start with a CDL2 comment, i.e., `#`. If it is just a comment, then that comment
+  will be attached to the currently focused object.
+
 ## Non-Commands
 
 From the syntax it is clear that actual commands start with a command token and that all command tokens
@@ -257,19 +289,22 @@ to `n 2` and `f -1` is equivalent to `p 1`.
 #### Focus Movement
 
 ```
-next command : next token, selector option.
-previous command : previous token, selector option.
-first command : first token, selector option.
-last command : last token, selector option.
+next command : next token, unit selector or number selector option.
+previous command : previous token, unit selector or number selector option.
+first command : first token.
+last command : last token.
 ```
 
 The `next` and `previous` commands move the focus in a relative way. If the command is given without a selector, then the
-focus moves by one object in the given direction. If the selector is given, then
-the focus moves the the first object that matches the selector in the given direction.
+focus moves by one object in the given direction. If the selector is given, then it can be a type or a number.
+If it is a type, then the focus moves to the next or previous object of that type. For example, if the
+focus is on a `CONST` the command `next ACTION` will move the focus to the next algorithm that is an `ACTION`.
+If it is a number, then the focus moves by that many objects in the given direction.
 
-The `first` and `last` commands move the focus to the first or last object that matches the selector. For
-example, `first ALG` moves the focus to the first algorithm in the current section
-`next Object /^n` moves the focus to the next object that whose name starts with `n`.
+The `first` and `last` commands move the focus to the first or last object in the current context.
+
+These command work only within the current context. For the example command above, the focus already has to be on an object
+within a `SECTION` for the command to work.  
 
 #### Object Movement
 
@@ -747,8 +782,6 @@ the minimal apreviation is given in ***bold italic***.
 
 ***h***elp
 
-***i***nsert
-
 ***last***
 
 ***l***ist
@@ -761,15 +794,13 @@ the minimal apreviation is given in ***bold italic***.
 
 ***pr***int
 
+***quit***
+
 ***re***do
 
 ***rem***ove
 
 ***ren***ame
-
-***r***eplace
-
-***quit***
 
 ***s***ave
 

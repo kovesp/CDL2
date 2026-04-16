@@ -481,8 +481,50 @@ namespace CDL2v1 {
       /// <remarks>For use by unit tests and the consult command.</remarks>
       public void InterpretCommand(string command) {
          if ((command = command.Trim()) == "" || command.StartsWith(CommandComment)) return; // Ignore empty commands and command comments
-         ParseCommand(command,out string verb,out CommandType commandType,out string args,out List<ParsedSetting> settings);
-         InterpretCommand(verb,commandType,settings,args);
+         foreach (string subCommand in SplitOnUnquotedSeparator(command, CommandSeparator)) {
+            ParseCommand(subCommand,out string verb,out CommandType commandType,out string args,out List<ParsedSetting> settings);
+            InterpretCommand(verb,commandType,settings,args);
+         }
+      }
+
+      /// <summary>
+      /// Splits the input string on the given separator, but only when not inside a quoted string.
+      /// CDL2 strings use '"' for quoting and $ for escaping quotes (e.g., $" for ").
+      /// </summary>
+      /// <param name="input">The input string to split.</param>
+      /// <param name="separator">The separator character to split on.</param>
+      /// <returns>IEnumerable of split strings.</returns>
+      private static IEnumerable<string> SplitOnUnquotedSeparator(string input, char separator) {
+         List<string> result = new List<string>();
+         StringBuilder current = new();
+         bool inQuotes = false;
+         int length = input.Length;
+         for (int i = 0; i < length; i++) {
+            char c = input[i];
+            if (inQuotes) {
+               current.Append(c);
+               if (c == '$' && i + 1 < length && input[i + 1] == '"') {
+                  current.Append(input[i + 1]);
+                  i++;
+               } else if (c == '"') {
+                  inQuotes = false;
+               }
+            } else {
+               if (c == '"') {
+                  inQuotes = true;
+                  current.Append(c);
+               } else if (c == separator) {
+                  string trimmed = current.ToString().Trim();
+                  if (trimmed.Length > 0) result.Add(trimmed);
+                  current.Clear();
+               } else {
+                  current.Append(c);
+               }
+            }
+         }
+         string final = current.ToString().Trim();
+         if (final.Length > 0) result.Add(final);
+         return result.Count > 0 ? result : [input.Trim()];
       }
 
       /// <summary>
