@@ -199,7 +199,7 @@ command comment : exclamation mark token, LINE.
 code snipet : PUNIT token, non period sequenece, period token.
 non period : GLYPH. # But does not contain a period token.
 
-lab session : command or code snipet sequence.
+lab session : command sequence or code snipet sequence sequence.
 ```
 
 As describe above, a lab session consists of a seqence of lines. Each line may be
@@ -208,9 +208,15 @@ As describe above, a lab session consists of a seqence of lines. Each line may b
   command files that are read by the `consult` command.
 * A set of commands seperated by `;`-s. Commands always start with a lowercase command name.
   See Commands below.
-* A CDL2 code snipet starting with a CDL2 reserved word which is capitalized, see Non-Commands below.
+* A sequence of CDL2 code snipets. Snipets start with a CDL2 reserved word which is capitalized, 
+  see Non-Commands below.
   A code snipet may also be or start with a CDL2 comment, i.e., `#`. If it is just a comment, then that comment
   will be attached to the currently focused object.
+
+Notice that snipets and commands cannot be mixed. For example, `MOD m. LAY l. Sec s.` is ok. So is
+`focus Alg test ; t`.
+Hoever, `Mod m. ; type` will not work -- this will enter edit mode with `MODULE m. ; type`; not at all what
+you want.
 
 ## Non-Commands
 

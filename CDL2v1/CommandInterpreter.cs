@@ -494,8 +494,8 @@ namespace CDL2v1 {
       /// <param name="input">The input string to split.</param>
       /// <param name="separator">The separator character to split on.</param>
       /// <returns>IEnumerable of split strings.</returns>
-      private static IEnumerable<string> SplitOnUnquotedSeparator(string input, char separator) {
-         List<string> result = new List<string>();
+      private static List<string> SplitOnUnquotedSeparator(string input, char separator) {
+         List<string> result =[];
          StringBuilder current = new();
          bool inQuotes = false;
          int length = input.Length;
