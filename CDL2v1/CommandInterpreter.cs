@@ -553,14 +553,14 @@ namespace CDL2v1 {
 
       private static readonly ImmutableDictionary<CommandType,MoveDirection> commandAsDirection =
           new Dictionary<CommandType,MoveDirection> {
-             [CommandType.next]     = MoveDirection.Forward,
-             [CommandType.previous] = MoveDirection.Backward,
-             [CommandType.first]    = MoveDirection.First,
-             [CommandType.last]     = MoveDirection.Last,
-             [CommandType.down]     = MoveDirection.Forward,
-             [CommandType.up]       = MoveDirection.Backward,
-             [CommandType.top]      = MoveDirection.First,
-             [CommandType.bottom]   = MoveDirection.Last,
+             [CommandType.next]     = MoveDirection.next,
+             [CommandType.previous] = MoveDirection.previous,
+             [CommandType.first]    = MoveDirection.first,
+             [CommandType.last]     = MoveDirection.last,
+             [CommandType.down]     = MoveDirection.next,
+             [CommandType.up]       = MoveDirection.previous,
+             [CommandType.top]      = MoveDirection.first,
+             [CommandType.bottom]   = MoveDirection.last,
           }.ToImmutableDictionary();
 
       /// <summary>

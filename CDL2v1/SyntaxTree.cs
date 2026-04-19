@@ -211,10 +211,10 @@ namespace CDL2v1 {
          int currentIndex = Siblings.IndexOf(GUID);
          if (currentIndex < 0) throw new ArgumentException($"Internal Error: The {this} is not one of its siblings.");
          int newIndex = direction switch {
-            MoveDirection.Forward => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex + offset)),
-            MoveDirection.Backward => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex - offset)),
-            MoveDirection.First => 0,
-            MoveDirection.Last => int.MaxValue,
+            MoveDirection.next => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex + offset)),
+            MoveDirection.previous => Math.Max(0,Math.Min(Siblings.Count - 1,currentIndex - offset)),
+            MoveDirection.first => 0,
+            MoveDirection.last => int.MaxValue,
             _ => throw new NotImplementedException(),
          };
          if (newIndex == currentIndex || (newIndex == int.MaxValue && currentIndex == Siblings.Count - 1)) return; // The position would not change

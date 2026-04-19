@@ -718,66 +718,113 @@ namespace CDL2v1 {
       /// <param name="msg"></param>
       /// <param name="severity"></param>
       internal bool MoveFocus(string args,MoveDirection direction,out string msg,out Severity severity) {
-         (msg, severity) = ("Invalid command", Severity.Error);
+         (msg,severity) = ("Invalid command",Severity.Error);
+         SelectorType moveToElementType;
          if (Object is null) return false; // Note that there is no need to check focusability here, as the focus is always on a focusable object.
-         // TODO: Check if the object has siblings, if not, return false. Interface list do not have siblings.
-         int newIndex = 0;
-         int currentIndex = Object.Siblings.IndexOf(Object.GUID);
-         int ludeCount = Object.Siblings.ToSyntheticCDL2Objects().Count();
-         SelectorType moveType = SelectorType.INVALID;
-         int focusMoveCount = 1;
-         switch (direction) {
-            case MoveDirection.First:
-               if (args.IsNotNullEmptyOrWhitespace) return false;
-               newIndex = 0;
-               break;
-            case MoveDirection.Last:
-               if (args.IsNotNullEmptyOrWhitespace) return false;
-               newIndex = Object.Siblings.Count - ludeCount - 1;
-               break;
-            default:
-               if (args.IsNotNullEmptyOrWhitespace) {
-                  if (!int.TryParse(args.Trim(),out focusMoveCount)) {
-                     Selection sels = new(args,typeOnly:true);
-                     if (sels.IsValid && sels.Count == 1) {
-                        SingleSelection sel = sels.First();
-                        if (sel.ListType == SelectorType.INVALID && sel.ObjectGuid == Guid.Empty) {
-                           moveType = sel.Kind;
-                        } else {
-                           msg = "Invalid selector: must have object type only";
-                           return false;
-                        }
-                     } else {
-                        msg = "Invalid selector";
-                        return false;
-                     }
-                  } else {
-                     newIndex = (currentIndex + focusMoveCount * (int)direction).ConstrainedTo(0,Object.Siblings.Count - ludeCount - 1);
-                  }
+
+         int moveCount = 1;
+         int newIndex = -1;
+         if (args.IsNullEmptyOrWhitespace || int.TryParse(args.Trim(),out moveCount)) {
+            int currentIndex = CurrentIndex(Object);
+            int maxIndex = Object.Siblings.Count - LudeCount(Object) - 1;
+            if (direction == MoveDirection.first || direction == MoveDirection.last) {
+               if (moveCount != 1) {
+                  msg = $"Count invalid for {direction}";
+                  return false;
                }
-               break;
-         }
-         if (moveType != SelectorType.INVALID) {
-            newIndex = currentIndex;
-            bool found = false;
-            if (direction == MoveDirection.Forward) {
-               while (++newIndex <= Object.Siblings.Count - ludeCount - 1) if (RequiredType()) { found = true; break; }
+               newIndex = direction == MoveDirection.first ? 0 : maxIndex;
             } else {
-               while (--newIndex >= 0) if (RequiredType()) { found = true; break; }
+               newIndex = (currentIndex + moveCount * (int)direction).ConstrainedTo(0,maxIndex);
             }
-            if (!found) {
-               (msg,severity) = ($"No {(direction == MoveDirection.Forward ? "next" : "previous")} {moveType} in context",Severity.Info);
+            if (newIndex == currentIndex) {
+               (msg,severity) = ("Already there",Severity.Info);
                return false;
+            } else {
+               return Focus.SetFocus(Object.Siblings[newIndex]);
             }
-         }
-         if (newIndex == currentIndex) {
-            (msg, severity) = ("Already there", Severity.Info);
+         } else if ((moveToElementType = TypeOnlySelector(ref msg)) == SelectorType.INVALID) {
+            msg = "Invalid selector";
             return false;
          } else {
-            return Focus.SetFocus(Object.Siblings[newIndex]);
+            // The args are not a valid integer, but they are a valid type-only selector, so we will try to move to the next/previous/first/last sibling of that type.
+            moveToElementType = TypeOnlySelector(ref msg);
+            if (moveToElementType == SelectorType.INVALID) return false;
+            // First, try on the siblings of the current Object
+            if (FindSiblingWithType(Object,CurrentIndex(Object),ref newIndex)) {
+               return Focus.SetFocus(Object.Siblings[newIndex]);
+            }
+            // If the focus is on an element that can contain elements of the movetype, then try that.
+            // TODO: Only the first child is considered so previous cannot work.
+            if (direction != MoveDirection.previous && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: Object.FocusType,child: moveToElementType)) {
+               NamedElement? elem = Object;
+               // For now, consider only the first child.
+               while (elem is not null && Abbreviation<SelectorType>.AncestorFocusTypeOf(ancestor: elem.FocusType,child: moveToElementType)) {
+                  elem = elem.ChildElements().FirstOrDefault();
+               }
+               // elem is now a sibling of the requested type
+               if (elem is not null && FindSiblingWithType(elem,0,ref newIndex,includeCurrent: true)) {
+                  return Focus.SetFocus(elem.Siblings[newIndex]);
+               }
+            }
+            (msg,severity) = ($"{direction} {moveToElementType} not found in context",Severity.Warning);
+            return false;
          }
 
-         bool RequiredType() => Object.Siblings[newIndex].TryGetNamedElement(out NamedElement? elem) && elem!.FocusType == moveType;
+         #region MoveFocus local functions
+         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+         // MoveFocus Local functions
+         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+         
+         // Parse a type-only selector from the args.
+         SelectorType TypeOnlySelector(ref string msg) {
+            Selection sels = new(args,typeOnly: true);
+            if (sels.IsValid && sels.Count == 1) {
+               SingleSelection sel = sels.First();
+               if (sel.ListType == SelectorType.INVALID && sel.ObjectGuid == Guid.Empty) {
+                  return sel.Kind;
+               } else {
+                  msg = "Invalid selector: must have object type only";
+                  return SelectorType.INVALID;
+               }
+            } else {
+               msg = "Invalid selector";
+               return SelectorType.INVALID;
+            }
+         }
+
+         // Count the number of ludes among the siblings.
+         int LudeCount(NamedElement elem) => elem.Siblings.ToSyntheticCDL2Objects().Count;
+
+         // Get the current index of the element among its siblings.
+         int CurrentIndex(NamedElement elem) => elem.Siblings.IndexOf(elem.GUID);
+
+         // Check if the sibling for a sibling of the specified type exists in the given direction starting fron index.
+         // Returns the index in foundIndex if found
+         bool FindSiblingWithType(NamedElement? elem,int index,ref int foundIndex,bool includeCurrent=false) {
+            if (elem == null) return false;
+            switch (direction) {
+               case MoveDirection.next:
+                  if (includeCurrent && SiblingHasType(elem,index)) {foundIndex = index; return true;}
+                  while (++index <= elem.Siblings.Count - LudeCount(elem) - 1) if (SiblingHasType(elem,index)) {foundIndex = index; return true;}
+                  break;
+               case MoveDirection.previous:
+                  if (includeCurrent && SiblingHasType(elem,index)) {foundIndex = index; return true;}
+                  while (--index >= 0) if (SiblingHasType(elem,index)) {foundIndex = index; return true;}
+                  break;
+               case MoveDirection.first:
+                  index = -1;
+                  while (++index <= elem.Siblings.Count - LudeCount(elem) - 1) if (SiblingHasType(elem,index)) {foundIndex = index; return true;}
+                  break;
+               default: // MoveDirection.Last
+                  index = elem.Siblings.Count - LudeCount(elem);
+                  while (--index >= 0) if (SiblingHasType(elem,index)) {foundIndex = index; return true;}
+                  break;
+            }
+            return false;
+            // Local function to check if the sibling at the specified index has the specified type. Used to avoid code duplication in the move logic above.
+            bool SiblingHasType(NamedElement obj,int index) => obj.Siblings[index].TryGetNamedElement(out NamedElement? elem) && elem!.FocusType == moveToElementType;
+         }
+         #endregion // MoveFocus local functions
       }
    }
 

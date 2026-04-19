@@ -364,12 +364,17 @@ namespace CDL2v1 {
    /// <summary>
    /// Specifies the direction in which focus should move within an object list.
    /// </summary>
-   /// <remarks>Use this enumeration to indicate how focus navigation should proceed: Forward, Backward,First,Last</remarks>
+   /// <remarks>
+   /// <list type="*">
+   /// <item>For ease of use, the names are the same as the name of the command used to specify it.</item>
+   /// <item>Note next=1 and previous=-1 os the enumeration can be used to multiply the associated count to give a move.</item>
+   /// </list>
+   /// </remarks>
    public enum MoveDirection { 
-      Forward = 1, 
-      Backward = -1, 
-      First = 2, 
-      Last = 3 
+      next = 1, 
+      previous = -1, 
+      first = 2, 
+      last = 3 
    };
 
    /// <summary>
