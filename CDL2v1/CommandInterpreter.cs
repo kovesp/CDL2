@@ -122,7 +122,7 @@ namespace CDL2v1 {
             if (input.Contains('.')) {
                IEnumerable<string> lines = SplitOnPeriods(input);
                if (lines.Count() > 1) {
-                  foreach (string line in lines.SkipLast(1)) EnterSourceSentence(line,setFocus: false);
+                  foreach (string line in lines.SkipLast(1)) EnterSourceSentence(line,setFocus: setFocus);
                   input = lines.Last();
                }
             }
@@ -149,7 +149,8 @@ namespace CDL2v1 {
          if (type != SelectorType.INVALID) {
             input = inputComment + type + inputBody[firstWord.Length..];
             if (parser.Tokenize(input,ParseMode.Check) && parser.tokens.Count > 0) {
-               if (parser.VerifyIdentity(ParsingContext)) { // Considered verified if there is no context, or the type and id match
+               if (parser.VerifyIdentity(ParsingContext)) { 
+                  // Considered verified if there is no context, or the type and id match
                   // Parses the input and adds it to the DB. If an element with the same name exists, it will ask for confirmation to replace it.
                   // Must also take care of adding an undo record if something is replaced.
                   // Notice that it the edited element had notes attached, these will be lost becasue we will have a new object.
@@ -909,7 +910,7 @@ namespace CDL2v1 {
 
       /// <summary>
       /// Attempts to move the currently selected object by the specified amount and direction based on the provided
-      /// arguments.
+      /// arguments. the movement is within the container of the object.
       /// </summary>
       /// <remarks>The move operation is only performed if the current selection is a movable object of the
       /// appropriate type and the selection context is valid. If the operation cannot be performed, an error message
@@ -933,6 +934,13 @@ namespace CDL2v1 {
          }
          return false;
       }
+      /// <summary>
+      /// Move the slected object to a diffrent container. The target container is specified in the argument.
+      /// </summary>
+      /// <param name="args"></param>
+      /// <param name="msg"></param>
+      /// <param name="severity"></param>
+      /// <returns></returns>
       internal bool InterpretCommandMoveObjectTo(string args,out string msg,out Severity severity) {
          (msg, severity) = ("Immovable", Severity.Error);
          SingleSelection context = Focus.Current.Selection;
@@ -969,12 +977,24 @@ namespace CDL2v1 {
                   src.MoveSibling(dst);
                } else if (src is Section) {
                   msg = "Moving a Section to another Layer in the current or another Module not implemented";
+               } else if (src is CDL2Object srcObj) {
+                  if (srcObj.Section == dstSection) {
+                     src.MoveSibling(dst);
+                  } else {
+                     // Start with no undo
+                     InterfaceTypes intrfaces = srcObj.GetInterfaces();
+                     srcObj.ClearInterfaces();
+                     srcObj.Siblings.Remove(srcObj.GUID);
+                     srcObj.Parent = dstSection.GUID;
+                     srcObj.Siblings.Add(srcObj.GUID);
+                     srcObj.AddInterfaces(intrfaces);
+                  }
                } else {
                   return false;
                }
                break;
             case CDL2Object dstObj:
-               msg = "Moving object is not yert implemented";
+               msg = "Moving an object next to another is not yet implemented";
 
                break;
             default:

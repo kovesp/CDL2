@@ -41,7 +41,7 @@ namespace CDL2v1 {
          SuppressDebug = true;
       }
       protected override void WriteLine(string line) => Debug.WriteLine(LinePrefix + line.Replace("\n","\n" + LinePrefix));
-      public static void WriteDebug(string line) => Instance.WriteLine(Instance.RemoveSpans(line));
+      public static void WriteDebug(string line,Emitter owner) => Instance.WriteLine(owner.RemoveSpans(line));
    }
 }
 

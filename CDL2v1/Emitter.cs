@@ -37,13 +37,17 @@ using System.Text.RegularExpressions;
 
 namespace CDL2v1 {
    public abstract partial class Emitter {
-      protected Emitter() { }
+      private const char VisibleSpaceChar = '·';
+
+      public string RemoveSpans(string text) 
+         => DebugVisibleSpaces ? spanRegex.Replace(text   ,"${text}").Replace(' ',VisibleSpaceChar) : spanRegex.Replace(text,"${text}");
 
       private void WriteDebug(string s) {
-         if (!SuppressDebug) EmitterDebug.WriteDebug(s);
+         if (!SuppressDebug) EmitterDebug.WriteDebug(s,this);
       }
 
       public bool SuppressDebug = false;
+      public bool DebugVisibleSpaces = false;
 
       public virtual string Target { get; set; } = "";
       public virtual string TargetInfo { get; } = "";
@@ -121,7 +125,6 @@ namespace CDL2v1 {
 
       public bool SupportsDecoration { get; set; } = false;
       public Regex spanRegex = SpanRegex();
-      protected string RemoveSpans(string text) => spanRegex.Replace(text,"${text}");
 
       public void Indented(Action action) {
          IndentLevel++;
@@ -210,7 +213,9 @@ namespace CDL2v1 {
       /// <param Id="items"></param>
       /// <returns>True if a new line was written.</returns>
       protected void WriteWithIndent(bool nlbefore,bool nlafter,bool honorLineLength = true,bool extraSpace = false,params object[] items) {
-         if (AggregateOutput) {
+         if (items.Length == 0) {
+            return;
+         } else if (AggregateOutput) {
             AggregateBuffer += (extraSpace ? " " : "") + string.Join("",items.Select(i => i?.ToString() ?? ""));
          } else {
             WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);

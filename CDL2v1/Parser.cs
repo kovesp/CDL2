@@ -1114,12 +1114,9 @@ namespace CDL2v1 {
                if (context.FocusType == SelectorType.PROGRAM || context.FocusType == SelectorType.INVALID) {
                   ReportError($"Cannot add a {RW.LAYER} because I don't know which {RW.MODULE} to add it to.");
                } else if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
-                  after = context.IndexFor(objectType);
-                  Module module = context.Module!;
-                  Layer? ancestor = Focus.Current.ObjectFor(RW.LAYER,module.Layers);
-                  element = new Layer(id,module,ancestor,comments,after: after);
-                  element.Module!.Modified = true;
+                  element = new Layer(id,context.Module!,context.Layer!,comments,after: context.IndexFor(objectType));
                   SetModified(element,mode);
+                  Focus.SetFocus(element);
                } else {
                   ReportError($"Expected ID and . after {RW.LAYER} reserved word.");
                }
@@ -1129,10 +1126,7 @@ namespace CDL2v1 {
                if (context.FocusType == SelectorType.PROGRAM || context.FocusType == SelectorType.MODULE || context.FocusType == SelectorType.INVALID) {
                   ReportError($"Cannot add a {RW.SECTION} because I don't know which {RW.SECTION} to add it to.");
                } else if (tokens.CanConsume(out id) && tokens.CanConsumeEnd()) {
-                  after = context.IndexFor(objectType);
-                  Module module = context.Module!;
-                  Layer layer = Focus.Current.ObjectFor(RW.LAYER,module.Layers)!;
-                  element = new Section(id,layer,comments,after: after);
+                  element = new Section(id,context.Layer!,comments,after: context.IndexFor(objectType));
                   SetModified(element,mode);
                   Focus.SetFocus(element);
                } else {

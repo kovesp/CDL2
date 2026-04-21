@@ -774,6 +774,8 @@ namespace CDL2v1 {
       public string ContainerName => $"{ParentElement<Container>()?.ContainerName ?? ""} {TypeShortName} {Id.Name}".Trim();
 
       public override List<Guid> Siblings => ParentElement<Container>()?.Children ?? [];
+
+      [JsonIgnore] public virtual bool HasLudes => Ludes.Any(lude => lude.Value.Count != 0);
    }
 
    /// <summary>
@@ -903,6 +905,7 @@ namespace CDL2v1 {
       [JsonInclude]
       [JsonPropertyOrder(21)]
       public bool _modified = false;
+
       [JsonIgnore]
       public override bool Modified {
          get => _modified;
@@ -965,6 +968,7 @@ namespace CDL2v1 {
    /// Notice that layers don'localObject have Ludes.
    /// </summary>
    public class Layer : Container {
+      [JsonIgnore] public override bool HasLudes => false;
       /// <summary>
       /// The ancestor of a layer is the previous layer in the layer list of the containing module.
       /// </summary>

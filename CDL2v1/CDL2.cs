@@ -210,7 +210,10 @@ namespace CDL2v1 {
                   CommandWindow commandWindow = new(guiToaster);
                   System.Windows.Application.Current.MainWindow = commandWindow;
                   CommandInterpreter CLI = new(commandWindow,
-                     new EmitterCommandWindow(commandWindow) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") },
+                     new EmitterCommandWindow(commandWindow) { 
+                        SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug"), 
+                        DebugVisibleSpaces = Settings.SettingValue<bool>("PrettyPrintDebugVisibleSpaces") 
+                     },
                      toaster = guiToaster);
                   Database.Instance.CLI = CLI;
 

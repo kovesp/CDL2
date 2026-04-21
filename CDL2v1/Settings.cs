@@ -156,6 +156,8 @@ namespace CDL2v1 {
          new Setting<bool>(    "PrettyPrintSorted",   "--pretty-print-sorted",false,       "When printing sections, print its objects collected by type.",saved:true),
          new Setting<bool>(    "PrettyPrintDebug",    "--pretty-print-debug",false,        "When printing in lab mode, echo output to the debug output window.\n"+
                                                                                            "Must be set from the invocation command line."),
+         new Setting<bool>(   "PrettyPrintDebugVisibleSpaces","--pretty-print-debug-visible-spaces",false,"When printing in lab mode, make spaces visible in debug output.\n"+
+                                                                                           "Must be set from the invocation command line."),
          new Setting<bool>(    "CGDebug",             "--cg-debug",false,                  "Echo code gnerator output to the debug output window.\n"+
                                                                                            "Must be set from the invocation command line."),
          new Setting<int>(     "PrintDepth",          "--print-depth",      -1,            "Depth of printing. -1 means full. Applicable to containers.",saved:true),

@@ -472,9 +472,11 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="container"></param>
       private string PrintLudes(Container container,bool asString = false) {
-         PrintLude(RW.PRELUDE,container);
-         PrintLude(RW.ROOT,container);
-         PrintLude(RW.POSTLUDE,container);
+         if (container.HasLudes) {
+            PrintLude(RW.PRELUDE,container);
+            PrintLude(RW.ROOT,container);
+            PrintLude(RW.POSTLUDE,container);
+         }
          return asString ? Emitter.Content : "";
       }
 
@@ -960,7 +962,7 @@ namespace CDL2v1 {
          Emitnl(units[unit.GetType()].Start.Decorate(Emitter,SE.Unit)," ",unit.Id.Decorate(Emitter,SE.Id),TT.END);
          Indented(() => action());
          Emitnl(units[unit.GetType()].End.Decorate(Emitter,SE.Unit)," ",unit.Id.Name,TT.END);
-         if (unit is Module || unit is Section) PrintLudes(unit);
+         PrintLudes(unit);
          if (Newline) Emitnl();
          if (updateUI) Emitter.UpdateUI();
       }
