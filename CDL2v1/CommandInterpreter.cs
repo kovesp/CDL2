@@ -662,15 +662,24 @@ namespace CDL2v1 {
                   case CommandType.focus:
                      if (!Focus.SetFocus(args,out string errorMessage)) {
                         WriteLineParsed(errorMessage);
-                     } else if (args.IsNullEmptyOrWhitespace || !Settings.SettingValue<bool>("LongConsolePrompt")) {
-                        WriteLine(Focus.Current.ToString());
+                     } else {
+                        if (Settings.AutoPrint) {
+                           InterpretCommandPrint(autoPrint: true);
+                        } else if (args.IsNullEmptyOrWhitespace || !Settings.SettingValue<bool>("LongConsolePrompt")) {
+                           WriteLine(Focus.Current.ToString());
+                        }
                      }
                      break;
                   case CommandType.next:
                   case CommandType.previous:
                   case CommandType.first:
                   case CommandType.last:
-                     if (!Focus.Current.MoveFocus(args,commandAsDirection[commandType],out string msg,out Severity severity)) WriteLine(msg,severity); break;
+                     if (Focus.Current.MoveFocus(args,commandAsDirection[commandType],out string msg,out Severity severity)) {
+                        if (Settings.AutoPrint) InterpretCommandPrint(autoPrint:true);
+                     } else {
+                        WriteLine(msg,severity);
+                     }
+                     break;
 
                   case CommandType.down:
                   case CommandType.up:
@@ -1675,12 +1684,12 @@ namespace CDL2v1 {
       /// The -file setting must be of the form <filename> or <filename>::append. Filename may be empty to refer to the previous file.
       /// </summary>
       /// <param name="args"></param>
-      private void InterpretCommandPrint(string args) {
+      private void InterpretCommandPrint(string args="",bool autoPrint=false) {
          string fileName = Settings.SettingValue<string>("file")?.Trim('"') ?? "";
          PrettyPrinter ppTarget;
          bool withComment;
 
-         if (fileName != "") {
+         if (!autoPrint && fileName != "") {
             try {
                ppFile.Emitter.Target = fileName;
                WriteInfo(ppFile.Emitter.TargetInfo);
@@ -1698,7 +1707,7 @@ namespace CDL2v1 {
 
          if (args.IsNullEmptyOrWhitespace) {
             if (Focus.Current.Object is not null) {
-               ppTarget.PauseUpdate(() => ppTarget.Print(Focus.Current.Object,withComment));
+               ppTarget.PauseUpdate(() => ppTarget.Print(Focus.Current.Object,withComment,autoPrint));
                ppTarget.Emitter.Close();
             }
          } else {

@@ -300,7 +300,7 @@ namespace CDL2v1 {
          }
       }
 
-      internal string Print(NamedElement namedElement,bool withComment = false) {
+      internal string Print(NamedElement namedElement,bool withComment = false,bool autoPrint = false) {
          if (withComment) PrintComment($"# {namedElement.FQDN()}");
          switch (namedElement) {
             // Units
@@ -308,13 +308,13 @@ namespace CDL2v1 {
                Print(program);
                break;
             case Module module:
-               Print(module);
+               Print(module,autoPrint);
                break;
             case Layer layer:
-               Print(layer);
+               Print(layer,autoPrint);
                break;
             case Section section:
-               Print(section);
+               Print(section,autoPrint);
                break;
             // CDL2Objects
             case Algorithm algorithm:
@@ -385,11 +385,17 @@ namespace CDL2v1 {
          PrintLudes(program);
       },Newline: true,updateUI: true);
 
-      public void Print(Module module) => PrintContainer(module,() => { foreach (Layer layer in module.Layers) Print(layer); },Newline: true,updateUI: true);
+      public void Print(Module module,bool autoPrint = false) 
+         => PrintContainer(module,() => { foreach (Layer layer in module.Layers) Print(layer,autoPrint); },Newline: true,updateUI: true);
 
-      public void Print(Layer layer) => PrintContainer(layer,() => { foreach (Section section in layer.Sections) Print(section); },updateUI: false);
+      public void Print(Layer layer,bool autoPrint=false) 
+         => PrintContainer(layer,() => { foreach (Section section in layer.Sections) Print(section,autoPrint); },updateUI: false);
 
-      public void Print(Section section) => PrintContainer(section,() => {
+      public void Print(Section section,bool autoPrint = false) => PrintContainer(section,() => {
+         if (autoPrint) {
+            Emitter.Emitnl("...");
+            return; // The continer is alreayd printed, omit the innards
+         }
          // Always print the interfaces at the top
          PrintInterfaces(section);
 

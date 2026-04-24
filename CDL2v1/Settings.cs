@@ -160,8 +160,6 @@ namespace CDL2v1 {
                                                                                            "Must be set from the invocation command line."),
          new Setting<bool>(    "CGDebug",             "--cg-debug",false,                  "Echo code gnerator output to the debug output window.\n"+
                                                                                            "Must be set from the invocation command line."),
-         new Setting<int>(     "PrintDepth",          "--print-depth",      -1,            "Depth of printing. -1 means full. Applicable to containers.",saved:true),
-
          new Setting<bool>(    "GenerateDebugInfo",   "--generate-debug-info",false,       "Generate debug information."),
          new Setting<string?>( "OutputDirectory",     "--output-dir",       null,          "Specify output directory for generated code."),
          new Setting<bool>(    "NoMacroInlining",     "--no-macro-inlining",false,         "Do not inline macros, generate them as procedures."),
@@ -182,7 +180,8 @@ namespace CDL2v1 {
          new Setting<double>(  "WindowTop",           "--window-top",      -1.0,           "Last window top position.",saved:true),
          new Setting<double>(  "WindowWidth",         "--window-width",     800.0,         "Last window width.",saved:true),
          new Setting<double>(  "WindowHeight",        "--window-height",    1200.0,        "Last window height.",saved:true),
-         new Setting<bool>(    "AutoPrint",           "--auto-print",       false,         "The focused object is printed after a coomand when set.",saved:true),
+         new Setting<bool>(    "AutoPrint",           "--auto-print",       false,         "The focused object is printed after a focus change when set.\n"+
+                                                                                           "Modules, Layers and Sections are printed as an outline.",saved:true),
          new Setting<int>(     "AutosaveInterval",    "--autosave-interval",0,             "The database is saved after this many seconds when modified. Setting to <= 0 turns this off.",saved:true),
          new Setting<int>(     "AutosaveCount",       "--autosave-count",   20,            "The database is saved after this many commands that modify it.",saved:true),
          new Setting<int>(     "AutosaveNumber",      "--autosave-number",  3,             "The number of autosaves kept. Minimum 1. Older ones are removed.",saved:true),
@@ -258,22 +257,23 @@ namespace CDL2v1 {
       public static NameCompletion MatchingSetting(string name,bool WithPrefixLength=false) => Instance.MatchingSettingInst(name,WithPrefixLength);
 
       public static readonly ImmutableDictionary<string,string> SpecificAbbreviations = new Dictionary<string,string>() {
-         { "t","Target" },
-         { "od","OutputDirectory" },
-         { "npi","NoProcInlining" },
-         { "nmi","NoMacroInlining" },
-         { "l","list" },
-         { "u","undo" },
-         { "r","redo" },
+         { "a","AutoPrint" },
          { "b","before" },
-         { "imp","import" },
+         { "e","error"  },
          { "exp","export" },
          { "f","file" },
-         { "o","settings" },
-         { "s","selectors" },
-         { "e","error"  },
-         { "w","warning" },
          { "i","info" },
+         { "imp","import" },
+         { "l","list" },
+         { "nmi","NoMacroInlining" },
+         { "npi","NoProcInlining" },
+         { "o","settings" },
+         { "od","OutputDirectory" },
+         { "r","redo" },
+         { "s","selectors" },
+         { "t","Target" },
+         { "u","undo" },
+         { "w","warning" },
       }.ToImmutableDictionary();
       public static readonly ImmutableDictionary<string,string> ReverseSpecificAbbreviations =
          SpecificAbbreviations.ToImmutableDictionary(kvp => kvp.Value,kvp => kvp.Key);
@@ -321,7 +321,7 @@ namespace CDL2v1 {
       public static bool Verbosity(int level) => SettingValue<int>("VerbosityLevel") >= level;
       public static bool DebugVerbosity(int level) => SettingValue<int>("DebugVerbosityLevel") >= level;
       public static bool AnyVerbosity(int level) => Verbosity(level) || DebugVerbosity(level);
-
+      public static bool AutoPrint => SettingValue<bool>("AutoPrint");
       public static string OutputDirectory => SettingValue<string>("OutputDirectory") ?? Directory.GetCurrentDirectory();
       public static string LabDBName => Path.ChangeExtension(SettingValue<string>("DB") ?? "CDL2v1",Serializer.DBExtension);
       public static string LabDBPath => Path.Combine(OutputDirectory,LabDBName);

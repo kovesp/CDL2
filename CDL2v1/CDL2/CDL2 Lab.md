@@ -464,8 +464,7 @@ The following is a list of settings.
 | no-proc-inlining | bool | false | If true, then procedures are not inlined. This is useful for debugging. |
 | messages | string | "all" | The messages to show. Can be "all", "errors", "warnings", "info", or "none". |
 | report-all | bool | false | If true, then all messages are reported, otherwise only those that pertain to reachable objects. |
-| auto-print   | bool | false   | If true, then the focused object is printed after the command. |
-| print-depth  | int  | -1      | The depth of printing. If -1, then the entire object is printed. |
+| auto-print   | bool | false   | If true, the focused object is printed after the focus changes. Modules, Layers, Sections are printed as an outline. |
 | auto-save-number  | int | 3   | The number of autosaves kept. Treated as 1 if <= 1. Older ones are removed.|
 | auto-save-count  | int | 20   | The database is saved after this many commands that modify it (the editing commands). Set to 0 to disable. |
 | auto-save-interval | int | 0| The database is saved after this many seconds if there are any modifications. Set to 0 to disable. |
