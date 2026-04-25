@@ -964,12 +964,51 @@ namespace CDL2v1 {
       /// <param PhaseName="element"></param>
       /// <param PhaseName="action"></param>
       private void PrintContainer(Container unit,Action action,bool Newline = false,bool updateUI = false) {
-         PrintComment(unit);
-         Emitnl(units[unit.GetType()].Start.Decorate(Emitter,SE.Unit)," ",unit.Id.Decorate(Emitter,SE.Id),TT.END);
-         Indented(() => action());
-         Emitnl(units[unit.GetType()].End.Decorate(Emitter,SE.Unit)," ",unit.Id.Name,TT.END);
-         PrintLudes(unit);
-         if (Newline) Emitnl();
+         if (Settings.AutoPrint && unit is not Program) {
+            switch (unit) {
+               case Module mod:
+                  Emitnl(units[mod.GetType()].Start.Decorate(Emitter,SE.Unit)," ",unit.Id.Decorate(Emitter,SE.Id),TT.END);
+                  Emitter.IndentLevel++;
+                  foreach (Layer lay in mod.Layers) {
+                     Emitnl(units[lay.GetType()].Start.Decorate(Emitter,SE.Unit)," ",lay.Id.Decorate(Emitter,SE.Id),TT.END);
+                     Emitter.IndentLevel++;
+                     foreach (Section sec in lay.Sections) {
+                        Emitnl(units[sec.GetType()].Start.Decorate(Emitter,SE.Unit)," ",sec.Id.Decorate(Emitter,SE.Id),TT.END);
+                        Emitter.IndentLevel++;
+                        PrintLudes(sec);
+                        Emitter.IndentLevel--;
+                     }
+                     Emitter.IndentLevel--;
+                  }
+                  PrintLudes(mod);
+                  Emitter.IndentLevel--;
+                  break;
+               case Layer lay:
+                  Emitnl(units[lay.GetType()].Start.Decorate(Emitter,SE.Unit)," ",unit.Id.Decorate(Emitter,SE.Id),TT.END);
+                  Emitter.IndentLevel++;
+                  foreach (Section sec in lay.Sections) {
+                     Emitnl(units[sec.GetType()].Start.Decorate(Emitter,SE.Unit)," ",sec.Id.Decorate(Emitter,SE.Id),TT.END);
+                     Emitter.IndentLevel++;
+                     PrintLudes(sec);
+                     Emitter.IndentLevel--;
+                  }
+                  Emitter.IndentLevel--;
+                  break;
+               case Section sec:
+                  Emitnl(units[sec.GetType()].Start.Decorate(Emitter,SE.Unit)," ",sec.Id.Decorate(Emitter,SE.Id),TT.END);
+                  Emitter.IndentLevel++;
+                  PrintLudes(sec);
+                  Emitter.IndentLevel--;
+                  break;
+            }
+         } else {
+            PrintComment(unit);
+            Emitnl(units[unit.GetType()].Start.Decorate(Emitter,SE.Unit)," ",unit.Id.Decorate(Emitter,SE.Id),TT.END);
+            Indented(() => action());
+            Emitnl(units[unit.GetType()].End.Decorate(Emitter,SE.Unit)," ",unit.Id.Name,TT.END);
+            PrintLudes(unit);
+            if (Newline) Emitnl();
+         }
          if (updateUI) Emitter.UpdateUI();
       }
 

@@ -1686,6 +1686,7 @@ namespace CDL2v1 {
       /// <param name="args"></param>
       private void InterpretCommandPrint(string args="",bool autoPrint=false) {
          string fileName = Settings.SettingValue<string>("file")?.Trim('"') ?? "";
+         autoPrint |= Settings.AutoPrint;
          PrettyPrinter ppTarget;
          bool withComment;
 
