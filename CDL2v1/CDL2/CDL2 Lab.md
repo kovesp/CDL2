@@ -362,25 +362,13 @@ print command : print token or type token, setting sequence option, selector opt
 ```
 
 The command prints all the objects that match the selector. The print command with no selector
-prints the focused object. The command is is subject the the ``print-depth`` setting. 
-For eaxmple, ``print -print-depth 2 MOD`` will print the current module and all its sections. It
-will look something like this:
-```
-MOD myModule
-  LAY layer1
-    SEC section1
-    SEC section2
-   LAY layer2
-      SEC section3
-      SEC section4
-```
-Notice that if the ``print-depth`` is set to -1 (the default), then the entire object is printed.
-If the depth is such that printing of structures is suppressed, then the ENDMOD, ENDLAY and ENDSEC
-is omitted as in the above example.
-Here is another example: `print -print-depth 3 ALG`. This will print the above structure, but also
-add all the algorithm headers without the locals if any.
+prints the focused object. 
 
-The `-file` setting may be used to print to a file instead of the output area. The settings may used as follows:
+When printing a module, layer, or section, normally the entire container is printed. To print only an
+outline use the `-autoprint` (or `-a`) setting. The global value of this setting is ignored by the command,
+it must be given explicitly on the command to be effective.
+
+The `-file` setting may be used to print to a file instead of the output area. The setting may used as follows:
 
  * `-file=filename`. The output is written to the given file. If the file exists, it is overwritten.
  * `-file=filename::append`. The output is appended to the given file. If the file does not exist, it is created.
@@ -392,9 +380,12 @@ If the filename has no extension, then `.cdl2` is used.
 
 For example, `print -file=output::append MOD` will append the printed module to the file `output.cdl2`.
 
+As with the `-autoprint` setting, the global value of the `-file` setting is ignored by the command,
+it must be given explicitly on the command to be effective.
+
 #### Consult
 ```
-consult command : consult token, setting sequence option, filename.
+consult command : consult token, filename.
 ```
 The command operates in two modes depending on the content of the file selected by the argument (this
 is a character sequence that is valid as a file name on the host operating system). The file extension
@@ -408,6 +399,7 @@ extension may be any valid file extension and in no case determines the mode of 
     order. Blank lines and lines starting with `!` are ignored. Note that it makes no sense to
     have `edit` commands in such a file as that would switch to input mode and hang. As wll, nested `consult`s
     are not supported.
+  * Notice that the command does **not** use the `-file` setting; the file name is given as an argument. 
 
 ### Settings
 
@@ -444,7 +436,7 @@ The following is a list of settings.
 | separate     | bool   | false  | For code generation, see the `generate` command.
 | before       | bool   | false  | Apply the command to the objectbefore the selected object.
 | refs         | bool   | true   | For the `rename` command, rename all references to this object. For the `list` command, show objects that reference the focused object.
-| file         | string | ""     | The file to use. Used by commands that read or write files.
+| file         | string |        | Used by `print` and `type` the output file. The global value of this setting is ignored, it must be given explicitly on the command.
 
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
@@ -464,7 +456,7 @@ The following is a list of settings.
 | no-proc-inlining | bool | false | If true, then procedures are not inlined. This is useful for debugging. |
 | messages | string | "all" | The messages to show. Can be "all", "errors", "warnings", "info", or "none". |
 | report-all | bool | false | If true, then all messages are reported, otherwise only those that pertain to reachable objects. |
-| auto-print   | bool | false   | If true, the focused object is printed after the focus changes. Modules, Layers, Sections are printed as an outline. |
+| auto-print   | bool | false   | If true, the focused object is printed after the focus changes. Modules, Layers, Sections are printed as an outline. Can also be used on the `print`/`type` command. |
 | auto-save-number  | int | 3   | The number of autosaves kept. Treated as 1 if <= 1. Older ones are removed.|
 | auto-save-count  | int | 20   | The database is saved after this many commands that modify it (the editing commands). Set to 0 to disable. |
 | auto-save-interval | int | 0| The database is saved after this many seconds if there are any modifications. Set to 0 to disable. |

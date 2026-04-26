@@ -1,0 +1,27 @@
+MODULE m1.
+   LAYER l11.
+      SECTION s111.
+         CONST c=1.
+         ACTION a: +.
+         FUNCTION f: +.
+      ENDSEC s111.
+      SECTION s112.
+      ENDSEC s112.
+   ENDLAY l11.
+   LAYER l12.
+      SECTION s121.
+      ENDSEC s121.
+   ENDLAY l12.
+ENDMOD m1.
+MODULE m2.
+   LAYER l21.
+      SECTION s211.
+      ENDSEC s211.
+      SECTION s212.
+      ENDSEC s212.
+   ENDLAY l21.
+   LAYER l22.
+      SECTION s221.
+      ENDSEC s221.
+   ENDLAY l22.
+ENDMOD m2.

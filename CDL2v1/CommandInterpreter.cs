@@ -357,6 +357,7 @@ namespace CDL2v1 {
                }
                return true;
             }
+            reporter($"Invalid setting value: {Name}={Value}. Command aborted.");
             return false;
          }
 
@@ -528,6 +529,20 @@ namespace CDL2v1 {
          return result.Count > 0 ? result : [input.Trim()];
       }
 
+      private record OverrideSetting (string Name, object? Value);
+      /// <summary>
+      /// Stores override settings for specific command types, mapping each command type to tuples containing the
+      /// setting name and its value to be used for the command unless explicitly overriden.
+      /// </summary>
+      /// <remarks>
+      /// Override settings take effect only if explicitly given.
+      /// If the setting is not given on the command, then the value given here is used overridinga global setting.
+      /// </remarks>
+      private readonly Dictionary<CommandType,OverrideSetting[]> OverrideSettings = new() {
+         [CommandType.print] = PrintOverrides,
+         [CommandType.type] =  PrintOverrides,
+      };
+      private static readonly OverrideSetting[] PrintOverrides = [new("AutoPrint",false),new ("file","")];
       /// <summary>
       /// Parse the command into verb, arguments and settings.
       /// </summary>
@@ -549,6 +564,16 @@ namespace CDL2v1 {
          } else {
             args = string.Join(' ',commandParts.Skip(1).Where(part => !part.StartsWith('-')));
             settings = [.. commandParts.Skip(1).Where(part => part.StartsWith('-')).Select(part => ParseSetting(part, false))];
+            if (OverrideSettings.TryGetValue(commandType,out OverrideSetting[]? overrides)) {
+               foreach (OverrideSetting ov in overrides) {
+                  // If there is no setting with this name, add it as an override setting
+                  if (!settings.Any(s => s.Name.Equals(ov.Name,StringComparison.CurrentCultureIgnoreCase))) {
+                     settings.Add(
+                        new ParsedSetting(ov.Name,Settings.GetSettingType(ov.Name), 
+                                                    ov.Value,null,IgnoreSet: false));
+                  }
+               }
+            }
          }
       }
 
