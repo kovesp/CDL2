@@ -51,6 +51,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+using System.Xml.Linq;
 
 using static CDL2v1.CommandInterpreter;
 
@@ -72,7 +73,9 @@ namespace CDL2v1 {
       string FQDN(bool WithInterface = false);
    }
 
-   public interface IElement { }
+   public interface IElement {
+      public ID Id { get; }
+   }
 
    public interface IDataElement { }
    public interface IInterfaceElement { }
@@ -90,6 +93,7 @@ namespace CDL2v1 {
 
    public interface IParameter { // affixes and locals
       Algorithm? ContainingAlgorithm { get; set; }
+      ID Id { get; }
    }
 
    /// <summary>
@@ -1506,8 +1510,21 @@ namespace CDL2v1 {
       [JsonIgnore] public bool IsPredicate => IsAlgorithmType(RW.PREDICATE);
       [JsonIgnore] public bool IsLude => LudeTpe != RW.NONE;
 
+      [JsonIgnore] internal virtual IEnumerable<ID> ReferencedAffixes => [];
+      [JsonIgnore] internal virtual IEnumerable<ID> ReferencedLocals => [];
 
-
+      [JsonIgnore] public virtual IEnumerable<Affix> UnreferencedAffixes {
+         get {
+            IEnumerable<ID> referenced = ReferencedAffixes;
+            return Affixes.Where(affix => !referenced.Contains(affix.Id));
+         }
+      }
+      [JsonIgnore] public virtual IEnumerable<Local> UnreferencedLocals {
+         get {
+            IEnumerable<ID> referenced = ReferencedLocals;
+            return Locals.Where(local => !referenced.Contains(local.Id));
+         }
+      }
 
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false)
             : base(id,section,algorithmType.Comments,synthetic,algorithmType.reservedWordValue switch {
@@ -1721,6 +1738,16 @@ namespace CDL2v1 {
       public override IEnumerable<Var> GetReferencedVariables() => [];
       public override string ToString() => "IMPORTED " + base.ToString();
       public override bool IsImported => true;
+
+      /// <summary>
+      /// Gets an enumerable collection of identifiers for all affixes referenced by this instance.
+      /// For imprted algorithms, all affixes are deemed to be referenced.
+      /// </summary>
+      [JsonIgnore] internal override IEnumerable<ID> ReferencedAffixes => [];
+      [JsonIgnore] internal override IEnumerable<ID> ReferencedLocals => [];
+
+      [JsonIgnore] public override IEnumerable<Affix> UnreferencedAffixes => [];
+      [JsonIgnore] public override IEnumerable<Local> UnreferencedLocals => [];
    }
 
    /// <summary>
@@ -1737,13 +1764,23 @@ namespace CDL2v1 {
       /// <param Id="algorithmType"></param>
       /// <param Id="bodyType"></param>
       /// <param Id="container"></param>
-      public Macro(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section) : base(id,affixes,locals,algorithmType,bodyType,section) { }
+      public Macro(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section) :
+         base(id,affixes,locals,algorithmType,bodyType,section) { }
       [JsonConstructor]
       public Macro() : base() { } // For deserialization
 
       public override bool IsInlinable(Reachable? _ = null) => IsInlineMacro && Settings.IsInliningMacros;
 
-      public override IEnumerable<Var> GetReferencedVariables() => Elements.OfType<ID>().Select(id => Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
+      public override IEnumerable<Var> GetReferencedVariables() => Elements.OfType<ID>()
+               .Select(id => Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
+
+      [JsonIgnore]
+      internal override IEnumerable<ID> ReferencedAffixes => Affixes.Select(aff => aff.Id).Intersect(ReferencedParameters<Affix>());
+      [JsonIgnore]
+      internal override IEnumerable<ID> ReferencedLocals => Locals.Select(local => local.Id).Intersect(ReferencedParameters<Local>());
+
+      private IEnumerable<ID> ReferencedParameters<T>() where T : IParameter
+         => Elements.Where(elem => elem is T or ID).Select(elem => elem.Id).Distinct();
    }
    /// <summary>
    /// Represents a procedure in the syntax tree.
@@ -1796,6 +1833,9 @@ namespace CDL2v1 {
             return true;
          }
       }
+
+      [JsonIgnore] internal override IEnumerable<ID> ReferencedAffixes => group.Referenced<Affix>().Distinct();
+      [JsonIgnore] internal override IEnumerable<ID> ReferencedLocals => group.Referenced<Local>().Distinct();
 
       public bool ReferrencesGroup(ID label,bool includeAnon=true) => group.ReferencesGroup(label,includeAnon);
 
@@ -2265,6 +2305,30 @@ namespace CDL2v1 {
          foreach (Alternative alternative in Alternatives) alternative.Dispose();
          Database.Instance.NamedElements.Remove(GUID);
       }
+
+      /// <summary>
+      /// Returns the ids of all rererenced affixes or locals in this group.
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="parameter"></param>
+      /// <returns></returns>
+      internal IEnumerable<ID> Referenced<T>() where T : IParameter {
+         foreach (Alternative alternative in Alternatives) {
+            foreach (Call call in alternative.Calls) {
+               foreach (IActualArg arg in call.Args) {
+                  if (arg is T element) yield return element.Id;
+               }
+            }
+            if (alternative.LastCall.type == LCT.Standard && alternative.LastCall.call != null) {
+               foreach (IActualArg arg in alternative.LastCall.call.Args) {
+                  if (arg is T element) yield return element.Id;
+               }
+            }
+            if (alternative.LastCall.type == LCT.Group && alternative.LastCall.group != null) {
+               foreach (ID id in alternative.LastCall.group.Referenced<T>()) yield return id;
+            }
+         }
+      }
    }
 
 
@@ -2278,6 +2342,8 @@ namespace CDL2v1 {
       [JsonConstructor]
       public INT() : this(0) { } // For deserialization
       override public string ToString() => value.ToString();
+
+      public ID Id => ID.AnonID;
    }
    public class FLOAT : IElement {
       [JsonInclude] public double value;
@@ -2289,6 +2355,7 @@ namespace CDL2v1 {
       [JsonConstructor]
       public FLOAT() : this(0.0) { } // For deserialization
       override public string ToString() => value.ToString();
+      public ID Id => ID.AnonID;
    }
    public class STRING : IElement, IActualArg {
       public static readonly STRING Empty = new("");
@@ -2367,7 +2434,7 @@ namespace CDL2v1 {
    /// Represents a formal argument in an algorithm.
    /// It is just an ID with annotations. An arg is considered to be equal to another arg or ID if the names are the same.
    /// </summary>
-   public class Affix : NamedElement, IFailureProtected, ITrackedVar {
+   public class Affix : NamedElement, IFailureProtected, ITrackedVar, IParameter {
       public static readonly Affix Default = new(ID.AnonID,AffixDir.NONE,AffixType.std);
       [JsonInclude] public AffixDir affixDir;
       [JsonInclude] public AffixType affixType;

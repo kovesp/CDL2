@@ -77,18 +77,20 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(3)] public int Number;
       [JsonInclude][JsonPropertyOrder(4)] public string PhaseName = "";
       [JsonInclude][JsonPropertyOrder(5)] public Guid Owner = Guid.Empty;
-      public Note(Severity type,int number,string text,string phaseName = "") {
+      [JsonInclude][JsonPropertyOrder(6)] public bool Unused = false;
+      public Note(Severity type,int number,string text,string phaseName = "",bool unused = false) {
          NoteType = type;
          Text = text;
          Number = number;
          PhaseName = phaseName;
+         Unused = unused;
       }
       [JsonConstructor]
       public Note() { }
       public Note(Note template,string phaseName,NamedElement? owner,params object[] args)
          : this(template.NoteType,template.Number,
               string.Format(template.Text,[.. args.Select(arg => arg is Affix aff ? $"<{aff.Id}>" : arg is Local loc ? $"<{loc.Id}>" : $"<{arg}>")]),
-              phaseName) => Owner = owner?.GUID ?? Guid.Empty;
+              phaseName,template.Unused) => Owner = owner?.GUID ?? Guid.Empty;
 
       public string FormattedText(params object[] args) => string.Format(Text,args);
 
@@ -187,9 +189,9 @@ namespace CDL2v1 {
       public static readonly Note LocalNotAssigned = new(Severity.Warning,113,"Local {0} that has not been set passed as input in call {1}");
       public static readonly Note LocalOverwritten = new(Severity.Warning,114,"Local {0} whose value has not been read passed to output in call {1}");
 
-      public static readonly Note AffixNotRefeenced = new(Severity.Info,201,"Affix {0} was not used in procedure {1}");
-      public static readonly Note LocalNotReferenced = new(Severity.Info,202,"Local {0} was not used in procedure {1}");
-      public static readonly Note UnreferenceObject = new(Severity.Info,203,"Object is defined but not used in program. This may be due to conditional compilation");
+      public static readonly Note AffixNotReferenced = new(Severity.Info,201,"Affix {0} was not used in algorithm {1}",unused:true);
+      public static readonly Note LocalNotReferenced = new(Severity.Info,202,"Local {0} was not used in algorithm {1}",unused: true);
+      public static readonly Note UnreferenceObject = new(Severity.Info,203,"Object is defined but not used in program. This may be due to conditional compilation",unused: true);
       public static readonly Note CodeGenDone = new(Severity.Info,204,"{0} code generated for {1} into {2}");
 
 #if DEBUG

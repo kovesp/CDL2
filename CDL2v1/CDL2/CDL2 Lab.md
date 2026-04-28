@@ -351,9 +351,17 @@ list command : list token, setting sequence option, selector option.
 
 The command list all the objects that match the selector. 
 
-With the seting `-refs` the command lists all objects that _reference_ the focused object. If given,
-the selector must be a program and only those references are display that are from objects
+* With the setting `-refs` the command lists all objects that _reference_ the focused object. If given,
+the selector must be a program and only those references are displayed that are from objects
 reachable from that program. If it is not given, then references in any program are listed.
+
+* With the settings `-error`, `-warning`, `-info` the command lists all notes of the given type
+  for the object. The info notes for unused objects are normally not shown; use `-unused` to show them.
+* The listing for `-warning` includes errors, and for `-info` errors and warnings.
+* With the setting `-note` notes of type note (i.e. those created with the `NOTE` element) are listed.
+* When applied to a container the command lists the notes applied to the container, its sub-containers and objects
+within those.
+* With the setting `-notes` the number of notes of each kind are shown.
 
 #### Print
 
@@ -430,12 +438,18 @@ The following is a list of settings.
 | abstr        | bool   | false  | Apply the command to the `ABSTR` list entry of the object.
 | import       | bool   | false  | Apply the command to the `IMPORT` list entry of the object.
 | export       | bool   | false  | Apply the command to the `EXPORT` list entry of the object.
-| prompt       | bool   | false  | For destructive commands, prompt before making changes.
+| prompt       | bool   | false  | For destructive commands, prompt before making changes. _Not implemented._
 | settag       | string |        | Sets a tag on an undo or redo entry.
 | tag          | string |        | Selects the undo or redo entry with the given tag.
-| separate     | bool   | false  | For code generation, see the `generate` command.
+| separate     | bool   | false  | For code generation, see the `generate` command. _Not implemented._
 | before       | bool   | false  | Apply the command to the objectbefore the selected object.
 | refs         | bool   | true   | For the `rename` command, rename all references to this object. For the `list` command, show objects that reference the focused object.
+| error        | bool   | false  | For the list command to list all error notes of the object.
+| warning      | bool   | false  | For the list command to list all error and warning notes of the object.
+| info         | bool   | false  | For the list command to list all error, warning and info notes of the object.
+| note         | bool   | false  | For the list command to list all note notes of the object.
+| notes        | bool   | false  | For the list command to list the count of the types of notes of the object.
+| unused       | bool   | false  | For the list command, the info notes for unused objects are shown. Normally they are omitted.
 | file         | string |        | Used by `print` and `type` the output file. The global value of this setting is ignored, it must be given explicitly on the command.
 
 

@@ -369,6 +369,10 @@ namespace CDL2v1 {
             } else if (algorithm is Macro macro) {
                AnalyzeMacro(macro);
             }
+            // Are all declared affixes actually used?
+            foreach (Affix affix in algorithm.UnreferencedAffixes) AddNote(algorithm,Note.AffixNotReferenced,affix,algorithm);
+            // Are all declared locals actually used
+            foreach (Local local in algorithm.UnreferencedLocals) AddNote(algorithm,Note.LocalNotReferenced,local,algorithm);
          }
       }
 

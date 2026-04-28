@@ -218,6 +218,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "error",              NoOption,             false,          "On the list command shows all error notes on the object and its children."),
          new Setting<bool>(    "warning",            NoOption,             false,          "On the list command shows all error and warning notes on the object and its children."),
          new Setting<bool>(    "info",               NoOption,             false,          "On the list command shows all error, warning, and info notes on the object and its children."),
+         new Setting<bool>(    "unused",             NoOption,             false,          "On the list command include unused notes"),
          new Setting<bool>(    "note",               NoOption,             false,          "On the list command shows all note notes on the object and its children."),
          new Setting<bool>(    "notes",              NoOption,             false,          "On the list command shows the count of all types of notes on the object and its children."),
          

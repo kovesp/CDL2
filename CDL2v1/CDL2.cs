@@ -64,6 +64,7 @@ namespace CDL2v1 {
       private IEnumerable<Note> Notes => (notes.Any() ? notes : Database.Instance.ElementsWithNotes.SelectMany(guid => Database.Instance.NamedElements[guid].Notes)).Where(note => note.PhaseName == PhaseName);
       private IEnumerable<Note> Errors => Notes.Where(note => note.NoteType == Severity.Error);
       private IEnumerable<Note> Warnings => Notes.Where(note => note.NoteType == Severity.Warning);
+      private IEnumerable<Note> Unused => Notes.Where(note => note.Unused);
       private IEnumerable<Note> Infos => Notes.Where(note => note.NoteType == Severity.Info);
 
       /// <summary>
@@ -113,7 +114,11 @@ namespace CDL2v1 {
       /// <returns></returns>
       public virtual void ReportNoteCounts(Reachable? reachable,string? message = null,Action<string>? reporter = null,bool summaryOnly=false) {
          reporter ??= msg=>Log(0,msg);
-         reporter($"{PhaseName,-16}: {Errors.Count().Plural("error",",")} {Warnings.Count().Plural("warning",",")} {Infos.Count().Plural("info message")}");
+         string errors = Errors.Count().Plural("error",",");
+         string warnings = Warnings.Count().Plural("warning",",");
+         string infos = (Infos.Count()-Unused.Count()).Plural("info message");
+         string unused = Unused.Count().Plural("unused object");
+         reporter($"{PhaseName,-16}: {errors} {warnings} {infos} {unused}");
          if (message != null) reporter(message);
 
          if (summaryOnly) {

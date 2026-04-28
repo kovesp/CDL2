@@ -1759,6 +1759,7 @@ namespace CDL2v1 {
       /// <param name="args"></param>
       private void InterpretCommandList(string args) {
          Severity flags = Severity.NONE;
+         bool showUnused = Settings.SettingValue<bool>("unused");
          bool countFlags = Settings.SettingValue<bool>("notes");
          Dictionary<Severity,int> flagCount = new() {
             [Severity.Error] = 0,
@@ -1766,6 +1767,8 @@ namespace CDL2v1 {
             [Severity.Info] = 0,
             [Severity.Note] = 0
          };
+         int unusedCount = 0;
+
          if (Settings.SettingValue<bool>("refs")) {
             if (Focus.Current.Object is CDL2Object obj) {
                if (args.IsNullEmptyOrWhitespace) {
@@ -1837,20 +1840,28 @@ namespace CDL2v1 {
                   foreach (NamedElement child in elem.ChildElements()) WriteWithInterface(child,unflagged: false,top:false);
                } else {
                   if (countFlags) {
-                     foreach (Note note in elem.Notes) flagCount[note.NoteType]++;
+                     foreach (Note note in elem.Notes) {
+                        flagCount[note.NoteType]++;
+                        if (note.Unused) unusedCount++;
+                     }
                   } else {
                      IEnumerable<Note> notes = elem.Notes.Where(n => flags.HasFlag(n.NoteType));
-                     if (notes.Any()) {
+                     if (notes.Any(note => showUnused || ! note.Unused)) {
                         WriteLine((withIndent ? "   " : "") + elem.FQDN(WithInterface: true));
                         foreach (Note note in notes) {
-                           WriteLine($"      {note}");
+                           if (showUnused || !note.Unused) WriteLine($"      {note}",note.NoteType);
                         }
                      }
                   }
                }
                if (top && countFlags) {
                   WriteLine((withIndent ? "   " : "") + elem.FQDN(WithInterface: true));
-                  WriteInfo($"{flagCount[Severity.Error].Plural("error")} {flagCount[Severity.Warning].Plural("warning")} {flagCount[Severity.Info].Plural("info")} {flagCount[Severity.Note].Plural("note")}");
+                  string errors = flagCount[Severity.Error].Plural("error");
+                  string warnings = flagCount[Severity.Warning].Plural("warning");
+                  string infos = (flagCount[Severity.Info]-unusedCount).Plural("info");
+                  string unused = unusedCount.Plural("unused");
+                  string notes = flagCount[Severity.Note].Plural("note");
+                  WriteInfo($"{errors} {warnings} {infos} {unused} {notes}");
                }
             } else if (unflagged && elem is not null) {
                WriteLine((withIndent ? "   " : "") + elem.FQDN(WithInterface: true));
