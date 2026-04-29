@@ -652,7 +652,7 @@ namespace CDL2v1 {
             } else if (call.Args.Count == 0) {
                return false;
             } else {
-               List<Affix> affix = calledAlg.Affixes;
+               List<Affix> affixes = calledAlg.Affixes;
                List<IActualArg> args = [.. call.Args];
                for (int i = 0 ; i < args.Count ; i++) {
                   if (args[i] is ID id) {
@@ -673,19 +673,19 @@ namespace CDL2v1 {
                      }
                   }
 
-                  if (affix[i].IsString) {
+                  if (affixes[i].IsString) {
                      // The actual argument must be a constant, a string or a string affix of the containing procedure.
                      problemFound |= AnalyzeStringAffix(call,proc,args[i]);
-                  } else if (affix[i].IsInputOnly) {
+                  } else if (affixes[i].IsInputOnly) {
                      // The actual argument must be a constant, a variable, an input or transput affix of the containing procedure,
                      // or a local or output affix that has already received a value.
                      problemFound |= AnalyzeInputAffix(call,proc,info,args[i]);
-                  } else if (affix[i].IsOutputOnly) {
+                  } else if (affixes[i].IsOutputOnly) {
                      // The actual argument must be a variable, a local or an affix (output or transput) of the containing procedure.
                      // The local or affix must have been read since it was last written (this is a warning).
                      problemFound |= problemFound |= AnalyzeOutputAffix(call,proc,info,args[i]);
                   } else {
-                     Debug.Assert(affix[i].IsTransput,"Transput affix expected");
+                     Debug.Assert(affixes[i].IsTransput,"Transput affix expected");
                      // The actual argument must be a variable, a transput affix or a local or an output affix which has already been assigned a value of the containing procedure.
                      problemFound |= AnalyzeTransputAffix(call,proc,info,args[i]);
                   }
@@ -774,7 +774,10 @@ namespace CDL2v1 {
          switch (arg) {
             case Const:
             case Var:
-            case Affix inputArg when inputArg.IsInput:   // Includes transput
+            case Affix inputArg when inputArg.IsInputOnly:
+               break;
+            case Affix transputArg when transputArg.IsTransput:
+               info.MakeWritable(transputArg); // the transput arg was read so it can be overwritten
                break;
             case Affix outputArg when outputArg.IsOutputOnly:
                if (info.NeverWritten(outputArg)) { proc.AddNote(PhaseName,Note.OutputAffixNotAssigned,outputArg.Id,call); return true; }
@@ -875,7 +878,18 @@ namespace CDL2v1 {
       /// <summary>
       /// A call has an effect if the algorithm it invokes has an effect.
       /// </summary>
-      static bool CallhasEffect(Call call) => !call.IsBuiltin && (call.Called?.HasEffect ?? false);
+      static bool CallhasEffect(Call call) {
+         if (call.IsBuiltin) return false; // Builtin calls have no effect.
+         Algorithm? called = call.Called;
+         if (called != null) {
+            if (called.HasEffect) return true;
+            // If a variable is passed to an output or transput affix then the call has an effect.
+            foreach ((Affix affix,IActualArg arg) in called.Affixes.Zip(call.Args)) {
+               if (affix.IsOutput && arg is Var) return true;
+            }
+         }
+         return false;
+      }
    }
 }
 

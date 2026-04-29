@@ -974,7 +974,7 @@ MODULE dyn memory test.
          CONST default store size = 5.
          CONST zero = 0, one = 1, two = 2.
 
-         FUNCTION process command line -arg count -size:
+         ACTION process command line -arg count -size:
             command line argument count+arg count,
               (gt+arg count+arg1, is command line argument numeric+arg1+size, make+store size+size;
                make+store size+default store size).
@@ -1040,10 +1040,10 @@ MODULE quicksort.
 
          FUNCTION get data size +size>: 
             make+size+number to sort.
-         FUNCTION set number to sort+>number-list size:
+         ACTION set number to sort+>number-list size:
             subtract+upb+lwb+list size, incr+list size, min+number+list size+number to sort.         
 
-         FUNCTION process command line -arg count -number:
+         ACTION process command line -arg count -number:
             set number to sort+default number to sort, command line argument count+arg count,
             (gt+arg count+arg1, is command line argument numeric+arg1+number, set number to sort+number;
              +).
