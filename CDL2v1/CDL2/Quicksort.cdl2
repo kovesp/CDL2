@@ -67,9 +67,9 @@ MODULE powershell kernel.
       SECTION touch.
          EXPORT touch in, touch out, touch trans.
 
-         FUNCTION touch in+>v = "[void]" v ";".
-         FUNCTION touch out+v> = "[void]" v ";".
-         FUNCTION touch trans+>v> = "[void]" v ";".
+         FUNCTION touch in+>v = "# " v ";".
+         FUNCTION touch out+v> = "# " v ";".
+         FUNCTION touch trans+>v> = "# " v ";".
       ENDSEC touch.
 
       SECTION timer.
@@ -206,9 +206,9 @@ MODULE csharp kernel.
       SECTION touch.
          EXPORT touch in, touch out, touch trans.
 
-         FUNCTION touch in+>v = "(void)" v.
-         FUNCTION touch out+v> = "(void)" v.
-         FUNCTION touch trans+>v> = "(void)" v.
+         FUNCTION touch in+>v = "// " v.
+         FUNCTION touch out+v> = "// " v.
+         FUNCTION touch trans+>v> = " // " v.
       ENDSEC touch.
 
       SECTION timer.
@@ -347,9 +347,9 @@ MODULE c kernel.
       SECTION touch.
          EXPORT touch in, touch out, touch trans.
 
-         FUNCTION touch in+>v = "(void)" v.
-         FUNCTION touch out+v> = "(void)" v.
-         FUNCTION touch trans+>v> = "(void)" v.
+         FUNCTION touch in+>v = "// " v.
+         FUNCTION touch out+v> = "// " v.
+         FUNCTION touch trans+>v> = "// " v.
       ENDSEC touch.
       
       SECTION timer.
@@ -817,6 +817,14 @@ MODULE dynamic data.
          TEST lt+>a+>b.
          TEST le+>a+>b.
       ENDSEC arithmetic.
+      SECTION touch.
+         ABSTR touch in, touch out, touch trans.
+         IMPORT touch in, touch out, touch trans.
+
+         FUNCTION touch in+>v.
+         FUNCTION touch out+v>.
+         FUNCTION touch trans+>v>.
+      ENDSEC touch.
       SECTION dynamic data.
          IMPORT dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, dyn base clear data, null.
          ABSTR  dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, dyn base clear data, null.
@@ -837,6 +845,7 @@ MODULE dynamic data.
          EXPORT dyn allocate, dyn free, dyn resize, dyn size, dyn try get data, dyn try set data, dyn clear data.
          INV dyn base allocate, dyn base resize, dyn base free, dyn base size, dyn base get data, dyn base set data, dyn base clear data, null.
          INV multiply by, divide by, lt, le, ne, eq, make, add, incr.
+         INV touch in.
 
  
          CONST allocations initial size = 1000.
@@ -869,7 +878,8 @@ MODULE dynamic data.
          ACTION add block from+>ptr+>from -i -f:
             ne+ptr+null, make+f+from,
               (find block+null+f+i, dyn base set data+allocations+i+ptr;
-               dyn size+allocations+f, expand allocations, *).
+               touch in+f, dyn size+allocations+f, expand allocations, *);
+            +.
          ACTION replace block+>prev ptr+>ptr -i:
             eq+prev ptr+null, add block+ptr;
             find block+prev ptr+zero+i, dyn base set data+allocations+i+ptr;
@@ -1304,7 +1314,7 @@ MODULE quicksort.
          ACTION fac test+>n -n factorial:
             factorial+n+n factorial, show number+n, show msg no newline+"! = ", show number+n factorial, show msg+".".
          
-         # proc that test that using the procedure name as a label works.
+         # proc that tests that using the procedure name as a label works.
          PREDICATE label test:
             show msg+"This is a label test.", eq+zero+one, *label test.
 

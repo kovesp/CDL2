@@ -513,17 +513,41 @@ namespace CDL2v1 {
 
       private class DataFlowInfo {
          private readonly Procedure proc;
-         private readonly Set<Affix> readableAffixes = [];
-         private readonly Set<Local> readableLocals = [];
-         private readonly Set<Affix> writableAffixes = [];
-         private readonly Set<Local> writableLocals = [];
-         private readonly Set<Affix> neverWrittenAffixes = [];
-         private readonly Set<Local> neverWrittenLocals = [];
-         public DataFlowInfo(Procedure proc) { this.proc = proc; Reset(VarSet.all); }
+
+         private class VarStates : ICloneable {
+            public readonly Set<Affix> readableAffixes = [];
+            public readonly Set<Local> readableLocals = [];
+            public readonly Set<Affix> writableAffixes = [];
+            public readonly Set<Local> writableLocals = [];
+            public readonly Set<Affix> neverWrittenAffixes = [];
+            public readonly Set<Local> neverWrittenLocals = [];
+
+            public VarStates() { }
+            public VarStates(VarStates other) {
+               readableAffixes     = [.. other.readableAffixes];
+               readableLocals      = [.. other.readableLocals];
+               writableAffixes     = [.. other.writableAffixes];
+               writableLocals      = [.. other.writableLocals];
+               neverWrittenAffixes = [.. other.neverWrittenAffixes];
+               neverWrittenLocals  = [.. other.neverWrittenLocals];
+            }
+
+            public object Clone() => new VarStates(this);
+         }
+
+         private readonly Stack<VarStates> VarsStack = [];
+
+         public void Push() => VarsStack.Push((VarStates)VarsStack.Peek().Clone());
+         public void Pop() => VarsStack.Pop();
+
+         public DataFlowInfo(Procedure proc) { 
+            this.proc = proc;
+            VarsStack.Push(new VarStates());
+            Reset(VarSet.all); 
+         }
 
          [Flags]
          public enum VarSet {
-
             readableAffixes = 1,
             readableLocals = 2,
             writableAffixes = 4,
@@ -533,6 +557,7 @@ namespace CDL2v1 {
 
             all = readableAffixes | readableLocals | writableAffixes | writableLocals | neverWrittenAffixes | neverWrittenLocals,
          }
+
          public void Reset(VarSet flags) {
             void reset<T>(VarSet flag,Set<T> set,Set<T> values) {
                if ((flags & flag) == flag) {
@@ -540,32 +565,42 @@ namespace CDL2v1 {
                   foreach (T value in values) set.Add(value);
                }
             }
-            reset(VarSet.readableAffixes,readableAffixes,proc.Affixes.Where(affix => affix.IsInput).ToSet);
-            reset(VarSet.readableLocals,readableLocals,[]);
-            reset(VarSet.writableAffixes,writableAffixes,proc.Affixes.Where(affix => affix.IsOutput).ToSet);
-            reset(VarSet.writableLocals,writableLocals,[.. proc.Locals]);
-            reset(VarSet.neverWrittenAffixes,neverWrittenAffixes,proc.Affixes.Where(affix => affix.IsOutputOnly).ToSet);
-            reset(VarSet.neverWrittenLocals,neverWrittenLocals,[.. proc.Locals]);
+            reset(VarSet.readableAffixes,VarsStack.Peek().readableAffixes,proc.Affixes.Where(affix => affix.IsInput).ToSet);
+            reset(VarSet.readableLocals,VarsStack.Peek().readableLocals,[]);
+            reset(VarSet.writableAffixes,VarsStack.Peek().writableAffixes,proc.Affixes.Where(affix => affix.IsOutput).ToSet);
+            reset(VarSet.writableLocals,VarsStack.Peek().writableLocals,[.. proc.Locals]);
+            reset(VarSet.neverWrittenAffixes,VarsStack.Peek().neverWrittenAffixes,proc.Affixes.Where(affix => affix.IsOutputOnly).ToSet);
+            reset(VarSet.neverWrittenLocals,VarsStack.Peek().neverWrittenLocals,[.. proc.Locals]);
          }
 
-         public bool Readable(Affix affix) => readableAffixes.Contains(affix);
-         public bool Readable(Local local) => readableLocals.Contains(local);
-         public bool Writable(Affix affix) => writableAffixes.Contains(affix);
-         public bool Writable(Local local) => writableLocals.Contains(local);
-         public bool Unreadable(Affix affix) => !readableAffixes.Contains(affix);
-         public bool Unreadable(Local local) => !readableLocals.Contains(local);
-         public bool Unwritable(Affix affix) => !writableAffixes.Contains(affix);
-         public bool Unwritable(Local local) => !writableLocals.Contains(local);
-         public bool NeverWritten(Affix affix) => neverWrittenAffixes.Contains(affix);
-         public bool NeverWritten(Local local) => neverWrittenLocals.Contains(local);
-         public void MakeReadable(Affix affix) { readableAffixes.Add(affix); neverWrittenAffixes.Remove(affix); }
-         public void MakeReadable(Local local) { readableLocals.Add(local); neverWrittenLocals.Remove(local); }
-         public void MakeWritable(Affix affix) => writableAffixes.Add(affix);
-         public void MakeWritable(Local local) => writableLocals.Add(local);
-         public void MakeUnreadable(Affix affix) => readableAffixes.Remove(affix);
-         public void MakeUnreadable(Local local) => readableLocals.Remove(local);
-         public void MakeUnwritable(Affix affix) => writableAffixes.Remove(affix);
-         public void MakeUnwritable(Local local) => writableLocals.Remove(local);
+         public bool Readable(Affix affix) => VarsStack.Peek().readableAffixes.Contains(affix);
+         public bool Readable(Local local) => VarsStack.Peek().readableLocals.Contains(local);
+         public bool Writable(Affix affix) => VarsStack.Peek().writableAffixes.Contains(affix);
+         public bool Writable(Local local) => VarsStack.Peek().writableLocals.Contains(local);
+         public bool Unreadable(Affix affix) => !VarsStack.Peek().readableAffixes.Contains(affix);
+         public bool Unreadable(Local local) => !VarsStack.Peek().readableLocals.Contains(local);
+         public bool Unwritable(Affix affix) => !VarsStack.Peek().writableAffixes.Contains(affix);
+         public bool Unwritable(Local local) => !VarsStack.Peek().writableLocals.Contains(local);
+         public bool NeverWritten(Affix affix) => VarsStack.Peek().neverWrittenAffixes.Contains(affix);
+         public bool NeverWritten(Local local) => VarsStack.Peek().neverWrittenLocals.Contains(local);
+         public void MakeReadable(Affix affix) { VarsStack.Peek().readableAffixes.Add(affix); VarsStack.Peek().neverWrittenAffixes.Remove(affix); }
+         public void MakeReadable(Local local) { VarsStack.Peek().readableLocals.Add(local); VarsStack.Peek().neverWrittenLocals.Remove(local); }
+         public void MakeWritable(Affix affix) => VarsStack.Peek().writableAffixes.Add(affix);
+         public void MakeWritable(Local local) => VarsStack.Peek().writableLocals.Add(local);
+         public void MakeUnreadable(Affix affix) => VarsStack.Peek().readableAffixes.Remove(affix);
+         public void MakeUnreadable(Local local) => VarsStack.Peek().readableLocals.Remove(local);
+         public void MakeUnwritable(Affix affix) => VarsStack.Peek().writableAffixes.Remove(affix);
+         public void MakeUnwritable(Local local) => VarsStack.Peek().writableLocals.Remove(local);
+
+         public override string ToString() {
+            string RA = string.Join(", ",VarsStack.Peek().readableAffixes);
+            string WA = string.Join(", ",VarsStack.Peek().writableAffixes);
+            string RL = string.Join(", ",VarsStack.Peek().readableLocals);
+            string WL = string.Join(", ",VarsStack.Peek().writableLocals);
+            string NWA = string.Join(", ",VarsStack.Peek().neverWrittenAffixes);
+            string NWL = string.Join(", ",VarsStack.Peek().neverWrittenLocals);
+            return $"RA:[{RA}] WA:[{WA}] RL:[{RL}] WL:[{WL}] NWA:[{NWA}] NWL:[{NWL}]";
+         }
       }
       private void AnalyzeProcedure(Procedure proc,Section section) {
          DataFlowInfo info = new(proc);
@@ -602,7 +637,9 @@ namespace CDL2v1 {
       private bool AnalyzeGroup(Procedure proc,Group group,DataFlowInfo info) {
          bool missingDefinitions = false;
          foreach (Alternative alt in group.Alternatives) {
+            info.Push();
             missingDefinitions = AnalyzeAlternative(proc,alt,info) || missingDefinitions;
+            info.Pop();
             // info.Reset(DataFlowInfo.VarSet.neverWrittenLocals | DataFlowInfo.VarSet.writableLocals | DataFlowInfo.VarSet.readableLocals);
          }
          return missingDefinitions;
@@ -781,9 +818,15 @@ namespace CDL2v1 {
                break;
             case Affix outputArg when outputArg.IsOutputOnly:
                if (info.NeverWritten(outputArg)) { proc.AddNote(PhaseName,Note.OutputAffixNotAssigned,outputArg.Id,call); return true; }
+               info.MakeWritable(outputArg);
                break;
             case Local local:
-               if (!local.IsBuiltinResult && info.NeverWritten(local)) { proc.AddNote(PhaseName,Note.LocalNotAssigned,local,call); return true; }
+               if (!local.IsBuiltinResult && info.NeverWritten(local)) {
+                  proc.AddNote(PhaseName,Note.LocalNotAssigned,local,call);
+                  return true;
+               } else {
+                  info.MakeWritable(local);
+               }
                break;
             default:
                proc.AddNote(PhaseName,Note.InvalidInputArg,arg,call);
