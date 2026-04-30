@@ -241,6 +241,8 @@ namespace CDL2v1 {
          SelectionSegments segments = [];
          if (!ParseSelectionSegments(selectionString,segments,out bool importedSeen,out bool fullSeen)) return;
 
+         if (segments.Count > 0 && segments[0].SegmentType == SelectorType.PROGRAM) isRooted = true; // A selection starting with PROGRAM is always rooted
+
          if (typeOnly && segments.Count == 2) {
             Add(new SingleSelection(null,segments[0].SegmentType));
             return;
