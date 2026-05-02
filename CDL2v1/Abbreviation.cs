@@ -165,7 +165,7 @@ namespace CDL2v1 {
          new ("OBJECT"     ,3,SelectorType.SECTION,help:"Selects any DATA or ALGORITHM"),
       ];
 
-      private readonly static Dictionary<SelectorType,Abbreviation<SelectorType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type,abbrev => abbrev);
+      public readonly static Dictionary<SelectorType,Abbreviation<SelectorType>> FocusTypeMap = FocusTypes.ToDictionary(abbrev => abbrev.Type,abbrev => abbrev);
       /// <summary>
       /// Return true if the first selection type is a valid ancestor of the second selection type.
       /// </summary>
@@ -233,8 +233,9 @@ namespace CDL2v1 {
       }
       public override string ToString() => $"{ShortTypeName}[{NameWithAbbreviation}]";
       public string NameWithAbbreviation => char.IsLower(Name[0])
-         ? $"{Name[..MinLength].ToUpper()}{Name[MinLength..]}"
-         : $"{Name[..MinLength]}{Name[MinLength..].ToLower()}";
+         ? $"{MinimumAbreviation().ToUpper()}{Name[MinLength..]}"
+         : $"{MinimumAbreviation()}{Name[MinLength..].ToLower()}";
+      public string MinimumAbreviation(int min = 0) => Name[..Math.Max(min,MinLength)];
    }
 }
 

@@ -331,12 +331,19 @@ namespace CDL2v1 {
          { "ImportedConst", RW.CONST },
       }.ToImmutableDictionary();
 
+      public static SelectorType RW2Selector(RW rw) => Enum.Parse<SelectorType>(rw.ToString());
+
       /// <summary>
       /// Gets the reserved word type associated with this instance, if applicable.
       /// </summary>
       /// <remarks>If the instance is an Algorithm, returns its algorithm type. Otherwise, attempts to map
       /// the type name to a reserved word; if no mapping exists, returns RW.NONE.</remarks>
       [JsonIgnore] public RW TypeAsReservedWord => this is Algorithm alg ? alg.AlgorithmType : ReservedWordMap.TryGetValue(GetType().Name,out RW rw) ? rw : RW.NONE;
+      //[JsonIgnore] public virtual string TypeShortName => this.GetType().Name.ToUpper()[..3];
+      [JsonIgnore] public string TypeShortName => Abbreviation<SelectorType>.FocusTypeMap[RW2Selector(TypeAsReservedWord)].MinimumAbreviation(TypeShortNameMinLength).ToUpper();
+
+      [JsonIgnore] protected virtual int TypeShortNameMinLength => 0;
+      [JsonIgnore] public virtual SelectorType TypeAsSelector => SelectorType.INVALID;
 
       /// <summary>
       /// Create a new NamedElement with the given ID.
@@ -518,8 +525,7 @@ namespace CDL2v1 {
       public Set<CDL2Object> References { get; } = [];
 
       override public string ToString() => $"{TypeShortName} {Id.Name}";
-      [JsonIgnore]
-      public virtual string TypeShortName => this.GetType().Name.ToUpper()[..3];
+
 
       [JsonIgnore]
       public bool HasCommentOrNote => Comments != null || Notes.Count > 0;
@@ -556,7 +562,7 @@ namespace CDL2v1 {
       public virtual bool IsDeclared => true;
 
       public Note AddNote(string phase,Note note,params object[] insertions) {
-         Note newNote = new Note(note,phase,this,insertions);
+         Note newNote = new (note,phase,this,insertions);
          Notes.Add(newNote);
          Database.Instance.ElementsWithNotes.Add(GUID);
          return newNote;
@@ -684,6 +690,8 @@ namespace CDL2v1 {
    /// Base class for all elements that can contain other elements, i.e., the program and modules, layers, sections.
    /// </summary>
    public /*abstract*/ class Container : NamedElement, ISibling {
+      [JsonIgnore] protected override int TypeShortNameMinLength => 3;
+
       [JsonConstructor]
       public Container() : base() { }
       /// <summary>
@@ -786,8 +794,8 @@ namespace CDL2v1 {
    /// Represents a program in the syntax tree.
    /// </summary>
    public class Program : Container, ITopLevelContainer {
-      [JsonIgnore]
-      override public string TypeShortName => "PROG";
+      [JsonIgnore] protected override int TypeShortNameMinLength => 4;
+
       /// <summary>
       /// Get the modules that have the given lude type.
       /// </summary>
@@ -1677,8 +1685,6 @@ namespace CDL2v1 {
       /// </summary>
       //public void ResetNameAnnotations() => sa = null;
       public virtual IEnumerable<Var> GetReferencedVariables() => [];
-      [JsonIgnore]
-      override public string TypeShortName => $"{AlgorithmType}";
 
       /// <summary>
       /// In a procedure, calls have a reference to the enclosing procedure so they must be updated
@@ -1736,7 +1742,7 @@ namespace CDL2v1 {
       [JsonConstructor]
       public ImportedAlgorithm() { } // For deserialization
       public override IEnumerable<Var> GetReferencedVariables() => [];
-      public override string ToString() => "IMPORTED " + base.ToString();
+      public override string ToString() => "IMP " + base.ToString();
       public override bool IsImported => true;
 
       /// <summary>
@@ -2415,13 +2421,12 @@ namespace CDL2v1 {
       public List<IElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
       public Const(ID id,Section section) : base(id,section,"",FocusType: SelectorType.CONST) => SE = SE.Const;
-      [JsonConstructor]
-      public Const() : base() { FocusType = SelectorType.CONST; } // For deserialization
+      [JsonConstructor] public Const() : base() => FocusType = SelectorType.CONST;  // For deserialization
    }
 
    public class ImportedConst : Const, IImportable, IDataElement {
 
-      public override string ToString() => "IMPORTED " + base.ToString();
+      public override string ToString() => "IMP " + base.ToString();
       public override bool IsImported => true;
 
       public ImportedConst(ID id,Section section) : base(id,section) { }
