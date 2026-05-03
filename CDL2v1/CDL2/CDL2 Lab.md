@@ -189,8 +189,8 @@ Examples:
 
 ## Command Grammar
 ```
-COMMAND :: abort ; append ; add ; bottom ; bye ; consult ; delete ; down ; edit ; 
-           exit ; focus ; generate ; help ; last ; list ; move ; next ; previous ;
+COMMAND :: abort ; append ; add ; bottom ; bye ; consult ; delete ; down ; duplicate ;
+           edit ; exit ; focus ; generate ; help ; last ; list ; move ; next ; previous ;
            print ; quit ; redo ; remove ; save ; set ; shell ; status ; type ; top ; 
            undo ; up.
 command : command comment ; COMMAND command train.
@@ -555,6 +555,20 @@ Not supported:
   * Variables, lists, module and program ludes ... these are just lists of ids, delete or add items. 
   * Interface declarations ... used the add and delete command with the appropriate settings.
 
+##### Duplicate
+```
+duplicate command: duplicate token, ALPHA token sequence option.
+```
+
+Duplicates the focused object (which has to be a non-imported algorithm, constant, variable
+or list). The name of the new object is the argument of the command. If not given, ` copy`
+is added to the name of the duplicated object. The duplicate is inserted after the original
+and becomes the focused object. If an object with that name already exists, an error
+is reported.
+
+This command is most usful when a variant of an exisitng algorithm is desired. After duplication
+the new object can be modified with the `edit` command.  
+
 ##### Rename
 ```
 rename command : rename token, setting sequence option, selector option, new name.
@@ -782,6 +796,8 @@ the minimal apreviation is given in ***bold italic***.
 ***del***ete
 
 ***down***
+
+***dup***licate
 
 ***e***dit
 

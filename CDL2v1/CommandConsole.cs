@@ -231,7 +231,8 @@ Tab Completion Menu (when shown):
             string hexColor = PrettyPrinter.Decorators[syntaxElement].FG;
             (int r, int g, int b) = ParseHexColor(hexColor);
             
-            outputText = $"\x1b[38;2;{r};{g};{b}m{text}\x1b[0m";
+            string sev = severity == Severity.NONE ? "" : $"{severity}: ";
+            outputText = $"\x1b[38;2;{r};{g};{b}m{sev}{text}\x1b[0m";
          }
 
          // Add to scrollback buffer WITH ANSI codes intact

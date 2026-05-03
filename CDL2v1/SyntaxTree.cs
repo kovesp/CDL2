@@ -1788,7 +1788,7 @@ namespace CDL2v1 {
 
       public override bool IsInlinable(Reachable? _ = null) => IsInlineMacro && Settings.IsInliningMacros;
 
-      public override object Clone() => new Macro(Id,Affixes,Locals,Token.From(AlgorithmType),BodyType,Section!) { Elements = new List<IElement>(Elements) };
+      public override object Clone() => new Macro(Id,Affixes,Locals,Token.From(AlgorithmType),BodyType,Section!) { Elements = [.. Elements] };
 
       public override IEnumerable<Var> GetReferencedVariables() => Elements.OfType<ID>()
                .Select(id => Section?.GetResolvedObject(id)).OfType<Var>().Distinct();

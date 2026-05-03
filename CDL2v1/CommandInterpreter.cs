@@ -812,8 +812,8 @@ namespace CDL2v1 {
             Section sec = obj.Section!;
             if (args.IsNullEmptyOrWhitespace) args = obj.Id.Name + " copy";
             ID id = new(args);
-            if (sec.Declarations.ContainsKey(id)) {
-               msg = $"An object with the name {id} already exists in section {sec}.";
+            if (sec.Declarations.TryGetValue(id,out CDL2Object? currentObj)) {
+               msg = $"Cannot duplicate with that name. {sec} already contains {currentObj}.";
                return false;
             }
             CDL2Object duplicate = (CDL2Object)obj.Clone();
@@ -1710,6 +1710,7 @@ namespace CDL2v1 {
                      return;
                   }
                   modifiedContainer = cDL2Object.Module!;
+                  if (Settings.AutoPrint) InterpretCommandPrint(autoPrint: true);
                   break;
                default:
                   WriteError($"Cannot rename {obj.FQDN()}");

@@ -343,7 +343,8 @@ Esc   | Cancel menu
          Brush foreground = GetNoteTypeBrush(severity);
 
          // Add formatted text with the appropriate color
-         AddFormattedText(text,foreground,Brushes.Transparent,lineBreak: true);
+         string sev = severity == Severity.NONE ? "" : $"{severity}: ";
+         AddFormattedText($"{sev}{text}",foreground,Brushes.Transparent,lineBreak: true);
       });
 
       public void WriteError(string text) => WriteLine(text,Severity.Error);

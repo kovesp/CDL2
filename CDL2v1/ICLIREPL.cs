@@ -59,13 +59,11 @@ namespace CDL2v1 {
       /// <param name="severity">Severity level for formatting/coloring.</param>
       void WriteLine(string text,Severity severity = Severity.NONE);
 
-      void WriteLineParsed(string msg) {
-         if (SeverityParsing.TryGetSeverity(ref msg,out Severity severity)) {
-            WriteLine($"{severity}: {msg}",severity);
-         } else {
-            WriteLine(msg,Severity.Error);
-         }
-      }
+      /// <summary>
+      /// Write the line with the severity extracted from the message itself.
+      /// </summary>
+      /// <param name="msg">The message to write.</param>
+      void WriteLineParsed(string msg) => WriteLine(msg,SeverityParsing.TryGetSeverity(ref msg,out Severity severity) ? severity : Severity.Error);
 
       /// <summary>
       /// Updates the status display with the given message.
