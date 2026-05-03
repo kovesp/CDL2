@@ -713,6 +713,8 @@ namespace CDL2v1 {
                      if (!InterpretCommandMoveObject(args,commandAsDirection[commandType],out msg,out severity)) WriteLine(msg,severity); break;
                   case CommandType.move:
                      if (!InterpretCommandMoveObjectTo(args,out msg,out severity)) WriteLine(msg,severity); break;
+                  case CommandType.duplicate:
+                     if (!InterpretCommandDuplicate(args,out msg,out severity)) WriteLine(msg,severity); break;
 
                   case CommandType.list:
                      InterpretCommandList(args); break;
@@ -794,6 +796,39 @@ namespace CDL2v1 {
             }
          }
          SetStatus();
+      }
+
+      /// <summary>
+      /// Duplicates the current object with a new name. 
+      /// </summary>
+      /// <param name="args">The new name. If not given, defautls to the current name with copy appended.</param>
+      /// <param name="msg">The message to display after the operation.</param>
+      /// <param name="severity">The severity of the message.</param>
+      /// <returns>True if the duplication was successful, false otherwise.</returns>
+      private bool InterpretCommandDuplicate(string args,out string msg,out Severity severity) {
+         (msg,severity) = ("Unknown error",Severity.Error);
+         SingleSelection? context = GetContext("");
+         if (context is not null && context.Object is CDL2Object obj && !obj.IsImported) {
+            Section sec = obj.Section!;
+            if (args.IsNullEmptyOrWhitespace) args = obj.Id.Name + " copy";
+            ID id = new(args);
+            if (sec.Declarations.ContainsKey(id)) {
+               msg = $"An object with the name {id} already exists in section {sec}.";
+               return false;
+            }
+            CDL2Object duplicate = (CDL2Object)obj.Clone();
+            Database.Instance.RecordUndo(duplicate,ChangeType.Added);
+            duplicate.Id = id;
+            sec.Declarations[id] = duplicate.GUID;
+            ((ISibling)duplicate).MoveSiblingAfter(obj);
+            duplicate.Module!.Modified = true;
+            Focus.SetFocus(duplicate);
+            if (Settings.AutoPrint) InterpretCommandPrint(autoPrint: true);
+            return true;
+         } else {
+            msg = "Only variables, lists and non-imported algorithms and constants can be duplicated";
+            return false;
+         }
       }
 
       /// <summary>

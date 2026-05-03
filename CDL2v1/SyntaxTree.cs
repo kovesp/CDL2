@@ -1323,7 +1323,7 @@ namespace CDL2v1 {
    /// This is the base class of all CDL2 objects that can be declared.
    /// Algorithm (Macro, Porcedure, ImportedAlgorithm), Const (ImportedConst), Var and LIST.
    /// </summary>
-   public /*abstract*/ class CDL2Object : NamedElement, ISibling {
+   public /*abstract*/ class CDL2Object : NamedElement, ISibling, ICloneable {
       public CDL2Object(ID id,Section section,string comments,bool synthetic = false,SelectorType FocusType = SelectorType.INVALID)
          : base(id,synthetic,FocusType) {
          Parent = section.GUID;
@@ -1493,12 +1493,13 @@ namespace CDL2v1 {
       }
 
       internal void ClearCompilerNotes() => Notes.ClearCompilerNotes();
+      public virtual object Clone() => throw new NotImplementedException();
    }
 
    /// <summary>
    /// Represents the common properties of Algorithms (Macros and Procedures).
    /// </summary>
-   public /*abstract*/ class Algorithm : CDL2Object, IProvidable, IImportable, IExportable {
+   public /*abstract*/ class Algorithm : CDL2Object, IProvidable, IImportable, IExportable, ICloneable {
       [JsonInclude][JsonPropertyOrder(10)] public RW AlgorithmType;            // One of FUNCTION, ACTION, TEST or PREDICATE (reservedWordValue will never be null)
       [JsonInclude][JsonPropertyOrder(11)] public TT BodyType;                 // One of : or := (for CODE only) and = or =: (for MACRO only)
       [JsonInclude][JsonPropertyOrder(12)] public List<Guid> affixGuids = [];  // The affixes of this algorithm. A List because they are ordered.
@@ -1534,17 +1535,16 @@ namespace CDL2v1 {
          }
       }
 
+      // Overriden by Macro and Procedure
+      public override object Clone() => new Algorithm(Id,Affixes,Locals,AlgorithmType,"",BodyType,Section!);
+
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false)
-            : base(id,section,algorithmType.Comments,synthetic,algorithmType.reservedWordValue switch {
-               RW.FUNCTION => SelectorType.FUNCTION,
-               RW.ACTION => SelectorType.ACTION,
-               RW.TEST => SelectorType.TEST,
-               RW.PREDICATE => SelectorType.PREDICATE,
-               _ => SelectorType.INVALID
-            }) {
+            : base(id,section,algorithmType.Comments,synthetic,AlgorithmTypeFromToken(algorithmType)) { }
+      public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,RW algorithmType,string comments,TT bodyType,Section section,bool synthetic = false)
+            : base(id,section,comments,synthetic,SelectorTypeFromReservedWord(algorithmType)) {
          affixGuids = [.. affixes.Select(affix => affix.GUID)];
          localGuids = locals.Select(local => local.GUID).ToSet;
-         this.AlgorithmType = algorithmType.reservedWordValue ?? RW.FUNCTION;
+         this.AlgorithmType = algorithmType;
          this.BodyType = bodyType;
          this.SE = SE.AlgorithmName;
          foreach (Affix affix in affixes)
@@ -1552,6 +1552,16 @@ namespace CDL2v1 {
          foreach (Local local in locals)
             local.ContainingAlgorithm = this;
       }
+
+      private static ST AlgorithmTypeFromToken(Token algorithmType) => SelectorTypeFromReservedWord(algorithmType.reservedWordValue?? RW.FUNCTION);
+      private static ST SelectorTypeFromReservedWord(RW algorithmType) => algorithmType switch {
+         RW.FUNCTION => SelectorType.FUNCTION,
+         RW.ACTION => SelectorType.ACTION,
+         RW.TEST => SelectorType.TEST,
+         RW.PREDICATE => SelectorType.PREDICATE,
+         _ => SelectorType.INVALID
+      };
+
       [JsonConstructor]
       public Algorithm() { }
       public bool HasLocal(ID id) => Locals.FirstOrDefault(aff => aff.Id == id) is not null;
@@ -1759,7 +1769,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a macro in the syntax tree.
    /// </summary>
-   public class Macro : Algorithm {
+   public class Macro : Algorithm, ICloneable {
       [JsonInclude]
       [JsonPropertyOrder(60)]
       public List<IElement> Elements = [];
@@ -1777,6 +1787,8 @@ namespace CDL2v1 {
 
       public override bool IsInlinable(Reachable? _ = null) => IsInlineMacro && Settings.IsInliningMacros;
 
+      public override object Clone() => new Macro(Id,Affixes,Locals,Token.From(AlgorithmType),BodyType,Section!) { Elements = new List<IElement>(Elements) };
+
       public override IEnumerable<Var> GetReferencedVariables() => Elements.OfType<ID>()
                .Select(id => Section?.GetResolvedObject(id)).OfType<Var>().Distinct();
 
@@ -1791,7 +1803,7 @@ namespace CDL2v1 {
    /// <summary>
    /// Represents a procedure in the syntax tree.
    /// </summary>
-   public class Procedure : Algorithm {
+   public class Procedure : Algorithm, ICloneable {
       [JsonInclude]
       [JsonPropertyOrder(20)]
       public Group group = new();
@@ -1844,6 +1856,8 @@ namespace CDL2v1 {
       [JsonIgnore] internal override IEnumerable<ID> ReferencedLocals => group.Referenced<Local>().Distinct();
 
       public bool ReferrencesGroup(ID label,bool includeAnon=true) => group.ReferencesGroup(label,includeAnon);
+
+      public override object Clone() => new Procedure(Id,Affixes,Locals,Token.From(AlgorithmType),BodyType,Section!) { group = group.Clone() as Group ?? new Group() };
 
       /// <summary>
       /// The parser will set this if a repeat operator references the procedure itself.
@@ -1937,7 +1951,7 @@ namespace CDL2v1 {
 
    }
 
-   public class Call : NamedElement {
+   public class Call : NamedElement, ICloneable {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Call";
@@ -1980,13 +1994,17 @@ namespace CDL2v1 {
 
       [JsonIgnore] public bool IsConditionalCompilationOff => IsConditionalCompilation(on: false);
       [JsonIgnore] public bool IsConditionalCompilationOn => IsConditionalCompilation(on: true);
-      public Call(ID id,Procedure containingProc,Alternative containingAlternative,bool builtin = false) : base(id,focusType: SelectorType.CALL,record: builtin) {
+      public Call(ID id,Procedure containingProc,Alternative containingAlternative,bool builtin = false) : this(id,containingProc,containingAlternative.GUID,builtin) { }
+      public Call(ID id,Procedure containingProc,Guid containingAlternative,bool builtin = false) : base(id,focusType: SelectorType.CALL,record: builtin) {
          this.id = id;
-         Parent = containingAlternative.GUID;
+         Parent = containingAlternative;
          IsBuiltin = builtin;
          this.containingProc = containingProc.GUID;
       }
+      public object Clone() => new Call(id,ContainingProc,Parent,IsBuiltin) { argRefs = [.. argRefs] };
+
       [JsonConstructor]
+
       public Call() {
          id = ID.AnonID; // For deserialization
          FocusType = SelectorType.CALL;
@@ -2072,7 +2090,7 @@ namespace CDL2v1 {
    /// Repeat - * with a reference to the group that is repeated possibly using the label
    /// Group - a nested group.
    /// </summary>   
-   public class LastCall : NamedElement, IUnrecordedElement {
+   public class LastCall : NamedElement, IUnrecordedElement, ICloneable {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "LastCall";
@@ -2083,18 +2101,28 @@ namespace CDL2v1 {
       [JsonInclude][JsonPropertyOrder(53)] public Call? call;
       [JsonInclude][JsonPropertyOrder(54)] public ID? label = ID.AnonID;
 
-      public LastCall(LCT type,Alternative containingAlternative) {
+      public LastCall(LCT type,Alternative containingAlternative) : this(type, containingAlternative.GUID) {}
+      public LastCall(LCT type,Guid containingAlternative) {
          this.type = type;
-         Parent = containingAlternative.GUID;
+         Parent = containingAlternative;
          FocusType = SelectorType.INVALID;
       }
       [JsonConstructor]
       public LastCall() { type = LCT.None; FocusType = SelectorType.INVALID; } // For deserialization
 
       public LastCall(Call call,Alternative containingAlternative) : this(LCT.Standard,containingAlternative) => this.call = call;
+      public LastCall(Call call,Guid containingAlternative) : this(LCT.Standard,containingAlternative) => this.call = call;
       public LastCall(Group group,Alternative containingAlternative) : this(LCT.Group,containingAlternative) => this.group = group;
+      public LastCall(Group group,Guid containingAlternative) : this(LCT.Group,containingAlternative) => this.group = group;
       public LastCall(ID? label,Alternative containingAlternative) : this(LCT.Repeat,containingAlternative) => this.label = label;
+      public LastCall(ID? label,Guid containingAlternative) : this(LCT.Repeat,containingAlternative) => this.label = label;
 
+      public object Clone() => type switch {
+         LCT.Standard => new LastCall(call!.Clone() as Call ?? new Call(),Parent),
+         LCT.Group => new LastCall(group!.Clone() as Group ?? new Group(),Parent),
+         LCT.Repeat => new LastCall(label,Parent),
+         _ => new LastCall(type,Parent)
+      };
       public bool TryGetCalled(out Algorithm? called) {
          if (type == LCT.Standard && call!.ContainingProc.Section!.TryGetDeclaration(call.id,out called))
             return true;
@@ -2112,7 +2140,7 @@ namespace CDL2v1 {
          _ => "ERROR",
       };
    }
-   public class Alternative : NamedElement, IUnrecordedElement {
+   public class Alternative : NamedElement, IUnrecordedElement, ICloneable {
 #if DEBUG_SERIALIZATION
 #pragma warning disable CS0414
       [JsonInclude][JsonPropertyOrder(0)][JsonPropertyName("$type")] private readonly string _type = "Alternative";
@@ -2133,11 +2161,17 @@ namespace CDL2v1 {
       // set to on (so subsequent alternatives will be removed by the code generator and thus it becomes the last alternative).
       [JsonIgnore] public bool IsLastAlternative => NextAlternativeNumber == ALTERNATIVES_END || IsConditionalCompilationOn;
 
-      public Alternative(List<Call> calls,LastCall lastCall,Notes notes,Group containingGroup) : base(ID.AnonID,synthetic: false,SelectorType.INVALID) {
+      public object Clone() {
+         Alternative alt = new (Calls.Select(call=>call.Clone() as Call ?? new Call()).ToList(),LastCall.Clone() as LastCall ?? new LastCall(),Notes.Empty,Parent);
+         return alt;
+      }
+
+      public Alternative(List<Call> calls,LastCall lastCall,Notes notes,Group containingGroup) : this(calls,lastCall,notes,containingGroup.GUID) { }
+      public Alternative(List<Call> calls,LastCall lastCall,Notes notes,Guid containingGroup) : base(ID.AnonID,synthetic: false,SelectorType.INVALID) {
          this.Calls = calls;
          this.LastCall = lastCall;
          Notes = notes;
-         Parent = containingGroup.GUID;
+         Parent = containingGroup;
       }
 
       public Alternative(Notes notes,Group group) : base(ID.AnonID,synthetic: false,SelectorType.INVALID) {
@@ -2204,7 +2238,7 @@ namespace CDL2v1 {
    /// <see cref="Procedure"/>-s contain a single top level group. In this case the parent is the procedures.
    /// A group nested in an alternative has the alternative as its parent. Use 
    /// </remarks>
-   public class Group : NamedElement, IUnrecordedElement {
+   public class Group : NamedElement, IUnrecordedElement, ICloneable {
       [JsonInclude][JsonPropertyOrder(30)] public List<Alternative> Alternatives = [];
       public override IEnumerable<NamedElement> ChildElements() => Alternatives;
 
@@ -2335,6 +2369,13 @@ namespace CDL2v1 {
             }
          }
       }
+
+      public object Clone() {
+         Group clone = new(Id,[],Parent,true) {
+            Alternatives = Alternatives.Select(alt => alt.Clone() as Alternative ?? new Alternative()).ToList()
+         };
+         return clone;
+      }
    }
 
 
@@ -2392,7 +2433,7 @@ namespace CDL2v1 {
       public string AsDecoratedCDL2String(Emitter emitter) => $"\"{EscapedCDL2(value)}\"".Decorate(emitter,SE.String);
       override public string ToString() => $"\"{value}\"";
    }
-   public class LIST : CDL2Object, IDataElement {
+   public class LIST : CDL2Object, IDataElement, ICloneable {
       [JsonInclude] public ID lwb;
       [JsonInclude] public ID upb;
 
@@ -2407,21 +2448,28 @@ namespace CDL2v1 {
          upb = ID.AnonID;
          FocusType = SelectorType.LIST;
       } // For deserialization
+
+      public override object Clone() => new LIST(Id,Section!,lwb,upb);
+
       override public string ToString() => $"LIST {Id}({lwb}:{upb})";
    }
-   public class Var : CDL2Object, IDataElement, IFailureProtected, IActualArg, ITrackedVar {
+   public class Var : CDL2Object, IDataElement, IFailureProtected, IActualArg, ITrackedVar, ICloneable {
       public Var(ID id,Section section) : base(id,section,"",FocusType: SelectorType.VAR) => SE = SE.Var;
       [JsonConstructor]
       public Var() : base() { FocusType = SelectorType.VAR; } // For deserialization
 
       override public string ToString() => $"VAR {Id.Name}";
+
+      public override object Clone() => new Var(Id,Section!);
    }
-   public class Const : CDL2Object, IDataElement, IProvidable, IExportable, IActualArg, IImportable {
+   public class Const : CDL2Object, IDataElement, IProvidable, IExportable, IActualArg, IImportable, ICloneable {
       [JsonInclude]
       public List<IElement> elements = [];  // Will contain ids (const, var, list) and strings, integers, floats
 
       public Const(ID id,Section section) : base(id,section,"",FocusType: SelectorType.CONST) => SE = SE.Const;
       [JsonConstructor] public Const() : base() => FocusType = SelectorType.CONST;  // For deserialization
+
+      public override object Clone() => new Const(Id,Section!) { elements = [.. elements] };
    }
 
    public class ImportedConst : Const, IImportable, IDataElement {

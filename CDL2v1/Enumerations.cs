@@ -198,6 +198,7 @@ namespace CDL2v1 {
       consult,
       delete,
       down,
+      duplicate,
       edit,
       exit,
       first,
