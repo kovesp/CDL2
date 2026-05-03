@@ -1536,10 +1536,11 @@ namespace CDL2v1 {
       }
 
       // Overriden by Macro and Procedure
-      public override object Clone() => new Algorithm(Id,Affixes,Locals,AlgorithmType,"",BodyType,Section!);
+      public override object Clone() => new Algorithm();
 
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,Token algorithmType,TT bodyType,Section section,bool synthetic = false)
-            : base(id,section,algorithmType.Comments,synthetic,AlgorithmTypeFromToken(algorithmType)) { }
+            : this(id,affixes,locals,algorithmType.reservedWordValue??RW.FUNCTION,algorithmType.Comments,bodyType,section,synthetic) { }
+
       public Algorithm(ID id,List<Affix> affixes,Set<Local> locals,RW algorithmType,string comments,TT bodyType,Section section,bool synthetic = false)
             : base(id,section,comments,synthetic,SelectorTypeFromReservedWord(algorithmType)) {
          affixGuids = [.. affixes.Select(affix => affix.GUID)];
