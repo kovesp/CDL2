@@ -381,3 +381,6 @@ testlog.*.txt
 /CDL2v1/CDL2/CDL2 Lab.pdf
 *.xmi
 *.csv
+/CDL2v1/CDL2/Collections.cdl2
+/CDL2v1/CDL2/ControlStructures.cdl2
+/CDL2v1/CDL2/ID Relationships.png
