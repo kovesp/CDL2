@@ -1,0 +1,2 @@
+#!/bin/bash
+./CDL2v1-Linux --sources Quicksort.cdl2 --output-dir . --allow-errors --messages Warning --lab --program "csharp sort" --console -v0 -d0 "$@"
