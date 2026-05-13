@@ -1,2 +1,3 @@
 #!/bin/bash
-./CDL2v1-Linux --sources Quicksort.cdl2 --output-dir . --allow-errors --messages Info --report-all --lab:false --parse-only -v0 -d0 "$@"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+$DIR/CDL2v1-Linux --sources Quicksort.cdl2 --output-dir . --allow-errors --messages Info --report-all --lab:false --parse-only -v0 -d0 "$@"

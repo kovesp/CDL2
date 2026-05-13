@@ -17,7 +17,7 @@
     },
     "Parse & Save": {
       "commandName": "Project",
-      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d0\r\n--parse-only --allow-errors\r\n--messages Warning\r\n--program \"memory test\" --report-all",
+      "commandLineArgs": "--sources Quicksort.cdl2 -v0 -d0\r\n--parse-only --allow-errors\r\n--messages Warning\r\n--program \"c sort\" --report-all",
       "workingDirectory": "$(ProjectDir)\\CDL2"
     },
     "LAB Console": {

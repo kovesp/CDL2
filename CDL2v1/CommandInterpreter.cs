@@ -541,6 +541,7 @@ namespace CDL2v1 {
       private readonly Dictionary<CommandType,OverrideSetting[]> OverrideSettings = new() {
          [CommandType.print] = PrintOverrides,
          [CommandType.type] =  PrintOverrides,
+         [CommandType.list] = [new("refs",false)],
       };
       private static readonly OverrideSetting[] PrintOverrides = [new("AutoPrint",false),new ("file","")];
       /// <summary>
