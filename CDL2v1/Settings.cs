@@ -138,7 +138,6 @@ namespace CDL2v1 {
       private readonly List<ISetting> SettingsList = [
          new Setting<string[]>("Sources",            "--sources",                          "The source files to compile. Ignored if the --lab option is given."),
          new Setting<int>(     "VerbosityLevel",     ["-v", "--verbose"],   -1,            "Set the verbosity level (0-3)."),
-         new Setting<bool>(     "SparxModel",        "--sparx-model",       false,         "Generate a Sparx class model from SyntaxTree."),
 
          new Setting<int>(     "DebugVerbosityLevel",["-d", "--debug-log"], -1,            "Set the debug verbosity level (0-3)."),
          new Setting<string>(  "Target",             ["-t","--target"],     "PowerShell",  "Generate code for the specified target language. Default is PowerShell."),
