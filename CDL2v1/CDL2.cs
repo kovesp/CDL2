@@ -278,6 +278,7 @@ namespace CDL2v1 {
 
       [SupportedOSPlatform("windows")]
       private void StartGuidThread(IToaster toaster) {
+#if WINDOWS
          Thread CLIThread = new(() => {
             System.Windows.Application app = new();
             // Create and show the window
@@ -303,6 +304,7 @@ namespace CDL2v1 {
          CLIThread.SetApartmentState(ApartmentState.STA);
          CLIThread.Start();
          CLIThread.Join();
+#endif
       }
 
       /// <summary>
