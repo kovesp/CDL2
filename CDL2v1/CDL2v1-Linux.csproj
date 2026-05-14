@@ -13,7 +13,33 @@
 
   <ItemGroup>
     <Compile Include="**\*.cs" Exclude="bin\**;obj\**;CDL2\**\*.cs;ToastWindow.cs;CommandWindow.xaml.cs;EmitterCommandWindow.cs;EmitterWindow.cs;CommandPromptWindow.cs" />
+
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
   </ItemGroup>
 
+    <!-- Compute version M.m.b number from last git tag of vM.m and b the number of commits since the tag -->
+  <Target Name="ComputeGitVersion" BeforeTargets="GenerateAssemblyInfo">
+    <Exec Command="git describe --tags --match &quot;v*&quot; --abbrev=0"
+          ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitTag" />
+    </Exec>
+
+    <Exec Command="git rev-list $(GitTag)..HEAD --count"
+          ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitHeight" />
+    </Exec>
+
+    <!-- strip leading 'v' -->
+    <PropertyGroup>
+      <BaseVersion>$([System.String]::Copy($(GitTag)).TrimStart('v'))</BaseVersion>
+      <Version>$(BaseVersion).$(GitHeight)</Version>
+    </PropertyGroup>
+  </Target>
+
+  <PropertyGroup>
+    <Version>$(Version)</Version>
+    <FileVersion>$(Version)</FileVersion>
+    <AssemblyVersion>$(BaseVersion).0</AssemblyVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+  </PropertyGroup>
 </Project>

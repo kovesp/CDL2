@@ -149,13 +149,17 @@ namespace CDL2v1 {
    /// Processes command line options and compiles the source files.
    /// </summary>
    public partial class CDL2 {
-      public static readonly string Version = "1.0.0";
+      public static string Version = $"1.0.0";
       public const string LabName = "CDL2 Laboratory Redux";
 
       /// <summary>
       /// Static constructor
       /// </summary>
-      static CDL2() => Compiler = new CDL2();
+      static CDL2() {
+         string? generatedVersion = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+         if (generatedVersion != null) Version = $"{generatedVersion}";
+         Compiler = new CDL2();
+      }
 
       private CDL2() { }
       public static readonly CDL2 Compiler;
