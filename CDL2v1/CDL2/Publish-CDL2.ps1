@@ -15,7 +15,9 @@ Generate a Windows and a Linux executable for the CDL2 lab and package for Linux
    is read-only to prevent accidental edits.
    .PARAMETER NoBuild
    Skip building the executables. Default is to build the executables.
-.PARAMETER OS
+   .PARAMETER BuildOnly
+   Only build the executables. Default is to build and deploy. Use OS to build only one or both.
+   .PARAMETER OS
    The operating system(s) to generate the lab for. Default is both Windows and Linux.
    .PARAMETER NoDeploy
    Skip copying the build to the WSL and Windows test locations. Default is to copy the build.
@@ -33,6 +35,7 @@ Generate a Windows and a Linux executable for the CDL2 lab and package for Linux
 [CmdletBinding()]
 param (
    [switch]$NoBuild,
+   [switch]$BuildOnly,
    [ValidateSet('windows', 'linux')]
    [string[]]$OS = ('windows','linux'),
    [switch]$NoWSL,
@@ -133,8 +136,10 @@ function Copy-Files([string]$dst,[Hashtable]$map) {
 Remove-Item -Recurse -Force $targetDir -ErrorAction Ignore
 New-Item -ItemType Directory -Force -Path "$targetDir\$targetRoot" -ErrorAction Ignore | Out-Null
 
-Write-Host -ForegroundColor Green "Copying files $source -> $($targetDir -replace [Regex]::Escape($Env:TMP),'$env:TMP') ..."
-Copy-Files "$targetDir\$targetRoot" $FileMap
+if (-not $BuildOnly) {
+   Write-Host -ForegroundColor Green "Copying files $source -> $($targetDir -replace [Regex]::Escape($Env:TMP),'$env:TMP') ..."
+   Copy-Files "$targetDir\$targetRoot" $FileMap
+}
 
 Push-Location $source
 if (-not $NoBuild -and $Windows) {
@@ -157,6 +162,11 @@ if (-not $NoBuild -and $Linux) {
    if (-not $KeepPDBs) { Remove-Item -Force "$targetDir\Linux\*.pdb" -ErrorAction Ignore }
 }
 Pop-Location
+
+if ($BuildOnly) {
+   Write-Host -ForegroundColor Green "`nBuildOnly specified. Skipping zipping and deployment."
+   exit 0
+}
 
 New-Item -ItemType Directory -Force -Path "$source\$releaseDir" -ErrorAction Ignore | Out-Null
 Remove-Item -Force "$source\$releaseDir\*.zip" -ErrorAction Ignore
