@@ -40,6 +40,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 
 using static CDL2v1.Logger;
@@ -157,7 +158,7 @@ namespace CDL2v1 {
       /// </summary>
       static CDL2() {
          string? generatedVersion = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-         if (generatedVersion != null) Version = $"{generatedVersion}";
+         if (generatedVersion != null) Version = Regex.Replace(generatedVersion ?? "",@"^(\d+\.\d+\.\d+).*$","$1"); // RE not really required anymore.
          Compiler = new CDL2();
       }
 
@@ -211,35 +212,11 @@ namespace CDL2v1 {
             foreach (Program program in Database.Instance.ProgramObjects) SemanticAnalyzer.AnalyzeProgram(program);
 
             if (usingGUI) {
-#if WINDOWS
-               Thread CLIThread = new(() => {
-                  System.Windows.Application app = new();
-                  // Create and show the window
-                  ToastWindow guiToaster = new();
-                  CommandWindow commandWindow = new(guiToaster);
-                  System.Windows.Application.Current.MainWindow = commandWindow;
-                  CommandInterpreter CLI = new(commandWindow,
-                     new EmitterCommandWindow(commandWindow) { 
-                        SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug"), 
-                        DebugVisibleSpaces = Settings.SettingValue<bool>("PrettyPrintDebugVisibleSpaces") 
-                     },
-                     toaster = guiToaster);
-                  Database.Instance.CLI = CLI;
-
-                  // Handle commands
-                  commandWindow.SetInputProcessor(CLI.ProcessInput);
-                  commandWindow.Closed += (s,e) => app.Shutdown();
-                  commandWindow.Title = $"{CDL2.LabName} - {Settings.LabDBName}";
-                  CLI.SetStatus();
-                  app.Run(commandWindow);
-               });
-
-               CLIThread.SetApartmentState(ApartmentState.STA);
-               CLIThread.Start();
-               CLIThread.Join();
-#else
-               throw new PlatformNotSupportedException("GUI mode is only supported on Windows");
-#endif
+               if (OperatingSystem.IsWindows()) {
+                  StartGuidThread(toaster);
+               } else {
+                  throw new PlatformNotSupportedException("GUI mode is only supported on Windows");
+               }
             } else {
                CommandConsole repl = new();
                Emitter emitter = new EmitterAnsi(repl) { SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug") };
@@ -299,6 +276,35 @@ namespace CDL2v1 {
          }
       }
 
+      [SupportedOSPlatform("windows")]
+      private void StartGuidThread(IToaster toaster) {
+         Thread CLIThread = new(() => {
+            System.Windows.Application app = new();
+            // Create and show the window
+            ToastWindow guiToaster = new();
+            CommandWindow commandWindow = new(guiToaster);
+            System.Windows.Application.Current.MainWindow = commandWindow;
+            CommandInterpreter CLI = new(commandWindow,
+               new EmitterCommandWindow(commandWindow) {
+                  SuppressDebug = !Settings.SettingValue<bool>("PrettyPrintDebug"),
+                  DebugVisibleSpaces = Settings.SettingValue<bool>("PrettyPrintDebugVisibleSpaces")
+               },
+               toaster = guiToaster);
+            Database.Instance.CLI = CLI;
+
+            // Handle commands
+            commandWindow.SetInputProcessor(CLI.ProcessInput);
+            commandWindow.Closed += (s,e) => app.Shutdown();
+            commandWindow.Title = $"{CDL2.LabName} - {Settings.LabDBName}";
+            CLI.SetStatus();
+            app.Run(commandWindow);
+         });
+
+         CLIThread.SetApartmentState(ApartmentState.STA);
+         CLIThread.Start();
+         CLIThread.Join();
+      }
+
       /// <summary>
       /// Perform semantic analysis on the given program.
       /// Note that a new semantic analyzer is always created.
@@ -306,7 +312,7 @@ namespace CDL2v1 {
       /// The only use ot the property is to retrieve statistics.
       /// </summary>
       /// <param name="program"></param>
-      //public void PerformSemanticAnalysis(Program program) => SemanticAnalyzer = SemanticAnalyzer.PerformSemanticAnalysis(this,program);
+         //public void PerformSemanticAnalysis(Program program) => SemanticAnalyzer = SemanticAnalyzer.PerformSemanticAnalysis(this,program);
 
       public static Program? GetMainProgram() {
          Program? program = null;

@@ -531,15 +531,15 @@ Tab Completion Menu (when shown):
                // Set a reasonable default size (e.g., 120 columns x 30 rows)
                int desiredWidth = 120;
                int desiredHeight = 60;
-               
+
                // Ensure buffer is large enough before setting window size
-               Console.SetBufferSize(
+               if (OperatingSystem.IsWindows()) Console.SetBufferSize(
                   Math.Max(desiredWidth, Console.BufferWidth),
                   Math.Max(MaxScrollbackLines + 100, desiredHeight)
                );
                
                // Now set the window size
-               Console.SetWindowSize(desiredWidth, desiredHeight);
+               if (OperatingSystem.IsWindows()) Console.SetWindowSize(desiredWidth, desiredHeight);
             } catch {
                // Ignore if resizing fails (may not be supported in all environments)
             }

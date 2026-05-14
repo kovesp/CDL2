@@ -148,7 +148,7 @@ namespace CDL2v1 {
             app.Run(window);
          });
 
-         thread.SetApartmentState(ApartmentState.STA);
+         if (OperatingSystem.IsWindows()) thread.SetApartmentState(ApartmentState.STA);
          thread.Start();
          // Wait for the window to stabilize
          while (window == null) Thread.Sleep(100);

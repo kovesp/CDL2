@@ -162,7 +162,7 @@ namespace CDL2v1 {
             Dispatcher.Run();
          });
 
-         toastThread.SetApartmentState(ApartmentState.STA);
+         if (OperatingSystem.IsWindows()) toastThread.SetApartmentState(ApartmentState.STA);
          toastThread.Start();
 
          action();
