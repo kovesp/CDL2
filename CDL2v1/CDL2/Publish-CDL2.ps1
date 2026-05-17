@@ -25,10 +25,29 @@ Generate a Windows and a Linux executable for the CDL2 lab and package for Linux
    Keep the PDB files in the zip file. Default is to remove the PDB files prior to zipping.
    .PARAMETER UpdateDB
    Update the sample lab database in the WSL test location. Default is to NOT update the database if it exists.
-.EXAMPLE
-   Publish-CDL2.ps1
-   Generate the Windows and Linux executables for the CDL2 lab, create the zip files, and copy the Linux build to the WSL test location.
+   .PARAMETER Version
+   Update the version number of the app using git tag vM.m unless the value is None (the default).
+   Finds the latest tag that matches the pattern "vM.m" and increments the version number based on the specified
+   type (Major or Minor). Default is to increment the Minor version number.
+   When this parameter is not None, only versioning will be done.
+   A value of Undo can be used to undo the last version update by deleting the latest tag.
+   Use with caution, and only if you are sure that the latest tag is the one created by the last version update.
+   The release artifacts will be built in the directory $releaseDir which should be outside the source directory.
+   .PARAMETER Release
+   Create a GitHub Release with the given name and attach the generated zip files to the release.
+   The release will be created from the latest version tag. 
+   Default is to not create a release. Use with '*' to name the release with just the version number (e.g. "v1.2").
+
+
+   .EXAMPLE
+   .\Publish-CDL2.ps1 -Version Minor
+   This command increments the minor version number of the latest version tag and pushes the new tag to GitHub. 
+   For example, if the latest tag is v1.2, it creates and pushes the new tag v1.3.
+   .EXAMPLE
+   .\Publish-CDL2.ps1 -Release "Alpha test"
+
    #>
+   
    
    #cspell:ignore czvf labc
    
@@ -40,7 +59,10 @@ param (
    [string[]]$OS = ('windows','linux'),
    [switch]$NoWSL,
    [switch]$KeepPDBs,
-   [switch]$UpdateDB
+   [switch]$UpdateDB,
+   [ValidateSet('None','Major','Minor','Undo')]
+   [string]$Version = 'None',
+   [string]$Release = ''
 )
       
 # The target root is the root directory in the zip file. It is used to determine the structure of the zip file.
@@ -58,14 +80,15 @@ param (
 [string]$WindowsTarget    = 'C:\'
 
 # The source directory is the location of the Visual Studio project. It is used to perform the builds.
+[string]$releaseDir       = 'C:\Visual Studio Projects\CDL2.Release'
 [string]$source           = 'C:\Visual Studio Projects\CDL2\CDL2v1'
 [string]$VSProjectDir     = "$source\CDL2"
 
 # The target directory is a temporary directory where the files are copied to for zipping.
 # It is deleted and recreated each time the script is run.
 [string]$targetDir        = "$Env:temp\CDL2Release"
-# 
-[string]$releaseDir       = 'Release'
+
+
 
 # The operating system(s) to generate the lab for. The default is both Windows and Linux.
 [bool]$Windows            = $OS -contains 'windows'
@@ -133,6 +156,52 @@ function Copy-Files([string]$dst,[Hashtable]$map) {
    }  
 }
 
+function Invoke-Git([scriptblock]$gitCommand,[scriptblock]$errorHandler) {
+   $res = & $gitCommand
+   if ($LASTEXITCODE -ne 0) {
+      [string]$operation = (($gitCommand.ToString().Trim() -split '\s+') | Select-Object -First 2) -join ' '
+      Write-Error "$operation failed with exit code $LASTEXITCODE"
+      exit $LASTEXITCODE
+   }
+   return $res
+}
+
+# If versioning is requested, do nothing else.
+if ($Version -ne 'None') {
+   Push-Location $source
+   try {
+      Write-Host -ForegroundColor Green "Updating version number ..."
+      $latestTag = Invoke-Git { git describe --tags --match "v[0-9]*.[0-9]*" }
+
+      if ($latestTag -match '^v(\d+)\.(\d+)') {
+         if ($Version -eq 'Undo') {
+            Write-Host -ForegroundColor Green "Deleting latest tag '$latestTag' to undo the last version update ..."
+            Invoke-Git { git tag -d $latestTag }
+            Invoke-Git { git push --delete origin $latestTag } { git tag $latestTag }
+            Write-Host -ForegroundColor Green "Tag '$latestTag' deleted successfully."
+         } else {
+            $major = [int]$matches[1]
+            $minor = [int]$matches[2]
+            switch ($Version) {
+               'Major' { $major++ ; $minor = 0 }
+               'Minor' { $minor++ }
+            }
+            $newTag = "v$major.$minor"
+            Write-Host -ForegroundColor Green "Latest tag: $($latestTag -replace '-.*$',''). New tag: $newTag"
+            Invoke-Git { git tag $newTag }
+            Invoke-Git { git push origin $newTag } { git tag -d $newTag }
+         }
+      } else {
+         Write-Error "Latest tag '$latestTag' does not match the expected pattern 'vM.m'"
+         exit 1
+      }
+      exit 0
+   } finally {
+      Pop-Location
+   }
+}
+
+
 Remove-Item -Recurse -Force $targetDir -ErrorAction Ignore
 New-Item -ItemType Directory -Force -Path "$targetDir\$targetRoot" -ErrorAction Ignore | Out-Null
 
@@ -141,7 +210,11 @@ if (-not $BuildOnly) {
    Copy-Files "$targetDir\$targetRoot" $FileMap
 }
 
+# Build the executables in the source directory and copy them to the target directory for zipping.
 Push-Location $source
+
+New-Item -ItemType Directory -Force -Path "$releaseDir" -ErrorAction Ignore | Out-Null
+Remove-Item -Force "$releaseDir\*.zip" -ErrorAction Ignore
 if (-not $NoBuild -and $Windows) {
    Write-Host -ForegroundColor Green "`nPublishing CDL2 Lab for Windows..."
    dotnet publish CDL2v1.csproj        -c Release -r win-x64   --self-contained -p:PublishSingleFile=true -o:"$targetDir\$targetRoot\bin\Windows"
@@ -168,9 +241,6 @@ if ($BuildOnly) {
    exit 0
 }
 
-New-Item -ItemType Directory -Force -Path "$source\$releaseDir" -ErrorAction Ignore | Out-Null
-Remove-Item -Force "$source\$releaseDir\*.zip" -ErrorAction Ignore
-
 Push-Location $targetDir
 
 [int]$msgLen = 54
@@ -178,28 +248,28 @@ Push-Location $targetDir
 Write-Host -ForegroundColor Green "`nCreating Windows only zip file (CDL2-Windows.zip) ... ".PadRight($msgLen) -NoNewline
 # Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2-Windows.zip" -Force -CompressionLevel Optimal
 # zip -d "$source\$releaseDir\CDL2-Windows.zip" "cdl2/bin/Linux/*" *> $null
-zip -r -9 "$source\$releaseDir\CDL2-Windows.zip" $targetRoot -x "cdl2/bin/Linux/*" *> $null
-Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$source\$releaseDir\CDL2-Windows.zip").Length/1024/1024))
+zip -r -9 "$releaseDir\CDL2-Windows.zip" $targetRoot -x "cdl2/bin/Linux/*" *> $null
+Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Windows.zip").Length/1024/1024))
 
 # Copy the Linux directory to the target to create the combined version zip file.
 Write-Host -ForegroundColor Green "Creating combined zip file (CDL2.zip) ... ".PadRight($msgLen) -NoNewline
 Move-Item -Force "$targetDir\Linux\*" "$targetDir\$targetRoot\bin\Linux"
 # Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2.zip" -Force -CompressionLevel Optimal
-zip -r -9 "$source\$releaseDir\CDL2.zip" $targetRoot *> $null
-Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$source\$releaseDir\CDL2.zip").Length/1024/1024))
+zip -r -9 "$releaseDir\CDL2.zip" $targetRoot *> $null
+Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2.zip").Length/1024/1024))
 
 # Remove the Windows directory to create the Linux only version zip file.
 Write-Host -ForegroundColor Green "Creating Linux only zip file (CDL2-Linux.zip) ... ".PadRight($msgLen) -NoNewline
 Remove-Item -Recurse -Force "$targetDir\$targetRoot\bin\Windows" -ErrorAction Ignore
 # Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2-Linux.zip" -Force -CompressionLevel Optimal
-zip -r -9 "$source\$releaseDir\CDL2-Linux.zip" $targetRoot *> $null
-Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$source\$releaseDir\CDL2-Linux.zip").Length/1024/1024))
+zip -r -9 "$releaseDir\CDL2-Linux.zip" $targetRoot *> $null
+Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Linux.zip").Length/1024/1024))
 
 Pop-Location
 
 if (-not $NoDeploy -and $Linux) {
    Write-Host -ForegroundColor Green "`nCopying Linux build to WSL test location ($WSLDir) and making it executable ..."
-   Copy-Item -Force "$source\$releaseDir\CDL2-Linux.zip" $WSLTarget
+   Copy-Item -Force "$releaseDir\CDL2-Linux.zip" $WSLTarget
    WSL -d $WSLDistro unzip -o "$WSLDir/CDL2-Linux.zip" -d $WSLDir *> $null
    [string]$WSLBin = "$WSLDir/cdl2/bin/Linux"
    WSL -d $WSLDistro chmod +x "$WSLBin/cdl2-lab" "$WSLBin/cdl2c" "$WSLBin/CDL2v1-Linux"
@@ -214,8 +284,8 @@ if (-not $NoDeploy -and $Linux) {
 if (-not $NoDeploy -and $Windows) {
    Write-Host -ForegroundColor Green "`nCopying Windows build to test location ($WindowsTarget) ..."
    # New-Item -ItemType Directory -Force -Path "$WindowsTarget\$targetDir" -ErrorAction Ignore | Out-Null
-   Expand-Archive -Path "$source\$releaseDir\CDL2-Windows.zip" -DestinationPath $WindowsTarget -Force
-   Copy-Item -Force "$source\$releaseDir\CDL2-Windows.zip" $WindowsTarget\$targetRoot
+   Expand-Archive -Path "$releaseDir\CDL2-Windows.zip" -DestinationPath $WindowsTarget -Force
+   Copy-Item -Force "$releaseDir\CDL2-Windows.zip" $WindowsTarget\$targetRoot
 
    # Copy the sample lab db to the Windows test location if it doesn't already exist, or if the UpdateDB flag is set.
    if ($UpdateDB -or -not (Test-Path "$WindowsTarget$targetRoot\$sampleDBName")) {
