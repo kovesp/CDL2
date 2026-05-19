@@ -34,24 +34,32 @@ Generate a Windows and a Linux executable for the CDL2 lab and package for Linux
    Use with caution, and only if you are sure that the latest tag is the one created by the last version update.
    The release artifacts will be built in the directory $releaseDir which should be outside the source directory.
    .PARAMETER Release
-   Create a GitHub Release with the given name and attach the generated zip files to the release.
-   The release will be created from the latest version tag. 
-   Default is to not create a release. Use with '*' to name the release with just the version number (e.g. "v1.2").
-
-
+   If the value is Create, a GitHub release with the name given by the Name parameter will be created from the latest version tag with the generated zip files attached.
+     * The HEAD commit must be tagged with a version tag for the release to be created, OR versioning must also be requested to create a new version tag.
+   If the value is 'Undo', the last release will be removed from GitHub.
+     * The version tag is changed back to a version tag by removing the R.
+   .PARAMETER Name
+   The name of the release to create. Default is to use the version number as the release name.
+   .PARAMETER Notes
+   The release notes to include in the GitHub release. Default is blank.
+   .PARAMETER PreRelease
+   If specified, the release will be marked as a pre-release.
    .EXAMPLE
    .\Publish-CDL2.ps1 -Version Minor
    This command increments the minor version number of the latest version tag and pushes the new tag to GitHub. 
    For example, if the latest tag is v1.2, it creates and pushes the new tag v1.3.
    .EXAMPLE
-   .\Publish-CDL2.ps1 -Release "Alpha test"
-
-   #>
+   .\Publish-CDL2.ps1 -Release Create -Name "Alpha test"
+   This command creates a GitHub release named "Alpha test" from the latest version tag and attaches the generated zip files to the release.
+   .EXAMPLE
+   .\Publish-CDL2.ps1 -Version Minor -Release Create -Name "Beta Test"
+   This command increments the minor version number of the latest version tag, pushes the new tag to GitHub, builds the release artifacts,
+   and creates a GitHub release named "Beta Test" from the new version tag with the generated zip files attached.
+   #>   
    
+   #cspell:ignore czvf labc kovesp
    
-   #cspell:ignore czvf labc
-   
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess=$true)]
 param (
    [switch]$NoBuild,
    [switch]$BuildOnly,
@@ -62,13 +70,18 @@ param (
    [switch]$UpdateDB,
    [ValidateSet('None','Major','Minor','Undo')]
    [string]$Version = 'None',
-   [string]$Release = ''
+   [ValidateSet('None','Create','Undo')]
+   [string]$Release = 'None',
+   [string]$Name = '',
+   [string]$Notes = '',
+   [switch]$PreRelease
 )
       
 # The target root is the root directory in the zip file. It is used to determine the structure of the zip file.
 [string]$targetRoot       = 'cdl2'
 # The name of the sample lab database file. It is copied to the top level of the test target directories.
 [string]$sampleDBName     = 'CDL2v1.lab.gz'
+
 [string]$sampleDBLocation = "$targetRoot/Sample/$sampleDBName"
 
 # Set the variables for the source and target locations. The source is the directory containing the files to be copied, and the
@@ -132,168 +145,353 @@ param (
 # Copy the files in $map to the target given by $dst. The keys of $map are the file names.
 # The value of $map is a hashtable with the same structure as $FileMap.
 function Copy-Files([string]$dst,[Hashtable]$map) {
-   [string]$dstDir = $dst -replace [regex]::escape("$targetDir\$targetRoot"),''
-   foreach ($fn in $map.Keys | Sort-Object) {
-      $src = $map[$fn]
-      if ($src -is [string]) {
-         [string]$srcPath = ''
-         if ($src -eq '') {
-            $srcPath = Join-Path $source "$targetRoot\$fn"
+   if ($WhatIfPreference) {
+      Write-Host -ForegroundColor Yellow "WhatIf: Copying files in file map to $dst"
+   } else {
+      [string]$dstDir = $dst -replace [regex]::escape("$targetDir\$targetRoot"),''
+      foreach ($fn in $map.Keys | Sort-Object) {
+         $src = $map[$fn]
+         if ($src -is [string]) {
+            [string]$srcPath = ''
+            if ($src -eq '') {
+               $srcPath = Join-Path $source "$targetRoot\$fn"
+            } else {
+               $srcPath = Join-Path $source "$(if ($src -eq '.') { '' } else { $src })\$fn"
+            }
+            $fileName = $srcPath -replace "$([Regex]::Escape($source))\\",''
+            if ($fileName.StartsWith($targetRoot)) {
+               $fileName = $fileName -replace "^$targetRoot","$targetRoot$dstDir"
+            }
+            Write-Host -ForegroundColor Yellow "   $filename"
+            New-Item -ItemType Directory -Force -Path $dst -ErrorAction Ignore | Out-Null
+            Copy-Item $srcPath $dst -Force
          } else {
-            $srcPath = Join-Path $source "$(if ($src -eq '.') { '' } else { $src })\$fn"
-         }
-         $fileName = $srcPath -replace "$([Regex]::Escape($source))\\",''
-         if ($fileName.StartsWith($targetRoot)) {
-            $fileName = $fileName -replace "^$targetRoot","$targetRoot$dstDir"
-         }
-         Write-Host -ForegroundColor Yellow "   $filename"
-         New-Item -ItemType Directory -Force -Path $dst -ErrorAction Ignore | Out-Null
-         Copy-Item $srcPath $dst -Force
-      } else {
-         New-Item -ItemType Directory -Force -Path "$dst\$fn" -ErrorAction Ignore | Out-Null
-         Copy-Files "$dst\$fn" $map[$fn]
-      } 
+            New-Item -ItemType Directory -Force -Path "$dst\$fn" -ErrorAction Ignore | Out-Null
+            Copy-Files "$dst\$fn" $map[$fn]
+         } 
+      }
    }  
 }
 
-function Invoke-Git([scriptblock]$gitCommand,[scriptblock]$errorHandler) {
-   $res = & $gitCommand
-   if ($LASTEXITCODE -ne 0) {
-      [string]$operation = (($gitCommand.ToString().Trim() -split '\s+') | Select-Object -First 2) -join ' '
-      Write-Error "$operation failed with exit code $LASTEXITCODE"
-      exit $LASTEXITCODE
+function Invoke-Git([scriptblock]$gitCommand,[scriptblock]$errorHandler=$null,[switch]$Force) {
+   [string]$operation = (($gitCommand.ToString().Trim() -split '\s+') | Select-Object -First 2) -join ' '
+   if ($WhatIfPreference -and -not $Force) {
+      Write-Host -ForegroundColor Yellow "WhatIf: $operation"
+   } else {
+      $res = & $gitCommand
+      if ($LASTEXITCODE -ne 0) {
+         if ($null -ne $errorHandler) { 
+            Write-Error "$operation failed with exit code $LASTEXITCODE, performing error handling operations"
+            & $errorHandler 
+         } else {
+            Write-Error "$operation failed with exit code $LASTEXITCODE"
+         }
+         exit $LASTEXITCODE
+      }
+      return $res
    }
-   return $res
 }
 
-# If versioning is requested, do nothing else.
-if ($Version -ne 'None') {
-   Push-Location $source
-   try {
-      Write-Host -ForegroundColor Green "Updating version number ..."
-      $latestTag = Invoke-Git { git describe --tags --match "v[0-9]*.[0-9]*" }
-
-      if ($latestTag -match '^v(\d+)\.(\d+)') {
-         if ($Version -eq 'Undo') {
-            Write-Host -ForegroundColor Green "Deleting latest tag '$latestTag' to undo the last version update ..."
-            Invoke-Git { git tag -d $latestTag }
-            Invoke-Git { git push --delete origin $latestTag } { git tag $latestTag }
-            Write-Host -ForegroundColor Green "Tag '$latestTag' deleted successfully."
-         } else {
-            $major = [int]$matches[1]
-            $minor = [int]$matches[2]
-            switch ($Version) {
-               'Major' { $major++ ; $minor = 0 }
-               'Minor' { $minor++ }
-            }
-            $newTag = "v$major.$minor"
-            Write-Host -ForegroundColor Green "Latest tag: $($latestTag -replace '-.*$',''). New tag: $newTag"
-            Invoke-Git { git tag $newTag }
-            Invoke-Git { git push origin $newTag } { git tag -d $newTag }
-         }
-      } else {
-         Write-Error "Latest tag '$latestTag' does not match the expected pattern 'vM.m'"
+# Process the versioning and release parameters. 
+# If versioning is requested, the latest tag is retrieved and the new version number is calculated based on the specified type (Major or Minor).
+# Note this is processed regardless of whether -WhatIf was specified.
+function Get-Version() {
+   if ($Release -eq 'Undo' -and $Version -ne 'None' -and $Name -ne '') {
+      Write-Error "The -Version and -Name option cannot be used when -Release Undo is specified."
+      exit 1
+   } elseif ($Version -eq 'Undo' -and $Release -ne 'None' -and $Name -ne '') {
+      Write-Error "The -Release and -Name option cannot be used when -Version Undo is specified."
+      exit 1
+   }
+   [string]$latestTag = (Invoke-Git { git describe --tags --match "v[0-9]*.[0-9]*" } -Force)
+   if ($latestTag -match '^v(\d+)\.(\d+)(R?)') {
+      [int]$major         = [int]$matches[1]
+      [int]$minor         = [int]$matches[2]
+      [bool]$isRelease    = $matches[3] -eq 'R'
+      [string]$curVersion    = "v$major.$minor"
+      if ($Release -eq 'Undo' -and -not $isRelease) {
+         Write-Error "Cannot undo release because the HEAD commit is not a release"
          exit 1
       }
+      [bool]$isVersionUpdate = $Version -eq 'Major' -or $Version -eq 'Minor'
+      switch ($Version) {
+         'Major' { $major++ ; $minor = 0 }
+         'Minor' { $minor++ }
+      }
+      [string]$newVersion = "v$major.$minor"
+      
+      $lastCommit = (Invoke-Git { git log -1 --pretty=format:"%h - %s (%ci)" } -Force)
+      # Get a version tag that points at HEAD (the last commit), if one exists.
+      $lastTag = (Invoke-Git { git tag --points-at HEAD --list "v[0-9]*.[0-9]*" --sort=-v:refname } -Force | Select-Object -First 1)
+      [bool]$headNotVersioned = [string]::IsNullOrWhiteSpace($lastTag)
+      if ($headNotVersioned) {
+         if (-not $isVersionUpdate -and $Release -eq 'Create') {
+            Write-Error "Cannot create release because the HEAD commit is not versioned. Please specify a version update with the -Version parameter."
+            exit 1
+         }
+         $lastTag = 'UNVERSIONED' 
+      }
+      return @{
+         TAG                = $latestTag -replace '-.*$',''
+         Major              = $major
+         Minor              = $minor
+         PreviousVersion    = $curVersion
+         Version            = $newVersion
+         ReleaseTag         = "${newVersion}R"
+         IsUpdate           = $isVersionUpdate
+         IsVersionUndo      = $Version -eq 'Undo'
+         IsReleaseCreate    = $Release -eq 'Create' -and -not $isRelease
+         IsReleaseCreateSkip= $Release -eq 'Create' -and $isRelease
+         IsReleaseUndo      = $Release -eq 'Undo'
+         IsRelease          = $isRelease
+         ReleaseName        = if ($Name -eq '') { "CDL2 $newVersion" }  else { "CDL2 $newVersion - $Name" }
+         PublishMessage     = "$lastTag - $lastCommit"
+         UnversionedHEAD    = $headNotVersioned
+         UncommittedChanges = $null -ne (Invoke-Git { git status --porcelain } -Force)
+      }
+   } else {
+      Write-Error "Latest tag '$latestTag' does not match the expected pattern 'vM.m' or 'vM.mR'"
+      exit 1
+   }
+}
+
+Push-Location $source
+try {
+   [PSObject]$Version = Get-Version
+
+   # Verify that there are no uncommitted changes in the source directory. 
+   # This is important to ensure that the versioning and release process is based on a clean state of the repository.
+   if ($Version.UncommittedChanges) {
+      Write-Error "There are uncommitted changes in the source directory. Please commit or stash them before running this script."
+      exit 1
+   }
+
+   # $Version
+   # exit
+
+   ############################
+   # Step -1. Undo processing #
+   ############################
+   # Process the release undo and version undo cases first, since they only involve git operations and no file operations.
+   if ($Version.IsReleaseUndo) {
+      if ($WhatIfPreference) {
+         Write-Host -ForegroundColor Yellow "WhatIf: Undoing release of version $($Version.Version) by deleting GitHub release $($Version.ReleaseTag) and reverting tag to $($Version.Version)"
+         exit 0
+      } else {
+         Write-Host -ForegroundColor Green "Undoing release of version $($Version.Version) ..."
+         gh release delete $($Version.ReleaseTag) --cleanup-tag --yes
+         Invoke-Git { git tag $($Version.Version) }
+         Invoke-Git { git push origin $($Version.TAG) } { git tag -d $($Version.TAG) }
+         Write-Host -ForegroundColor Green "Release '$($Version.ReleaseTag)' removed, tag reverted to version."
+         exit 0
+      }
+   }
+
+   if ($Version.IsVersionUndo) {
+      if ($WhatIfPreference) {
+         Write-Host -ForegroundColor Yellow "WhatIf: Undoing version update from $($Version.PreviousVersion) to $($Version.Version) by deleting tag $($Version.Version)"
+         exit 0
+      } else {
+         Write-Host -ForegroundColor Green "Undoing version update from $($Version.PreviousVersion) to $($Version.Version) ..."
+         Invoke-Git { git tag -d $($Version.Version) }
+         Invoke-Git { git push --delete origin $($Version.TAG) } { git tag $($Version.TAG) }
+         Write-Host -ForegroundColor Green "Version '$($Version.Version)' deleted."
+         exit 0
+      }
+   }
+
+   # -1. See above, no need to consider undo cases beyond this point.
+   # At this point $Version encapsulates the current version information and the requested operations. The remaining operations are:
+   # 0. Display what will be done and prompt to continue.
+   # 1. Process version update first (if requested) since the new version has to be incorporated into the build.
+   # 2. The build is then performed.
+   # 3. Create the zip files and install to the test locations.
+   # 4. Finally the release is created based on the new version (if requested).
+
+   ###########################
+   # Step 0. Display actions #
+   ###########################
+
+   Write-Host -ForegroundColor Blue "Publishing commit: $($Version.PublishMessage)"
+   if ($Version.IsUpdate)        { Write-Host -ForegroundColor Cyan "Versioning to: $($Version.Version)" }
+   [string]$buildType = if ($NoDeploy) { 'Building for' } else { 'Building for and deploying to' }
+   if (-not $NoBuild)            { Write-Host -ForegroundColor Cyan "$buildType`: $($OS -join ' and ')" }
+   if ($Version.IsReleaseCreateSkip) { Write-Host -ForegroundColor Yellow "Release already exists for '$($Version.ReleaseTag)'; skipping release creation." }
+   if ($Version.IsReleaseCreate) { Write-Host -ForegroundColor Cyan "Releasing with name: $($Version.ReleaseName)" }
+   Write-Host -ForegroundColor Yellow "Continue (y/n) " -NoNewline
+   if ((Read-Host).ToLower() -ne 'y') {
+      Write-Host -ForegroundColor Yellow "Aborting."
       exit 0
-   } finally {
+   }
+   
+   ##########################
+   # Step 1. Update version #
+   ##########################
+
+   if ($Version.IsUpdate) {
+      if ($WhatIfPreference) {
+         Write-Host -ForegroundColor Yellow "WhatIf: Updating version from $($Version.PreviousVersion) to $($Version.Version) by creating and pushing git tag $($Version.Version)"
+      } else {
+         Write-Host -ForegroundColor Green "Updating version from $($Version.PreviousVersion) to $($Version.Version) ..."
+         Invoke-Git { git tag $($Version.Version) }
+         Invoke-Git { git push origin $($Version.Version) } { git tag -d $($Version.Version) }
+         Write-Host -ForegroundColor Green "Version updated to '$($Version.Version)' and pushed to origin."
+      }
+   }
+
+   #################
+   # Step 2. Build #
+   #################
+
+   if ($WhatIfPreference) {
+      Write-Host -ForegroundColor Yellow "WhatIf: Building the executables for $($OS -join ' and ') and copying files to $targetDir for zipping and deployment."
+   } else {
+      Remove-Item -Recurse -Force $targetDir -ErrorAction Ignore
+      New-Item -ItemType Directory -Force -Path "$targetDir\$targetRoot" -ErrorAction Ignore | Out-Null
+      
+      if (-not $BuildOnly) {
+         Write-Host -ForegroundColor Green "Copying files $source -> $($targetDir -replace [Regex]::Escape($Env:TMP),'$env:TMP') ..."
+         Copy-Files "$targetDir\$targetRoot" $FileMap
+      }
+
+      New-Item -ItemType Directory -Force -Path $releaseDir -ErrorAction Ignore | Out-Null
+      Remove-Item -Force "$releaseDir\*.zip" -ErrorAction Ignore
+      if (-not $NoBuild -and $Windows) {
+         Write-Host -ForegroundColor Green "`nPublishing CDL2 Lab for Windows..."
+         dotnet publish CDL2v1.csproj        -c Release -r win-x64   --self-contained -p:PublishSingleFile=true -o:"$targetDir\$targetRoot\bin\Windows"
+         if ($LASTEXITCODE -ne 0) {
+            Write-Error "WINDOWS dotnet publish failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+         }
+         if (-not $KeepPDBs) { Remove-Item -Force "$targetDir\$targetRoot\bin\Windows\*.pdb" -ErrorAction Ignore }
+      }
+      
+      if (-not $NoBuild -and $Linux) {
+         Write-Host -ForegroundColor Green "`nPublishing CDL2 Lab for Linux..."
+         dotnet publish CDL2v1-Linux.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o:"$targetDir\Linux"
+         if ($LASTEXITCODE -ne 0) {
+            Write-Error "LINUX dotnet publish failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+         }
+         if (-not $KeepPDBs) { Remove-Item -Force "$targetDir\Linux\*.pdb" -ErrorAction Ignore }
+      }
+   }
+
+   ########################
+   # Step 3.a Create ZIPs #
+   ########################
+   if ($WhatIfPreference) {
+      Write-Host -ForegroundColor Yellow "WhatIf: Creating zip files and copying to $releaseDir, and deploying to test locations."
+   } else {
+      Push-Location $targetDir
+      
+      [int]$msgLen = 54
+      # Create the Windows only version zip file
+      Write-Host -ForegroundColor Green "`nCreating Windows only zip file (CDL2-Windows.zip) ... ".PadRight($msgLen) -NoNewline
+      # Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2-Windows.zip" -Force -CompressionLevel Optimal
+      # zip -d "$source\$releaseDir\CDL2-Windows.zip" "cdl2/bin/Linux/*" *> $null
+      zip -r -9 "$releaseDir\CDL2-Windows.zip" $targetRoot -x "cdl2/bin/Linux/*" *> $null
+      Write-Host -ForegroundColor Cyan ("{0,2:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Windows.zip").Length/1024/1024))
+      
+      # Copy the Linux directory to the target to create the combined version zip file.
+      Write-Host -ForegroundColor Green "Creating combined zip file (CDL2.zip) ... ".PadRight($msgLen) -NoNewline
+      Move-Item -Force "$targetDir\Linux\*" "$targetDir\$targetRoot\bin\Linux"
+      # Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2.zip" -Force -CompressionLevel Optimal
+      zip -r -9 "$releaseDir\CDL2.zip" $targetRoot *> $null
+      Write-Host -ForegroundColor Cyan ("{0,2:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2.zip").Length/1024/1024))
+      
+      # Remove the Windows directory to create the Linux only version zip file.
+      Write-Host -ForegroundColor Green "Creating Linux only zip file (CDL2-Linux.zip) ... ".PadRight($msgLen) -NoNewline
+      Remove-Item -Recurse -Force "$targetDir\$targetRoot\bin\Windows" -ErrorAction Ignore
+      # Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2-Linux.zip" -Force -CompressionLevel Optimal
+      zip -r -9 "$releaseDir\CDL2-Linux.zip" $targetRoot *> $null
+      Write-Host -ForegroundColor Cyan ("{0,2:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Linux.zip").Length/1024/1024))
+
+      # Possibly build a zip from just the docs here.
+      Write-Host -ForegroundColor Green "Creating Docs zip file (CDL2-Docs.zip) ... ".PadRight($msgLen) -NoNewline
+      zip -r -9 "$releaseDir\CDL2-Docs.zip" "$targetRoot\Docs" *> $null
+      Write-Host -ForegroundColor Cyan ("{0,2:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Docs.zip").Length/1024/1024))
+      
+      Write-Host -ForegroundColor Green "Adding release notes to the release directory ..."
+      Copy-Item "$targetDir\CDL2\_README" "$releaseDir\_README.txt" -Force
+
       Pop-Location
    }
-}
 
-
-Remove-Item -Recurse -Force $targetDir -ErrorAction Ignore
-New-Item -ItemType Directory -Force -Path "$targetDir\$targetRoot" -ErrorAction Ignore | Out-Null
-
-if (-not $BuildOnly) {
-   Write-Host -ForegroundColor Green "Copying files $source -> $($targetDir -replace [Regex]::Escape($Env:TMP),'$env:TMP') ..."
-   Copy-Files "$targetDir\$targetRoot" $FileMap
-}
-
-# Build the executables in the source directory and copy them to the target directory for zipping.
-Push-Location $source
-
-New-Item -ItemType Directory -Force -Path "$releaseDir" -ErrorAction Ignore | Out-Null
-Remove-Item -Force "$releaseDir\*.zip" -ErrorAction Ignore
-if (-not $NoBuild -and $Windows) {
-   Write-Host -ForegroundColor Green "`nPublishing CDL2 Lab for Windows..."
-   dotnet publish CDL2v1.csproj        -c Release -r win-x64   --self-contained -p:PublishSingleFile=true -o:"$targetDir\$targetRoot\bin\Windows"
-   if ($LASTEXITCODE -ne 0) {
-      Write-Error "WINDOWS dotnet publish failed with exit code $LASTEXITCODE"
-      exit $LASTEXITCODE
+   if ($BuildOnly) {
+      Write-Host -ForegroundColor Green "`nBuildOnly specified. Skipping zipping, deployment and release if any."
+      exit 0
    }
-   if (-not $KeepPDBs) { Remove-Item -Force "$targetDir\$targetRoot\bin\Windows\*.pdb" -ErrorAction Ignore }
-}
 
-if (-not $NoBuild -and $Linux) {
-   Write-Host -ForegroundColor Green "`nPublishing CDL2 Lab for Linux..."
-   dotnet publish CDL2v1-Linux.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o:"$targetDir\Linux"
-   if ($LASTEXITCODE -ne 0) {
-      Write-Error "LINUX dotnet publish failed with exit code $LASTEXITCODE"
-      exit $LASTEXITCODE
+   ###################
+   # Step 3.b Deploy #
+   ###################
+   if ($WhatIfPreference) {
+      Write-Host -ForegroundColor Yellow "WhatIf: Deploying the builds to the test locations (WSL: $Linux, Windows: $Windows) and copying the publish script to the Visual Studio project directory for GitHub."
+   } else {
+      if (-not $NoDeploy -and $Linux) {
+         Write-Host -ForegroundColor Green "`nCopying Linux build to WSL test location ($WSLDir) and making it executable ..."
+         Copy-Item -Force "$releaseDir\CDL2-Linux.zip" $WSLTarget
+         WSL -d $WSLDistro unzip -o "$WSLDir/CDL2-Linux.zip" -d $WSLDir *> $null
+         [string]$WSLBin = "$WSLDir/cdl2/bin/Linux"
+         WSL -d $WSLDistro chmod +x "$WSLBin/cdl2-lab" "$WSLBin/cdl2c" "$WSLBin/CDL2v1-Linux"
+               Write-Host -ForegroundColor Green "Creating Linux only zip file (CDL2-Linux.zip) ... ".PadRight($msgLen) -NoNewline
+      Remove-Item -Recurse -Force "$targetDir\$targetRoot\bin\Windows" -ErrorAction Ignore
+      # Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2-Linux.zip" -Force -CompressionLevel Optimal
+      zip -r -9 "$releaseDir\CDL2-Linux.zip" $targetRoot *> $null
+      Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Linux.zip").Length/1024/1024))
+         # Copy the sample lab db to the WSL test location if it doesn't already exist, or if the UpdateDB flag is set.
+         if ($UpdateDB || -not (Test-Path "$WSLDistroDir$WSLDir/$sampleDBLocation")) {
+            Write-Host -ForegroundColor Green "Updating sample lab database in WSL test location ($WSLDistroDir$WSLDir/$sampleDBName) ..."
+            WSL -d $WSLDistro cp -f "$WSLDir/$sampleDBLocation" $WSLDir
+         }
+      }
+      
+      if (-not $NoDeploy -and $Windows) {
+         Write-Host -ForegroundColor Green "`nCopying Windows build to test location ($WindowsTarget) ..."
+         # New-Item -ItemType Directory -Force -Path "$WindowsTarget\$targetDir" -ErrorAction Ignore | Out-Null
+         Expand-Archive -Path "$releaseDir\CDL2-Windows.zip" -DestinationPath $WindowsTarget -Force
+         Copy-Item -Force "$releaseDir\CDL2-Windows.zip" $WindowsTarget\$targetRoot
+         
+         # Copy the sample lab db to the Windows test location if it doesn't already exist, or if the UpdateDB flag is set.
+         if ($UpdateDB -or -not (Test-Path "$WindowsTarget$targetRoot\$sampleDBName")) {
+            Write-Host -ForegroundColor Green "Updating sample lab database in Windows test location ($WindowsTarget$targetRoot\$sampleDBName) ..."
+            Copy-Item "$WindowsTarget$sampleDB" "$WindowsTarget$targetRoot\" -Force -ErrorAction Ignore
+         }
+      }
+
+      Write-Host -ForegroundColor Green "`nCopying publish script to Visual Studio project directory for GitHub ..."
+      Copy-Item -Force $PSCommandPath $VSProjectDir
+      Set-ItemProperty -Path "$VSProjectDir\$($PSCommandPath | Split-Path -Leaf)" -Name IsReadOnly -Value $true
    }
-   if (-not $KeepPDBs) { Remove-Item -Force "$targetDir\Linux\*.pdb" -ErrorAction Ignore }
+   
+   
+   ###################
+   # Step 4. Release #
+   ###################
+   
+   if ($WhatIfPreference -and $Version.IsReleaseCreate) {
+      Write-Host -ForegroundColor Yellow "WhatIf: Creating GitHub release '$($Version.ReleaseName)' with the generated zip files attached."
+   } elseif ($Version.IsReleaseCreate) {
+      Invoke-Git { git tag -d $($Version.Version) }
+      Invoke-Git { git push --delete origin $($Version.Version) }
+      Invoke-Git { git tag $($Version.ReleaseTag) }
+      Invoke-Git { git push origin $($Version.ReleaseTag) } { git tag -d $($Version.ReleaseTag) }
+      [string[]]$releaseFiles = @(Get-ChildItem -Path $releaseDir -File | ForEach-Object FullName)
+      [string]$preReleaseFlag = if ($PreRelease) { 'prerelease' } else { 'release' }
+      Write-Host -ForegroundColor Green "`nCreating GitHub $preReleaseFlag '$($Version.ReleaseName)' with $($releaseFiles.Count) generated zip files attached ..."
+      [string]$preReleaseFlag = if ($PreRelease) { '--prerelease' } else { '' }
+      $releaseURL = gh release create $($Version.ReleaseTag) @releaseFiles --title "$($Version.ReleaseName)" --notes "$Notes" $preReleaseFlag
+      if ($LASTEXITCODE -eq 0) {
+         Write-Host -ForegroundColor Green "Release '$($Version.ReleaseName)' created successfully at $releaseURL"
+         if (-not [string]::IsNullOrWhiteSpace($releaseURL)) {
+            Start-Process $releaseURL
+         }
+      } else {
+         Write-Error "GitHub release creation failed with exit code $LASTEXITCODE"
+         exit $LASTEXITCODE
+      }
+   }    
+} finally {
+   Pop-Location
 }
-Pop-Location
-
-if ($BuildOnly) {
-   Write-Host -ForegroundColor Green "`nBuildOnly specified. Skipping zipping and deployment."
-   exit 0
-}
-
-Push-Location $targetDir
-
-[int]$msgLen = 54
-# Create the Windows only version zip file
-Write-Host -ForegroundColor Green "`nCreating Windows only zip file (CDL2-Windows.zip) ... ".PadRight($msgLen) -NoNewline
-# Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2-Windows.zip" -Force -CompressionLevel Optimal
-# zip -d "$source\$releaseDir\CDL2-Windows.zip" "cdl2/bin/Linux/*" *> $null
-zip -r -9 "$releaseDir\CDL2-Windows.zip" $targetRoot -x "cdl2/bin/Linux/*" *> $null
-Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Windows.zip").Length/1024/1024))
-
-# Copy the Linux directory to the target to create the combined version zip file.
-Write-Host -ForegroundColor Green "Creating combined zip file (CDL2.zip) ... ".PadRight($msgLen) -NoNewline
-Move-Item -Force "$targetDir\Linux\*" "$targetDir\$targetRoot\bin\Linux"
-# Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2.zip" -Force -CompressionLevel Optimal
-zip -r -9 "$releaseDir\CDL2.zip" $targetRoot *> $null
-Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2.zip").Length/1024/1024))
-
-# Remove the Windows directory to create the Linux only version zip file.
-Write-Host -ForegroundColor Green "Creating Linux only zip file (CDL2-Linux.zip) ... ".PadRight($msgLen) -NoNewline
-Remove-Item -Recurse -Force "$targetDir\$targetRoot\bin\Windows" -ErrorAction Ignore
-# Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2-Linux.zip" -Force -CompressionLevel Optimal
-zip -r -9 "$releaseDir\CDL2-Linux.zip" $targetRoot *> $null
-Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Linux.zip").Length/1024/1024))
-
-Pop-Location
-
-if (-not $NoDeploy -and $Linux) {
-   Write-Host -ForegroundColor Green "`nCopying Linux build to WSL test location ($WSLDir) and making it executable ..."
-   Copy-Item -Force "$releaseDir\CDL2-Linux.zip" $WSLTarget
-   WSL -d $WSLDistro unzip -o "$WSLDir/CDL2-Linux.zip" -d $WSLDir *> $null
-   [string]$WSLBin = "$WSLDir/cdl2/bin/Linux"
-   WSL -d $WSLDistro chmod +x "$WSLBin/cdl2-lab" "$WSLBin/cdl2c" "$WSLBin/CDL2v1-Linux"
-
-   # Copy the sample lab db to the WSL test location if it doesn't already exist, or if the UpdateDB flag is set.
-   if ($UpdateDB || -not (Test-Path "$WSLDistroDir$WSLDir/$sampleDBLocation")) {
-      Write-Host -ForegroundColor Green "Updating sample lab database in WSL test location ($WSLDistroDir$WSLDir/$sampleDBName) ..."
-      WSL -d $WSLDistro cp -f "$WSLDir/$sampleDBLocation" $WSLDir
-   }
-}
-
-if (-not $NoDeploy -and $Windows) {
-   Write-Host -ForegroundColor Green "`nCopying Windows build to test location ($WindowsTarget) ..."
-   # New-Item -ItemType Directory -Force -Path "$WindowsTarget\$targetDir" -ErrorAction Ignore | Out-Null
-   Expand-Archive -Path "$releaseDir\CDL2-Windows.zip" -DestinationPath $WindowsTarget -Force
-   Copy-Item -Force "$releaseDir\CDL2-Windows.zip" $WindowsTarget\$targetRoot
-
-   # Copy the sample lab db to the Windows test location if it doesn't already exist, or if the UpdateDB flag is set.
-   if ($UpdateDB -or -not (Test-Path "$WindowsTarget$targetRoot\$sampleDBName")) {
-      Write-Host -ForegroundColor Green "Updating sample lab database in Windows test location ($WindowsTarget$targetRoot\$sampleDBName) ..."
-      Copy-Item "$WindowsTarget$sampleDB" "$WindowsTarget$targetRoot\" -Force -ErrorAction Ignore
-   }
-}
-
-Write-Host -ForegroundColor Green "`nCopying publish script to Visual Studio project directory for GitHub ..."
-Copy-Item -Force $PSCommandPath $VSProjectDir
-Set-ItemProperty -Path "$VSProjectDir\$($PSCommandPath | Split-Path -Leaf)" -Name IsReadOnly -Value $true
