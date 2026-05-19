@@ -38,6 +38,7 @@ using System.CommandLine;
 using System.ComponentModel;
 using System.Configuration;
 using System.Data;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -450,7 +451,17 @@ namespace CDL2v1 {
       /// settings.</remarks>
       /// <param name="commandLine">An array of strings representing the command line arguments to be processed.</param>
       /// <exception cref="InvalidEnumArgumentException">Thrown if an unknown setting type is encountered during processing.</exception>
-      public static void ProcessCommandLine(string[] commandLine) {
+      public static void ProcessCommandLine(string[] rawCommandLine) {
+         // Hanlde multiple option overrides.
+         Dictionary<string,string> normalizedOptions = [];
+         foreach (string option in rawCommandLine) {
+            string optionName = option.ToLower().TrimStart('-').Split(['=',':'],2)[0];
+            if (optionName != "sources") {
+               // TODO: Handle short options and combined short options like -v3
+               normalizedOptions[optionName] = option; // Keep the last occurrence of each option
+            }
+         }
+         string[] commandLine = [.. normalizedOptions.Values];
          // Create a HashSet of explicitly provided options from the raw command line
          HashSet<string> explicitlyProvidedOptions = [];
          Dictionary<string,HashSet<string>> optionAliasMap = [];
@@ -500,7 +511,7 @@ namespace CDL2v1 {
          }
 
          // Now process using regular System.CommandLine but only override settings for explicitly provided options
-         RootCommand rootCommand = new() { Description = "CDL2 Compiler" };
+         RootCommand rootCommand = new() { Description = "CDL2 Compiler and Lab" };
 
          // Add options as before
          for (int i = 0 ; i < Instance.SettingsList.Count ; i++)
@@ -515,6 +526,7 @@ namespace CDL2v1 {
                      explicitlyProvidedOptions.Contains(alias));
 
                if (wasExplicitlyProvided) {
+                  Debug.WriteLine($"{setting.Name} => {setting.ObjectValue}");
                   switch (setting) {
                      case Setting<string[]> saSetting: saSetting.Value = parseResult.GetValueForOption<string[]>((Option<string[]>)setting.Option)!; break;
                      case Setting<int> iSetting: iSetting.Value        = parseResult.GetValueForOption<int>((Option<int>)setting.Option); break;
@@ -547,7 +559,10 @@ namespace CDL2v1 {
             }
          });
 
-         rootCommand.Invoke(commandLine);
+         if (rootCommand.Invoke(commandLine) != 0) {
+            Debug.WriteLine("rootCommand.Invoke failed. Proceeding with default options");
+         }
+
       }
 
       public static string BoolOption(string option) {
