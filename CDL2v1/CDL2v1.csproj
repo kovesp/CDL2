@@ -75,9 +75,11 @@
 
       <Version>$(BaseVersion).$(GitCount)</Version>
 
+
       <InformationalVersion>$(Version)</InformationalVersion>
       <FileVersion>$(Version)</FileVersion>
-      <AssemblyVersion Condition="'$(Version)' != ''">$(Version).0</AssemblyVersion>
+      <NormalizedVersion>$([System.String]::Copy($(Version)).Replace("R.","."))</NormalizedVersion>
+      <AssemblyVersion Condition="'$(Version)' != ''">$(NormalizedVersion).0</AssemblyVersion>
       <AssemblyVersion Condition="'$(Version)' == ''">1.0.0.0</AssemblyVersion>
       
       <VersionPadded>$([System.String]::Format("| Generated Version {0,-13} |", $(Version)))</VersionPadded>
