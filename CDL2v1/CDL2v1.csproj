@@ -52,11 +52,13 @@
 
   <!-- Compute version M.m.b number from last git tag of vM.m and b the number of commits since the tag -->
   <Target Name="ComputeVersion" BeforeTargets="GenerateAssemblyInfo">
+
     <Exec Command="git describe --tags --abbrev=0" ConsoleToMSBuild="true" StandardOutputImportance="Low">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitTagRaw" />
     </Exec>
 
-    <Exec Command="git rev-list v1.0..HEAD --count" ConsoleToMSBuild="true" StandardOutputImportance="Low">
+    <!-- Use the latest tag for the commit count -->
+    <Exec Command="git rev-list $(GitTagRaw)..HEAD --count" ConsoleToMSBuild="true" StandardOutputImportance="Low">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitCountRaw" />
     </Exec>
 
@@ -67,7 +69,7 @@
       <GitTag>$([System.String]::Copy($(GitTagRaw)).Trim())</GitTag>
       <GitCount>$([System.String]::Copy($(GitCountRaw)).Trim())</GitCount>
 
-      <BaseVersion Condition="'$(GitTag)' != ''">$([System.String]::Copy($(GitTag)).TrimStart('v'))</BaseVersion>
+      <BaseVersion Condition="'$(GitTag)' != ''">$([System.String]::Copy($(GitTag)).TrimStart('v').TrimEnd('R'))</BaseVersion>
 
       <BaseVersion Condition="'$(GitTag)' == ''">1.0</BaseVersion>
 
