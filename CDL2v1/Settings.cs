@@ -452,7 +452,9 @@ namespace CDL2v1 {
       /// <param name="commandLine">An array of strings representing the command line arguments to be processed.</param>
       /// <exception cref="InvalidEnumArgumentException">Thrown if an unknown setting type is encountered during processing.</exception>
       public static void ProcessCommandLine(string[] rawCommandLine) {
-         // Hanlde multiple option overrides.
+         // Map of option names to their aliases for quick lookup
+         Dictionary<string,Set<string>> optionAliasMap = Instance.SettingsList.ToDictionary(s => s.Name, s => s.Option.Aliases.ToSet );
+         // Handle multiple option overrides.
          Dictionary<string,string> normalizedOptions = [];
          foreach (string option in rawCommandLine) {
             string optionName = option.ToLower().TrimStart('-').Split(['=',':'],2)[0];
@@ -462,16 +464,9 @@ namespace CDL2v1 {
             }
          }
          string[] commandLine = [.. normalizedOptions.Values];
+
          // Create a HashSet of explicitly provided options from the raw command line
          HashSet<string> explicitlyProvidedOptions = [];
-         Dictionary<string,HashSet<string>> optionAliasMap = [];
-
-         // Build a map of option names to all their aliases
-         foreach (ISetting setting in Instance.SettingsList) {
-            string longName = setting.Name;
-            var allAliases = new HashSet<string>(setting.Option.Aliases);
-            optionAliasMap[longName] = allAliases;
-         }
 
          // Parse raw command line to identify which options are explicitly provided
          for (int i = 0 ; i < commandLine.Length ; i++) {
