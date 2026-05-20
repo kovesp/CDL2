@@ -325,7 +325,7 @@ namespace CDL2v1 {
       public static bool AutoPrint => SettingValue<bool>("AutoPrint");
       public static string OutputDirectory => SettingValue<string>("OutputDirectory") ?? Directory.GetCurrentDirectory();
       public static string LabDBName => Path.ChangeExtension(SettingValue<string>("DB") ?? "CDL2v1",Serializer.DBExtension);
-      public static string LabDBPath => Path.Combine(OutputDirectory,LabDBName);
+      public static string LabDBPath => Path.GetFullPath(Path.Combine(OutputDirectory,LabDBName));
 
       public static bool LabMode => SettingValue<bool>("Lab") && !SettingValue<bool>("ParseOnly");
       public static bool GUIMode => LabMode && Settings.OnWindows && !Settings.SettingValue<bool>("Console");
