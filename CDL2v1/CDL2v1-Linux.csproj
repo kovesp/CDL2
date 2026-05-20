@@ -31,7 +31,7 @@
       <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
       <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
       <!-- IMPORTANT: force trimming safely -->
-      <GitTag>$([System.String]::Copy($(GitTagRaw)).Trim())</GitTag>
+      <GitTag>$([System.String]::Copy($(GitTagRaw)).Replace("R.",".").Trim())</GitTag>
       <GitCount>$([System.String]::Copy($(GitCountRaw)).Trim())</GitCount>
 
       <BaseVersion Condition="'$(GitTag)' != ''">$([System.String]::Copy($(GitTag)).TrimStart('v'))</BaseVersion>
