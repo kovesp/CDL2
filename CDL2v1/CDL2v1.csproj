@@ -50,15 +50,15 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
-  <!-- Compute version M.m.b number from last git tag of vM.m and b the number of commits since the tag -->
+  <!-- Compute version M.m.b number from last git tag of vM.m or vM.mR and b the number of commits since the tag -->
   <Target Name="ComputeVersion" BeforeTargets="GenerateAssemblyInfo">
 
     <Exec Command="git describe --tags --abbrev=0" ConsoleToMSBuild="true" StandardOutputImportance="Low">
-      <Output TaskParameter="ConsoleOutput" PropertyName="GitTagRaw" />
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitTagRawWithR" />
     </Exec>
 
     <!-- Use the latest tag for the commit count -->
-    <Exec Command="git rev-list $(GitTagRaw)..HEAD --count" ConsoleToMSBuild="true" StandardOutputImportance="Low">
+    <Exec Command="git rev-list $(GitTagRawWithR)..HEAD --count" ConsoleToMSBuild="true" StandardOutputImportance="Low">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitCountRaw" />
     </Exec>
 
@@ -66,24 +66,26 @@
       <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
       <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
       <!-- IMPORTANT: force trimming safely -->
-      <GitTag>$([System.String]::Copy($(GitTagRaw)).Replace("R.",".").Trim())</GitTag>
+      <GitTagRaw>$([System.String]::Copy($(GitTagRawWithR)).Trim('R').Trim())</GitTagRaw>
+      <GitTag>$(GitTagRaw)</GitTag>
       <GitCount>$([System.String]::Copy($(GitCountRaw)).Trim())</GitCount>
-
+      
+      
+      
       <BaseVersion Condition="'$(GitTag)' != ''">$([System.String]::Copy($(GitTag)).TrimStart('v'))</BaseVersion>
 
       <BaseVersion Condition="'$(GitTag)' == ''">1.0</BaseVersion>
 
       <Version>$(BaseVersion).$(GitCount)</Version>
 
-      <InformationalVersion>$(Version)</InformationalVersion>
+      <InformationalVersion>$(GitTagRawWithR).$(GitCount)</InformationalVersion>
       <FileVersion>$(Version)</FileVersion>
-      <NormalizedVersion>$([System.String]::Copy($(Version)).Replace("R.","."))</NormalizedVersion>
-      <AssemblyVersion Condition="'$(Version)' != ''">$(NormalizedVersion).0</AssemblyVersion>
+      <AssemblyVersion Condition="'$(Version)' != ''">$(Version).0</AssemblyVersion>
       <AssemblyVersion Condition="'$(Version)' == ''">1.0.0.0</AssemblyVersion>
       
       <VersionPadded>$([System.String]::Format("| Generated Version {0,-13} |", $(Version)))</VersionPadded>
     </PropertyGroup>
-
+    <!-- <Message Text="GitTagRaWithR: $(GitTagRawWithR) | GitTagRaw: $(GitTagRaw) | GitTag: $(GitTag) | GitCount: $(GitCount) | InformationalVersion: $(InformationalVersion)" Importance="High" /> -->
     <Message Text="+---------------------------------+" Importance="High" />
     <Message Text="$(VersionPadded)" Importance="High" />
     <Message Text="+---------------------------------+" Importance="High" />
@@ -100,7 +102,7 @@
   <Target Name="OverrideInformationalVersion" AfterTargets="GenerateAssemblyInfo">
     <ItemGroup>
       <AssemblyAttribute Include="System.Reflection.AssemblyInformationalVersionAttribute">
-        <_Parameter1>$(Version)</_Parameter1>
+        <_Parameter1>$(InformationalVersion)</_Parameter1>
       </AssemblyAttribute>
     </ItemGroup>
   </Target>

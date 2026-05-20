@@ -1006,7 +1006,7 @@ namespace CDL2v1 {
             Emitnl(units[unit.GetType()].Start.Decorate(Emitter,SE.Unit)," ",unit.Id.Decorate(Emitter,SE.Id),TT.END);
             Indented(() => action());
             Emitnl(units[unit.GetType()].End.Decorate(Emitter,SE.Unit)," ",unit.Id.Name,TT.END);
-            PrintLudes(unit);
+            if (unit is not Program) PrintLudes(unit); // printed inside the program
             if (Newline) Emitnl();
          }
          if (updateUI) Emitter.UpdateUI();
