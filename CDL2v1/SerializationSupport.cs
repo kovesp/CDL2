@@ -125,7 +125,7 @@ namespace CDL2v1 {
                Logger.logger.WriteLine(0,$"CDL2: Stack trace: {ex.StackTrace}");
                database = null;
             }
-         },minShowInterval: 2000);
+         },minShowInterval: 2000, noShow: true); // The toast yanks the focus from the new window, so it is supressed
          return database;
       }
 #else

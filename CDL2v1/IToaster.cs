@@ -52,6 +52,7 @@ namespace CDL2v1 {
       /// <param name="message">The message to display.</param>
       /// <param name="action">Action to execute while showing the toast.</param>
       /// <param name="minShowInterval">Minimum time in milliseconds to keep toast visible. Default is 0.</param>
-      void ShowToast(string message,Action action,int minShowInterval = 0);
+      /// <param name="noShow">If true, the toast will not be shown. Default is false.</param>
+      void ShowToast(string message,Action action,int minShowInterval = 0,bool noShow = false);
    }
 }

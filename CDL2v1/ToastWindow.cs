@@ -136,37 +136,41 @@ namespace CDL2v1 {
       /// <param name="message"></param>
       /// <param name="action"></param>
       /// <param name="minShowInterval"></param>
-      public void ShowToast(string message,Action action,int minShowInterval = 0) {
-         var actionDone = new ManualResetEvent(false);
-         Thread toastThread = new(() => {
-            ToastWindow toast = new ToastWindow(message,minShowInterval) {
-               WindowStartupLocation = WindowStartupLocation.CenterScreen
-            };
-            toast.Show();
+      public void ShowToast(string message,Action action,int minShowInterval = 0,bool noShow = false) {
+         if (noShow) {
+            action();
+         } else {
+            var actionDone = new ManualResetEvent(false);
+            Thread toastThread = new(() => {
+               ToastWindow toast = new ToastWindow(message,minShowInterval) {
+                  WindowStartupLocation = WindowStartupLocation.CenterScreen
+               };
+               toast.Show();
 
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(minShowInterval) };
-            timer.Tick += (s,e) => {
-               timer.Stop();
-               actionDone.WaitOne();
-               toast.Close();
-               Dispatcher.CurrentDispatcher.InvokeShutdown();
-            };
-            timer.Start();
+               var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(minShowInterval) };
+               timer.Tick += (s,e) => {
+                  timer.Stop();
+                  actionDone.WaitOne();
+                  toast.Close();
+                  Dispatcher.CurrentDispatcher.InvokeShutdown();
+               };
+               timer.Start();
 
-            if (minShowInterval == 0) {
-               actionDone.WaitOne();
-               toast.Close();
-               Dispatcher.CurrentDispatcher.InvokeShutdown();
-            }
+               if (minShowInterval == 0) {
+                  actionDone.WaitOne();
+                  toast.Close();
+                  Dispatcher.CurrentDispatcher.InvokeShutdown();
+               }
 
-            Dispatcher.Run();
-         });
+               Dispatcher.Run();
+            });
 
-         if (OperatingSystem.IsWindows()) toastThread.SetApartmentState(ApartmentState.STA);
-         toastThread.Start();
+            if (OperatingSystem.IsWindows()) toastThread.SetApartmentState(ApartmentState.STA);
+            toastThread.Start();
 
-         action();
-         actionDone.Set();
+            action();
+            actionDone.Set();
+         }
       }
    }
 }

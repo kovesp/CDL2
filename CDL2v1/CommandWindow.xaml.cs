@@ -140,7 +140,7 @@ Esc   | Cancel menu
 
          InitializeComponent();
 
-         Title = CDL2.LabName;
+         Title = CDL2.LabName;      
 
          // Set initial prompt
          WriteLine($"{CDL2.LabName} v{CDL2.Version} - Type 'help' for available commands");

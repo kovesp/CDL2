@@ -290,7 +290,7 @@ namespace CDL2v1 {
             // Handle commands
             commandWindow.SetInputProcessor(CLI.ProcessInput);
             commandWindow.Closed += (s,e) => app.Shutdown();
-            commandWindow.Title = $"{CDL2.LabName} - {Settings.LabDBName}";
+            commandWindow.Title = $"{CDL2.LabName} - {Settings.LabDBPath}";
             CLI.SetStatus();
             app.Run(commandWindow);
          });

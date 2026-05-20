@@ -69,7 +69,7 @@ namespace CDL2v1 {
       /// <param name="message">The message to display.</param>
       /// <param name="action">Action to execute while toast is displayed.</param>
       /// <param name="minShowInterval">Minimum show interval in milliseconds (ignored in console mode).</param>
-      public void ShowToast(string message,Action action,int _) {
+      public void ShowToast(string message,Action action,int _1,bool _2) {
 #if SUPRESS_CONSOLE_TOAST
          action?.Invoke();
 #else
