@@ -69,7 +69,7 @@
       <GitTag>$([System.String]::Copy($(GitTagRaw)).Trim())</GitTag>
       <GitCount>$([System.String]::Copy($(GitCountRaw)).Trim())</GitCount>
 
-      <BaseVersion Condition="'$(GitTag)' != ''">$([System.String]::Copy($(GitTag)).TrimStart('v').TrimEnd('R'))</BaseVersion>
+      <BaseVersion Condition="'$(GitTag)' != ''">$([System.String]::Copy($(GitTag)).TrimStart('v'))</BaseVersion>
 
       <BaseVersion Condition="'$(GitTag)' == ''">1.0</BaseVersion>
 
