@@ -455,55 +455,63 @@ namespace CDL2v1 {
          // Map of option names to their aliases for quick lookup
          Dictionary<string,Set<string>> optionAliasMap = Instance.SettingsList.ToDictionary(s => s.Name, s => s.Option.Aliases.ToSet );
          // Handle multiple option overrides.
-         Dictionary<string,string> normalizedOptions = [];
-         foreach (string option in rawCommandLine) {
-            string optionName = option.ToLower().TrimStart('-').Split(['=',':'],2)[0];
-            if (optionName != "sources") {
-               // TODO: Handle short options and combined short options like -v3
-               normalizedOptions[optionName] = option; // Keep the last occurrence of each option
-            }
-         }
-         string[] commandLine = [.. normalizedOptions.Values];
-
-         // Create a HashSet of explicitly provided options from the raw command line
          HashSet<string> explicitlyProvidedOptions = [];
+         List<string> sourcesArgs = new();
+         Dictionary<string,(int start,int count)> lastOptionRange = new();
+         List<string> optionArgs = new();
 
-         // Parse raw command line to identify which options are explicitly provided
-         for (int i = 0 ; i < commandLine.Length ; i++) {
-            string arg = commandLine[i];
-            if (arg.StartsWith('-')) {
-               string option = arg;
-               string? shortOptionWithValue = null;
+         for (int i = 0 ; i < rawCommandLine.Length ; i++) {
+            string arg = rawCommandLine[i];
+            if (!arg.StartsWith('-')) continue;
 
-               // Handle --option=value and --option:value format
-               if (arg.Contains('=')) {
-                  option = arg.Split('=',2)[0];
-               } else if (arg.Contains(':')) {
-                  option = arg.Split(':',2)[0];
-               } else if (arg.Length > 2 && arg[0] == '-' && arg[1] != '-') {
-                  // Handle combined short options like -v3
-                  // This could be a short option with attached value
-                  string shortOption = arg[..2]; // e.g., "-v"
+            string option = arg;
+            string? shortOptionWithValue = null;
 
-                  // Check if this is a known short option
-                  bool isKnownShortOption = Instance.SettingsList.Any(s =>
-                     s.Option.Aliases.Any(a => a == shortOption));
-
-                  if (isKnownShortOption) {
-                     option = shortOption;
-                     shortOptionWithValue = arg;
-                  }
-               }
-
-               // Add the identified option
-               explicitlyProvidedOptions.Add(option);
-
-               // Skip the value if this option takes one and it's not combined or in --option=value format
-               if (shortOptionWithValue == null && !arg.Contains('=') && i + 1 < commandLine.Length && !commandLine[i + 1].StartsWith('-')) {
-                  i++; // Skip the next arg which is the value
+            // Handle --option=value and --option:value format
+            if (arg.Contains('=')) {
+               option = arg.Split('=',2)[0];
+            } else if (arg.Contains(':')) {
+               option = arg.Split(':',2)[0];
+            } else if (arg.Length > 2 && arg[0] == '-' && arg[1] != '-') {
+               // Handle combined short options like -v3
+               string shortOption = arg[..2];
+               bool isKnownShortOption = Instance.SettingsList.Any(s =>
+                   s.Option.Aliases.Any(a => a == shortOption));
+               if (isKnownShortOption) {
+                  option = shortOption;
+                  shortOptionWithValue = arg;
                }
             }
+
+            string optionName = option.ToLower().TrimStart('-');
+            explicitlyProvidedOptions.Add(optionName);
+
+            if (optionName == "sources") {
+               sourcesArgs.Add(arg);
+               if (i + 1 < rawCommandLine.Length && !rawCommandLine[i + 1].StartsWith('-')) {
+                  sourcesArgs.Add(rawCommandLine[i + 1]);
+                  i++;
+               }
+            } else {
+               int startIdx = optionArgs.Count;
+               optionArgs.Add(arg);
+               int count = 1;
+               if (shortOptionWithValue == null && !arg.Contains('=') && i + 1 < rawCommandLine.Length && !rawCommandLine[i + 1].StartsWith('-')) {
+                  optionArgs.Add(rawCommandLine[i + 1]);
+                  count++;
+                  i++;
+               }
+               lastOptionRange[optionName] = (startIdx,count);
+            }
          }
+
+         // Only keep the last occurrence (with value) for each non-sources option
+         var dedupedArgs = new List<string>();
+         foreach (var (start,count) in lastOptionRange.Values.OrderBy(x => x.start))
+            dedupedArgs.AddRange(optionArgs.GetRange(start,count));
+
+         // Final commandLine: sources first, then deduped non-sources options
+         string[] commandLine = [.. sourcesArgs,.. dedupedArgs];
 
          // Now process using regular System.CommandLine but only override settings for explicitly provided options
          RootCommand rootCommand = new() { Description = "CDL2 Compiler and Lab" };
@@ -518,7 +526,7 @@ namespace CDL2v1 {
             foreach (ISetting setting in Instance.SettingsList) {
                // Check if any alias of this option was explicitly provided
                bool wasExplicitlyProvided = setting.Option.Aliases.Any(alias =>
-                     explicitlyProvidedOptions.Contains(alias));
+                     explicitlyProvidedOptions.Contains(alias.TrimStart('-').ToLower()));
 
                if (wasExplicitlyProvided) {
                   Debug.WriteLine($"{setting.Name} => {setting.ObjectValue}");
