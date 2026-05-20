@@ -452,9 +452,12 @@ namespace CDL2v1 {
       /// <param name="commandLine">An array of strings representing the command line arguments to be processed.</param>
       /// <exception cref="InvalidEnumArgumentException">Thrown if an unknown setting type is encountered during processing.</exception>
       public static void ProcessCommandLine(string[] rawCommandLine) {
-         // Map of option names to their aliases for quick lookup
-         Dictionary<string,Set<string>> optionAliasMap = Instance.SettingsList.ToDictionary(s => s.Name, s => s.Option.Aliases.ToSet );
-         // Handle multiple option overrides.
+         // 1. Build alias-to-canonical map
+         Dictionary<string,string> aliasToCanonical = Instance.SettingsList
+             .SelectMany(s => s.Option.Aliases.Select(a => (alias: a,canonical: s.Name.ToLower())))
+             .ToDictionary(x => x.alias.TrimStart('-').ToLower(),x => x.canonical);
+
+         // 2. Process command line
          HashSet<string> explicitlyProvidedOptions = [];
          List<string> sourcesArgs = new();
          Dictionary<string,(int start,int count)> lastOptionRange = new();
@@ -483,10 +486,14 @@ namespace CDL2v1 {
                }
             }
 
-            string optionName = option.ToLower().TrimStart('-');
-            explicitlyProvidedOptions.Add(optionName);
+            // Add all aliases for this option (with leading dashes removed and lowercased)
+            string aliasKey = option.TrimStart('-').ToLower();
+            string canonicalName = aliasToCanonical.TryGetValue(aliasKey,out var canon) ? canon : aliasKey;
+            if (Instance.SettingsList.FirstOrDefault(s => s.Name.Equals(canonicalName,StringComparison.CurrentCultureIgnoreCase)) is ISetting settingWithAliases) {
+               explicitlyProvidedOptions.AddAll (settingWithAliases.Option.Aliases.Select(a=>a.TrimStart('-').ToLower()));
+            }
 
-            if (optionName == "sources") {
+            if (canonicalName == "sources") {
                sourcesArgs.Add(arg);
                if (i + 1 < rawCommandLine.Length && !rawCommandLine[i + 1].StartsWith('-')) {
                   sourcesArgs.Add(rawCommandLine[i + 1]);
@@ -501,7 +508,7 @@ namespace CDL2v1 {
                   count++;
                   i++;
                }
-               lastOptionRange[optionName] = (startIdx,count);
+               lastOptionRange[canonicalName] = (startIdx,count);
             }
          }
 
@@ -512,6 +519,7 @@ namespace CDL2v1 {
 
          // Final commandLine: sources first, then deduped non-sources options
          string[] commandLine = [.. sourcesArgs,.. dedupedArgs];
+
 
          // Now process using regular System.CommandLine but only override settings for explicitly provided options
          RootCommand rootCommand = new() { Description = "CDL2 Compiler and Lab" };
@@ -529,7 +537,6 @@ namespace CDL2v1 {
                      explicitlyProvidedOptions.Contains(alias.TrimStart('-').ToLower()));
 
                if (wasExplicitlyProvided) {
-                  Debug.WriteLine($"{setting.Name} => {setting.ObjectValue}");
                   switch (setting) {
                      case Setting<string[]> saSetting: saSetting.Value = parseResult.GetValueForOption<string[]>((Option<string[]>)setting.Option)!; break;
                      case Setting<int> iSetting: iSetting.Value        = parseResult.GetValueForOption<int>((Option<int>)setting.Option); break;
