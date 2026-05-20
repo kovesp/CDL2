@@ -333,7 +333,7 @@ Tab Completion Menu (when shown):
          } else {
             // Fallback: set console title
             try {
-               Console.Title = $"{CDL2.LabName} - {Settings.LabDBName}";
+               Console.Title = $"{CDL2.LabName} - {Settings.LabDBPath}";
             } catch {
                // Ignore if console title cannot be set
             }
