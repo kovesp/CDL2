@@ -22,7 +22,8 @@
       <Output TaskParameter="ConsoleOutput" PropertyName="GitTagRaw" />
     </Exec>
 
-    <Exec Command="git rev-list v1.0..HEAD --count" ConsoleToMSBuild="true" StandardOutputImportance="Low">
+    <!-- Use the latest tag for the commit count -->
+    <Exec Command="git rev-list $(GitTagRaw)..HEAD --count" ConsoleToMSBuild="true" StandardOutputImportance="Low">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitCountRaw" />
     </Exec>
 
