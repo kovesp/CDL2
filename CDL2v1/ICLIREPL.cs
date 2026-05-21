@@ -50,6 +50,10 @@ namespace CDL2v1 {
       /// Gets or sets the command history associated with the current context.
       /// </summary>
       IEnumerable<string> CommandHistory { get; set; }
+      /// <summary>
+      /// Retrun the session transcript , i.e. the history of all interactions (commands and outputs) as plain text.
+      /// </summary>
+      IEnumerable<string> Transcript { get; }
 
 
       /// <summary>

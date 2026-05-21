@@ -701,7 +701,7 @@ namespace CDL2v1 {
                   case CommandType.first:
                   case CommandType.last:
                      if (Focus.Current.MoveFocus(args,commandAsDirection[commandType],out string msg,out Severity severity)) {
-                        if (Settings.AutoPrint) InterpretCommandPrint(autoPrint:true);
+                        if (Settings.AutoPrint) InterpretCommandPrint(autoPrint: true);
                      } else {
                         WriteLine(msg,severity);
                      }
@@ -747,7 +747,7 @@ namespace CDL2v1 {
                      InterpretCommandUndoRedo(args,undo: false); RequiresSemanticAnalysis = true; break;
 
                   case CommandType.save:
-                     WriteInfo($"Saved: {Database.Save()}"); break;
+                     InterpretCommandSave(); break;
                   case CommandType.abort:
                      //Task.Delay(2000).ContinueWith(_ => {
                      //   ((Window)commandWindow!).Dispatcher.Invoke(() => commandWindow.Close());
@@ -797,6 +797,22 @@ namespace CDL2v1 {
             }
          }
          SetStatus();
+      }
+
+      /// <summary>
+      /// Save the lab database or the session transcript depending on the transcript setting. If transcript is on, saves the session transcript
+      /// to a file in the output directory with a timestamp. If transcript is off, saves the lab database and reports the path where it was saved. 
+      /// This allows users to keep a record of their session or save their work as needed based on their preferences.
+      /// </summary>
+      private void InterpretCommandSave() {
+         if (Settings.SettingValue<bool>("transcript")) {
+            string transcriptPath = Path.Combine(Settings.OutputDirectory,$"Lab_transcript_{DateTime.Now:yyyy-MM-dd_HHmm}.txt");
+            IEnumerable<string> transcriptLines = REPL?.Transcript ?? [];
+            File.WriteAllLines(transcriptPath, transcriptLines);
+            WriteInfo($"Saved session transcript to: {transcriptPath}");
+         } else {
+            WriteInfo($"Saved Lab database to: {Database.Save()}");
+         }
       }
 
       /// <summary>

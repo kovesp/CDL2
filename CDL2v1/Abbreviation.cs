@@ -96,7 +96,7 @@ namespace CDL2v1 {
          new ("remove"   , 3,"remove    [SELECTOR]:         removes(deletes) the selected object (eventually this can be undone ... but not yet"),
          new ("rename"   , 3,"rename    [SELECTOR] name:    rename the selected object; may be used just to add/remove spaces"),
          new ("quit"     , 4,"quit:                         exit the Lab after saving the database"),
-         new ("save"     , 1,"save:                         save the database to disk now"),
+         new ("save"     , 1,"save     [-transcript]:       save the database or a transcript of the current session now"),
          new ("shell"    , 2,"shell     system command:     execute a system command"),
          new ("set"      , 3,"set       option:             set an option; +/-option for boolean, option=value otherwise"),
          new ("status"   , 4,"status:                       display information about the status of the database"),

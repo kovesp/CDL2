@@ -150,7 +150,7 @@ namespace CDL2v1 {
    /// Processes command line options and compiles the source files.
    /// </summary>
    public partial class CDL2 {
-      public static string Version = $"1.0.0";
+      public static string Version = "1.0.0";
       public const string LabName = "CDL2 Laboratory Redux";
 
       /// <summary>
@@ -158,7 +158,7 @@ namespace CDL2v1 {
       /// </summary>
       static CDL2() {
          string? generatedVersion = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-         if (generatedVersion != null) Version = Regex.Replace(generatedVersion ?? "",@"^(\d+\.\d+\.\d+).*$","$1"); // RE not really required anymore.
+         if (generatedVersion != null) Version = Regex.Replace(generatedVersion ?? "",@"^.*(\d+\.\d+R?\.\d+).*$","$1");
          Compiler = new CDL2();
       }
 

@@ -30,8 +30,8 @@ namespace CDL2v1 {
       private int _terminalWidth = 0;
 
       // Scrollback buffer
-      private readonly List<OutputLine> _scrollbackBuffer = [];
-      private const int MaxScrollbackLines = 1000;
+      private const int InitialScrollbackSize = 1000;
+      private readonly List<OutputLine> _scrollbackBuffer = new(InitialScrollbackSize);
       private int _scrollOffset = 0;
       private bool _inScrollMode = false;
 
@@ -115,6 +115,18 @@ Tab Completion Menu (when shown):
       public IEnumerable<string> CommandHistory {
          get => _commandHistory.Commands;
          set => _commandHistory.Commands = value;
+      }
+
+      /// <summary>
+      /// Gets the transcript (plain text lines) of the output area.
+      /// </summary>
+      public IEnumerable<string> Transcript {
+         get {
+            // Remove only ESC[...m sequences (color/style)
+            Regex ansiSeq = new(@"\x1b\[[0-9;]*m", RegexOptions.Compiled);
+            foreach (OutputLine line in _scrollbackBuffer)
+               yield return ansiSeq.Replace(line.Text, "");
+         }
       }
 
       /// <summary>
@@ -358,7 +370,6 @@ Tab Completion Menu (when shown):
          
          foreach (string line in lines) {
             _scrollbackBuffer.Add(new OutputLine(line));
-            if (_scrollbackBuffer.Count > MaxScrollbackLines) _scrollbackBuffer.RemoveAt(0);
          }
       }
 
@@ -527,6 +538,7 @@ Tab Completion Menu (when shown):
             
             // Set initial console size (Windows only)
 #if WINDOWS
+            // Console.SetBufferSize is only supported on Windows
             try {
                // Set a reasonable default size (e.g., 120 columns x 30 rows)
                int desiredWidth = 120;
@@ -535,7 +547,7 @@ Tab Completion Menu (when shown):
                // Ensure buffer is large enough before setting window size
                if (OperatingSystem.IsWindows()) Console.SetBufferSize(
                   Math.Max(desiredWidth, Console.BufferWidth),
-                  Math.Max(MaxScrollbackLines + 100, desiredHeight)
+                  Math.Max(desiredHeight, Console.BufferHeight)
                );
                
                // Now set the window size
@@ -646,7 +658,6 @@ Tab Completion Menu (when shown):
                // Add user input to scrollback with prompt (already a single line)
                if (input.Length > 0) {
                   _scrollbackBuffer.Add(new OutputLine($"{prompt}{input}"));
-                  if (_scrollbackBuffer.Count > MaxScrollbackLines) _scrollbackBuffer.RemoveAt(0);
                }               
                return input;
             } else if (keyInfo.Key == ConsoleKey.Tab) {

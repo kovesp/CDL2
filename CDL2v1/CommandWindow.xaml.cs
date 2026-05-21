@@ -133,6 +133,23 @@ Esc   | Cancel menu
       public Emitter? Emitter { get; set; }
       public IToaster Toaster { get; init; }
 
+      /// <summary>
+      /// Gets the transcript (plain text lines) of the output area.
+      /// </summary>
+      public IEnumerable<string> Transcript {
+         get {
+            System.Text.StringBuilder lineBuilder = new();
+            foreach (Inline inline in OutputTextBlock.Inlines) {
+               if (inline is Run run) lineBuilder.Append(run.Text);
+               else if (inline is LineBreak) {
+                  yield return lineBuilder.ToString();
+                  lineBuilder.Clear();
+               }
+            }
+            if (lineBuilder.Length > 0) yield return lineBuilder.ToString();
+         }
+      }
+
       public CommandWindow(IToaster toaster) {
          this.Toaster = toaster;
 

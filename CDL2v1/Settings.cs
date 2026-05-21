@@ -232,6 +232,7 @@ namespace CDL2v1 {
          new Setting<bool>(    "profile",            NoOption,             false,          "Generate execution profile instrumentation. May be ignored by some code generators."),
          new Setting<int>(     "tracestack",         NoOption,             DEFAULT_TRACE_STACK,
                                  "The size of the debug call stack to allocate. Ignored unless -backtrace is set for supported code generators."),
+         new Setting<bool>(    "transcript",         NoOption,             false,          "When used with the save command, saves a transcript of the current session interactions into a file with a standard name."),
       ];
 
       public record struct NameCompletion(IEnumerable<ISetting> Matches,int MatchLength);
