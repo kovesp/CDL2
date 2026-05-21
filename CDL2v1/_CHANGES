@@ -1,0 +1,20 @@
+Updates in this release
+
+New Features
+* Added setting -transcript to the save command. It saves a transcript of the current session into a file
+  in the output directory. Note that the filename is timestamped. In the transcript, commands are
+  marked with ==>. The first line of the file is !TRANSCRIPT.
+  * This makes it relatively easy to examine the transcript.
+  * It also makes it possbile to consult the transscript to replay the commands. Note that during replay,
+    the save -transcript command will be supressed. Also note that some commands will fail during replay
+    simply becasue the DB is no longer in the same state as when the commands were originally issued.
+    Some commands will be supressed (curently save -transcript, add, edit, bye, quit, exit and abort) during transcript consult.
+    It is probably prudent to backup the DB before experimenting with such a transcript (remember, automatic
+    backups are not yet implemented ... perhaps consult will at some point receive a -backup setting
+    to backup the DB prior to execution of consult).
+
+Bug fixes
+* type/print of Programs was printing the ludes twice.
+* Minor discrepancies around how the Lab version was shown. Note that in a release
+  the version will always be of the form M.mR.0 (M=Major, m=minor). The last component
+  (the 0) only changes in internal (non-released) builds.

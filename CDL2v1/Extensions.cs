@@ -834,6 +834,7 @@ namespace CDL2v1 {
          /// include the leading period (e.g., ".txt").</param>
          /// <returns>true if a file is found at the original path or with one of the specified extensions; otherwise, false.</returns>
          public bool TryGetFile(out string fullPath,string[] extensions) {
+            s = Regex.Replace(s.Trim('"'),@"\$[Ss]"," ",RegexOptions.Compiled);
             if (Path.Exists(s)) {
                fullPath = s;
                return true;

@@ -289,9 +289,9 @@ namespace CDL2v1 {
          }
       }
 
-      private void WriteError(string message,uint indent=0) => WriteLine("Error: " + message,Severity.Error,indent);
-      private void WriteInfo(string message,uint indent = 0) => WriteLine("Info: " + message,Severity.Info,indent);
-      private void WriteWarning(string message,uint indent = 0) => WriteLine("Warning: " + message,Severity.Warning,indent);
+      private void WriteError(string message,uint indent=0) => WriteLine(message,Severity.Error,indent);
+      private void WriteInfo(string message,uint indent = 0) => WriteLine(message,Severity.Info,indent);
+      private void WriteWarning(string message,uint indent = 0) => WriteLine(message,Severity.Warning,indent);
 
       /// <summary>
       /// Replaces all spaces in quoted strings with $S, to allow splitting the command line into arguments and settings.
@@ -732,8 +732,10 @@ namespace CDL2v1 {
                   case CommandType.rename:
                      InterpretCommandRename(args); RequiresSemanticAnalysis = true; break;
                   case CommandType.add:
+                     if (CommandSkippped(commandType)) break;
                      InterpretCommandAdd(args); RequiresSemanticAnalysis = true; break;
                   case CommandType.edit:
+                     if (CommandSkippped(commandType)) break;
                      InterpretCommandEdit(args); RequiresSemanticAnalysis = true; break;
                   case CommandType.delete:
                   case CommandType.remove:
@@ -752,18 +754,21 @@ namespace CDL2v1 {
                      //Task.Delay(2000).ContinueWith(_ => {
                      //   ((Window)commandWindow!).Dispatcher.Invoke(() => commandWindow.Close());
                      //});
+                     if (CommandSkippped(commandType)) break;
+
                      toaster!.ShowToast("abort command used, not saving the database.",2000,delay: true,setOwner: false);
                      Settings.SaveSettings(REPL);
                      REPL?.Close();
-                     break;
+                     return; 
                   case CommandType.bye:
                   case CommandType.quit:
                   case CommandType.exit:
+                     if (CommandSkippped(commandType)) break;
+
                      toaster!.ShowToast($"Saving ${Settings.LabDBPath}",() => Database.Save(),2000);
                      Settings.SaveSettings(REPL);
                      REPL?.Close();
                      return;
-
                   case CommandType.shell:
                      InterpretCommandShell(args); break;
 
@@ -799,22 +804,40 @@ namespace CDL2v1 {
          SetStatus();
       }
 
+      private bool ConsultingTranscript = false;
+      private int SkippedCommands = 0;
       /// <summary>
       /// Save the lab database or the session transcript depending on the transcript setting. If transcript is on, saves the session transcript
       /// to a file in the output directory with a timestamp. If transcript is off, saves the lab database and reports the path where it was saved. 
       /// This allows users to keep a record of their session or save their work as needed based on their preferences.
+      /// Notice that if the line contains a command (starts with >) then the prompt is removed, otherwise a ! is prepended. This allows the file
+      /// to be consulted as a lab command file.
       /// </summary>
       private void InterpretCommandSave() {
          if (Settings.SettingValue<bool>("transcript")) {
+            if (CommandSkippped("save -transript")) return;
+
             string transcriptPath = Path.Combine(Settings.OutputDirectory,$"Lab_transcript_{DateTime.Now:yyyy-MM-dd_HHmm}.txt");
-            IEnumerable<string> transcriptLines = REPL?.Transcript ?? [];
-            File.WriteAllLines(transcriptPath, transcriptLines);
-            WriteInfo($"Saved session transcript to: {transcriptPath}");
+            IEnumerable<string> transcriptLines = (REPL?.Transcript ?? []).Select(line => line.StartsWith('>') ? "==> " + line.TrimStart('>',' ') : "    "+line);
+            File.WriteAllLines(transcriptPath,["!TRANSCRIPT",.. transcriptLines]);
+            WriteInfo($"Saved session transcript ({transcriptLines.Count() - 1} lines) to: {transcriptPath}");
          } else {
             WriteInfo($"Saved Lab database to: {Database.Save()}");
          }
       }
 
+      /// <summary>
+      /// Records that a command was skipped during transcript consultation.
+      /// </summary>
+      /// <param name="cmd">The command type that was skipped.</param>
+      private bool CommandSkippped(CommandType cmd) => CommandSkippped(cmd.ToString());
+      private bool CommandSkippped(string cmd) {
+         if (ConsultingTranscript) {
+            SkippedCommands++;
+            WriteInfo($"{cmd} ignored while consulting a transcript.");
+         }
+         return ConsultingTranscript;
+      }
       /// <summary>
       /// Duplicates the current object with a new name. 
       /// </summary>
@@ -1126,8 +1149,10 @@ namespace CDL2v1 {
       private void InterpretCommandConsult(string fileName) {
          if (fileName.TryGetFile(out string fullFileName,["labc","cdl2"])) {
             string fileContent = File.ReadAllText(fullFileName).TrimStart();
-            if (ModuleOrProgramStart.IsMatch(fileContent)) {
+            ConsultingTranscript = fileContent.StartsWith("!TRANSCRIPT");
+            if (! ConsultingTranscript && ModuleOrProgramStart.IsMatch(fileContent)) {
                // Non-Lab mode parsing.
+               WriteInfo("Consulting a file containing CDL2 code");
                List<ITopLevelContainer> parsedContainers = parser.ParseString(fileContent);
                Debug.Assert(parsedContainers.All(c => c is Program || c is Module),"Expected programs or modules in consulted file");
                //Debug.Assert(CDL2.Compiler.SemanticAnalyzer != null,"SemanticAnalyzer is null");
@@ -1138,12 +1163,21 @@ namespace CDL2v1 {
                parsedContainers.LastOrDefault()!.SetFocus();
             } else {
                // Lab mode: interpret each line as a command
-               string[] lines = fileContent.Split(new[] { "\r\n","\r","\n" },StringSplitOptions.RemoveEmptyEntries);
+               WriteInfo(ConsultingTranscript ? "Consulting a file containig a session transcript" : "Consulting a file containig Lab commands");
+               string[] lines = fileContent.Split(["\r\n","\r","\n"],StringSplitOptions.RemoveEmptyEntries);
+               int commandCount = 0;
+               SkippedCommands = 0;
                foreach (string line in lines) {
-                  WriteInfo("   " + line);
-                  InterpretCommand(line);
+                  if (! ConsultingTranscript || line.TrimStart().StartsWith("==> ")){
+                     // If a transcript is being consulted, then ignore any line that does not start with the command marker
+                     string command = line.Replace("==> ","");
+                     WriteLine("> " + command);
+                     InterpretCommand(command);
+                     commandCount++;
+                  }
                }
-               WriteInfo($"Consulted");
+               ConsultingTranscript = false;
+               WriteInfo($"Consulted {commandCount.Plural("command",countWidth:0)}, {SkippedCommands} skipped");
             }
          } else {
             WriteError("File not found");

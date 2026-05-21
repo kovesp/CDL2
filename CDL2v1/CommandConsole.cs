@@ -243,7 +243,7 @@ Tab Completion Menu (when shown):
             string hexColor = PrettyPrinter.Decorators[syntaxElement].FG;
             (int r, int g, int b) = ParseHexColor(hexColor);
             
-            string sev = severity == Severity.NONE ? "" : $"{severity}: ";
+            string sev = severity == Severity.NONE || text.StartsWith($"{severity}: ") ? "" : $"{severity}: ";
             outputText = $"\x1b[38;2;{r};{g};{b}m{sev}{text}\x1b[0m";
          }
 
