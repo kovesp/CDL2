@@ -229,7 +229,9 @@ function Get-Version() {
             Write-Error "Cannot create release because the HEAD commit is not versioned. Please specify a version update with the -Version parameter."
             exit 1
          }
-         $lastTag = 'UNVERSIONED' 
+         [string]$lastVersionTag = (Invoke-Git { git describe --tags --abbrev=0 } -Force)
+         [string]$height = (Invoke-Git { git rev-list "$($lastVersionTag)..HEAD" --count } -Force)
+         $lastTag = "UNTAGGED ($lastVersionTag + $height)"
       }
       return @{
          TAG                = $latestTag -replace '-.*$',''
@@ -435,11 +437,6 @@ try {
          WSL -d $WSLDistro unzip -o "$WSLDir/CDL2-Linux.zip" -d $WSLDir *> $null
          [string]$WSLBin = "$WSLDir/cdl2/bin/Linux"
          WSL -d $WSLDistro chmod +x "$WSLBin/cdl2-lab" "$WSLBin/cdl2c" "$WSLBin/CDL2v1-Linux"
-               Write-Host -ForegroundColor Green "Creating Linux only zip file (CDL2-Linux.zip) ... ".PadRight($msgLen) -NoNewline
-      Remove-Item -Recurse -Force "$targetDir\$targetRoot\bin\Windows" -ErrorAction Ignore
-      # Compress-Archive -Path "$targetDir\$targetRoot" -DestinationPath "$source\$releaseDir\CDL2-Linux.zip" -Force -CompressionLevel Optimal
-      zip -r -9 "$releaseDir\CDL2-Linux.zip" $targetRoot *> $null
-      Write-Host -ForegroundColor Cyan ("{0:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Linux.zip").Length/1024/1024))
          # Copy the sample lab db to the WSL test location if it doesn't already exist, or if the UpdateDB flag is set.
          if ($UpdateDB || -not (Test-Path "$WSLDistroDir$WSLDir/$sampleDBLocation")) {
             Write-Host -ForegroundColor Green "Updating sample lab database in WSL test location ($WSLDistroDir$WSLDir/$sampleDBName) ..."
