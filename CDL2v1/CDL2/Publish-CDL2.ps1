@@ -41,7 +41,7 @@ Generate a Windows and a Linux executable for the CDL2 lab and package for Linux
    .PARAMETER Name
    The name of the release to create. Default is to use the version number as the release name.
    .PARAMETER Notes
-   The release notes to include in the GitHub release. Default is blank.
+   The release notes to include in the GitHub release. If not given, the notes are extracted from the _CHANGES file.
    .PARAMETER PreRelease
    If specified, the release will be marked as a pre-release.
    .EXAMPLE
@@ -57,7 +57,7 @@ Generate a Windows and a Linux executable for the CDL2 lab and package for Linux
    and creates a GitHub release named "Beta Test" from the new version tag with the generated zip files attached.
    #>   
    
-   #cspell:ignore czvf labc kovesp
+   #cspell:ignore czvf labc kovesp Linq
    
 [CmdletBinding(SupportsShouldProcess=$true)]
 param (
@@ -115,6 +115,7 @@ param (
 [Hashtable]$FileMap = @{
    _README                        = '.'
    _LICENSE                       = '.'
+   _CHANGES                       = '.'
    Docs = @{
       'CDL2 Lab.md'               = ''
       'CDL2-vWG.md'               = ''
@@ -234,28 +235,55 @@ function Get-Version() {
          $lastTag = "UNTAGGED ($lastVersionTag + $height)"
       }
       return @{
-         TAG                = $latestTag -replace '-.*$',''
-         Major              = $major
-         Minor              = $minor
-         PreviousVersion    = $curVersion
-         Version            = $newVersion
-         ReleaseTag         = "${newVersion}R"
-         IsUpdate           = $isVersionUpdate
-         IsVersionUndo      = $Version -eq 'Undo'
-         IsReleaseCreate    = $Release -eq 'Create' -and -not $isRelease
-         IsReleaseCreateSkip= $Release -eq 'Create' -and $isRelease
-         IsReleaseUndo      = $Release -eq 'Undo'
-         IsRelease          = $isRelease
-         ReleaseName        = if ($Name -eq '') { "CDL2 $newVersion" }  else { "CDL2 $newVersion - $Name" }
-         PublishMessage     = "$lastTag - $lastCommit"
-         UnversionedHEAD    = $headNotVersioned
-         UncommittedChanges = $null -ne (Invoke-Git { git status --porcelain } -Force)
+         TAG                    = $latestTag -replace '-.*$',''
+         Major                  = $major
+         Minor                  = $minor
+         PreviousVersion        = $curVersion
+         Version                = $newVersion
+         ReleaseTag             = "${newVersion}R"
+         IsUpdate               = $isVersionUpdate
+         IsVersionUndo          = $Version -eq 'Undo'
+         IsReleaseCreate        = $Release -eq 'Create' -and (-not $isRelease -or $isVersionUpdate)
+         IsReleaseCreateSkip    = $Release -eq 'Create' -and $isRelease -and -not $isVersionUpdate
+         IsReleaseUndo          = $Release -eq 'Undo'
+         IsRelease              = $isRelease
+         ReleaseName            = if ($Name -eq '') { "CDL2 $newVersion" }  else { "CDL2 $newVersion - $Name" }
+         PublishMessage         = "$lastTag - $lastCommit"
+         UnversionedHEAD        = $headNotVersioned
+         UncommittedChanges     = $null -ne (Invoke-Git { git status --porcelain } -Force)
       }
    } else {
       Write-Error "Latest tag '$latestTag' does not match the expected pattern 'vM.m' or 'vM.mR'"
       exit 1
    }
 }
+
+# Process the _CHANGES file to extract the release notes.
+# It consists of sections of the form:
+#    Changes in Release vM.n
+#    -----------------------   
+# Extract the release notes for the current release from the _CHANGES file. 
+# If the Notes parameter is given, it is used instead.
+function Get-ReleaseNotes() {
+   if ($Version.IsReleaseCreate -and $Notes -eq '') {
+      [string[]]$changesLines = Get-Content "$source\_CHANGES"
+      if ($changesLines[0] -match '^Changes in release (\d+\.\d+)') {
+         $bounds = (0..($changesLines.Count - 1)).Where({ $changesLines[$_] -match '^Changes in release' }, 'First', 2)
+         $script:Notes = [string]::Join("`n", $(if ($bounds.Count -eq 2) {
+                        [Linq.Enumerable]::Reverse(
+                           [Linq.Enumerable]::SkipWhile(
+                                 [Linq.Enumerable]::Reverse($changesLines[$bounds[0]..($bounds[1] - 1)]),
+                                 [Func[string,bool]]{ param($line) [string]::IsNullOrWhiteSpace($line) }
+                           )
+                        )
+                     } else { @("No release notes")}))
+      } else {
+         Write-Error "The _CHANGES file does not contain a section for changes for any version. Please update the _CHANGES file before creating the release."
+         exit 1
+      }
+   }
+}
+
 
 Push-Location $source
 try {
@@ -270,7 +298,7 @@ try {
 
    # $Version
    # exit
-
+   
    ############################
    # Step -1. Undo processing #
    ############################
@@ -288,7 +316,7 @@ try {
          exit 0
       }
    }
-
+   
    if ($Version.IsVersionUndo) {
       if ($WhatIfPreference) {
          Write-Host -ForegroundColor Yellow "WhatIf: Undoing version update from $($Version.PreviousVersion) to $($Version.Version) by deleting tag $($Version.Version)"
@@ -301,7 +329,7 @@ try {
          exit 0
       }
    }
-
+   
    # -1. See above, no need to consider undo cases beyond this point.
    # At this point $Version encapsulates the current version information and the requested operations. The remaining operations are:
    # 0. Display what will be done and prompt to continue.
@@ -309,17 +337,22 @@ try {
    # 2. The build is then performed.
    # 3. Create the zip files and install to the test locations.
    # 4. Finally the release is created based on the new version (if requested).
-
+   
    ###########################
    # Step 0. Display actions #
    ###########################
-
+   
+   
    Write-Host -ForegroundColor Blue "Publishing commit: $($Version.PublishMessage)"
    if ($Version.IsUpdate)        { Write-Host -ForegroundColor Cyan "Versioning to: $($Version.Version)" }
    [string]$buildType = if ($NoDeploy) { 'Building for' } else { 'Building for and deploying to' }
    if (-not $NoBuild)            { Write-Host -ForegroundColor Cyan "$buildType`: $($OS -join ' and ')" }
    if ($Version.IsReleaseCreateSkip) { Write-Host -ForegroundColor Yellow "Release already exists for '$($Version.ReleaseTag)'; skipping release creation." }
-   if ($Version.IsReleaseCreate) { Write-Host -ForegroundColor Cyan "Releasing with name: $($Version.ReleaseName)" }
+   if ($Version.IsReleaseCreate) {
+      Get-ReleaseNotes
+      Write-Host -ForegroundColor Cyan "Releasing with name: $($Version.ReleaseName)"
+      $Notes -split "`n" | Foreach-Object { Write-Host -ForegroundColor Blue  "   $($_)" }
+   }
    Write-Host -ForegroundColor Yellow "Continue (y/n) " -NoNewline
    if ((Read-Host).ToLower() -ne 'y') {
       Write-Host -ForegroundColor Yellow "Aborting."
@@ -415,7 +448,7 @@ try {
       Write-Host -ForegroundColor Cyan ("{0,2:N0} MiB" -f ((Get-ChildItem -Path "$releaseDir\CDL2-Docs.zip").Length/1024/1024))
       
       Write-Host -ForegroundColor Green "Adding release notes to the release directory ..."
-      Copy-Item "$targetDir\CDL2\_README" "$releaseDir\_README.txt" -Force
+      Copy-Item "$targetDir\CDL2\_README","$targetDir\CDL2\_CHANGES" "$releaseDir\" -Force
 
       Pop-Location
    }
@@ -438,7 +471,7 @@ try {
          [string]$WSLBin = "$WSLDir/cdl2/bin/Linux"
          WSL -d $WSLDistro chmod +x "$WSLBin/cdl2-lab" "$WSLBin/cdl2c" "$WSLBin/CDL2v1-Linux"
          # Copy the sample lab db to the WSL test location if it doesn't already exist, or if the UpdateDB flag is set.
-         if ($UpdateDB || -not (Test-Path "$WSLDistroDir$WSLDir/$sampleDBLocation")) {
+         if ($UpdateDB -or -not (Test-Path "$WSLDistroDir$WSLDir/$sampleDBLocation")) {
             Write-Host -ForegroundColor Green "Updating sample lab database in WSL test location ($WSLDistroDir$WSLDir/$sampleDBName) ..."
             WSL -d $WSLDistro cp -f "$WSLDir/$sampleDBLocation" $WSLDir
          }
