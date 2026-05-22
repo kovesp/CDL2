@@ -1147,7 +1147,7 @@ namespace CDL2v1 {
       /// Special case: if the file starts with a MODULE or PROGRAM reserved word, then the file is parsed as in non-Lab mode.
       /// </remarks>
       private void InterpretCommandConsult(string fileName) {
-         if (fileName.TryGetFile(out string fullFileName,["labc","cdl2"])) {
+         if (fileName.TryGetFile(out string fullFileName,["labc","cdl2","txt"])) {
             string fileContent = File.ReadAllText(fullFileName).TrimStart();
             ConsultingTranscript = fileContent.StartsWith("!TRANSCRIPT");
             if (! ConsultingTranscript && ModuleOrProgramStart.IsMatch(fileContent)) {

@@ -353,7 +353,8 @@ The command list all the objects that match the selector.
 
 * With the setting `-refs` the command lists all objects that _reference_ the focused object. If given,
 the selector must be a program and only those references are displayed that are from objects
-reachable from that program. If it is not given, then references in any program are listed.
+reachable from that program. If it is not given, then references in any program are listed. Note that
+the global state of this setting is ignored, it must be given explicitly on the command to be effective.
 
 * With the settings `-error`, `-warning`, `-info` the command lists all notes of the given type
   for the object. The info notes for unused objects are normally not shown; use `-unused` to show them.
@@ -395,18 +396,21 @@ it must be given explicitly on the command to be effective.
 ```
 consult command : consult token, filename.
 ```
-The command operates in two modes depending on the content of the file selected by the argument (this
+The command operates in three modes depending on the content of the file selected by the argument (this
 is a character sequence that is valid as a file name on the host operating system). The file extension
-may be omitted; if so, `.labc` (i.e, lab commands) and `.cdl2` are tried in that order. However the
+may be omitted; if so, `.labc` (i.e, lab commands), `.cdl2`, and `.txt` are tried in that order. However the
 extension may be any valid file extension and in no case determines the mode of operation.
   * If the file contains (starts with) one or more CDL2 containers (currently only `MODULE` and `PROGRAM`
     are supported) then the code is parsed and added to the database as if
     the code were read via `--sources` on the command line in compiler mode. Note that this means that
     the containers must have their terminating keywords.
-  * Otherwise the file is treated as a sequence of lab commands, oen per line. These are executed in
+  * If the first line of the file is `!TRANSCRIPT`, then the file is treated as a session transcript
+    produced by `save -transcript`.
+    In that case the commands in the file are executed as described in the `save` command.
+  * Otherwise the file is treated as a sequence of lab commands, one per line. These are executed in
     order. Blank lines and lines starting with `!` are ignored. Note that it makes no sense to
-    have `edit` commands in such a file as that would switch to input mode and hang. As wll, nested `consult`s
-    are not supported.
+    have `edit` commands in such a file as that would switch to input mode and hang.
+    As well, nested `consult`s are not supported.
   * Notice that the command does **not** use the `-file` setting; the file name is given as an argument. 
 
 ### Settings
@@ -451,6 +455,7 @@ The following is a list of settings.
 | notes        | bool   | false  | For the list command to list the count of the types of notes of the object.
 | unused       | bool   | false  | For the list command, the info notes for unused objects are shown. Normally they are omitted.
 | file         | string |        | Used by `print` and `type` the output file. The global value of this setting is ignored, it must be given explicitly on the command.
+| transcript   | string |        | Used by `save` to create a transcript of the current session.
 
 
 ##### Settings that Can Also Be Used on the Lab Invocation Command Line
@@ -737,13 +742,13 @@ There are two settings that govern inlining of macros and procedures.
 ##### Help
 
 ```
-help command : help token, command name option.
+help command : help token, command name or setting option.
 command name : valid command name ; selectors token ; settings token.
 ```
 
 Displays the list of commands, or the help for the given command.
-If `selectors` is given, then the list of valid selectors is displayed.
-If `settings` is given, then the list of valid settings is displayed.
+If `-selectors` is given, then the list of valid selectors is displayed.
+If `-settings` is given, then the list of valid settings is displayed.
 
 ##### Shell
 ```
@@ -764,6 +769,23 @@ Displays the Lab version, the number of modules and programs the current databas
 contains, and the number and types of objects in the current program or the program(s)
 selected by the selector.
 
+##### Save
+```save command : save token, setting option.
+```
+
+If given with the `-transcript` setting, the command saves a transcript of the current session into a file
+in the output directory. The filename is of the form `Lab_transcript_YYYY_MM_DD_hhmm.txt`.
+In the transcript, commands are marked with `==>`. The first line of the file is `!TRANSCRIPT`.
+  * This makes it relatively easy to examine the transcript.
+  * It also makes it possbile to consult the transscript to replay the commands.
+    * Some commands will fail during replay simply because the DB is no longer in the same state as
+      when the commands were originally issued.
+    * Some commands will be supressed: curently `save -transcript`, `add`, `edit` (since they require
+      ineteractivity), `bye`, `quit`, `exit`, and `abort` (as they would exit the Lab) during
+      transcript consult.
+    * It is probably prudent to backup the DB before experimenting with such a transcript
+      (remember, automatic backups are not yet implemented ... perhaps consult will at some
+      point receive a -backup setting to backup the DB prior to execution of consult).
 
 ##### Quit/Exit/Bye/Abort
 ```
@@ -845,8 +867,7 @@ the minimal apreviation is given in ***bold italic***.
 
 ***t***ype
 
-***top***
-  
+***top***  
 ***u***ndo
 
 ***up***
