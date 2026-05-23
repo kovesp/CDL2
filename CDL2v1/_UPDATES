@@ -1,0 +1,12 @@
+   Bug fixes and session transcript support
+
+   New Features
+   *  Added setting -transcript to the save command. It saves a transcript of the current session into a file
+      in the output directory. It is possible to consult a transcript to replay the commands it contains.
+      For details see the commands save and consult CDL2 Lab.md
+
+   Bug fixes
+   *  type/print of Programs was printing the ludes twice.
+   *  Minor discrepancies around how the Lab version was shown. Note that in a release
+      the version will always be of the form M.mR.0 (M=Major, m=minor). The last component
+      (the 0) only changes in internal (non-released) builds.
