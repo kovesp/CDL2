@@ -380,6 +380,8 @@ testlog.*.txt
 *.exe
 *.exe.cdl2debug
 
+*.bak
+
 /CDL2v1/CDL2/CDL2 Lab.pdf
 *.xmi
 *.csv
