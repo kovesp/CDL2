@@ -1,0 +1,37 @@
+{
+   "comment": [
+      "Configuration for Publish-CDL2.ps1 script",
+      "Each entry in props must contain an object with exactly one key-value pair,",
+      "where the key is the name of the variable to set in the global scope, and the value is the value to assign to that variable.",
+      "Values can reference previously defined variables using the $() syntax, and those references will be expanded when the variable is set.",
+      "Note that the script only reads the props array, and the variable-descriptions are for documentation purposes only and are not used by the script."
+   ],
+   "variable-descriptions": {
+      "targetRoot"          : "The root directory for the CDL2 release.",
+      "sampleDBName"        : "The name of the sample database file.",
+      "sampleDBLocation"    : "The full path to the sample database file, constructed from targetRoot and sampleDBName.",
+      "WSLDistro"           : "The name of the WSL distribution to use.",
+      "WSLDir"              : "The directory within the WSL distribution where the lab files are located.",
+      "WSLDistroDir"        : "The full path to the WSL distribution directory, constructed from WSLDistro.",
+      "WSLTarget"           : "The full path to the target directory within WSL, constructed from WSLDistroDir and WSLDir.",
+      "WindowsTarget"       : "The target directory on Windows where files will be copied. NOTE: This directory will contain targetRoot, everything is under there.",
+      "releaseDir"          : "The directory where the CDL2 release will be built.",
+      "source"              : "The source directory containing the CDL2 project files.",
+      "VSProjectDir"        : "The directory containing the Visual Studio project files for CDL2, constructed from source.",
+      "targetDir"           : "The directory where the final release files are constructed, used to deploy to GitHub."
+   },
+   "props":[
+      {"targetRoot"       : "cdl2"},
+      {"sampleDBName"     : "CDL2v1.lab.gz"},
+      {"sampleDBLocation" : "$targetRoot/Sample/$sampleDBName"},
+      {"WSLDistro"        : "Ubuntu-24.04"},
+      {"WSLDir"           : "/home/peter/lab"},
+      {"WSLDistroDir"     : "//wsl$/$WSLDistro"},
+      {"WSLTarget"        : "$WSLDistroDir$WSLDir"},
+      {"WindowsTarget"    : "C:/"},
+      {"releaseDir"       : "C:/Visual Studio Projects/CDL2.Release"},
+      {"source"           : "C:/Visual Studio Projects/CDL2/CDL2v1"},
+      {"VSProjectDir"     : "$source/CDL2"},
+      {"targetDir"        : "$Env:temp/CDL2Release"}
+   ]
+}
