@@ -53,6 +53,17 @@ namespace CDL2v1 {
    /// This would be called the representation of the CDL2 language.
 
 
+   /// The syntax to use when parsing and prettyprinting.
+   /// Initially only CDL2 is supported for both.
+   /// Others will be introduced gradually (or not).
+   public enum Syntax {
+      Default,
+      CDL1,
+      CDL2,
+      CDL3,
+      Prolog,
+   }
+
    public enum SpaceCharacters {
       Figure = '\u2007', // Unicode character for figure space, width of a digit
       Em = '\u2003', // Unicode character for em space, width of an 'M' in the current font
@@ -119,8 +130,10 @@ namespace CDL2v1 {
       ELEMSEP = 17,  // Alias for SEMICOLON
       GRPOPEN = 18,
       LISTBOUNDSTART = 18,  // Alias for GRPOPEN
+      PACKOPEN = 18,  // Alias for GRPOPEN
       GRPCLOSE = 19,
       LISTBOUNDEND = 19,  // Alias for GRPCLOSE
+      PACKCLOSE = 19,  // Alias for GRPCLOSE
       COMMENT = 20,
       NOBODY = 21,  // IMPORTed ALGORITHMs have no body
       BUILTIN =22,
@@ -341,6 +354,7 @@ namespace CDL2v1 {
       Double,
       String,
       Severity,
+      Syntax,
       Invalid,
    }
 

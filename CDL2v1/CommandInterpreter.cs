@@ -346,6 +346,7 @@ namespace CDL2v1 {
                   SettingType.String => Settings.SettingValue<string>(Name),
                   SettingType.Double => Settings.SettingValue<double>(Name),
                   SettingType.Severity => Settings.SettingValue<Severity>(Name),
+                  SettingType.Syntax => Settings.SettingValue<Syntax>(Name),
                   _ => throw new NotImplementedException($"Setting type {Type} not implemented."),
                };
                if (SetHandlers.TryGetValue(Name,out Action<bool,ParsedSetting>? handler)) handler(true,this);
@@ -447,6 +448,15 @@ namespace CDL2v1 {
                      return new ParsedSetting(setting.Name,SettingType.Severity,Severity.Error,null,ignoreSet);
                   } else if (Enum.TryParse(parts[1],out Severity severityValue)) {
                      return new ParsedSetting(setting.Name,SettingType.Severity,severityValue,null,ignoreSet);
+                  } else {
+                     ReportProblem(Note.InvalidSettingValue,setting.SettingType,setting.Name,parts[1]);
+                  }
+                  break;
+               case SettingType.Syntax:
+                  if (parts.Length == 1) {
+                     return new ParsedSetting(setting.Name,SettingType.Syntax,Syntax.CDL2,null,ignoreSet);
+                  } else if (Enum.TryParse(parts[1].ToUpper(),out Syntax syntaxValue)) {
+                     return new ParsedSetting(setting.Name,SettingType.Syntax,syntaxValue,null,ignoreSet);
                   } else {
                      ReportProblem(Note.InvalidSettingValue,setting.SettingType,setting.Name,parts[1]);
                   }

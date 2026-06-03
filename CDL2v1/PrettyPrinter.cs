@@ -628,8 +628,20 @@ namespace CDL2v1 {
          } else {
             EmitWithExtraSpace(extraSpace,call.id.Decorate(Emitter,AlgorithmNameDecorators[callDecorator]));
          }
-         foreach (IActualArg arg in call.Args) {
-            Emit(TT.AFFIXSEP);
+         bool useParens = Settings.IsSyntax(Syntax.CDL3,Syntax.Prolog);
+         if (call.Args.Count > 0) {
+            Emit(useParens ? TT.PACKOPEN : TT.AFFIXSEP);
+            PrintArg(call.Args.First());
+            foreach (IActualArg arg in call.Args.Skip(1)) {
+               Emit(useParens ? TT.SEP : TT.AFFIXSEP);
+               PrintArg(arg);
+            }
+            if (useParens) Emit(TT.PACKCLOSE);
+         }
+         // This is safe, because the MaxIndentIncrement limits the extra indent.
+         if (!firstInAlternative && Emitter.WillKeepTogetherNotFitOnCurrentLine()) Emitter.ExtraIndent++;
+
+         void PrintArg(IActualArg arg) {
             switch (arg) {
                case STRING s:
                   Emit(s.AsDecoratedCDL2String(Emitter));
@@ -647,7 +659,7 @@ namespace CDL2v1 {
                   Emit(local.Id.Decorate(Emitter,SE.Local));
                   break;
                case ID id:
-                  if (section?.TryGetDeclaration(id,out CDL2Object? cdl2obj)??false) {
+                  if (section?.TryGetDeclaration(id,out CDL2Object? cdl2obj) ?? false) {
                      switch (cdl2obj) {
                         case Const constant:
                            Emit(id.Decorate(Emitter,SE.Const));
@@ -696,8 +708,6 @@ namespace CDL2v1 {
             //   }
             //}
          }
-         // This is safe, because the MaxIndentIncrement limits the extra indent.
-         if (!firstInAlternative && Emitter.WillKeepTogetherNotFitOnCurrentLine()) Emitter.ExtraIndent++;
          //static bool TryFindInvocationType(ID Id,ref AlgorithmNameType callDecorator,AlgorithmNameType callAttribute,Layer layer) {
          //   foreach (SectionById container in layer.Children.Cast<SectionById>()) {
          //      if (container.import.Contains(Id)) {
@@ -862,21 +872,36 @@ namespace CDL2v1 {
       /// </summary>
       /// <param name="algorithm"></param>
       private void PrintAlgorithmHeader(Algorithm algorithm) {
+         bool useParens = Settings.IsSyntax(Syntax.CDL3,Syntax.Prolog);
          EmitReservedwordForObject(algorithm.AlgorithmType,algorithm);
          Emit(" ",algorithm.Id.Decorate(Emitter,AlgorithmNameDecorator(algorithm)));
-         foreach (Affix affix in algorithm.Affixes.Cast<Affix>()) {
-            Emit(affix.affixType == AffixType.std ? TT.AFFIXSEP : TT.STRINGAFFIXSEP);
-            if (affix.IsInput) Emit(TT.AFFIXDIR);
-            Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
-            if (affix.IsOutput) Emit(TT.AFFIXDIR);
+         
+         if (useParens) Emit(TT.PACKOPEN);         
+         if (algorithm.Affixes.Count > 0) {
+            PrintAffix(algorithm.Affixes.First());
+            foreach (Affix affix in algorithm.Affixes.Skip(1)) {
+               if (useParens) Emit(TT.SEP);
+               PrintAffix(affix);
+            }
          }
+         if (useParens) Emit(TT.PACKCLOSE);
+
          if (algorithm is not ImportedAlgorithm) {
+            if (useParens) Emit(" #");
             if (algorithm.Locals.Any()) {
                foreach (Local local in algorithm.Locals) {
                   Emit(" ",TT.LOCALSEP,local.Id.Decorate(Emitter,SE.Local));
                }
             }
+            if (useParens) Emit(" #");
             Emitnl(" ",algorithm.BodyType);
+         }
+
+         void PrintAffix(Affix affix) {
+            Emit(affix.affixType == AffixType.std ? (useParens ? "" : TT.AFFIXSEP) : TT.STRINGAFFIXSEP);
+            if (affix.IsInput) Emit(TT.AFFIXDIR);
+            Emit(affix.Id.Decorate(Emitter,affix.SyntaxElement));
+            if (affix.IsOutput) Emit(TT.AFFIXDIR);
          }
       }
       /// <summary>

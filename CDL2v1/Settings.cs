@@ -63,6 +63,7 @@ namespace CDL2v1 {
          "String" => SettingType.String,
          "Double" => SettingType.Double,
          "Severity" => SettingType.Severity,
+         "Syntax" => SettingType.Syntax,
          _ => throw new InvalidEnumArgumentException($"Unsupported setting type {Type.Name}")
       };
       string? ToTabularString(bool title = false,bool compact = false);
@@ -233,6 +234,7 @@ namespace CDL2v1 {
          new Setting<int>(     "tracestack",         NoOption,             DEFAULT_TRACE_STACK,
                                  "The size of the debug call stack to allocate. Ignored unless -backtrace is set for supported code generators."),
          new Setting<bool>(    "transcript",         NoOption,             false,          "When used with the save command, saves a transcript of the current session interactions into a file with a standard name."),
+         new Setting<Syntax>(  "syntax",             NoOption,             Syntax.CDL2,    "The syntax to use for parsing and printing. See the UG for details."),
       ];
 
       public record struct NameCompletion(IEnumerable<ISetting> Matches,int MatchLength);
@@ -338,6 +340,12 @@ namespace CDL2v1 {
       public static bool IsInliningMacros => (!IsTrace || IsDebug) && !SettingValue<bool>("NoMacroInlining");
 
       public static bool IsDebug => SettingValue<bool>("Debug");
+      /// <summary>
+      /// Determines if the current syntax setting matches any of the provided syntaxes.
+      /// </summary>
+      /// <param name="syntaxes"></param>
+      /// <returns></returns>
+      public static bool IsSyntax(params Syntax[] syntaxes) => syntaxes.Contains(SettingValue<Syntax>("syntax"));
 
       public static T? SettingValue<T>(string name) => Setting<T>(name)!.Value;
       public static object? SettingValue(string name) => Setting<object>(name);
@@ -355,6 +363,7 @@ namespace CDL2v1 {
             case SettingType.String: SettingValue<string>(name,(string)value!); break;
             case SettingType.Double: SettingValue<double>(name,(double)value!); break;
             case SettingType.Severity: SettingValue<Severity>(name,(Severity)value!); break;
+            case SettingType.Syntax: SettingValue<Syntax>(name,(Syntax)value!); break;
             default: throw new InvalidEnumArgumentException($"Unknown setting type {type}");
          }
          SetCommandOverride(name,CommandOverride);
