@@ -887,13 +887,13 @@ namespace CDL2v1 {
          if (useParens) Emit(TT.PACKCLOSE);
 
          if (algorithm is not ImportedAlgorithm) {
-            if (useParens) Emit(" #");
             if (algorithm.Locals.Any()) {
+               if (useParens) Emit(" #");
                foreach (Local local in algorithm.Locals) {
                   Emit(" ",TT.LOCALSEP,local.Id.Decorate(Emitter,SE.Local));
                }
+               if (useParens) Emit(" #");
             }
-            if (useParens) Emit(" #");
             Emitnl(" ",algorithm.BodyType);
          }
 
