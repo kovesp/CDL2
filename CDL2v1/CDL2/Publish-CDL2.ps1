@@ -142,7 +142,8 @@ param (
    Docs = @{
       "CDL2 Lab.md"               = ''
       "CDL2-vWG.md"               = ''
-      "hms.pdf"                   = ''
+      "Implementing Portable and Efficient Software in an Open-Ended Language.pdf" = ''
+      "cdl3-manual-1.2.7.pdf"     = ''
       "Implementation Notes.md"   = ''
       "md-styles.css"             = ''
    }
