@@ -126,7 +126,7 @@ namespace CDL2v1 {
          GlyphRE_ = new Regex(@$"^({string.Join("|",Glyph2TokenType.Keys.Select(Regex.Escape))})",RegexOptions.Compiled);
          ReservedWordRE_ = new Regex(@$"^(?:{string.Join("|",Enum.GetNames(typeof(ReservedWord)))})",RegexOptions.Compiled);
          // Allows annotation symbols to precede and follow the ID; these are removed.
-         IdRE_ = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([a-z][a-z0-9 ]*){AnnotationSymbols.CharacterClass}*",RegexOptions.Compiled);
+         IdRE_ = new Regex(@$"^{AnnotationSymbols.CharacterClass}*([\p{{L}}][\p{{L}}\p{{N}} ]*){AnnotationSymbols.CharacterClass}*",RegexOptions.Compiled);
          // Must match all occurrences anywhere in a string
          StringEscapeRE_ = new Regex(@$"\$([{string.Join("",Escape2Char.Keys)}])",RegexOptions.Compiled);
 
