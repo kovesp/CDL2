@@ -207,7 +207,7 @@ namespace CDL2v1 {
       public void GenerateConstElementInt(long value) => emitter.Emit(value);
       public void GenerateConstElementFloat(double value) => emitter.Emit(value);
       public void GenerateConstElementString(string value) => emitter.Emit(value);
-      public void GenerateConstElementConst(Const c) => emitter.Emit(TArgName(c));
+      public void GenerateConstElementConst(Const c) => emitter.Emit(TargName(c));
 
       public void GenerateConstantEnd(Const constant) => emitter.Emitnl();
 

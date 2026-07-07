@@ -42,7 +42,10 @@ namespace CDL2v1 {
    internal abstract partial class TargetCodeGenerator {
 
       // Set to true to obfuscate names and remove source comments
-      protected static bool Obfuscation => false;
+      protected bool Obfuscation => Settings.ObfuscateTarget;
+
+      protected bool HashedNames => Settings.HashTargetNames;
+
 
       protected Emitter emitter = new EmitterSink();
 
@@ -166,13 +169,17 @@ namespace CDL2v1 {
       private const bool useCamelCase = false;
 #endif
 
-#if HASH_TARGET_NAMES
+
       private const int HashPrefixLength = 8;
       /// <summary>
       /// Composes a unique name for the specified element, optionally including a hash-based prefix for certain element
       /// types.
       /// </summary>
-      /// <remarks>For elements of type CDL2Object, Affix, or Local, the composed name includes a hash-based
+      /// <remarks>
+      /// <b>NOTE</b> that this is govened by the <see cref="Settings.HashTargetNames"/> setting. 
+      /// If that is false, the composed name will be the fully qualified name of the element.
+      ///  <br/><br/>
+      /// For elements of type CDL2Object, Affix, or Local, the composed name includes a hash-based
       /// prefix derived from the module, layer, and section identifiers. For other element types, only the element's
       /// name is used. The resulting name is suitable for use as an identifier and may use underscores as space
       /// replacements.</remarks>
@@ -180,30 +187,34 @@ namespace CDL2v1 {
       /// <returns>A string representing the composed name for the element. For certain element types, the name includes a
       /// hash-based prefix to ensure uniqueness.</returns>
 
-      protected static string ComposeName(NamedElement elem) {
-         if (Obfuscation) {
-            string[] parts = elem switch {
-               CDL2Object or Affix or Local => [elem.Module!.Id.CanonicalName,elem.Layer!.Id.CanonicalName,elem.Section!.Id.CanonicalName,elem.Id.CanonicalName],
-               _ => [elem.Id.CanonicalName],
-            };
-            ulong hash = ComputeHash64(string.Join("",parts));
-            string hashPart = ToBase62(hash,HashPrefixLength);
-            return hashPart[..HashPrefixLength];
-         } else {
-            string namePart = elem.Id.Name.AsIdentifier(camelCase: useCamelCase,spaceReplacement: "_",literalObjectName: elem.IsSynthetic);
+      protected string ComposeName(NamedElement elem) {
+         if (HashedNames) {
+            if (Obfuscation) {
+               string[] parts = elem switch {
+                  CDL2Object or Affix or Local => [elem.Module!.Id.CanonicalName,elem.Layer!.Id.CanonicalName,elem.Section!.Id.CanonicalName,elem.Id.CanonicalName],
+                  _ => [elem.Id.CanonicalName],
+               };
+               ulong hash = ComputeHash64(string.Join("",parts));
+               string hashPart = ToBase62(hash,HashPrefixLength);
+               return hashPart[..HashPrefixLength];
+            } else {
+               string namePart = elem.Id.Name.AsIdentifier(camelCase: useCamelCase,spaceReplacement: "_",literalObjectName: elem.IsSynthetic);
 
-            switch (elem) {
-               case CDL2Object:
-               case Affix:
-               case Local:
-                  string[] parts = [elem.Module!.Id.CanonicalName,elem.Layer!.Id.CanonicalName,elem.Section!.Id.CanonicalName];
-                  ulong hash = ComputeHash64(string.Join("",parts));
-                  string hashPart = ToBase62(hash,HashPrefixLength);
+               switch (elem) {
+                  case CDL2Object:
+                  case Affix:
+                  case Local:
+                     string[] parts = [elem.Module!.Id.CanonicalName,elem.Layer!.Id.CanonicalName,elem.Section!.Id.CanonicalName];
+                     ulong hash = ComputeHash64(string.Join("",parts));
+                     string hashPart = ToBase62(hash,HashPrefixLength);
 
-                  return hashPart[..HashPrefixLength] + "_" + namePart;
-               default:
-                  return namePart;
+                     return hashPart[..HashPrefixLength] + "_" + namePart;
+                  default:
+                     return namePart;
+               }
             }
+         } else {
+            return elem.FQN(camelCase: useCamelCase,spaceReplacement: "_",literalObjectName: elem.IsSynthetic);
          }
       }
 
@@ -221,17 +232,14 @@ namespace CDL2v1 {
          }
          return result.ToString().PadLeft(length,'0');
       }
-#else
-      protected static string ComposeName(NamedElement elem)
-         => elem.FQN(camelCase: useCamelCase,spaceReplacement:"_",literalObjectName: elem.IsSynthetic);
-#endif // HASH_TARGET_NAMES
+
 
       protected virtual string TargetName(NamedElement obj,string suffix = "") => Prefix(obj)+ComposeName(obj)+suffix;
 
       protected virtual string TargetName(ID id) => id.Name.AsIdentifier(camelCase: false);
       protected virtual string TargetName(Group group) => group.Id.Name.AsIdentifier(camelCase: false);
 
-      protected virtual string TArgName(IActualArg arg,string suffix = "") => arg switch {
+      protected virtual string TargName(IActualArg arg,string suffix = "") => arg switch {
          Affix a => TargetName(a,suffix),
          Local l => TargetName(l,suffix),
          Var v => TargetName(v,suffix),

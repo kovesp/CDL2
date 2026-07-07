@@ -192,6 +192,8 @@ namespace CDL2v1 {
          new Setting<string>(  "Editor",              "--editor",           "code",        "The external editor to use for editing files. Default is VS Code",saved:true),
          new Setting<bool>  (  "Console",             "--console",          !OnWindows,    "Run the Lab in console mode if given. Default is false on Windows."),
          new Setting<bool>  (  "LongConsolePrompt",   "--long-console-prompt",true,        "Include the focus in the console prompt. On by default."),
+         new Setting<bool>  (  "HashTargetNames",     "--hash-target-names",true,          "Hash target identifiers when generating code. Turn off to see fully qualified names in the target code."),
+         new Setting<bool>  (  "ObfuscateTarget",     "--obfuscate-target",false,          "When set, target names will be obfuscated and comments not generated."),
 
          // Settings that cannot be used from the lab command line. A dummy option is generated for each
          new Setting<bool>(    "list",                NoOption,             false,         "Modify a command to list available objects. Used by Undo and redo."),
@@ -338,6 +340,10 @@ namespace CDL2v1 {
 
       public static bool IsInliningProcs  => (!IsTrace || IsDebug) && !SettingValue<bool>("NoProcInlining");
       public static bool IsInliningMacros => (!IsTrace || IsDebug) && !SettingValue<bool>("NoMacroInlining");
+
+      public static bool HashTargetNames => SettingValue<bool>("HashTargetNames");
+
+      public static bool ObfuscateTarget => SettingValue<bool>("ObfuscateTarget");
 
       public static bool IsDebug => SettingValue<bool>("Debug");
       /// <summary>

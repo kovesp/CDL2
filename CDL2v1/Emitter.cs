@@ -213,9 +213,7 @@ namespace CDL2v1 {
       /// <param Id="items"></param>
       /// <returns>True if a new line was written.</returns>
       protected void WriteWithIndent(bool nlbefore,bool nlafter,bool honorLineLength = true,bool extraSpace = false,params object[] items) {
-         if (items.Length == 0) {
-            return;
-         } else if (AggregateOutput) {
+         if (AggregateOutput) {
             AggregateBuffer += (extraSpace ? " " : "") + string.Join("",items.Select(i => i?.ToString() ?? ""));
          } else {
             WriteNewLine(nlbefore && CurrentLine.Trim().Length > 0);
